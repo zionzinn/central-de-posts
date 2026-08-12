@@ -1,0 +1,13 @@
+{
+  "name": "central-de-posts",
+  "version": "3.8.0",
+  "private": true,
+  "description": "Central de Posts - Grupo SB. Painel de planejamento de posts (Node puro, sem dependencias). Roda local (INICIAR.bat) ou na nuvem (Render/Railway).",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node start.js",
+    "local": "node server.js"
+  }
+}
