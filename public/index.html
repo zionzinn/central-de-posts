@@ -243,6 +243,12 @@
   .vagapop .vprow button:hover{background:var(--crit); border-color:var(--crit); color:#fff}
   .vagapop .vprow button svg{width:14px; height:14px}
   .vagapop .vphint{font-size:10.5px; color:var(--ink-3); margin-top:9px; line-height:1.35}
+  /* fonte do banco: task que rende vários posts. Fica com cara de "estoque", não de post do dia. */
+  .card.fonte{border-style:dashed; background:var(--surface-2)}
+  .usochip{font-size:9.5px; font-weight:800; letter-spacing:.03em; padding:1.5px 6px; border-radius:4px;
+    background:var(--sb); color:#000; border:1.5px solid var(--stroke)}
+  .refform select.bkconta{flex:1; border:1.5px solid var(--hair); border-radius:6px; background:var(--surface);
+    padding:7px 9px; font-size:12px; color:var(--ink)}
   .day-cards{display:flex; flex-direction:column; gap:7px; flex:1}
 
   /* ---------- card ---------- */
@@ -292,15 +298,15 @@
   .pcheck{position:absolute; top:-7px; right:-7px; background:var(--ok); color:#000; width:19px; height:19px; border:1.5px solid var(--stroke);
     border-radius:6px; display:flex; align-items:center; justify-content:center; box-shadow:2px 2px 0 rgba(0,0,0,.8); cursor:pointer}
   .pcheck .ic{width:11px; height:11px; stroke-width:3.2}
-  .qpost,.qvaga,.qdel{position:absolute; top:4px; opacity:0; background:var(--surface-2); border:1.5px solid var(--hair);
+  .qpost,.qvaga,.qfonte,.qdel{position:absolute; top:4px; opacity:0; background:var(--surface-2); border:1.5px solid var(--hair);
     color:var(--ink-3); width:21px; height:21px; border-radius:6px;
     display:flex; align-items:center; justify-content:center; z-index:4; transition:all var(--t)}
-  .qpost,.qvaga{right:4px} .qdel{right:29px}
+  .qpost,.qvaga,.qfonte{right:4px} .qdel{right:29px}
   .card.postado .qdel{right:4px}
-  .card:hover .qpost,.card:hover .qvaga,.card:hover .qdel{opacity:1}
-  .qpost:hover,.qvaga:hover{background:var(--ok); color:#000; border-color:var(--stroke)}
+  .card:hover .qpost,.card:hover .qvaga,.card:hover .qfonte,.card:hover .qdel{opacity:1}
+  .qpost:hover,.qvaga:hover,.qfonte:hover{background:var(--ok); color:#000; border-color:var(--stroke)}
   .qdel:hover{background:var(--crit); color:#fff; border-color:var(--stroke)}
-  .qpost .ic,.qvaga .ic,.qdel .ic{width:11px; height:11px; stroke-width:3}
+  .qpost .ic,.qvaga .ic,.qfonte .ic,.qdel .ic{width:11px; height:11px; stroke-width:3}
   .gmday{color:var(--sb); margin-left:5px; display:inline-flex; transform:translateY(1px)}
   .gmday .ic{width:11px; height:11px; fill:var(--sb); stroke:var(--sb); stroke-width:1}
 
@@ -721,7 +727,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.22'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.23'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -832,10 +838,28 @@ function slotTitulo(s){
   if(s.vaga && !s.taskId) return 'FALTA CRIAR: ' + ((s.formato||'post').toUpperCase());
   if(s.titulo) return s.titulo;
   if(s.tituloCache) return s.tituloCache;
-  if(s.origem==='banco') return 'Reutilizar: ' + (s.obs || 'vídeo');
+  if(s.origem==='banco') return s.taskId ? (s.obs || 'Task do ClickUp') : ('Reutilizar: ' + (s.obs || 'vídeo'));
   const c = S.contas[s.conta];
   return (s.formato? s.formato.charAt(0).toUpperCase()+s.formato.slice(1) : 'Post') + ' · ' + (c?c.nome:'');
 }
+// ---- BANCO POR CATEGORIA (hoje só a CARBONE usa) ----
+// O item do banco é uma FONTE: uma task do ClickUp que rende vários posts (ex.: uma
+// gravação de conselho com N cortes). Arrastar pro dia DUPLICA (cria post novo com o
+// mesmo link) e a fonte CONTINUA no banco. Ela só sai quando você clica em concluído.
+const BANCO_CATS = {
+  'CARBONE': [
+    { key:'conselho',    nome:'Conselho',          icone:'users' },
+    { key:'corte-reels', nome:'Corte Reels',       icone:'film' },
+    { key:'outros',      nome:'Outros conteúdos',  icone:'box' },
+  ],
+};
+function catsDaAba(aba){ return BANCO_CATS[aba] || null; }
+function isFonteBanco(s){ return s.origem==='banco' && !s.date; }
+/** Quantos posts já nasceram DESTA fonte (só os gerados por arrasto, não qualquer task igual). */
+function usosDaFonte(s){
+  return S.slots.filter(x=>x.fonteId===s.id).length;
+}
+
 // ---- VAGA: "falta criar post [formato] neste dia" ----
 // Card marcado a dedo pra reservar o dia antes do post existir. Some sozinho quando você
 // cola a task do ClickUp nele (aí o post existe, não falta mais criar).
@@ -1150,7 +1174,8 @@ function cardEl(s){
   const multi = contasDaAba(S.aba).length>1;
   const d = document.createElement('div');
   const vaga = isVaga(s);
-  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(isBp(s)?' bp':'')+(vaga?' vaga':'');
+  const fonte = isFonteBanco(s);
+  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(isBp(s)?' bp':'')+(vaga?' vaga':'')+(fonte?' fonte':'');
   d.style.borderLeftColor = st.color;
   d.draggable = true; d.dataset.id = s.id;
   const resp = s.assigneeCache || s.responsavelManual;
@@ -1175,12 +1200,14 @@ function cardEl(s){
       (vaga?'':'<span class="stpill" style="background:'+st.color+'; color:'+corTexto(st.color)+'">'+esc(st.label)+'</span>')+
       (s.formato?'<span class="fmtic" title="'+esc(s.formato)+'">'+fmtIconSvg(s.formato)+'</span>':'')+
       (s.angulo?'<span class="angchip" title="ângulo: '+esc(s.angulo)+'">'+esc(s.angulo)+'</span>':'')+
+      (fonte&&usosDaFonte(s)?'<span class="usochip" title="posts já gerados a partir desta fonte">'+usosDaFonte(s)+'x usada</span>':'')+
       (resp?'<span class="avatar" title="'+esc(resp)+'">'+esc(initials(resp))+'</span>':'')+
     '</div>'+
     // na vaga, o botão de check dá BAIXA (já criei) em vez de marcar postado
     (vaga? '<button class="qvaga" title="já criei este post: dar baixa na sinalização">'+icon('check')+'</button>'
+     : fonte? '<button class="qfonte" title="concluído: tirar esta task do banco">'+icon('check')+'</button>'
          : (s.postado?'<div class="pcheck" title="clique pra desmarcar postado">'+icon('check')+'</div>':'<button class="qpost" title="marcar postado">'+icon('check')+'</button>'))+
-    '<button class="qdel" title="excluir este post do painel">'+icon('x')+'</button>';
+    (fonte?'':'<button class="qdel" title="excluir este post do painel">'+icon('x')+'</button>');
   d.addEventListener('dragstart', ev=>{
     S.dragging=true; d.classList.add('dragging');
     const grupo = S.selecao.has(s.id) && S.selecao.size>1 && s.date;
@@ -1201,6 +1228,8 @@ function cardEl(s){
   if(cd && cdiv) cd.onclick = ev=>{ ev.stopPropagation(); corrigirConta(s, cdiv.sugerida); };
   const qv = d.querySelector('.qvaga');
   if(qv) qv.onclick = ev=>{ ev.stopPropagation(); baixarVaga(s); };
+  const qf = d.querySelector('.qfonte');
+  if(qf) qf.onclick = ev=>{ ev.stopPropagation(); concluirFonte(s); };
   const qp = d.querySelector('.qpost');
   if(qp) qp.onclick = ev=>{ ev.stopPropagation(); togglePostado(s); };
   const pc = d.querySelector('.pcheck');
@@ -1257,6 +1286,20 @@ function dropZone(el, getDate){
     }
     const slot = S.slots.find(x=>x.id===id);
     if(!slot) return;
+    // FONTE DO BANCO: arrastar pro dia DUPLICA (post novo com o mesmo link do ClickUp) e a
+    // fonte CONTINUA no banco, porque uma task rende vários cortes. Só sai no botão concluído.
+    if(isFonteBanco(slot) && novaData){
+      try{
+        await api('/api/slots', {method:'POST', body:JSON.stringify({
+          conta: slot.conta, date: novaData, taskId: slot.taskId || null, fonteId: slot.id,
+          formato: slot.formato||'', angulo: slot.angulo||'', obs: slot.obs||'',
+          drive: slot.drive||'', linkRef: slot.linkRef||''
+        })});
+        await loadState();
+        toast('Post gerado em '+brData(novaData)+' · a task continua no banco · Ctrl+Z desfaz');
+      }catch(e){ toast(e.message, true); }
+      return;
+    }
     // ALT + arrastar: COPIA o card pro dia solto (card novo, mesma conta e conteudo, sem task do ClickUp)
     if(ev.altKey && novaData){
       try{
@@ -1362,6 +1405,51 @@ async function guardarCriativo(){
   }catch(e){ toast(e.message, true); }
 }
 
+/** Formulário de uma categoria do banco: link do ClickUp + conta + nota. */
+function formBanco(cat){
+  const contasAba = contasDaAba(S.aba);
+  const form = document.createElement('div'); form.className='refform';
+  const idU='bkU_'+cat.key, idC='bkC_'+cat.key, idN='bkN_'+cat.key, idB='bkB_'+cat.key;
+  form.innerHTML =
+    '<input id="'+idU+'" placeholder="link da task do ClickUp" autocomplete="off">'+
+    '<input id="'+idN+'" placeholder="nota (opcional): do que é essa task" autocomplete="off">'+
+    '<div class="rfrow">'+
+      '<select id="'+idC+'" class="bkconta">'+
+        (contasAba.length>1 ? '<option value="" disabled selected>— escolha a conta —</option>' : '')+
+        contasAba.map(k=>'<option value="'+k+'">'+esc(S.contas[k].nome)+'</option>').join('')+
+      '</select>'+
+      '<button class="rfbtn" id="'+idB+'" style="flex:1">+ Guardar no banco</button>'+
+    '</div>';
+  const salvar = async ()=>{
+    const url = form.querySelector('#'+idU).value.trim();
+    const conta = form.querySelector('#'+idC).value;
+    const nota = form.querySelector('#'+idN).value.trim();
+    if(!/clickup\.com/.test(url)){ toast('Cole o link de uma task do ClickUp', true); form.querySelector('#'+idU).focus(); return; }
+    if(!conta){ toast('Escolha a conta antes de guardar', true); form.querySelector('#'+idC).focus(); return; }
+    try{
+      await api('/api/slots', {method:'POST', body:JSON.stringify({conta, taskUrl:url, obs:nota, origem:'banco', cat:cat.key})});
+      await loadState();
+      toast('Guardado em '+cat.nome+' · nome e status chegam sozinhos');
+    }catch(e){ toast(e.message, true); }
+  };
+  form.querySelector('#'+idB).onclick = salvar;
+  form.querySelector('#'+idU).addEventListener('keydown', ev=>{ if(ev.key==='Enter') salvar(); });
+  form.querySelector('#'+idN).addEventListener('keydown', ev=>{ if(ev.key==='Enter') salvar(); });
+  return form;
+}
+
+/** Tira a fonte do banco de vez (concluída). Ctrl+Z desfaz. */
+async function concluirFonte(s){
+  const usos = usosDaFonte(s);
+  const aviso = usos? '\n\nJá saíram '+usos+' post(s) desta task. Eles continuam no calendário.' : '';
+  if(!confirm('Concluir "'+slotTitulo(s)+'" e tirar do banco?'+aviso+'\n\n(A task do ClickUp NÃO é apagada. Ctrl+Z desfaz.)')) return;
+  try{
+    await api('/api/slots/'+s.id, {method:'DELETE'});
+    await loadState();
+    toast('Concluído e fora do banco · Ctrl+Z desfaz');
+  }catch(e){ toast(e.message, true); }
+}
+
 function renderDrawer(){
   document.body.classList.toggle('drawer-open', S.drawer || S.prod);
   $('#drawer').classList.toggle('open', S.drawer);
@@ -1386,7 +1474,19 @@ function renderDrawer(){
     semDataV.forEach(s=>w.appendChild(cardEl(s)));
   }));
 
-  body.appendChild(drawerSec(icon('sparkle')+' CRIATIVOS · '+esc(S.aba), criatV.length, w=>{
+  const cats = catsDaAba(S.aba);
+  if(cats){
+    // aba com banco por categoria: entra uma seção por categoria, no lugar de CRIATIVOS/REUTILIZÁVEIS
+    cats.forEach(cat=>{
+      const doCat = reutV.filter(s=>(s.cat||'outros')===cat.key);
+      body.appendChild(drawerSec(icon(cat.icone)+' '+esc(cat.nome.toUpperCase())+' · banco', doCat.length, w=>{
+        w.appendChild(formBanco(cat));
+        if(!doCat.length) w.insertAdjacentHTML('beforeend','<div class="dr-empty">cole o link da task do ClickUp. Arraste pro dia pra gerar um post, quantas vezes precisar. A task só sai daqui quando você clicar em concluído.</div>');
+        doCat.forEach(s=>w.appendChild(cardEl(s)));
+      }));
+    });
+  }
+  if(!cats) body.appendChild(drawerSec(icon('sparkle')+' CRIATIVOS · '+esc(S.aba), criatV.length, w=>{
     const form = document.createElement('div'); form.className='refform';
     const contasAba = contasDaAba(S.aba);
     form.innerHTML =
@@ -1406,7 +1506,7 @@ function renderDrawer(){
     criatV.forEach(s=>w.appendChild(cardEl(s)));
   }));
 
-  body.appendChild(drawerSec(icon('refresh')+' REUTILIZÁVEIS · '+esc(S.aba), reutV.length, w=>{
+  if(!cats) body.appendChild(drawerSec(icon('refresh')+' REUTILIZÁVEIS · '+esc(S.aba), reutV.length, w=>{
     if(!reutV.length) w.innerHTML='<div class="dr-empty">nenhum conteúdo reutilizável nesta aba</div>';
     reutV.forEach(s=>w.appendChild(cardEl(s)));
   }));
