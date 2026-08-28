@@ -197,6 +197,27 @@
   .dows{display:grid; grid-template-columns:repeat(7,1fr); gap:9px; margin-bottom:7px}
   .dows div{font-size:10px; font-weight:800; letter-spacing:.14em; color:var(--ink-3); padding:0 4px}
   .grid{display:grid; grid-template-columns:repeat(7,1fr); gap:9px}
+  /* ---- fluxo contínuo: meses empilhados, um embaixo do outro ---- */
+  .grid.fluxo{display:block}
+  .dows.grudenta{position:sticky; top:var(--htop,90px); z-index:30; background:var(--page); padding:7px 0 5px; margin-bottom:0;
+    grid-template-columns:50px repeat(7,1fr)}
+  .dows.grudenta::before{content:""}
+  .mesbloco{margin-bottom:26px}
+  .mestit{position:sticky; top:calc(var(--htop,90px) + var(--dowsh,26px)); z-index:25; display:flex; align-items:baseline; gap:10px;
+    background:var(--page); padding:9px 2px 8px; margin-bottom:3px; border-bottom:var(--bw) solid var(--stroke)}
+  .mestit b{font-size:17px; font-weight:800; letter-spacing:-.01em; color:var(--sb); text-transform:uppercase}
+  .mesbloco.atual .mestit b{background:var(--sb); color:#000; border-radius:6px; padding:1px 9px}
+  .mestit .mesn{font-size:11px; font-weight:700; color:var(--ink-3); letter-spacing:.04em}
+  .mesgrid{display:grid; grid-template-columns:50px repeat(7,1fr); gap:9px; margin-top:9px}
+  /* ---- aba de observação ---- */
+  #obsTxt{width:100%; min-height:270px; border:1.5px solid var(--hair); border-radius:10px; background:var(--surface-2);
+    padding:13px 15px; font:inherit; font-size:13.5px; line-height:1.6; color:var(--ink); resize:vertical}
+  #obsTxt:focus{outline:none; border-color:var(--sb)}
+  .obsfoot{display:flex; align-items:center; gap:12px; margin-top:9px; min-height:18px; font-size:11.5px; color:var(--ink-3)}
+  .obsfoot #obsMsg{font-weight:800}
+  .obsfoot #obsMsg.ok{color:var(--ok)} .obsfoot #obsMsg.err{color:var(--crit)}
+  .mtab.temobs::after{content:""; width:6px; height:6px; border-radius:50%; background:var(--sb); display:inline-block; margin-left:6px; vertical-align:middle}
+  .tagic.t-obs{background:var(--ink-2); color:#000}
   .day{
     background:var(--surface-2); border:1.5px solid var(--hair-2); border-radius:var(--radius);
     min-height:122px; padding:7px; display:flex; flex-direction:column; gap:7px; position:relative;
@@ -597,6 +618,7 @@
     <button class="mtab on" data-t="arquivos">Arquivos</button>
     <button class="mtab" data-t="comentarios">Comentários</button>
     <button class="mtab" data-t="detalhes">Detalhes</button>
+    <button class="mtab" data-t="obs" id="tabObs">Observação</button>
   </div>
   <div class="mbody" id="tBody"></div>
 </div></div>
@@ -727,7 +749,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.23'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.24'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -771,7 +793,8 @@ function corTexto(hex){
 const $ = s => document.querySelector(s);
 const S = {
   contas:{}, abas:[], slots:[], referencias:[], duePendentes:[], hasToken:false, user:null,
-  aba:'SEUBONÉ', mes:null, // "2026-07"
+  aba:'SEUBONÉ', mes:null, // "2026-07" = mês em FOCO (o que está sob os olhos no fluxo)
+  meses:[], crescendo:false, abriuNoMes:false, // janela de meses desenhados no fluxo contínuo
   filtroConta:new Set(),
   editing:null, taskSlot:null, dragging:false, lastSync:null,
   drawer:false, busca:'', editingRef:null,
@@ -810,7 +833,10 @@ async function api(path, opts={}){
 }
 async function loadState(fresh){
   let j;
-  try{ j = await api('/api/state?month='+S.mes+(fresh?'&fresh=1':'')); }
+  // fluxo contínuo precisa dos posts de qualquer mês, então não filtra por mês;
+  // a visão Semana continua pedindo só o mês em foco (payload menor).
+  const q = S.view==='semana' ? ('month='+S.mes) : '';
+  try{ j = await api('/api/state'+(q||fresh?'?':'')+q+(fresh?(q?'&':'')+'fresh=1':'')); }
   catch(e){ if(e.status===401){ mostrarLogin(); return; } throw e; }
   Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], duePendentes:j.duePendentes||[], hasToken:j.hasToken, user:j.user, temSenha:j.temSenha});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
@@ -917,7 +943,10 @@ function angulosConhecidos(){
 }
 
 // ---- semanas do mês (SEMANA 1 = linha que contém o dia 1) ----
-function monthRows(){
+function monthRows(){ // legado: mantido como apelido de rowsDoMes(S.mes)
+  return rowsDoMes(S.mes);
+}
+function monthRowsAntigo(){
   const [y,m] = S.mes.split('-').map(Number);
   const first = new Date(y, m-1, 1);
   const lead = (first.getDay()+6)%7;
@@ -935,7 +964,7 @@ function monthRows(){
   return out;
 }
 function weekIndexOf(dateStr){
-  const rows = monthRows();
+  const rows = rowsDoMes(dateStr.slice(0,7));
   for(let i=0;i<rows.length;i++) if(rows[i].some(c=>c.date===dateStr)) return i;
   return 0;
 }
@@ -1105,7 +1134,7 @@ async function togglePostado(s){
 }
 
 // ================= render =================
-function render(){ aplicarTema(S.aba); renderTabs(); renderLegend(); renderDrawer(); renderProd(); renderGrid(); renderRefLabel(); renderAplicar(); }
+function render(){ aplicarTema(S.aba); renderTabs(); renderLegend(); renderDrawer(); renderProd(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); }
 
 function renderRefLabel(){
   const el = $('#refLabel');
@@ -1199,6 +1228,7 @@ function cardEl(s){
       (cdiv?'<span class="tagic t-cdiv" title="o nome da task no ClickUp diz '+esc(nomeConta(cdiv.sugerida))+', mas este post está em '+esc(nomeConta(s.conta))+'. Clique pra mover pra '+esc(nomeConta(cdiv.sugerida))+' (Ctrl+Z desfaz).">'+icon('alerta')+'</span>':'')+
       (vaga?'':'<span class="stpill" style="background:'+st.color+'; color:'+corTexto(st.color)+'">'+esc(st.label)+'</span>')+
       (s.formato?'<span class="fmtic" title="'+esc(s.formato)+'">'+fmtIconSvg(s.formato)+'</span>':'')+
+      (s.notas?'<span class="tagic t-obs" title="tem observação escrita: '+esc(String(s.notas).slice(0,180))+'">'+icon('pencil')+'</span>':'')+
       (s.angulo?'<span class="angchip" title="ângulo: '+esc(s.angulo)+'">'+esc(s.angulo)+'</span>':'')+
       (fonte&&usosDaFonte(s)?'<span class="usochip" title="posts já gerados a partir desta fonte">'+usosDaFonte(s)+'x usada</span>':'')+
       (resp?'<span class="avatar" title="'+esc(resp)+'">'+esc(initials(resp))+'</span>':'')+
@@ -1659,63 +1689,181 @@ async function baixarVaga(s){
   }catch(e){ toast(e.message, true); }
 }
 
-function renderGrid(){
-  const [y,m] = S.mes.split('-').map(Number);
-  const rows = monthRows();
-  if(S.semIdx >= rows.length) S.semIdx = rows.length-1;
-  const semana = S.view==='semana';
-  $('#mesLabel').textContent = semana
-    ? 'SEMANA '+(S.semIdx+1)+' · '+weekRange(rows[S.semIdx])+' · '+MESES[m-1]+' '+y
-    : MESES[m-1]+' '+y;
-  const hoje = hojeStr();
-  const vis = slotsVisiveis().filter(s=>s.date && s.date.startsWith(S.mes)).filter(passaFiltro);
-  const porDia = {};
-  vis.forEach(s=>{ (porDia[s.date] = porDia[s.date]||[]).push(s); });
-  const ordem = {'seubone':1,'carbone-edu':2,'carbone-club':3,'onevo-energia':4,'onevo-invest':5,'weevo':6};
-  Object.values(porDia).forEach(a=>a.sort((x,z)=>(ordem[x.conta]||9)-(ordem[z.conta]||9)));
-
-  const g = $('#grid'); g.innerHTML='';
-  g.classList.toggle('withwk', !semana);
-  $('#dows').classList.toggle('withwk', !semana);
-
-  const visRows = semana? [rows[S.semIdx]] : rows;
-  visRows.forEach((week, wi)=>{
-    const realWi = semana? S.semIdx : wi;
-    if(!semana){
-      const lb = document.createElement('div');
-      lb.className='wklabel'; lb.title='clique pra ver só a semana '+(realWi+1);
-      lb.innerHTML = 'SEM<b>'+(realWi+1)+'</b>';
-      lb.onclick = ()=>{ S.view='semana'; S.semIdx=realWi; syncVToggle(); render(); };
-      g.appendChild(lb);
-    }
-    week.forEach((c, di)=>{
-      const cell = document.createElement('div');
-      if(!c.date){ cell.className='day fora'+(semana?' big':''); g.appendChild(cell); return; }
-      const temVaga = (porDia[c.date]||[]).some(isVaga);
-      cell.className = 'day'+(di>=5?' fds':'')+(c.date===hoje?' hoje':'')+(semana?' big':'')+(temVaga?' temvaga':'');
-      const temGm = (porDia[c.date]||[]).some(isGm);
-      cell.innerHTML = '<div class="day-top"><span class="dnum">'+c.dnum+
-        (temGm?'<span class="gmday" title="dia com post de grande marca">'+icon('star')+'</span>':'')+
-        '</span><span class="day-acts">'+
-          '<button class="vagabtn" title="sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>'+
-          '<button class="addbtn" title="novo post">'+icon('plus','s')+'</button>'+
-        '</span></div><div class="day-cards"></div>';
-      const cardsEl = cell.querySelector('.day-cards');
-      (porDia[c.date]||[]).forEach(s=>cardsEl.appendChild(cardEl(s)));
-      const dateStr = c.date;
-      cell.addEventListener('mouseenter', ()=>{ S.hoverDay = dateStr; });
-      cell.querySelector('.addbtn').onclick = ()=> openEdit(null, dateStr);
-      cell.querySelector('.vagabtn').onclick = ev=>{ ev.stopPropagation(); abrirPopVaga(dateStr, ev.currentTarget); };
-      if(S.clip){
-        const cb = document.createElement('button'); cb.className='colar-aqui'; cb.innerHTML = icon('plus','s')+'Colar aqui';
-        cb.onclick = (e)=>{ e.stopPropagation(); colarNoDia(dateStr); };
-        cell.insertBefore(cb, cell.querySelector('.day-cards'));
-      }
-      dropZone(cell, ()=>dateStr);
-      g.appendChild(cell);
-    });
-  });
+// ================= calendário =================
+// FLUXO CONTÍNUO: os meses ficam empilhados na MESMA página (agosto em cima, setembro
+// embaixo), com rolagem infinita nos dois sentidos. A visão Semana continua paginada.
+function mesSoma(mes, n){
+  let [y,m] = mes.split('-').map(Number);
+  const t = (y*12 + (m-1)) + n;
+  return Math.floor(t/12) + '-' + String((t%12)+1).padStart(2,'0');
 }
+function rowsDoMes(mes){
+  const [y,m] = mes.split('-').map(Number);
+  const lead = (new Date(y, m-1, 1).getDay()+6)%7;
+  const nDays = new Date(y, m, 0).getDate();
+  const out = [];
+  for(let w=0; w<Math.ceil((lead+nDays)/7); w++){
+    const week = [];
+    for(let d=0; d<7; d++){
+      const dnum = w*7 + d - lead + 1;
+      week.push(dnum>=1 && dnum<=nDays ? { dnum, date: mes+'-'+String(dnum).padStart(2,'0') } : { dnum:null, date:null });
+    }
+    out.push(week);
+  }
+  return out;
+}
+/** Posts visíveis de um mês, já agrupados por dia e ordenados por conta. */
+function postsPorDia(mes){
+  const ordem = {'seubone':1,'carbone-edu':2,'carbone-club':3,'onevo-energia':4,'onevo-invest':5,'weevo':6};
+  const porDia = {};
+  slotsVisiveis().filter(s=>s.date && s.date.startsWith(mes)).filter(passaFiltro)
+    .forEach(s=>{ (porDia[s.date] = porDia[s.date]||[]).push(s); });
+  Object.values(porDia).forEach(a=>a.sort((x,z)=>(ordem[x.conta]||9)-(ordem[z.conta]||9)));
+  return porDia;
+}
+/** Uma célula de dia (usada nas duas visões). */
+function celulaDia(c, di, porDia, semana){
+  const hoje = hojeStr();
+  const cell = document.createElement('div');
+  if(!c.date){ cell.className='day fora'+(semana?' big':''); return cell; }
+  const doDia = porDia[c.date]||[];
+  cell.className = 'day'+(di>=5?' fds':'')+(c.date===hoje?' hoje':'')+(semana?' big':'')+(doDia.some(isVaga)?' temvaga':'');
+  cell.innerHTML = '<div class="day-top"><span class="dnum">'+c.dnum+
+    (doDia.some(isGm)?'<span class="gmday" title="dia com post de grande marca">'+icon('star')+'</span>':'')+
+    '</span><span class="day-acts">'+
+      '<button class="vagabtn" title="sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>'+
+      '<button class="addbtn" title="novo post">'+icon('plus','s')+'</button>'+
+    '</span></div><div class="day-cards"></div>';
+  const cardsEl = cell.querySelector('.day-cards');
+  doDia.forEach(s=>cardsEl.appendChild(cardEl(s)));
+  const dateStr = c.date;
+  cell.addEventListener('mouseenter', ()=>{ S.hoverDay = dateStr; });
+  cell.querySelector('.addbtn').onclick = ()=> openEdit(null, dateStr);
+  cell.querySelector('.vagabtn').onclick = ev=>{ ev.stopPropagation(); abrirPopVaga(dateStr, ev.currentTarget); };
+  if(S.clip){
+    const cb = document.createElement('button'); cb.className='colar-aqui'; cb.innerHTML = icon('plus','s')+'Colar aqui';
+    cb.onclick = (e)=>{ e.stopPropagation(); colarNoDia(dateStr); };
+    cell.insertBefore(cb, cell.querySelector('.day-cards'));
+  }
+  dropZone(cell, ()=>dateStr);
+  return cell;
+}
+/** Bloco de um mês inteiro no fluxo: título grudento + grade de semanas. */
+function blocoMes(mes){
+  const [y,m] = mes.split('-').map(Number);
+  const porDia = postsPorDia(mes);
+  const n = Object.values(porDia).reduce((a,b)=>a+b.length, 0);
+  const bloco = document.createElement('section');
+  bloco.className = 'mesbloco'+(mes===mesAtual()?' atual':'');
+  bloco.dataset.mes = mes;
+  const tit = document.createElement('div');
+  tit.className = 'mestit';
+  tit.innerHTML = '<b>'+MESES[m-1]+' '+y+'</b><span class="mesn">'+n+' post'+(n===1?'':'s')+' · '+esc(S.aba)+'</span>';
+  bloco.appendChild(tit);
+  const g = document.createElement('div');
+  g.className = 'mesgrid';
+  rowsDoMes(mes).forEach((week, wi)=>{
+    const lb = document.createElement('div');
+    lb.className='wklabel'; lb.title='clique pra ver só esta semana';
+    lb.innerHTML = 'SEM<b>'+(wi+1)+'</b>';
+    lb.onclick = ()=>{ S.mes=mes; S.view='semana'; S.semIdx=wi; syncVToggle(); render(); };
+    g.appendChild(lb);
+    week.forEach((c, di)=> g.appendChild(celulaDia(c, di, porDia, false)));
+  });
+  bloco.appendChild(g);
+  return bloco;
+}
+
+function renderGrid(){
+  const semana = S.view==='semana';
+  const g = $('#grid');
+  g.classList.toggle('fluxo', !semana);
+  g.classList.toggle('withwk', semana ? false : false);
+  $('#dows').classList.toggle('withwk', !semana);
+  $('#dows').classList.toggle('grudenta', !semana);
+  g.innerHTML='';
+
+  if(semana){
+    const rows = rowsDoMes(S.mes);
+    if(S.semIdx >= rows.length) S.semIdx = rows.length-1;
+    if(S.semIdx < 0) S.semIdx = 0;
+    const [y,m] = S.mes.split('-').map(Number);
+    $('#mesLabel').textContent = 'SEMANA '+(S.semIdx+1)+' · '+weekRange(rows[S.semIdx])+' · '+MESES[m-1]+' '+y;
+    const porDia = postsPorDia(S.mes);
+    rows[S.semIdx].forEach((c, di)=> g.appendChild(celulaDia(c, di, porDia, true)));
+    return;
+  }
+
+  // fluxo: garante a janela de meses e desenha todos, um embaixo do outro
+  if(!S.meses.length) S.meses = [-1,0,1,2,3].map(n=>mesSoma(mesAtual(), n));
+  S.meses.forEach(mes => g.appendChild(blocoMes(mes)));
+  marcarMesFoco();
+  // na primeira vez o fluxo abre no mês de hoje (o anterior fica logo acima, é só subir)
+  if(!S.abriuNoMes){ S.abriuNoMes = true; setTimeout(()=>irParaMes(mesAtual()), 0); }
+}
+
+/** Escreve no topo o mês que está sob os olhos agora. */
+function marcarMesFoco(){
+  const blocos = [...document.querySelectorAll('.mesbloco')];
+  if(!blocos.length) return;
+  const corte = (document.querySelector('header')?.offsetHeight || 90) + 30;
+  let atual = blocos[0];
+  for(const b of blocos){ if(b.getBoundingClientRect().top <= corte) atual = b; }
+  if(atual.dataset.mes !== S.mes) S.mes = atual.dataset.mes;
+  const [y,m] = S.mes.split('-').map(Number);
+  const lb = $('#mesLabel');
+  if(lb) lb.textContent = MESES[m-1]+' '+y;
+}
+/** Cresce a janela pra frente/pra trás sem redesenhar o que já está na tela. */
+function crescerFluxo(){
+  if(S.view==='semana' || S.crescendo) return;
+  const g = $('#grid'); if(!g.classList.contains('fluxo')) return;
+  const doc = document.documentElement;
+  const perto = doc.scrollHeight - (window.scrollY + window.innerHeight);
+  if(perto < 900 && S.meses.length < 60){
+    S.crescendo = true;
+    const novo = mesSoma(S.meses[S.meses.length-1], 1);
+    S.meses.push(novo); g.appendChild(blocoMes(novo));
+    S.crescendo = false;
+  }
+  if(window.scrollY < 500 && S.meses.length < 60){
+    S.crescendo = true;
+    const antes = doc.scrollHeight;
+    const novo = mesSoma(S.meses[0], -1);
+    S.meses.unshift(novo); g.insertBefore(blocoMes(novo), g.firstChild);
+    window.scrollTo({ top: window.scrollY + (doc.scrollHeight - antes) }); // sem pulo
+    S.crescendo = false;
+  }
+}
+/** Rola até o topo de um mês (e cria os blocos que faltarem no caminho). */
+function irParaMes(mes, suave){
+  if(S.view==='semana'){ S.mes = mes; render(); return; }
+  let guarda = 0;
+  while(mes < S.meses[0] && guarda++ < 60){
+    const novo = mesSoma(S.meses[0], -1);
+    S.meses.unshift(novo); $('#grid').insertBefore(blocoMes(novo), $('#grid').firstChild);
+  }
+  while(mes > S.meses[S.meses.length-1] && guarda++ < 60){
+    const novo = mesSoma(S.meses[S.meses.length-1], 1);
+    S.meses.push(novo); $('#grid').appendChild(blocoMes(novo));
+  }
+  const bloco = document.querySelector('.mesbloco[data-mes="'+mes+'"]');
+  if(!bloco) return;
+  const topo = (document.querySelector('header')?.offsetHeight || 90) + 8;
+  window.scrollTo({ top: bloco.getBoundingClientRect().top + window.scrollY - topo, behavior: suave?'smooth':'auto' });
+  S.mes = mes; marcarMesFoco();
+}
+window.addEventListener('scroll', ()=>{ crescerFluxo(); marcarMesFoco(); }, { passive:true });
+/** Mede o cabeçalho e a faixa SEG..DOM pra ancorar os títulos de mês no lugar certo. */
+function medirGrudentos(){
+  const h = document.querySelector('header');
+  const d = $('#dows');
+  const r = document.documentElement;
+  if(h) r.style.setProperty('--htop', h.offsetHeight+'px');
+  if(d) r.style.setProperty('--dowsh', (d.classList.contains('grudenta')? d.offsetHeight : 0)+'px');
+}
+window.addEventListener('resize', medirGrudentos);
+
 function syncVToggle(){
   document.querySelectorAll('#vtoggle button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.view));
 }
@@ -1732,6 +1880,7 @@ async function openTask(id){
   S.taskSlot = s;
   $('#ovTask').classList.add('open');
   tRowDraw(s);
+  $('#tabObs').classList.toggle('temobs', !!s.notas);
   selTab('arquivos');
   loadTaskTab(s);
 }
@@ -1995,7 +2144,7 @@ async function loadTaskTab(s){
   tData = null;
   const body = $('#tBody'); body.innerHTML = '<div class="spin"></div>';
   if(!s.taskId){ tData={}; drawTab(); return; }
-  if(!S.hasToken){ body.innerHTML='<div class="empty">Configure o token do ClickUp (engrenagem no topo) pra ver artes e comentários aqui.</div>'; return; }
+  if(!S.hasToken){ tData = {semToken:true}; drawTab(); return; }
   try{
     const [task, com] = await Promise.all([ api('/api/task/'+s.taskId), api('/api/task/'+s.taskId+'/comments') ]);
     tData = {task, ...com};
@@ -2013,9 +2162,37 @@ async function loadTaskTab(s){
     }
   }catch(e){ body.innerHTML = '<div class="empty">Não consegui falar com o ClickUp: '+esc(e.message)+'</div>'; }
 }
+let obsTimer = null;
+function desenharObs(body, s){
+  body.innerHTML =
+    '<p class="note" style="margin-bottom:9px">Anotação livre deste post. Fica salva no painel e <b>não vai pro ClickUp</b>. Salva sozinho enquanto você escreve.</p>'+
+    '<textarea id="obsTxt" placeholder="escreva o que quiser: direcionamento, o que faltou, ideia pra próxima vez, combinado com a Maria…"></textarea>'+
+    '<div class="obsfoot"><span id="obsMsg"></span>'+
+      (s.obs? '<span class="note">obs curta do card: <b>'+esc(s.obs)+'</b></span>' : '')+
+    '</div>';
+  const ta = body.querySelector('#obsTxt');
+  const msg = body.querySelector('#obsMsg');
+  ta.value = s.notas || '';
+  const salvar = async ()=>{
+    const txt = ta.value;
+    if(txt === (s.notas||'')) { msg.textContent=''; return; }
+    msg.textContent = 'salvando…'; msg.className='';
+    try{
+      await api('/api/slots/'+s.id, {method:'PATCH', body:JSON.stringify({notas: txt})});
+      s.notas = txt;
+      msg.textContent = 'salvo'; msg.className='ok';
+      $('#tabObs').classList.toggle('temobs', !!txt);
+      renderGrid(); renderDrawer();
+    }catch(e){ msg.textContent = 'não salvou: '+e.message; msg.className='err'; }
+  };
+  ta.addEventListener('input', ()=>{ msg.textContent='digitando…'; msg.className=''; clearTimeout(obsTimer); obsTimer=setTimeout(salvar, 800); });
+  ta.addEventListener('blur', ()=>{ clearTimeout(obsTimer); salvar(); });
+  setTimeout(()=>ta.focus(), 30);
+}
+
 function selTab(name){
   document.querySelectorAll('#tTabs .mtab').forEach(b=>b.classList.toggle('on', b.dataset.t===name));
-  if(tData) drawTab();
+  if(tData || name==='obs') drawTab();
 }
 document.querySelectorAll('#tTabs .mtab').forEach(b=> b.onclick=()=>selTab(b.dataset.t));
 
@@ -2031,6 +2208,13 @@ function fileCard(a, extra){
 function drawTab(){
   const cur = document.querySelector('#tTabs .mtab.on').dataset.t;
   const body = $('#tBody'); const s = S.taskSlot;
+  // OBSERVAÇÃO: caderno livre do post. Fica no painel (data.json), não vai pro ClickUp.
+  // Salva sozinho enquanto você escreve, sem botão.
+  if(cur==='obs'){ desenharObs(body, s); return; }
+  if(tData && tData.semToken){
+    body.innerHTML='<div class="empty">Configure o token do ClickUp (engrenagem no topo) pra ver artes e comentários aqui.<br>A aba <b>Observação</b> funciona mesmo sem token.</div>';
+    return;
+  }
   if(cur==='arquivos'){
     const arqs = (tData && tData.arquivos)||[];
     if(!s.taskId) body.innerHTML='<div class="empty">Este post ainda não tem task do ClickUp vinculada.<br>Use o lápis pra colar o link da task.</div>';
@@ -2503,15 +2687,18 @@ function shiftMes(d){
   loadState().catch(e=>toast(e.message,true));
 }
 function shiftSemana(d){
-  const rows = monthRows();
+  const rows = rowsDoMes(S.mes);
   const i = S.semIdx + d;
   if(i < 0){ shiftMes(-1); S.semIdx = monthRows().length-1; return; }
   if(i >= rows.length){ shiftMes(1); S.semIdx = 0; return; }
   S.semIdx = i; render();
 }
-$('#mPrev').onclick = ()=> S.view==='semana'? shiftSemana(-1) : shiftMes(-1);
-$('#mNext').onclick = ()=> S.view==='semana'? shiftSemana(1) : shiftMes(1);
-$('#mHoje').onclick = ()=>{ S.mes = mesAtual(); S.semIdx = weekIndexOf(hojeStr()); loadState().catch(e=>toast(e.message,true)); };
+$('#mPrev').onclick = ()=> S.view==='semana'? shiftSemana(-1) : irParaMes(mesSoma(S.mes,-1), true);
+$('#mNext').onclick = ()=> S.view==='semana'? shiftSemana(1) : irParaMes(mesSoma(S.mes,1), true);
+$('#mHoje').onclick = ()=>{
+  if(S.view==='semana'){ S.mes = mesAtual(); S.semIdx = weekIndexOf(hojeStr()); loadState().catch(e=>toast(e.message,true)); return; }
+  irParaMes(mesAtual(), true);
+};
 $('#btnRefresh').onclick = async ()=>{
   const el = $('#refLabel'); if(el) el.textContent='atualizando…';
   try{ await api('/api/sync',{method:'POST'}); await loadState(); toast('Status atualizados agora'); }

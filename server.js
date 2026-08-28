@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.23'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.24'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -505,6 +505,7 @@ const server = http.createServer(async (req, res) => {
         conta: b.conta, date: b.date || null,
         taskId: b.taskUrl ? taskIdFromUrl(b.taskUrl) : (b.taskId || null),
         titulo: b.titulo || null, formato: b.formato || '', angulo: b.angulo || '', obs: b.obs || '',
+        notas: typeof b.notas === 'string' ? b.notas : '', // caderno livre do post (só do painel, não vai pro ClickUp)
         gm: b.gm === 'sim' ? 'sim' : '',
         collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
         drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: false, fixo: false,
@@ -700,6 +701,7 @@ const server = http.createServer(async (req, res) => {
         'bp' in b ? 'mudar tag BP' :
         'vaga' in b ? (b.vaga ? 'sinalizar falta criar' : 'dar baixa na vaga') :
         'cat' in b ? 'mudar categoria no banco' :
+        'notas' in b && Object.keys(b).length === 1 ? 'editar observação' :
         'aprovado' in b ? 'mudar aprovação da arte' :
         'fixo' in b ? 'mudar pino de data fixa' :
         'collab' in b ? (Array.isArray(b.collab) && b.collab.length ? 'marcar collab' : 'tirar collab') :
@@ -708,7 +710,7 @@ const server = http.createServer(async (req, res) => {
       const dataMudou = 'date' in b && (b.date || null) !== slot.date;
       if (trocaConta) slot.conta = b.conta; // ANTES do collab: collab não pode conter a própria conta
       if ('date' in b) slot.date = b.date || null;
-      for (const k of ['titulo', 'formato', 'obs', 'drive', 'linkRef', 'angulo']) if (k in b) slot[k] = b[k] || '';
+      for (const k of ['titulo', 'formato', 'obs', 'drive', 'linkRef', 'angulo', 'notas']) if (k in b) slot[k] = b[k] || '';
       if ('postado' in b) slot.postado = !!b.postado;
       if ('gm' in b) slot.gm = b.gm === 'sim' ? 'sim' : '';
       if ('bp' in b) slot.bp = !!b.bp; // tag BP (temporária, só SeuBoné)
