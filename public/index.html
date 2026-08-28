@@ -758,7 +758,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.25'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.26'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1343,13 +1343,15 @@ function dropZone(el, getDate){
     // ALT + arrastar: COPIA o card pro dia solto (card novo, mesma conta e conteudo, sem task do ClickUp)
     if(ev.altKey && novaData){
       try{
+        // igual ao Ctrl+C: a cópia leva a task do ClickUp junto
         await api('/api/slots', {method:'POST', body:JSON.stringify({
-          conta: slot.conta, date: novaData, titulo: slotTitulo(slot),
-          formato: slot.formato||'', angulo: slot.angulo||'', obs: slot.obs||'', gm: isGm(slot)?'sim':'',
-          collab: slot.collab||[], drive: slot.drive||'', linkRef: slot.linkRef||''
+          conta: slot.conta, date: novaData, taskId: slot.taskId||null, titulo: slot.titulo||null,
+          formato: slot.formato||'', angulo: slot.angulo||'', obs: slot.obs||'', notas: slot.notas||'',
+          gm: isGm(slot)?'sim':'', collab: slot.collab||[], drive: slot.drive||'', linkRef: slot.linkRef||'',
+          vaga: isVaga(slot)
         })});
         await loadState();
-        toast('Card copiado pro dia '+novaData.split('-').reverse().slice(0,2).join('/')+' · Ctrl+Z desfaz');
+        toast('Copiado pro dia '+brData(novaData)+(slot.taskId?' com o link do ClickUp':'')+' · Ctrl+Z desfaz');
       }catch(e){ toast(e.message, true); }
       return;
     }
@@ -2848,13 +2850,18 @@ async function colarNoDia(dateStr){
   const modo = S.clip.modo, dbr = dateStr.split('-').reverse().slice(0,2).join('/');
   try{
     if(modo==='copiar'){
+      // a cópia leva a TASK DO CLICKUP junto: copiar um post e perder o link dele
+      // obrigava a recolar a task na mão toda vez. O título manual só é copiado se
+      // existir de verdade; com task vinculada o nome vem do ClickUp sozinho.
       await api('/api/slots', {method:'POST', body:JSON.stringify({
-        conta:s.conta, date:dateStr, titulo:slotTitulo(s), formato:s.formato||'', angulo:s.angulo||'',
-        obs:s.obs||'', gm:isGm(s)?'sim':'', collab:s.collab||[], drive:s.drive||'', linkRef:s.linkRef||''
+        conta:s.conta, date:dateStr, taskId:s.taskId||null, titulo:s.titulo||null,
+        formato:s.formato||'', angulo:s.angulo||'', obs:s.obs||'', notas:s.notas||'',
+        gm:isGm(s)?'sim':'', collab:s.collab||[], drive:s.drive||'', linkRef:s.linkRef||'',
+        vaga: isVaga(s)
       })});
       S.clip = null; // depois de colar, some com os botões "Colar aqui"
       await loadState();
-      toast('Colado (cópia) em '+dbr+' · Ctrl+Z desfaz');
+      toast('Colado em '+dbr+(s.taskId?' com o link do ClickUp':'')+' · Ctrl+Z desfaz');
     } else {
       if(s.date===dateStr){ toast('Esse post já está nesse dia', true); return; }
       S.clip = null;
