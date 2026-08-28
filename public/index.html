@@ -33,7 +33,10 @@
   }
   *{box-sizing:border-box; margin:0}
   html{color-scheme:dark}
-  html,body{height:100%}
+  /* min-height, NÃO height: com height:100% o body vira uma caixa de exatamente uma tela,
+     e o cabeçalho grudento só gruda dentro dela. Passando disso ele descolava e sumia.
+     Só apareceu agora porque a página do fluxo contínuo é muito mais alta que uma tela. */
+  html,body{min-height:100%}
   body{
     font-family:"Space Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     background:var(--page); color:var(--ink); font-size:14px;
@@ -60,7 +63,7 @@
 
   /* ---------- topo ---------- */
   header{
-    position:sticky; top:0; z-index:40; background:rgba(15,15,13,.94); backdrop-filter:blur(7px);
+    position:sticky; top:0; z-index:50; background:var(--page);
     border-bottom:var(--bw) solid var(--stroke);
   }
   .bar{display:flex; align-items:center; gap:12px; padding:12px 18px 10px; flex-wrap:wrap}
@@ -198,16 +201,22 @@
   .dows div{font-size:10px; font-weight:800; letter-spacing:.14em; color:var(--ink-3); padding:0 4px}
   .grid{display:grid; grid-template-columns:repeat(7,1fr); gap:9px}
   /* ---- fluxo contínuo: meses empilhados, um embaixo do outro ---- */
+  /* Cada mês carrega o PRÓPRIO cabeçalho (nome + SEG..DOM) numa barra sólida só.
+     Antes a faixa de dias era um elemento solto e grudento, e ela flutuava por cima
+     dos cards do mês de cima. Agora só existe um cabeçalho preso por vez: o do mês
+     que você está olhando, empurrado pelo do mês seguinte. */
   .grid.fluxo{display:block}
-  .dows.grudenta{position:sticky; top:var(--htop,90px); z-index:30; background:var(--page); padding:7px 0 5px; margin-bottom:0;
-    grid-template-columns:50px repeat(7,1fr)}
-  .dows.grudenta::before{content:""}
-  .mesbloco{margin-bottom:26px}
-  .mestit{position:sticky; top:calc(var(--htop,90px) + var(--dowsh,26px)); z-index:25; display:flex; align-items:baseline; gap:10px;
-    background:var(--page); padding:9px 2px 8px; margin-bottom:3px; border-bottom:var(--bw) solid var(--stroke)}
-  .mestit b{font-size:17px; font-weight:800; letter-spacing:-.01em; color:var(--sb); text-transform:uppercase}
-  .mesbloco.atual .mestit b{background:var(--sb); color:#000; border-radius:6px; padding:1px 9px}
-  .mestit .mesn{font-size:11px; font-weight:700; color:var(--ink-3); letter-spacing:.04em}
+  .grid.fluxo + .dows, .dows.escondida{display:none}
+  .mesbloco{margin-bottom:30px}
+  .mescab{position:sticky; top:calc(var(--htop,90px) - 1px); z-index:25; background:var(--page);
+    padding:10px 0 0; box-shadow:0 10px 14px -6px var(--page)}
+  .mescabtop{display:flex; align-items:baseline; gap:10px; padding-bottom:8px}
+  .mescabtop b{font-size:17px; font-weight:800; letter-spacing:-.01em; color:var(--sb); text-transform:uppercase}
+  .mesbloco.atual .mescabtop b{background:var(--sb); color:#000; border-radius:6px; padding:1px 9px}
+  .mescabtop .mesn{font-size:11px; font-weight:700; color:var(--ink-3); letter-spacing:.04em}
+  .mesdows{display:grid; grid-template-columns:50px repeat(7,1fr); gap:9px;
+    padding:0 0 8px; border-bottom:var(--bw) solid var(--stroke)}
+  .mesdows div{font-size:10px; font-weight:800; letter-spacing:.14em; color:var(--ink-3); padding:0 4px}
   .mesgrid{display:grid; grid-template-columns:50px repeat(7,1fr); gap:9px; margin-top:9px}
   /* ---- aba de observação ---- */
   #obsTxt{width:100%; min-height:270px; border:1.5px solid var(--hair); border-radius:10px; background:var(--surface-2);
@@ -749,7 +758,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.24'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.25'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -872,6 +881,7 @@ function slotTitulo(s){
 // O item do banco é uma FONTE: uma task do ClickUp que rende vários posts (ex.: uma
 // gravação de conselho com N cortes). Arrastar pro dia DUPLICA (cria post novo com o
 // mesmo link) e a fonte CONTINUA no banco. Ela só sai quando você clica em concluído.
+const DOWS = ['SEG','TER','QUA','QUI','SEX','SÁB','DOM'];
 const BANCO_CATS = {
   'CARBONE': [
     { key:'conselho',    nome:'Conselho',          icone:'users' },
@@ -1756,10 +1766,13 @@ function blocoMes(mes){
   const bloco = document.createElement('section');
   bloco.className = 'mesbloco'+(mes===mesAtual()?' atual':'');
   bloco.dataset.mes = mes;
-  const tit = document.createElement('div');
-  tit.className = 'mestit';
-  tit.innerHTML = '<b>'+MESES[m-1]+' '+y+'</b><span class="mesn">'+n+' post'+(n===1?'':'s')+' · '+esc(S.aba)+'</span>';
-  bloco.appendChild(tit);
+  const cab = document.createElement('div');
+  cab.className = 'mescab';
+  cab.innerHTML =
+    '<div class="mescabtop"><b>'+MESES[m-1]+' '+y+'</b>'+
+      '<span class="mesn">'+n+' post'+(n===1?'':'s')+' · '+esc(S.aba)+'</span></div>'+
+    '<div class="mesdows"><div></div>'+DOWS.map(d=>'<div>'+d+'</div>').join('')+'</div>';
+  bloco.appendChild(cab);
   const g = document.createElement('div');
   g.className = 'mesgrid';
   rowsDoMes(mes).forEach((week, wi)=>{
@@ -1779,8 +1792,8 @@ function renderGrid(){
   const g = $('#grid');
   g.classList.toggle('fluxo', !semana);
   g.classList.toggle('withwk', semana ? false : false);
-  $('#dows').classList.toggle('withwk', !semana);
-  $('#dows').classList.toggle('grudenta', !semana);
+  $('#dows').classList.toggle('withwk', false);
+  $('#dows').classList.toggle('escondida', !semana); // no fluxo, cada mês tem a sua
   g.innerHTML='';
 
   if(semana){
@@ -1806,9 +1819,13 @@ function renderGrid(){
 function marcarMesFoco(){
   const blocos = [...document.querySelectorAll('.mesbloco')];
   if(!blocos.length) return;
-  const corte = (document.querySelector('header')?.offsetHeight || 90) + 30;
-  let atual = blocos[0];
-  for(const b of blocos){ if(b.getBoundingClientRect().top <= corte) atual = b; }
+  // o mês em foco é o PRIMEIRO que ainda não terminou acima do cabeçalho, e não o último
+  // que já começou: senão o rótulo fica um mês atrasado em relação ao que você está vendo.
+  const corte = (document.querySelector('header')?.offsetHeight || 90) + 4;
+  let atual = blocos[blocos.length-1];
+  for(const b of blocos){
+    if(b.getBoundingClientRect().bottom > corte){ atual = b; break; }
+  }
   if(atual.dataset.mes !== S.mes) S.mes = atual.dataset.mes;
   const [y,m] = S.mes.split('-').map(Number);
   const lb = $('#mesLabel');
@@ -1853,14 +1870,19 @@ function irParaMes(mes, suave){
   window.scrollTo({ top: bloco.getBoundingClientRect().top + window.scrollY - topo, behavior: suave?'smooth':'auto' });
   S.mes = mes; marcarMesFoco();
 }
-window.addEventListener('scroll', ()=>{ crescerFluxo(); marcarMesFoco(); }, { passive:true });
+let scrollAgendado = false;
+window.addEventListener('scroll', ()=>{
+  if(scrollAgendado) return;
+  scrollAgendado = true;
+  requestAnimationFrame(()=>{ scrollAgendado = false; crescerFluxo(); marcarMesFoco(); });
+}, { passive:true });
 /** Mede o cabeçalho e a faixa SEG..DOM pra ancorar os títulos de mês no lugar certo. */
 function medirGrudentos(){
   const h = document.querySelector('header');
   const d = $('#dows');
   const r = document.documentElement;
   if(h) r.style.setProperty('--htop', h.offsetHeight+'px');
-  if(d) r.style.setProperty('--dowsh', (d.classList.contains('grudenta')? d.offsetHeight : 0)+'px');
+  if(d) r.style.setProperty('--dowsh', '0px');
 }
 window.addEventListener('resize', medirGrudentos);
 
