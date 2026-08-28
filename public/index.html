@@ -325,6 +325,13 @@
   .avatar{margin-left:auto; width:20px; height:20px; border-radius:5px; border:1.5px solid var(--hair); background:var(--hair-2); color:var(--ink-2);
     font-size:8.5px; font-weight:800; display:flex; align-items:center; justify-content:center; letter-spacing:.02em}
   .cdot{width:9px; height:9px; border-radius:2px; border:1.5px solid rgba(0,0,0,.55); display:inline-block; margin-right:5px; transform:translateY(-1px)}
+  /* selo da conta: diz a empresa por extenso, porque cor parecida não se distingue */
+  .contatag{display:inline-block; font-size:9px; font-weight:800; letter-spacing:.07em; text-transform:uppercase;
+    padding:2px 7px; border-radius:4px; border:1.5px solid var(--stroke); margin-bottom:6px; line-height:1.35;
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  /* e uma faixa fina na cor da conta na lateral direita, pra bater o olho na coluna inteira */
+  .card.temconta::after{content:""; position:absolute; top:0; right:0; bottom:0; width:4px;
+    border-radius:0 5px 5px 0; background:var(--corconta)}
   .pcheck{position:absolute; top:-7px; right:-7px; background:var(--ok); color:#000; width:19px; height:19px; border:1.5px solid var(--stroke);
     border-radius:6px; display:flex; align-items:center; justify-content:center; box-shadow:2px 2px 0 rgba(0,0,0,.8); cursor:pointer}
   .pcheck .ic{width:11px; height:11px; stroke-width:3.2}
@@ -761,7 +768,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.28'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.29'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -822,6 +829,13 @@ const CONTA_CORES = {
   'onevo-energia':'#0AFFA3', 'onevo-invest':'#FFC721', 'weevo':'#177D81',
 };
 function contaCor(k){ return CONTA_CORES[k] || (S.contas[k] && S.contas[k].cor) || '#8C897C'; }
+// Nome curto da conta pro selo do card. Cor sozinha não resolve (Educação e Club são dois
+// tons claros parecidos), então o card passa a dizer a conta POR EXTENSO.
+const CONTA_CURTA = {
+  'seubone':'SEUBONÉ', 'carbone-edu':'EDUCAÇÃO', 'carbone-club':'CLUB',
+  'onevo-energia':'ENERGIA', 'onevo-invest':'INVESTIMENTOS', 'weevo':'WEEVO',
+};
+function contaCurta(k){ return CONTA_CURTA[k] || (S.contas[k] && S.contas[k].nome) || k; }
 // identidade visual por aba: troca a cor de destaque (--sb) e dá um leve tom no fundo (base escura mantida)
 const TEMAS = {
   'SEUBONÉ': { sb:'#FCC100', page:'#0F0F0D' },
@@ -913,10 +927,22 @@ function isVaga(s){ return !!s.vaga && !s.taskId; }
 function vagaTitulo(s){
   return 'FALTA CRIAR: ' + ((s.formato||'post').toUpperCase());
 }
+// No ClickUp, "completo" quer dizer que a arte ficou pronta; pra quem posta, isso é
+// PUBLICAR. O painel mostra os dois com o mesmo rótulo e a mesma cor. O status real no
+// ClickUp não muda: isso é só leitura.
+const COR_PUBLICAR = '#ee5e99';
+/** Pronto pra ir ao ar: o "publicar" do ClickUp e também o "completo". */
+function ehPublicar(s){
+  const st = (s.statusCache && s.statusCache.status) || '';
+  return st === 'publicar' || st === 'completo';
+}
 function stInfo(s){
   if(isVaga(s)) return {label:'falta criar', color:'#FF4D4D'};
   if(s.postado) return {label:'postado', color:'#2FD06A'};
-  if(s.statusCache) return {label:s.statusCache.status, color:s.statusCache.color};
+  if(s.statusCache){
+    if(ehPublicar(s)) return {label:'publicar', color:COR_PUBLICAR};
+    return {label:s.statusCache.status, color:s.statusCache.color};
+  }
   if(s.taskId) return {label:'sincronizando', color:'#8C897C'};
   return {label:'sem task', color:'#8C897C'};
 }
@@ -1067,7 +1093,7 @@ const FILTRO_GRUPOS = {
   pendentes: ['pendente','solicitado form','backlog'],
   producao:  ['em progresso','alterar'],
   aprovar:   ['aprovar','aprovação líder','revisão solicitada','revisão ia'],
-  publicar:  ['publicar'],
+  publicar:  ['publicar','completo'], // "completo" no ClickUp = pronto pra publicar aqui
 };
 function passaFiltro(s){
   const f = S.filtro;
@@ -1223,7 +1249,8 @@ function cardEl(s){
   const d = document.createElement('div');
   const vaga = isVaga(s);
   const fonte = isFonteBanco(s);
-  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(isBp(s)?' bp':'')+(vaga?' vaga':'')+(fonte?' fonte':'');
+  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(isBp(s)?' bp':'')+(vaga?' vaga':'')+(fonte?' fonte':'')+(multi?' temconta':'');
+  if(multi) d.style.setProperty('--corconta', cor);
   d.style.borderLeftColor = st.color;
   d.draggable = true; d.dataset.id = s.id;
   const resp = s.assigneeCache || s.responsavelManual;
@@ -1233,7 +1260,10 @@ function cardEl(s){
   if(S.selecao.has(s.id)) d.classList.add('sel');
   d.innerHTML =
     (vaga?'<div class="vagatag">'+icon('alerta')+'FALTA CRIAR</div>':'')+
-    '<div class="tit">'+(multi?'<span class="cdot" style="background:'+cor+'"></span>':'')+esc(vaga? (s.formato||'post').toUpperCase() : slotTitulo(s))+'</div>'+
+    // selo da conta: nome por extenso na cor da marca. Só em aba com mais de uma conta,
+    // porque na SeuBoné e na Weevo seria repetir o que a aba já diz.
+    (multi?'<div class="contatag" style="background:'+cor+'; color:'+corTexto(cor)+'">'+esc(contaCurta(s.conta))+'</div>':'')+
+    '<div class="tit">'+esc(vaga? (s.formato||'post').toUpperCase() : slotTitulo(s))+'</div>'+
     // a obs da vaga aparece SEMPRE (é o "precisa ser sobre isso"); nos posts normais, só na visão Semana
     ((vaga || S.view==='semana') && s.obs ? '<div class="obsline">'+esc(s.obs)+'</div>' : '')+
     '<div class="meta">'+
@@ -2578,7 +2608,7 @@ function gerarRelatorio(){
   // 3) prontos (publicar) na semana, por conta
   const contasOrd = Object.keys(S.contas);
   const prontos = {}; contasOrd.forEach(k=>prontos[k]=0);
-  S.slots.filter(s=>!s.postado && statusDe(s)==='publicar' && naSemana(s)).forEach(s=>{ if(prontos[s.conta]!=null) prontos[s.conta]++; });
+  S.slots.filter(s=>!s.postado && ehPublicar(s) && naSemana(s)).forEach(s=>{ if(prontos[s.conta]!=null) prontos[s.conta]++; });
 
   // 4) FALTA CRIAR na semana: vagas sinalizadas a dedo, ainda sem task
   const vagas = S.slots.filter(s=>isVaga(s) && naSemana(s)).sort(porData);

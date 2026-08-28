@@ -1,6 +1,6 @@
 # Painel 24/7 de graça (PC desligado)
 
-Seu painel v3.28 sobe pra nuvem **sem alterar uma linha do server.js**. Tudo que ele já faz
+Seu painel v3.29 sobe pra nuvem **sem alterar uma linha do server.js**. Tudo que ele já faz
 continua igual: arrastar, Semana/Mês, Produção, Relatório, Exportar, Bancos, GM/BP, undo,
 artes dos comentários e o "Aplicar datas no ClickUp".
 
