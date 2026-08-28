@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.29'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.30'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -562,6 +562,44 @@ const server = http.createServer(async (req, res) => {
       }
       const entrega = queueDue(slot);
       return json(res, 200, { ok: true, slot, entrega });
+    }
+
+    // ---------- IMPORTAR EM LOTE: vários links do ClickUp viram posts de uma vez ----------
+    // Pensado pra distribuir um banco de tasks prontas por uma sequência de dias (ex.: 75
+    // posts, um em cada domingo). Um único registro de undo pro lote inteiro, então Ctrl+Z
+    // desfaz a importação de uma vez, e não post por post.
+    if (p === '/api/slots/importar' && req.method === 'POST') {
+      const b = await readBody(req);
+      if (!b.conta || !db.contas[b.conta]) return json(res, 400, { erro: 'conta inválida' });
+      const itens = Array.isArray(b.itens) ? b.itens : [];
+      if (!itens.length) return json(res, 400, { erro: 'nada pra importar' });
+      if (itens.length > 400) return json(res, 400, { erro: 'lote grande demais (máximo 400 por vez)' });
+      const criados = [];
+      const pulados = [];
+      for (const it of itens) {
+        const date = /^\d{4}-\d{2}-\d{2}$/.test(it.date || '') ? it.date : null;
+        const taskId = it.taskUrl ? taskIdFromUrl(it.taskUrl) : (it.taskId || null);
+        if (!date) { pulados.push({ item: it, motivo: 'data inválida' }); continue; }
+        // não duplica: mesma task no mesmo dia e na mesma conta já existe
+        if (taskId && db.slots.some(x => x.taskId === taskId && x.date === date && x.conta === b.conta)) {
+          pulados.push({ item: it, motivo: 'já existe nesse dia' }); continue;
+        }
+        criados.push({
+          id: 's' + crypto.randomBytes(4).toString('hex'),
+          conta: b.conta, date, taskId,
+          titulo: it.titulo || null, formato: it.formato || '', angulo: it.angulo || '', obs: it.obs || '',
+          notas: '', gm: '', collab: [], drive: '', linkRef: '', cat: '', fonteId: '',
+          aprovado: false, postado: false, fixo: false, responsavelManual: '', origem: 'importado',
+          tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: null,
+        });
+      }
+      if (!criados.length) return json(res, 200, { ok: true, criados: 0, pulados: pulados.length, detalhes: pulados });
+      undoSlots('importar ' + criados.length + ' posts', [], criados.map(s => s.id));
+      db.slots.push(...criados); saveDb();
+      // nome e status chegam em segundo plano: são muitos, não dá pra segurar a resposta
+      enrichSlots(criados).catch(() => {});
+      for (const s of criados) queueDue(s);
+      return json(res, 200, { ok: true, criados: criados.length, pulados: pulados.length, detalhes: pulados });
     }
 
     // ---------- EMPURRAR / REAJUSTAR: este post + todos os seguintes da conta ----------
