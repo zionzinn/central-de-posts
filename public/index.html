@@ -466,6 +466,13 @@
   .imppreview .impdia{font-size:10.5px; font-weight:700; background:var(--surface); border:1px solid var(--hair);
     border-radius:5px; padding:1px 7px; color:var(--ink-2)}
   .imppreview .aviso{color:var(--warn); font-weight:700}
+  .imptab{width:100%; border-collapse:collapse; font-size:11.5px}
+  .imptab th{text-align:left; font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3);
+    padding:0 8px 5px 0; font-weight:800; position:sticky; top:0; background:var(--surface-2)}
+  .imptab td{padding:4px 8px 4px 0; border-top:1px solid var(--hair-2); vertical-align:top}
+  .imptab .tnome{color:var(--ink); max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .imptab .tdest{font-weight:800; color:var(--ok); white-space:nowrap}
+  .imptab .terro{color:var(--crit); font-weight:700}
   .mbtn.iconb{padding:7px 9px}
   .mbtn.pinon{background:#FF8A3D; color:#000; border-color:var(--stroke)}
   select.mini{border:1.5px solid var(--hair); background:var(--surface-2); border-radius:6px; padding:6px 8px; font-size:12px; color:var(--ink-2); cursor:pointer; font-weight:700;
@@ -780,19 +787,26 @@
     <p class="note">Cole os links das tasks do ClickUp, um por linha. O painel distribui cada link num dia da semana, na ordem em que você colou, e cria os posts. Linha vazia é ignorada; link repetido no mesmo dia não duplica.</p>
     <textarea id="impLinks" placeholder="https://app.clickup.com/t/9013450208/86aj...&#10;https://app.clickup.com/t/9013450208/86aj...&#10;..."></textarea>
     <div class="improw">
+      <label>Como decidir o dia<select id="impModo">
+        <option value="entrega">pela data de entrega da task (recomendado)</option>
+        <option value="ordem">na ordem em que colei</option>
+      </select></label>
+    </div>
+    <div class="improw">
       <label>Conta<select id="impConta"></select></label>
       <label>Dia da semana<select id="impDia">
         <option value="0">domingo</option><option value="1">segunda</option><option value="2">terça</option>
         <option value="3">quarta</option><option value="4">quinta</option><option value="5">sexta</option>
         <option value="6">sábado</option></select></label>
-      <label>A partir de<input type="date" id="impDe"></label>
-      <label>Por dia<input type="number" id="impPorDia" min="1" max="10" value="1"></label>
+      <label class="soordem">A partir de<input type="date" id="impDe"></label>
+      <label class="soordem">Por dia<input type="number" id="impPorDia" min="1" max="10" value="1"></label>
     </div>
-    <label class="impchk"><input type="checkbox" id="impPular" checked> pular os dias que já têm post desta conta</label>
+    <label class="impchk soordem"><input type="checkbox" id="impPular" checked> pular os dias que já têm post desta conta</label>
     <div id="impPreview" class="imppreview"></div>
   </div>
   <div class="mfoot" style="display:flex; justify-content:flex-end; gap:8px; align-items:center">
     <span class="note" id="impMsg"></span>
+    <button class="mbtn" id="impConferir">Conferir no ClickUp</button>
     <button class="mbtn primary" id="impCriar">Criar posts</button>
   </div>
 </div></div>
@@ -811,7 +825,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.30'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.31'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2983,11 +2997,56 @@ function impDatas(quantos){
   }
   return { datas, porDia };
 }
+let impLinhas = null; // resultado do "Conferir no ClickUp" (modo pela entrega)
+function impModo(){ return $('#impModo').value; }
+/** Conferência: lê a entrega de cada task no ClickUp e mostra onde cada post vai cair. */
+async function impConferir(){
+  const links = impLinksLimpos();
+  if(!links.length){ $('#impMsg').textContent='Cole pelo menos um link do ClickUp.'; return; }
+  const btn = $('#impConferir'); btn.disabled=true; btn.textContent='lendo o ClickUp…';
+  $('#impMsg').textContent='';
+  try{
+    const r = await api('/api/slots/importar/preview', {method:'POST',
+      body:JSON.stringify({links, dow: Number($('#impDia').value)})});
+    impLinhas = r.linhas;
+    impRender();
+  }catch(e){ $('#impMsg').textContent = 'Erro: '+e.message; }
+  finally{ btn.disabled=false; btn.textContent='Conferir no ClickUp'; }
+}
+$('#impConferir').onclick = impConferir;
+
 function impRender(){
   const links = impLinksLimpos();
   const el = $('#impPreview');
-  if(!links.length){ el.innerHTML = 'Cole os links acima pra ver onde cada post vai cair.'; return; }
+  const porEntrega = impModo()==='entrega';
+  $('#impConferir').style.display = porEntrega ? '' : 'none';
+  document.querySelectorAll('.soordem').forEach(el=>{ el.style.display = porEntrega ? 'none' : ''; });
+  if(!links.length){ el.innerHTML = 'Cole os links acima pra ver onde cada post vai cair.'; impLinhas=null; return; }
   if(!$('#impConta').value){ el.innerHTML = '<span class="aviso">Escolha a conta.</span>'; return; }
+
+  if(porEntrega){
+    // cada post cai no dia da semana escolhido a partir da ENTREGA da própria task
+    if(!impLinhas){
+      el.innerHTML = '<b>'+links.length+' link'+(links.length>1?'s':'')+'</b> · clique em <b>Conferir no ClickUp</b> pra eu ler a data de entrega de cada task e mostrar em que dia cada post vai cair. A ordem em que você colou não importa neste modo.';
+      return;
+    }
+    const ok = impLinhas.filter(l=>!l.erro);
+    const ruins = impLinhas.filter(l=>l.erro);
+    const dias = [...new Set(ok.map(l=>l.destino))].sort();
+    const choque = dias.filter(d=>ok.filter(l=>l.destino===d).length>1);
+    el.innerHTML =
+      '<b>'+ok.length+' post'+(ok.length!==1?'s':'')+'</b> em <b>'+dias.length+' dia'+(dias.length!==1?'s':'')+'</b>'+
+      (dias.length? ', de '+esc(cabDia(dias[0]))+' até '+esc(cabDia(dias[dias.length-1])) : '')+
+      (ruins.length? ' · <span class="aviso">'+ruins.length+' sem data de entrega, não vão ser criados</span>' : '')+
+      (choque.length? ' · <span class="aviso">'+choque.length+' dia(s) com mais de um post</span>' : '')+
+      '<table class="imptab"><thead><tr><th>Task</th><th>Entrega</th><th>Sai em</th></tr></thead><tbody>'+
+      impLinhas.map(l=>'<tr>'+
+        '<td class="tnome" title="'+esc(l.nome||l.taskId)+'">'+esc(l.nome||l.taskId)+'</td>'+
+        '<td>'+(l.entrega? esc(cabDia(l.entrega)) : '<span class="terro">—</span>')+'</td>'+
+        '<td>'+(l.erro? '<span class="terro">'+esc(l.erro)+'</span>' : '<span class="tdest">'+esc(cabDia(l.destino))+'</span>')+'</td>'+
+      '</tr>').join('')+'</tbody></table>';
+    return;
+  }
   const { datas, porDia } = impDatas(links.length);
   const usadas = datas.slice(0, Math.ceil(links.length/porDia));
   const ult = usadas[usadas.length-1];
@@ -3005,24 +3064,36 @@ function abrirImportar(){
   contas.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=S.contas[k].nome; sel.appendChild(o); });
   sel.value = contas.length>1 ? '' : (contas[0]||'');
   $('#impDe').value = hojeStr();
+  impLinhas = null;
   $('#impMsg').textContent=''; $('#impCriar').disabled=false; $('#impCriar').textContent='Criar posts';
   impRender();
   $('#ovImportar').classList.add('open');
   setTimeout(()=>$('#impLinks').focus(), 40);
 }
 $('#btnImportar').onclick = abrirImportar;
-['#impLinks','#impConta','#impDia','#impDe','#impPorDia','#impPular'].forEach(sel=>{
+['#impLinks','#impConta','#impDia','#impDe','#impPorDia','#impPular','#impModo'].forEach(sel=>{
   const el = document.querySelector(sel);
-  el.addEventListener('input', impRender); el.addEventListener('change', impRender);
+  const invalida = ()=>{ if(sel==='#impLinks' || sel==='#impDia' || sel==='#impModo') impLinhas=null; impRender(); };
+  el.addEventListener('input', invalida); el.addEventListener('change', invalida);
 });
 $('#impCriar').onclick = async ()=>{
   const links = impLinksLimpos();
   const conta = $('#impConta').value;
   if(!conta){ $('#impMsg').textContent='Escolha a conta.'; return; }
   if(!links.length){ $('#impMsg').textContent='Cole pelo menos um link do ClickUp.'; return; }
-  const { datas, porDia } = impDatas(links.length);
-  const itens = links.map((taskUrl, i)=>({ taskUrl, date: datas[Math.floor(i/porDia)] })).filter(x=>x.date);
-  if(!confirm('Criar '+itens.length+' posts em '+new Set(itens.map(x=>x.date)).size+' dias, na conta '+nomeConta(conta)+'?\n\nCtrl+Z desfaz o lote inteiro.')) return;
+  let itens;
+  if(impModo()==='entrega'){
+    if(!impLinhas){ $('#impMsg').textContent='Clique em "Conferir no ClickUp" antes de criar.'; return; }
+    itens = impLinhas.filter(l=>!l.erro).map(l=>({ taskUrl:l.link, date:l.destino }));
+    if(!itens.length){ $('#impMsg').textContent='Nenhuma task com data de entrega pra importar.'; return; }
+  } else {
+    const { datas, porDia } = impDatas(links.length);
+    itens = links.map((taskUrl, i)=>({ taskUrl, date: datas[Math.floor(i/porDia)] })).filter(x=>x.date);
+  }
+  const forasDoLote = impModo()==='entrega' && impLinhas ? impLinhas.filter(l=>l.erro).length : 0;
+  if(!confirm('Criar '+itens.length+' posts em '+new Set(itens.map(x=>x.date)).size+' dias, na conta '+nomeConta(conta)+'?'+
+    (forasDoLote? '\n\n'+forasDoLote+' task(s) ficam de fora por não ter data de entrega no ClickUp.' : '')+
+    '\n\nA data de entrega no ClickUp NÃO é alterada. Ctrl+Z desfaz o lote inteiro.')) return;
   const btn = $('#impCriar'); btn.disabled=true; btn.textContent='criando…'; $('#impMsg').textContent='';
   try{
     const r = await api('/api/slots/importar', {method:'POST', body:JSON.stringify({conta, itens})});

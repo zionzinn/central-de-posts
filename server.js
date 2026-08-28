@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.30'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.31'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -268,6 +268,19 @@ function pushUndo(entry) {
 function copiaSlot(s) { return JSON.parse(JSON.stringify(s)); }
 function undoSlots(desc, antes, criados) {
   pushUndo({ tipo: 'slots', desc, antes: (antes || []).map(copiaSlot), criados: criados || [] });
+}
+/** ms -> "AAAA-MM-DD" no fuso da máquina (a entrega do ClickUp é um instante). */
+function isoLocal(ms) {
+  const d = new Date(Number(ms));
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+/** Primeiro `dow` (0=domingo) a partir de `iso`, INCLUINDO o próprio dia se já for esse. */
+function proximoDiaDaSemana(iso, dow) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  let volta = 0;
+  while (dt.getDay() !== dow && volta++ < 8) dt.setDate(dt.getDate() + 1);
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
 }
 function addDiaISO(iso, n) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -564,6 +577,32 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, slot, entrega });
     }
 
+    // ---------- PRÉVIA DA IMPORTAÇÃO: lê a ENTREGA de cada task e calcula o dia da postagem ----------
+    // As tasks já nascem no ClickUp com a data em que precisam estar PRONTAS (sexta, no caso
+    // do Zion). O post não sai nesse dia: sai no primeiro dia-da-semana escolhido a partir
+    // dela (domingo). Assim a ordem não depende de como os links foram colados: cada post cai
+    // onde a própria task manda.
+    if (p === '/api/slots/importar/preview' && req.method === 'POST') {
+      if (!config.token) return json(res, 400, { erro: 'sem token do ClickUp: não dá pra ler a data de entrega das tasks' });
+      const b = await readBody(req);
+      const links = Array.isArray(b.links) ? b.links.slice(0, 400) : [];
+      const dow = Number.isInteger(b.dow) ? b.dow : 0; // 0 = domingo
+      if (!links.length) return json(res, 400, { erro: 'nenhum link' });
+      const ids = links.map(l => taskIdFromUrl(l) || String(l).trim());
+      const tasks = await mapLimit([...new Set(ids)], 6, id => cuFetch(`/task/${id}`).then(t => ({ id, t })).catch(e => ({ id, erro: String(e.message || e) })));
+      const porId = new Map(tasks.map(x => [x.id, x]));
+      const linhas = ids.map((id, i) => {
+        const r = porId.get(id);
+        if (!r || r.erro || !r.t) return { taskId: id, link: links[i], erro: 'task não encontrada no ClickUp' };
+        const due = r.t.due_date ? Number(r.t.due_date) : null;
+        if (!due) return { taskId: id, link: links[i], nome: r.t.name || '', erro: 'task sem data de entrega' };
+        const entrega = isoLocal(due);
+        return { taskId: id, link: links[i], nome: r.t.name || '', status: normStatus(r.t.status?.status),
+                 entrega, destino: proximoDiaDaSemana(entrega, dow) };
+      });
+      return json(res, 200, { ok: true, linhas });
+    }
+
     // ---------- IMPORTAR EM LOTE: vários links do ClickUp viram posts de uma vez ----------
     // Pensado pra distribuir um banco de tasks prontas por uma sequência de dias (ex.: 75
     // posts, um em cada domingo). Um único registro de undo pro lote inteiro, então Ctrl+Z
@@ -598,7 +637,9 @@ const server = http.createServer(async (req, res) => {
       db.slots.push(...criados); saveDb();
       // nome e status chegam em segundo plano: são muitos, não dá pra segurar a resposta
       enrichSlots(criados).catch(() => {});
-      for (const s of criados) queueDue(s);
+      // De propósito NÃO chama queueDue: as tasks importadas já têm no ClickUp a data de
+      // entrega que o Zion definiu. Enfileirar aqui encheria o "Aplicar datas" com 75 linhas
+      // propondo mudar justamente o que ele acabou de configurar.
       return json(res, 200, { ok: true, criados: criados.length, pulados: pulados.length, detalhes: pulados });
     }
 
