@@ -738,9 +738,12 @@
     <p class="note">Os cards do calendário ficaram apagados. Passe o mouse numa linha pra achar o post (ele acende no calendário). Marque os que quer gravar a data de confecção no ClickUp e clique aplicar. Os desmarcados continuam pendentes (nada é escrito neles).</p>
     <div id="aplicList" class="aplic-list"></div>
   </div>
-  <div class="mfoot" style="display:flex; justify-content:space-between; align-items:center; gap:8px">
+  <div class="mfoot" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap">
     <label class="aplic-todos"><input type="checkbox" id="aplicTodos"> marcar/desmarcar todos</label>
-    <button class="mbtn primary" id="aplicConfirmar">Aplicar selecionados</button>
+    <div style="display:flex; gap:8px; align-items:center; margin-left:auto">
+      <button class="mbtn" id="aplicLimpar" data-tip="tira TODAS as datas da fila sem gravar nada no ClickUp">Limpar tudo</button>
+      <button class="mbtn primary" id="aplicConfirmar">Aplicar selecionados</button>
+    </div>
   </div>
 </div></div>
 
@@ -758,7 +761,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.26'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.27'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2774,6 +2777,8 @@ function renderAplicList(){
 function openAplicar(){
   document.querySelectorAll('.card.aplic-hi').forEach(c=>c.classList.remove('aplic-hi'));
   renderAplicList(); $('#aplicTodos').checked=false;
+  const nFila = new Set(S.duePendentes||[]).size;
+  $('#aplicLimpar').textContent = nFila? ('Limpar tudo ('+nFila+')') : 'Limpar tudo';
   // posiciona o painel flutuante (usa a ultima posicao da sessao, ou canto superior direito)
   const modal = $('#ovAplicar .modal');
   const pos = S.aplicPos || { left: Math.max(8, window.innerWidth - 400), top: 88 };
@@ -2807,6 +2812,22 @@ new MutationObserver(()=>{
   window.addEventListener('mouseup', ()=>{ d=null; });
 })();
 $('#aplicTodos').onchange = ()=> document.querySelectorAll('#aplicList input[type=checkbox]').forEach(c=> c.checked = $('#aplicTodos').checked);
+// LIMPAR TUDO: esvazia a fila de datas pendentes de uma vez. Não escreve nada no
+// ClickUp, só larga mão de gravar essas datas de confecção lá.
+$('#aplicLimpar').onclick = async ()=>{
+  const ids = [...new Set(S.duePendentes||[])];
+  if(!ids.length){ closeOv('ovAplicar'); return; }
+  if(!confirm('Tirar as '+ids.length+' datas da fila?\n\nNenhuma data é gravada no ClickUp e nenhum post do painel muda. É só limpar a lista.')) return;
+  const btn = $('#aplicLimpar'); btn.disabled = true; btn.textContent = 'limpando…';
+  try{
+    await api('/api/aplicar-datas/descartar', {method:'POST', body:JSON.stringify({taskIds: ids})});
+    S.duePendentes = [];
+    closeOv('ovAplicar');
+    await loadState();
+    toast('Fila limpa: '+ids.length+' data'+(ids.length>1?'s':'')+' fora, nada foi gravado no ClickUp');
+  }catch(e){ toast(e.message, true); }
+  finally{ btn.disabled = false; btn.textContent = 'Limpar tudo'; }
+};
 $('#aplicConfirmar').onclick = async ()=>{
   const ids = [...document.querySelectorAll('#aplicList input[type=checkbox]:checked')].map(c=>c.dataset.id);
   if(!ids.length){ toast('Marque pelo menos um post pra aplicar', true); return; }
