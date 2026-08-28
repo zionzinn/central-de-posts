@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.27'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.28'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -197,9 +197,41 @@ function mesesJanela() {
   }
   return set;
 }
+const TETO_POR_CICLO = 55; // deixa folga no limite do ClickUp (100 req/min) pro uso normal do painel
+let rodizioQuente = 0, rodizioFrio = 0;
+/** Fatia rotativa de um array, pra tudo entrar em algum ciclo sem estourar o teto. */
+function fatiaRotativa(lista, quantas, cursor) {
+  if (quantas <= 0) return { fatia: [], cursor };
+  if (lista.length <= quantas) return { fatia: lista, cursor: 0 };
+  const fatia = [];
+  for (let i = 0; i < quantas; i++) fatia.push(lista[(cursor + i) % lista.length]);
+  return { fatia, cursor: (cursor + quantas) % lista.length };
+}
+/**
+ * O que vai no proximo ciclo de sync.
+ * Buscar as ~95 tasks toda vez dava 76 req/min e raspava o teto do ClickUp (100/min): o que
+ * estourava falhava calado e ficava desatualizado. Agora a JANELA QUENTE (semana passada ate
+ * 2 semanas a frente, mais os posts sem data) tem prioridade, o resto entra em rodizio, e o
+ * TETO e absoluto: nunca sai mais que TETO_POR_CICLO tasks por ciclo, nem que a janela quente
+ * sozinha passe disso.
+ */
 function slotsPraSync() {
   const janela = mesesJanela();
-  return db.slots.filter(s => s.taskId && (!s.date || janela.has(s.date.slice(0, 7))));
+  const agora = Date.now();
+  const iso = ms => new Date(ms).toISOString().slice(0, 10);
+  const de = iso(agora - 7 * 86400000), ate = iso(agora + 14 * 86400000);
+  const candidatos = db.slots.filter(s => s.taskId && (!s.date || janela.has(s.date.slice(0, 7))));
+  const quentes = candidatos.filter(s => !s.date || (s.date >= de && s.date <= ate));
+  const frios = candidatos.filter(s => s.date && (s.date < de || s.date > ate));
+  // a janela quente sozinha ja estoura? entao ela tambem entra em rodizio
+  if (quentes.length >= TETO_POR_CICLO) {
+    const r = fatiaRotativa(quentes, TETO_POR_CICLO, rodizioQuente);
+    rodizioQuente = r.cursor;
+    return r.fatia;
+  }
+  const r = fatiaRotativa(frios, TETO_POR_CICLO - quentes.length, rodizioFrio);
+  rodizioFrio = r.cursor;
+  return quentes.concat(r.fatia);
 }
 async function backgroundSync() {
   if (sync.rodando || !config.token) return;
@@ -518,7 +550,16 @@ const server = http.createServer(async (req, res) => {
       if (b.vaga && !slot.taskId) slot.vaga = true;
       undoSlots(slot.vaga ? 'sinalizar falta criar' : 'novo post', [], [slot.id]);
       db.slots.push(slot); saveDb();
-      enrichSlots([slot]).catch(() => {});
+      // Se o post nasce com task, ESPERA o nome/status do ClickUp antes de responder (teto de
+      // 4s). Antes isso era disparado e esquecido, então o card nascia como "sincronizando" e
+      // só ganhava nome no próximo ciclo de fundo, até 75s depois. Se o ClickUp demorar mais
+      // que o teto, responde assim mesmo e o nome chega no ciclo seguinte.
+      if (slot.taskId) {
+        await Promise.race([
+          enrichSlots([slot]).catch(() => {}),
+          new Promise(r => setTimeout(r, 4000)),
+        ]);
+      }
       const entrega = queueDue(slot);
       return json(res, 200, { ok: true, slot, entrega });
     }

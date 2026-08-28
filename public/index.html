@@ -761,7 +761,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.27'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.28'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -807,6 +807,7 @@ const S = {
   contas:{}, abas:[], slots:[], referencias:[], duePendentes:[], hasToken:false, user:null,
   aba:'SEUBONÉ', mes:null, // "2026-07" = mês em FOCO (o que está sob os olhos no fluxo)
   meses:[], crescendo:false, abriuNoMes:false, // janela de meses desenhados no fluxo contínuo
+  assinatura:'', // retrato do que está na tela, pra atualização automática não redesenhar à toa
   filtroConta:new Set(),
   editing:null, taskSlot:null, dragging:false, lastSync:null,
   drawer:false, busca:'', editingRef:null,
@@ -843,17 +844,22 @@ async function api(path, opts={}){
   if(!r.ok) throw Object.assign(new Error(j.erro||('HTTP '+r.status)), {status:r.status});
   return j;
 }
-async function loadState(fresh){
+async function loadState(fresh, silencioso){
   let j;
   // fluxo contínuo precisa dos posts de qualquer mês, então não filtra por mês;
   // a visão Semana continua pedindo só o mês em foco (payload menor).
   const q = S.view==='semana' ? ('month='+S.mes) : '';
   try{ j = await api('/api/state'+(q||fresh?'?':'')+q+(fresh?(q?'&':'')+'fresh=1':'')); }
-  catch(e){ if(e.status===401){ mostrarLogin(); return; } throw e; }
+  catch(e){ if(e.status===401){ if(!silencioso) mostrarLogin(); return; } if(silencioso) return; throw e; }
+  // assinatura barata do que aparece na tela: se nada mudou, o modo silencioso não redesenha
+  const assinatura = j.slots.map(x=>x.id+'|'+(x.date||'')+'|'+(x.tituloCache||'')+'|'+((x.statusCache&&x.statusCache.status)||'')+'|'+(x.assigneeCache||'')+'|'+(x.postado?1:0)).join(';')
+    + '#' + (j.duePendentes||[]).length;
+  const mudou = assinatura !== S.assinatura;
+  S.assinatura = assinatura;
   Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], duePendentes:j.duePendentes||[], hasToken:j.hasToken, user:j.user, temSenha:j.temSenha});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
-  render();
+  if(mudou || !silencioso) render(); else renderRefLabel();
   const b = $('#banner');
   if(j.versao !== FRONT_VERSAO){
     b.innerHTML = '<b>O painel foi atualizado e o servidor ainda roda a versão antiga.</b> Feche a janela preta, abra o INICIAR.bat de novo e aperte Ctrl+F5 aqui.';
@@ -1875,6 +1881,25 @@ function irParaMes(mes, suave){
   window.scrollTo({ top: bloco.getBoundingClientRect().top + window.scrollY - topo, behavior: suave?'smooth':'auto' });
   S.mes = mes; marcarMesFoco();
 }
+// ---- atualização automática ----
+// O painel nunca perguntava de novo sozinho: depois de criar um post, o nome e o status só
+// apareciam quando você mexia em outra coisa ou clicava em atualizar. Agora ele pergunta a
+// cada 20s, mas SÓ quando dá: aba visível, nada aberto, nada sendo arrastado ou digitado.
+const POLL_MS = 20_000;
+function podeAtualizarSozinho(){
+  if(document.hidden) return false;
+  if(S.dragging || S.clip) return false;
+  if(document.querySelector('.ov.open')) return false;      // qualquer modal aberto
+  if(document.getElementById('vagapop')) return false;       // menu de sinalizar aberto
+  const a = document.activeElement;
+  if(a && (a.tagName==='INPUT' || a.tagName==='TEXTAREA' || a.tagName==='SELECT')) return false;
+  if(S.selecao && S.selecao.size) return false;              // seleção múltipla em andamento
+  return true;
+}
+setInterval(()=>{ if(podeAtualizarSozinho()) loadState(false, true); }, POLL_MS);
+// voltou pra aba: atualiza na hora, sem esperar o próximo ciclo
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && podeAtualizarSozinho()) loadState(false, true); });
+
 let scrollAgendado = false;
 window.addEventListener('scroll', ()=>{
   if(scrollAgendado) return;
