@@ -454,6 +454,13 @@
   .aplic-sub{font-size:12px; color:var(--ink-2); margin-top:2px}
   .aplic-sub a{color:var(--info)}
   .aplic-todos{font-size:12px; color:var(--ink-2); cursor:pointer; display:flex; align-items:center; gap:6px}
+  .wpp-tit{font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--sb); margin-bottom:6px}
+  .wpp-grid{display:grid; grid-template-columns:1fr 1fr; gap:9px}
+  .wpp-grid label{display:block; font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3); margin-bottom:3px}
+  .wpp-grid input{width:100%}
+  #cZapiEstado.on{color:var(--ok); font-weight:700}
+  #cZapiEstado.off{color:var(--ink-3)}
+  #zMsg.ok{color:var(--ok); font-weight:700} #zMsg.err{color:var(--crit); font-weight:700}
   /* importar em lote */
   #impLinks{width:100%; min-height:150px; border:1.5px solid var(--hair); border-radius:10px; background:var(--surface-2);
     padding:11px 13px; font:inherit; font-size:12px; line-height:1.5; color:var(--ink); resize:vertical}
@@ -731,6 +738,23 @@
         <input type="checkbox" id="cSemLogin" style="width:15px; height:15px"> desativar o login (acesso livre; só se o painel NÃO estiver exposto)
       </label>
       <p class="note">Com senha definida, quem abrir o link precisa dela pra entrar. <b>Nunca deixe o painel exposto sem senha.</b> <span id="cLoginState"></span></p>
+      <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
+      <div class="wpp-tit">Aviso no WhatsApp quando uma task vai pra APROVAR</div>
+      <div id="cZapiEstado" class="note"></div>
+      <div class="wpp-grid">
+        <div><label>Instância (Z-API)</label><input type="password" id="zInst" placeholder="deixe em branco pra não mexer"></div>
+        <div><label>Token da instância</label><input type="password" id="zTok" placeholder="deixe em branco pra não mexer"></div>
+        <div><label>Client-Token (conta)</label><input type="password" id="zCli" placeholder="opcional, se a sua conta exigir"></div>
+        <div><label>Seu número com DDI</label><input type="text" id="zDest" placeholder="5584999999999"></div>
+      </div>
+      <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer; margin-top:8px">
+        <input type="checkbox" id="zLigado" style="width:15px; height:15px" checked> avisos ligados
+      </label>
+      <p class="note">Use a mesma instância que já roda no MKT Hub. Só avisa quando o status <b>muda</b> pra aprovar, uma vez por task. O painel precisa estar no ar pra detectar: se o Render dormir, o aviso sai quando ele acordar.</p>
+      <div style="display:flex; gap:8px; align-items:center; margin-top:6px">
+        <button class="mbtn" id="zTeste">Enviar mensagem de teste</button>
+        <span class="note" id="zMsg"></span>
+      </div>
     </div>
   </div>
   <div class="mfoot" style="display:flex; justify-content:space-between; gap:8px"><button class="mbtn" id="cLogout">Sair da sessão</button><button class="mbtn primary" id="cSave">Salvar</button></div>
@@ -830,7 +854,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.32'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.33'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2561,11 +2585,24 @@ function atualizaLoginState(){
   el.style.color = S.temSenha? 'var(--ok)' : 'var(--warn)';
   el.style.fontWeight = '700';
 }
-function openConfig(){
+function pintaZapi(z){
+  const el = $('#cZapiEstado'); if(!el) return;
+  if(!z){ el.textContent=''; return; }
+  el.className = 'note ' + (z.pronto && z.ligado ? 'on' : 'off');
+  el.textContent = !z.pronto ? 'Não configurado: os avisos não vão sair.'
+    : (z.ligado ? 'Ligado, avisando '+(z.destino||'') : 'Configurado, mas com os avisos DESLIGADOS.')
+      + (z.porAmbiente ? ' · credenciais vindo das variáveis do Render' : '');
+  $('#zLigado').checked = !!z.ligado;
+  if(z.destino && !$('#zDest').value) $('#zDest').placeholder = z.destino;
+}
+async function openConfig(){
   $('#cStatus').textContent = S.user? ('Conectado como '+S.user.nome+' ('+S.user.email+')') : (S.hasToken? 'Token salvo.' : 'Sem token configurado.');
   $('#cToken').value=''; $('#cSenha').value=''; $('#cSemLogin').checked=false;
+  ['#zInst','#zTok','#zCli','#zDest'].forEach(k=>{ $(k).value=''; });
+  $('#zMsg').textContent=''; $('#zMsg').className='note';
   atualizaLoginState();
   $('#ovConfig').classList.add('open');
+  try{ const c = await api('/api/config'); pintaZapi(c.zapi); }catch(e){}
 }
 $('#btnConfig').onclick = openConfig;
 $('#cSave').onclick = async ()=>{
@@ -2576,6 +2613,14 @@ $('#cSave').onclick = async ()=>{
   if(t) body.token = t;
   if(semLogin) body.senha = '';
   else if(s) body.senha = s;
+  // WhatsApp: só manda o que foi preenchido, pra não apagar o que já está salvo
+  const z = {};
+  if($('#zInst').value.trim()) z.instancia = $('#zInst').value.trim();
+  if($('#zTok').value.trim()) z.token = $('#zTok').value.trim();
+  if($('#zCli').value.trim()) z.clientToken = $('#zCli').value.trim();
+  if($('#zDest').value.trim()) z.destino = $('#zDest').value.trim();
+  z.ligado = $('#zLigado').checked;
+  if(Object.keys(z).length > 1 || $('#zLigado').dataset.mexeu) body.zapi = z;
   if(!Object.keys(body).length){ $('#cStatus').textContent = 'Nada novo pra salvar.'; return; }
   $('#cStatus').textContent = 'Salvando…';
   try{
@@ -2583,11 +2628,23 @@ $('#cSave').onclick = async ()=>{
     if(body.token && r.user) $('#cStatus').textContent = 'Conectado como '+r.user.nome+' ('+r.user.email+')';
     else $('#cStatus').textContent = 'Salvo.';
     $('#cToken').value=''; $('#cSenha').value=''; $('#cSemLogin').checked=false;
-    if('senha' in body) toast(body.senha? 'Login ativado (guarde a senha)' : 'Login desativado');
+    if(r.zapi) pintaZapi(r.zapi);
+    if('zapi' in body) toast(r.zapi && r.zapi.pronto ? 'WhatsApp configurado · mande um teste' : 'WhatsApp salvo, mas ainda faltam dados');
+    else if('senha' in body) toast(body.senha? 'Login ativado (guarde a senha)' : 'Login desativado');
     else toast('ClickUp conectado');
     await loadState(true);
     atualizaLoginState();
   }catch(e){ $('#cStatus').textContent = 'Falhou: '+e.message; }
+};
+$('#zLigado').addEventListener('change', ()=>{ $('#zLigado').dataset.mexeu = '1'; });
+$('#zTeste').onclick = async ()=>{
+  const btn = $('#zTeste'), msg = $('#zMsg');
+  btn.disabled = true; btn.textContent = 'enviando…'; msg.textContent=''; msg.className='note';
+  try{
+    await api('/api/zapi/teste', {method:'POST'});
+    msg.textContent = 'Enviado. Confira o seu WhatsApp.'; msg.className='note ok';
+  }catch(e){ msg.textContent = 'Não enviou: '+e.message; msg.className='note err'; }
+  finally{ btn.disabled=false; btn.textContent='Enviar mensagem de teste'; }
 };
 $('#cLogout').onclick = async ()=>{ try{ await api('/api/logout',{method:'POST'}); }catch(e){} location.reload(); };
 

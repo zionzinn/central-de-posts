@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.32'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.33'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -36,6 +36,8 @@ let db = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 // migrações leves (nunca destrutivas)
 if (!Array.isArray(db.referencias)) db.referencias = [];
 if (!db.dueSync || typeof db.dueSync !== 'object' || Array.isArray(db.dueSync)) db.dueSync = {};
+// último status já avisado por task, pra não repetir aviso quando o status oscila ou o servidor reinicia
+if (!db.avisos || typeof db.avisos !== 'object' || Array.isArray(db.avisos)) db.avisos = {};
 let saveTimer = null;
 function saveDb() {
   clearTimeout(saveTimer);
@@ -134,6 +136,64 @@ async function cuWrite(pathname, method, body) {
   } finally { clearTimeout(to); }
 }
 
+// ---------------- WhatsApp (Z-API) ----------------
+// Avisa quando uma task entra em APROVAR. Credenciais vêm do ambiente (Render) ou do
+// config.json (uso local); o ambiente sempre ganha. As chaves NUNCA voltam pro navegador.
+function zapiCfg() {
+  const c = config.zapi || {};
+  return {
+    instancia: (process.env.ZAPI_INSTANCIA || c.instancia || '').trim(),
+    token: (process.env.ZAPI_TOKEN || c.token || '').trim(),
+    clientToken: (process.env.ZAPI_CLIENT_TOKEN || c.clientToken || '').trim(),
+    destino: String(process.env.ZAPI_DESTINO || c.destino || '').replace(/\D/g, ''),
+    ligado: (process.env.ZAPI_LIGADO || (c.ligado === false ? '0' : '1')) !== '0',
+  };
+}
+function zapiPronto() {
+  const z = zapiCfg();
+  return !!(z.instancia && z.token && z.destino);
+}
+/** Manda uma mensagem de texto. Devolve {ok, detalhe} e NUNCA derruba o sync. */
+async function zapiEnviar(texto) {
+  const z = zapiCfg();
+  if (!zapiPronto()) return { ok: false, detalhe: 'WhatsApp não configurado' };
+  const base = process.env.ZAPI_API || 'https://api.z-api.io';
+  const url = `${base}/instances/${z.instancia}/token/${z.token}/send-text`;
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 15_000);
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (z.clientToken) headers['Client-Token'] = z.clientToken;
+    const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ phone: z.destino, message: texto }), signal: ctrl.signal });
+    const corpo = await r.text().catch(() => '');
+    if (!r.ok) return { ok: false, detalhe: 'Z-API HTTP ' + r.status + ': ' + corpo.slice(0, 200) };
+    return { ok: true, detalhe: corpo.slice(0, 200) };
+  } catch (e) {
+    return { ok: false, detalhe: String(e && e.message || e) };
+  } finally { clearTimeout(to); }
+}
+/** Texto do aviso de uma task que entrou em aprovar. */
+function textoAviso(slot, nome) {
+  const conta = (db.contas[slot.conta] && db.contas[slot.conta].nome) || slot.conta;
+  const quando = slot.date ? slot.date.split('-').reverse().join('/') : 'sem data';
+  return [
+    '🟡 *PRA APROVAR* · ' + conta,
+    nome || '(sem nome)',
+    'Post do dia ' + quando,
+    'https://app.clickup.com/t/' + slot.taskId,
+  ].join('\n');
+}
+/** Dispara os avisos das tasks que ACABARAM de entrar em aprovar. */
+async function avisarAprovar(transicoes) {
+  if (!transicoes.length || !zapiPronto() || !zapiCfg().ligado) return;
+  for (const t of transicoes.slice(0, 12)) { // teto por ciclo, pra nunca virar enxurrada
+    const r = await zapiEnviar(textoAviso(t.slot, t.nome));
+    if (r.ok) { db.avisos[t.taskId] = 'aprovar'; }
+    else console.log('[whatsapp] falhou:', r.detalhe);
+  }
+  saveDb();
+}
+
 function normStatus(s) { return (s || '').trim().toLowerCase(); }
 function statusColor(task) {
   const raw = task?.status?.color || '';
@@ -161,6 +221,7 @@ async function enrichSlots(slotList, { fresh = false } = {}) {
   if (!ids.length) return { ok: true, atualizados: 0 };
   const results = await mapLimit(ids, 6, id => cuFetch(`/task/${id}`, { fresh }));
   let n = 0;
+  const novasAprovacoes = [];
   results.forEach((task, i) => {
     const id = ids[i];
     if (!task || task.__err) return;
@@ -168,6 +229,20 @@ async function enrichSlots(slotList, { fresh = false } = {}) {
     const st = { status: normStatus(task.status?.status), color: statusColor(task) };
     const assignee = (task.assignees || []).map(a => a.username).join(', ');
     const due = task.due_date ? Number(task.due_date) : null;
+    // ENTROU em aprovar agora? Só avisa se a gente JÁ CONHECIA um status anterior diferente
+    // disso. Sem essa trava, um restart do servidor mandaria aviso de tudo que já estava
+    // em aprovar. E db.avisos impede repetir quando o status vai e volta.
+    if (st.status === 'aprovar' && db.avisos[id] !== 'aprovar') {
+      const antes = db.slots.find(s => s.taskId === id && s.statusCache && s.statusCache.status);
+      const anterior = antes ? antes.statusCache.status : null;
+      if (anterior && anterior !== 'aprovar') {
+        const slot = db.slots.find(s => s.taskId === id);
+        if (slot) novasAprovacoes.push({ taskId: id, slot, nome: task.name || '' });
+      } else if (!anterior) {
+        db.avisos[id] = 'aprovar'; // primeira vez que vemos: registra sem avisar
+      }
+    }
+    if (st.status !== 'aprovar' && db.avisos[id]) delete db.avisos[id];
     for (const s of db.slots) {
       if (s.taskId === id) {
         s.tituloCache = task.name || s.tituloCache;
@@ -180,6 +255,7 @@ async function enrichSlots(slotList, { fresh = false } = {}) {
     }
   });
   if (n) saveDb();
+  if (novasAprovacoes.length) avisarAprovar(novasAprovacoes).catch(() => {});
   return { ok: true, atualizados: n };
 }
 const enrichAt = new Map();
@@ -532,6 +608,7 @@ const server = http.createServer(async (req, res) => {
         slots, referencias: db.referencias,
         hasToken: !!config.token, user: config.user || null, enriquecimento,
         temSenha: !!config.senha,
+        zapiPronto: zapiPronto() && zapiCfg().ligado,
         duePendentes: Object.keys(db.dueSync),
       });
     }
@@ -1030,8 +1107,19 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---------- config ----------
+    // ---------- teste do WhatsApp: manda uma mensagem agora e devolve o que a Z-API respondeu ----------
+    if (p === '/api/zapi/teste' && req.method === 'POST') {
+      if (!zapiPronto()) return json(res, 400, { erro: 'faltam dados: instância, token e número de destino' });
+      const r = await zapiEnviar('✅ Teste do Central de Posts. Se você recebeu isto, os avisos de "pra aprovar" vão chegar aqui.');
+      if (!r.ok) return json(res, 502, { erro: r.detalhe });
+      return json(res, 200, { ok: true, detalhe: r.detalhe });
+    }
+
     if (p === '/api/config' && req.method === 'GET') {
-      return json(res, 200, { hasToken: !!config.token, user: config.user || null, temSenha: !!config.senha });
+      const z = zapiCfg();
+      return json(res, 200, { hasToken: !!config.token, user: config.user || null, temSenha: !!config.senha,
+        zapi: { pronto: zapiPronto(), ligado: z.ligado, porAmbiente: !!process.env.ZAPI_TOKEN,
+                destino: z.destino ? ('•••• ' + z.destino.slice(-4)) : '' } });
     }
     if (p === '/api/config' && req.method === 'POST') {
       const b = await readBody(req);
@@ -1053,7 +1141,18 @@ const server = http.createServer(async (req, res) => {
         cuCache.clear(); enrichAt.clear();
         backgroundSync();
       }
-      return json(res, 200, { ok: true, user: config.user || null, temSenha: !!config.senha });
+      if ('zapi' in b && b.zapi && typeof b.zapi === 'object') {
+        const z = config.zapi || {};
+        for (const k of ['instancia', 'token', 'clientToken', 'destino']) {
+          if (k in b.zapi) z[k] = String(b.zapi[k] || '').trim();
+        }
+        if ('ligado' in b.zapi) z.ligado = !!b.zapi.ligado;
+        config.zapi = z; saveConfig(config);
+      }
+      const zc = zapiCfg();
+      return json(res, 200, { ok: true, user: config.user || null, temSenha: !!config.senha,
+        zapi: { pronto: zapiPronto(), ligado: zc.ligado, porAmbiente: !!process.env.ZAPI_TOKEN,
+                destino: zc.destino ? ('•••• ' + zc.destino.slice(-4)) : '' } });
     }
 
     // planilha aposentada: endpoint fica dormente por segurança
