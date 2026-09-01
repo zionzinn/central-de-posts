@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.33'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.34'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -136,6 +136,26 @@ async function cuWrite(pathname, method, body) {
   } finally { clearTimeout(to); }
 }
 
+// ---------------- app instalável (PWA) ----------------
+// O manifesto e o ícone são SERVIDOS PELO CÓDIGO, não como arquivos na pasta public.
+// Motivo prático: a rotina de sincronizar com a pasta da nuvem copia server.js e
+// index.html; arquivo solto é o que fica pra trás e quebra só no online.
+const ICONE_APP_B64 = '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';
+const MANIFESTO = {
+  name: 'Central de Posts · Grupo SB',
+  short_name: 'Central de Posts',
+  start_url: '/',
+  scope: '/',
+  display: 'standalone',
+  background_color: '#0F0F0D',
+  theme_color: '#FCC100',
+  lang: 'pt-BR',
+  icons: [
+    { src: '/icone.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+    { src: '/icone.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+  ],
+};
+
 // ---------------- WhatsApp (Z-API) ----------------
 // Avisa quando uma task entra em APROVAR. Credenciais vêm do ambiente (Render) ou do
 // config.json (uso local); o ambiente sempre ganha. As chaves NUNCA voltam pro navegador.
@@ -146,7 +166,9 @@ function zapiCfg() {
     token: (process.env.ZAPI_TOKEN || c.token || '').trim(),
     clientToken: (process.env.ZAPI_CLIENT_TOKEN || c.clientToken || '').trim(),
     destino: String(process.env.ZAPI_DESTINO || c.destino || '').replace(/\D/g, ''),
-    ligado: (process.env.ZAPI_LIGADO || (c.ligado === false ? '0' : '1')) !== '0',
+    // desligada por padrão: o Zion escolheu usar a notificação do computador. Só liga
+    // com ZAPI_LIGADO=1 no ambiente ou marcando o checkbox nas configurações.
+    ligado: process.env.ZAPI_LIGADO ? process.env.ZAPI_LIGADO !== '0' : c.ligado === true,
   };
 }
 function zapiPronto() {
@@ -1113,6 +1135,17 @@ const server = http.createServer(async (req, res) => {
       const r = await zapiEnviar('✅ Teste do Central de Posts. Se você recebeu isto, os avisos de "pra aprovar" vão chegar aqui.');
       if (!r.ok) return json(res, 502, { erro: r.detalhe });
       return json(res, 200, { ok: true, detalhe: r.detalhe });
+    }
+
+    // ---------- manifesto e ícone do app instalável ----------
+    if (p === '/manifest.webmanifest' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8', 'Cache-Control': 'no-cache' });
+      return res.end(JSON.stringify(MANIFESTO));
+    }
+    if (p === '/icone.png' && req.method === 'GET') {
+      const buf = Buffer.from(ICONE_APP_B64, 'base64');
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=86400' });
+      return res.end(buf);
     }
 
     if (p === '/api/config' && req.method === 'GET') {
