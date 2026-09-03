@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.38'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.39'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -921,7 +921,6 @@ const server = http.createServer(async (req, res) => {
         'date' in b ? ((b.date || null) ? 'mover post pra ' + String(b.date).split('-').reverse().join('/') : 'mandar post pro banco') :
         'postado' in b ? (b.postado ? 'marcar postado' : 'desmarcar postado') :
         'gm' in b ? 'mudar GM' :
-        'bp' in b ? 'mudar tag BP' :
         'vaga' in b ? (b.vaga ? 'sinalizar falta criar' : 'dar baixa na vaga') :
         'cat' in b ? 'mudar categoria no banco' :
         'notas' in b && Object.keys(b).length === 1 ? 'editar observação' :
@@ -936,7 +935,6 @@ const server = http.createServer(async (req, res) => {
       for (const k of ['titulo', 'formato', 'obs', 'drive', 'linkRef', 'angulo', 'notas']) if (k in b) slot[k] = b[k] || '';
       if ('postado' in b) slot.postado = !!b.postado;
       if ('gm' in b) slot.gm = (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '';
-      if ('bp' in b) slot.bp = !!b.bp; // tag BP (temporária, só SeuBoné)
       if ('vaga' in b) slot.vaga = !!b.vaga; // vaga = falta criar este post
       if ('cat' in b) slot.cat = typeof b.cat === 'string' ? b.cat : '';
       if ('aprovado' in b) slot.aprovado = !!b.aprovado;

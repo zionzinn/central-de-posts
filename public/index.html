@@ -309,7 +309,6 @@
   .colar-aqui:hover{background:var(--sb); color:#000}
   .colar-aqui svg{width:12px; height:12px}
   .card.gm{border-top:1.5px solid rgba(252,193,0,.5); border-right:1.5px solid rgba(252,193,0,.5); border-bottom:1.5px solid rgba(252,193,0,.5)}
-  .card.bp{border:2px solid #FF2E88; box-shadow:3px 3px 0 rgba(255,46,136,.35)}
   .card.sel{outline:3px solid var(--info); outline-offset:1px}
   .card .tit{font-size:12.3px; font-weight:600; line-height:1.3; color:var(--ink);
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
@@ -318,10 +317,6 @@
   .tagic .ic{width:11px; height:11px; stroke-width:3}
   .tagic.t-pin{background:#FF8A3D; color:#000}
   .tagic.t-gm{background:var(--sb); color:#000}
-  .tagic.t-bp{background:#FF2E88; color:#fff; width:auto; padding:0 5px; font-size:10px; font-weight:800; letter-spacing:.03em}
-  .bppill{display:inline-flex; align-items:center; gap:3px; background:#FF2E88; color:#fff; font-weight:800; font-size:11px; padding:2px 8px; border-radius:5px; border:var(--bw) solid var(--stroke)}
-  .mbtn.bpon{background:#FF2E88; color:#fff; border-color:var(--stroke); font-weight:800}
-  .chip.bpchip{border-color:#FF2E88; color:#FF7AB8; font-weight:700}
   .tagic.t-apr{background:var(--ok); color:#000}
   .tagic.t-clb{background:var(--ink); color:#000; width:auto; padding:0 5px; gap:3px}
   .tagic.t-due{background:var(--warn); color:#000}
@@ -358,6 +353,10 @@
   .qpost .ic,.qvaga .ic,.qfonte .ic,.qdel .ic{width:11px; height:11px; stroke-width:3}
   .gmday{color:var(--sb); margin-left:5px; display:inline-flex; transform:translateY(1px)}
   .gmday .ic{width:11px; height:11px; fill:var(--sb); stroke:var(--sb); stroke-width:1}
+  .gmday.esperado{opacity:.85}
+  .gmday.esperado .ic{fill:none; stroke:var(--sb); stroke-width:1.8}
+  .day.gmpede{background:linear-gradient(180deg, rgba(252,193,0,.06), transparent 60%)}
+  .day.gmpede .dnum{color:var(--sb)}
 
   /* ---------- seleção ---------- */
   #selbar{position:fixed; left:50%; transform:translateX(-50%) translateY(90px); bottom:18px; z-index:70;
@@ -475,7 +474,12 @@
     letter-spacing:.05em; background:#fff; color:var(--crit); border:1.5px solid var(--stroke);
     border-radius:6px; padding:2px 9px; white-space:nowrap}
   #alertaBar .ab-selo svg{width:13px; height:13px}
-  #alertaBar .ab-lista{font-size:12.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1}
+  #alertaBar .ab-lista{display:flex; align-items:center; gap:6px; overflow:hidden; flex:1; flex-wrap:wrap}
+  #alertaBar .ab-item{background:rgba(0,0,0,.28); color:#fff; border:1.5px solid rgba(255,255,255,.35);
+    border-radius:6px; padding:3px 9px; font-size:12px; font-weight:700; cursor:pointer; max-width:340px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  #alertaBar .ab-item:hover{background:#fff; color:var(--crit)}
+  #alertaBar .ab-mais{font-size:11.5px; font-weight:700; opacity:.85}
   #alertaBar button{border:1.5px solid var(--stroke); border-radius:6px; font-weight:800; font-size:11.5px;
     padding:4px 10px; cursor:pointer; background:#000; color:#fff}
   #alertaBar .ab-ver:hover{background:#fff; color:#000}
@@ -906,7 +910,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.38'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.39'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1122,7 +1126,6 @@ function gmOverride(s, quer){
   const cad = gmCadenciaDia(s.date);
   return quer===cad ? '' : (quer ? 'sim' : 'nao');
 }
-function isBp(s){ return !!s.bp; } // tag BP (temporária, só SeuBoné)
 function fmtDataHora(ms){ return new Date(ms).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 function refIcon(url){
   const u=(url||'').toLowerCase();
@@ -1410,11 +1413,6 @@ function renderLegend(){
       ? ('GM automático: a cada '+(S.gmCadencia.periodo||3)+' dias desde '+S.gmCadencia.ancora.split('-').reverse().join('/')+'. Clique num card pra ajustar um dia. Configura na engrenagem.')
       : 'Rotina: 2 dias sem GM, 1 dia com GM. Pra marcar sozinho, ligue o GM automático na engrenagem.';
     el.appendChild(gm);
-    const bpc = document.createElement('span');
-    bpc.className='chip bpchip';
-    bpc.innerHTML = 'BP = post BP';
-    bpc.title = 'tag temporária pra destacar posts BP';
-    el.appendChild(bpc);
   }
   const hint = document.createElement('span');
   hint.className='hint';
@@ -1430,7 +1428,7 @@ function cardEl(s){
   const d = document.createElement('div');
   const vaga = isVaga(s);
   const fonte = isFonteBanco(s);
-  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(isBp(s)?' bp':'')+(vaga?' vaga':'')+(fonte?' fonte':'')+(multi?' temconta':'');
+  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(vaga?' vaga':'')+(fonte?' fonte':'')+(multi?' temconta':'');
   if(multi) d.style.setProperty('--corconta', cor);
   d.style.borderLeftColor = st.color;
   d.draggable = true; d.dataset.id = s.id;
@@ -1450,7 +1448,6 @@ function cardEl(s){
     '<div class="meta">'+
       (s.fixo?'<span class="tagic t-pin" title="data fixa: não se move no empurrar">'+icon('pin')+'</span>':'')+
       (isGm(s)?'<span class="tagic t-gm" title="grande marca na capa">'+icon('star')+'</span>':'')+
-      (isBp(s)?'<span class="tagic t-bp" title="post BP">BP</span>':'')+
       (s.aprovado?'<span class="tagic t-apr" title="arte aprovada pela diretoria">'+icon('check')+'</span>':'')+
       (clb.length?'<span class="tagic t-clb" title="collab: '+esc([s.conta].concat(clb).map(c=>S.contas[c]?S.contas[c].nome:c).join(' + '))+'">'+icon('users','s')+
         [s.conta].concat(clb).map(c=>'<span class="cdot" style="background:'+contaCor(c)+'; margin:0"></span>').join('')+'</span>':'')+
@@ -1959,9 +1956,13 @@ function celulaDia(c, di, porDia, semana){
   const cell = document.createElement('div');
   if(!c.date){ cell.className='day fora'+(semana?' big':''); return cell; }
   const doDia = porDia[c.date]||[];
-  cell.className = 'day'+(di>=5?' fds':'')+(c.date===hoje?' hoje':'')+(semana?' big':'')+(doDia.some(isVaga)?' temvaga':'');
-  cell.innerHTML = '<div class="day-top"><span class="dnum">'+c.dnum+
-    (doDia.some(isGm)?'<span class="gmday" title="dia com post de grande marca">'+icon('star')+'</span>':'')+
+  const gmDia = S.aba==='SEUBONÉ' && gmCadenciaDia(c.date);   // a cadência pede GM neste dia?
+  const temGmPost = doDia.some(isGm);
+  cell.className = 'day'+(di>=5?' fds':'')+(c.date===hoje?' hoje':'')+(semana?' big':'')+(doDia.some(isVaga)?' temvaga':'')+(gmDia&&!temGmPost?' gmpede':'');
+  const estrela = temGmPost
+    ? '<span class="gmday" title="dia de grande marca (GM)">'+icon('star')+'</span>'
+    : (gmDia ? '<span class="gmday esperado" title="este dia precisa de um post de GRANDE MARCA (GM), mesmo sem post ainda">'+icon('star')+'</span>' : '');
+  cell.innerHTML = '<div class="day-top"><span class="dnum">'+c.dnum+ estrela +
     '</span><span class="day-acts">'+
       '<button class="vagabtn" title="sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>'+
       '<button class="addbtn" title="novo post">'+icon('plus','s')+'</button>'+
@@ -2139,15 +2140,31 @@ function renderAlerta(){
   const n = pendentesAprovar.length;
   b.innerHTML =
     '<span class="ab-selo">'+icon('alerta')+n+' PRA APROVAR</span>'+
-    '<span class="ab-lista">'+pendentesAprovar.slice(0,3).map(x=>esc(x.titulo)).join(' · ')+
-      (n>3? ' · +'+(n-3) : '')+'</span>'+
-    '<button class="ab-ver">ver no painel</button><button class="ab-x" title="dispensar">✕</button>';
+    '<span class="ab-lista">'+pendentesAprovar.slice(0,4).map((x,i)=>
+      '<button class="ab-item" data-i="'+i+'" title="abrir esta task">'+esc(x.titulo)+'</button>').join('')+
+      (n>4? '<span class="ab-mais">+'+(n-4)+'</span>' : '')+'</span>'+
+    '<button class="ab-x" title="dispensar">✕</button>';
   b.classList.add('on');
-  b.querySelector('.ab-ver').onclick = ()=>{ S.filtro='aprovar'; const sel=document.querySelector('#legend select.filtro'); if(sel) sel.value='aprovar'; limparAlerta(); render(); };
+  b.querySelectorAll('.ab-item').forEach(btn=> btn.onclick = ()=> abrirTaskDoAlerta(pendentesAprovar[Number(btn.dataset.i)]));
   b.querySelector('.ab-x').onclick = limparAlerta;
   piscaTitulo();
 }
 function limparAlerta(){ pendentesAprovar = []; renderAlerta(); }
+function abrirTaskDoAlerta(x){
+  const s = S.slots.find(y=>y.id===x.id) || S.slots.find(y=>y.taskId===x.taskId);
+  if(!s){ if(x.taskId) window.open('https://app.clickup.com/t/'+x.taskId,'_blank'); return; }
+  const aba = S.contas[s.conta] && S.contas[s.conta].aba;
+  if(aba && aba!==S.aba){ S.aba=aba; S.filtroConta.clear(); render(); }
+  if(s.date && S.view!=='semana'){ irParaMes(s.date.slice(0,7)); }
+  setTimeout(()=>{
+    const c=document.querySelector('.card[data-id="'+s.id+'"]');
+    if(c) c.scrollIntoView({block:'center', behavior:'smooth'});
+    openTask(s.id);
+  }, 70);
+  // tira este da fila do alerta (já foi visto), mantém os outros
+  pendentesAprovar = pendentesAprovar.filter(y=>y.taskId!==x.taskId);
+  renderAlerta();
+}
 /** Notificação nativa do sistema (aparece no canto e fica na central do Windows). */
 function notificaSistema(novos){
   if(!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -2157,7 +2174,7 @@ function notificaSistema(novos){
         body: x.titulo + (x.data? '\nPost do dia '+brData(x.data) : ''),
         icon: '/icone.png', badge: '/icone.png', tag: 'aprovar-'+x.taskId, renotify: false,
       });
-      n.onclick = ()=>{ window.focus(); if(x.id){ const s=S.slots.find(y=>y.id===x.id); if(s) openTask(s.id); } n.close(); };
+      n.onclick = ()=>{ window.focus(); abrirTaskDoAlerta(x); n.close(); };
     }catch(e){}
   });
 }
@@ -2247,7 +2264,6 @@ function tRowDraw(s){
   row.innerHTML =
     (s.fixo?'<span class="fixopill" data-tip="data fixa">'+icon('pin')+'</span>':'')+
     (isGm(s)?'<span class="gmpill">'+icon('star','s')+'GM</span>':'')+
-    (isBp(s)?'<span class="bppill">BP</span>':'')+
     (s.aprovado?'<span class="aprpill" data-tip="arte aprovada pela diretoria">'+icon('check','s')+'APR</span>':'')+
     '<span class="stpill" style="font-size:11px; background:'+st.color+'; color:'+corTexto(st.color)+'">'+esc(st.label)+'</span>'+
     (div?'<span class="duebadge" data-tip="o padrão seria '+brData(div.esperado)+'">'+icon('clock','s')+'entrega '+brData(div.real)+' (manual)</span>':'')+
@@ -2396,16 +2412,6 @@ function tRowDraw(s){
       const antes = s.gm; s.gm = gmOverride(s, !isGm(s)); render(); tRowDraw(s);
       try{ await api('/api/slots/'+s.id,{method:'PATCH', body:JSON.stringify({gm:s.gm})}); toast(isGm(s)?'Grande marca na capa':'GM removido'); }
       catch(e){ s.gm = antes; render(); tRowDraw(s); toast(e.message,true); }
-    };
-  }
-
-  // BP (tag temporária, só SeuBoné): destaca o post de forma diferente do GM
-  if(s.conta==='seubone'){
-    const bpb = mk(icon('bookmark')+'BP', (isBp(s)?'bpon':''), isBp(s)? 'tirar a tag BP deste post' : 'marcar como post BP (destaque temporário)');
-    bpb.onclick = async ()=>{
-      const antes = !!s.bp; s.bp = !antes; render(); tRowDraw(s);
-      try{ await api('/api/slots/'+s.id,{method:'PATCH', body:JSON.stringify({bp:s.bp})}); toast(s.bp?'Marcado como BP':'BP removido'); }
-      catch(e){ s.bp = antes; render(); tRowDraw(s); toast(e.message,true); }
     };
   }
 
@@ -2647,8 +2653,7 @@ function drawTab(){
       (s.formato?'<dt>Formato</dt><dd>'+esc(s.formato)+'</dd>':'')+
       (s.angulo?'<dt>Ângulo</dt><dd>'+esc(s.angulo)+'</dd>':'')+
       (s.obs?'<dt>Observação</dt><dd>'+esc(s.obs)+'</dd>':'')+
-      (s.gm?'<dt>Grande Marca (GM)</dt><dd>'+(s.gm==='sim'?'sim, grande marca na capa':esc(s.gm))+'</dd>':'')+
-      (isBp(s)?'<dt>BP</dt><dd>sim (post BP)</dd>':'')+
+      (isGm(s)?'<dt>Grande Marca (GM)</dt><dd>sim, grande marca na capa</dd>':'')+
       ((s.collab||[]).length?'<dt>Collab</dt><dd>'+esc([s.conta].concat(s.collab).map(c=>S.contas[c]?S.contas[c].nome:c).join(' + '))+'</dd>':'')+
       (s.aprovado?'<dt>Arte</dt><dd>aprovada pela diretoria</dd>':'')+
       (s.responsavelManual?'<dt>Responsável (planilha)</dt><dd>'+esc(s.responsavelManual)+'</dd>':'')+
@@ -3034,7 +3039,6 @@ function montarHtmlSemana(posts, hoje, fim, desc){
     if(p.formato) h+='<span class="chip">'+esc2(p.formato)+'</span>';
     if(p.angulo) h+='<span class="chip ang">'+esc2(p.angulo)+'</span>';
     if(isGm(p)) h+='<span class="chip gm">GM</span>';
-    if(p.bp) h+='<span class="chip bp">BP</span>';
     return h;
   };
   // grade de colunas por dia (igual a aba Semanas), cada card abre um <dialog> com os detalhes
@@ -3093,7 +3097,7 @@ function montarHtmlSemana(posts, hoje, fim, desc){
    '.who{margin-left:auto;font-size:9px;font-weight:800;background:#2a2a27;color:#cfcec9;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex:none}'+
    '.pill{font-size:9.5px;font-weight:800;text-transform:uppercase;padding:1px 6px;border-radius:4px;color:#000}'+
    '.chip{font-size:10px;padding:1px 6px;border-radius:4px;background:#232320;border:1px solid #38382f;color:#cfcec9}'+
-   '.chip.ang{border-color:#FCC100;color:#FCC100}.chip.gm{border-color:#FCC100;background:rgba(252,193,0,.13);color:#FCC100}.chip.bp{border-color:#FF2E88;color:#FF2E88}'+
+   '.chip.ang{border-color:#FCC100;color:#FCC100}.chip.gm{border-color:#FCC100;background:rgba(252,193,0,.13);color:#FCC100}'+
    '.vazio{color:#33332e;text-align:center;padding:6px;font-size:12px}'+
    '.det{position:relative;background:#1b1b18;color:#efeee9;border:2px solid #000;border-radius:12px;max-width:600px;width:92%;box-shadow:8px 8px 0 rgba(0,0,0,.9);padding:20px 22px}'+
    '.det::backdrop{background:rgba(0,0,0,.72)}'+
