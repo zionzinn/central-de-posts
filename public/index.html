@@ -286,6 +286,12 @@
   .refform select.bkconta{flex:1; border:1.5px solid var(--hair); border-radius:6px; background:var(--surface);
     padding:7px 9px; font-size:12px; color:var(--ink)}
   .day-cards{display:flex; flex-direction:column; gap:7px; flex:1}
+  /* seleção por arrasto (marquee): retângulo que você desenha no vazio pra pegar vários cards */
+  #marquee{position:fixed; z-index:60; border:1.5px solid var(--sb); background:rgba(252,193,0,.12);
+    border-radius:4px; pointer-events:none; display:none}
+  body.marcando{user-select:none; cursor:crosshair}
+  body.marcando .card{cursor:crosshair}
+  .card.marq{outline:2px solid var(--sb); outline-offset:1px}
 
   /* ---------- card ---------- */
   .card{
@@ -651,6 +657,7 @@
   <div class="dr-body" id="prodBody"></div>
 </aside>
 
+<div id="marquee"></div>
 <div id="alertaBar"></div>
 <main>
   <div class="dows" id="dows"><div>SEG</div><div>TER</div><div>QUA</div><div>QUI</div><div>SEX</div><div>SÁB</div><div>DOM</div></div>
@@ -885,7 +892,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.34'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.35'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1355,7 +1362,7 @@ function renderLegend(){
   }
   const hint = document.createElement('span');
   hint.className='hint';
-  hint.textContent = 'arraste pra mover · alt+arrasta copia · shift+arrasta reajusta · ctrl+clique seleciona · clique abre artes';
+  hint.textContent = 'arraste no vazio pra selecionar vários · arraste um card pra mover · alt+arrasta copia · shift+arrasta reajusta · clique abre artes';
   el.appendChild(hint);
 }
 
@@ -3319,6 +3326,62 @@ $('#impCriar').onclick = async ()=>{
   }catch(e){ $('#impMsg').textContent = 'Erro: '+e.message; }
   finally{ btn.disabled=false; btn.textContent='Criar posts'; }
 };
+
+// ================= seleção por arrasto (marquee) =================
+// Desenhar um retângulo no ESPAÇO VAZIO da grade seleciona todos os cards que ele toca.
+// Começa só no vazio (dia vazio, folga entre cards): se começasse em cima de um card, o
+// próprio card iniciaria o arrasto de mover. Segurar Ctrl/Shift SOMA à seleção que já existe.
+(function(){
+  const grid = document.getElementById('grid');
+  const cx = document.getElementById('marquee');
+  let ativo=false, x0=0, y0=0, base=null;
+
+  const podeIniciar = (ev)=>{
+    if(ev.button!==0) return false;               // só botão esquerdo
+    if(S.dragging || S.clip) return false;         // não atrapalha mover/colar
+    if(document.querySelector('.ov.open')) return false;
+    // não começa em cima de nada clicável: card, botão, link, campo, rótulo de semana
+    if(ev.target.closest('.card, button, a, input, select, textarea, .wklabel, .colar-aqui, .day-acts')) return false;
+    return true;
+  };
+  grid.addEventListener('mousedown', ev=>{
+    if(!podeIniciar(ev)) return;
+    ativo=false; x0=ev.clientX; y0=ev.clientY;
+    base = (ev.ctrlKey||ev.metaKey||ev.shiftKey) ? new Set(S.selecao) : new Set();
+    const mover = e=>{
+      if(!ativo && Math.abs(e.clientX-x0)+Math.abs(e.clientY-y0) < 6) return; // ainda é clique
+      if(!ativo){ ativo=true; document.body.classList.add('marcando'); cx.style.display='block'; }
+      const x=Math.min(x0,e.clientX), y=Math.min(y0,e.clientY);
+      const w=Math.abs(e.clientX-x0), h=Math.abs(e.clientY-y0);
+      cx.style.left=x+'px'; cx.style.top=y+'px'; cx.style.width=w+'px'; cx.style.height=h+'px';
+      // quais cards o retângulo toca agora
+      const dentro = new Set(base);
+      document.querySelectorAll('#grid .card').forEach(c=>{
+        const r=c.getBoundingClientRect();
+        const bate = !(r.right<x || r.left>x+w || r.bottom<y || r.top>y+h);
+        c.classList.toggle('marq', bate || base.has(c.dataset.id));
+        if(bate && c.dataset.id) dentro.add(c.dataset.id);
+      });
+      S._marqSel = dentro;
+    };
+    const soltar = ()=>{
+      window.removeEventListener('mousemove', mover);
+      window.removeEventListener('mouseup', soltar);
+      document.body.classList.remove('marcando');
+      cx.style.display='none';
+      document.querySelectorAll('.card.marq').forEach(c=>c.classList.remove('marq'));
+      if(ativo && S._marqSel){
+        S.selecao = S._marqSel;
+        renderSelbar(); renderGrid(); renderDrawer();
+      } else if(!ativo && !(ev.ctrlKey||ev.metaKey||ev.shiftKey)){
+        limparSelecao(); // clique no vazio, sem arrastar: limpa
+      }
+      S._marqSel=null; ativo=false;
+    };
+    window.addEventListener('mousemove', mover);
+    window.addEventListener('mouseup', soltar);
+  });
+})();
 
 // ---- copiar / recortar / colar card na grade ----
 function setClip(id, modo){
