@@ -896,7 +896,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.36'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.37'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -3352,6 +3352,31 @@ $('#impCriar').onclick = async ()=>{
   }catch(e){ $('#impMsg').textContent = 'Erro: '+e.message; }
   finally{ btn.disabled=false; btn.textContent='Criar posts'; }
 };
+
+// ================= auto-scroll ao arrastar um card =================
+// Segurar um card e levar o mouse pra beira de cima (ou de baixo) rola a página sozinha,
+// pra você soltar num dia que está fora da tela. Durante o arrasto NATIVO do HTML5 o
+// mousemove não dispara; quem dá a posição é o 'dragover'. Guardamos o Y e um timer rola
+// enquanto o mouse fica na borda, mesmo parado.
+(function(){
+  let arrastando=false, y=0, timer=null;
+  const margem=80, tick=30;
+  document.addEventListener('dragover', ev=>{ y=ev.clientY; }, true);
+  document.addEventListener('dragstart', ()=>{
+    arrastando=true;
+    clearInterval(timer);
+    timer=setInterval(()=>{
+      if(!arrastando) return;
+      const h=window.innerHeight; let dy=0;
+      if(y>0 && y<margem) dy = -(1 - y/margem)*26 - 6;
+      else if(y>h-margem) dy = (1 - (h-y)/margem)*26 + 6;
+      if(dy) window.scrollBy(0, dy);
+    }, tick);
+  }, true);
+  const parar=()=>{ arrastando=false; clearInterval(timer); timer=null; };
+  document.addEventListener('dragend', parar, true);
+  document.addEventListener('drop', parar, true);
+})();
 
 // ================= seleção por arrasto (marquee) =================
 // Desenhar um retângulo no ESPAÇO VAZIO seleciona os cards que ele toca. Trabalha em
