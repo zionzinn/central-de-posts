@@ -133,6 +133,26 @@
   .ico .ic{width:17px; height:17px}
   .ico-help{width:30px; height:30px; border-radius:50%; border-style:dashed; color:var(--ink-3)}
   .ico-help .ic{width:15px; height:15px}
+  /* ---- presença ao vivo: barra de "quem está online" ---- */
+  .presenca{display:flex; align-items:center; gap:-8px; padding-right:2px}
+  .presenca:empty{display:none}
+  .pdot{width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:800; color:#000; border:2px solid var(--page); margin-left:-8px; cursor:default;
+    box-shadow:0 1px 3px rgba(0,0,0,.4); transition:transform .18s cubic-bezier(.34,1.56,.64,1)}
+  .pdot:first-child{margin-left:0}
+  .pdot:hover{transform:translateY(-2px) scale(1.12); z-index:2}
+  .pdot.fora{opacity:.5}
+  .pdot .pd-tip{position:absolute; top:calc(100% + 7px); right:0; background:var(--ink); color:#000; font-size:10.5px;
+    font-weight:700; white-space:nowrap; padding:3px 8px; border-radius:6px; box-shadow:var(--hard-s); opacity:0; pointer-events:none;
+    transform:translateY(-3px); transition:opacity .15s, transform .15s}
+  .pdot{position:relative}
+  .pdot:hover .pd-tip{opacity:1; transform:translateY(0)}
+  /* ---- camada dos cursores dos outros ---- */
+  #aovivoLayer{position:fixed; inset:0; z-index:70; pointer-events:none; overflow:hidden}
+  .aovivo-cursor{position:absolute; top:0; left:0; will-change:transform; transition:transform .09s linear}
+  .aovivo-cursor svg{display:block; filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+  .aovivo-cursor .av-nome{position:absolute; top:16px; left:14px; white-space:nowrap; font-size:11px; font-weight:800;
+    color:#000; padding:2px 8px; border-radius:0 8px 8px 8px; box-shadow:0 2px 5px rgba(0,0,0,.4)}
   /* menu "mais": ações raras escondidas */
   .maiswrap{position:relative}
   .act-mais{padding:7px 11px}
@@ -682,6 +702,7 @@
     <div class="brand" title="Bora Organizar Nossas Entregas"><div class="logo">SB</div><b>B.O.N.E</b><span>Grupo SB</span></div>
     <nav class="tabs" id="tabs"></nav>
     <div class="topright">
+      <div class="presenca" id="presenca"></div>
       <button class="sync" id="btnRefresh" data-tip="forçar atualização do ClickUp agora"></button>
       <button class="ico" id="btnConfig" data-tip="conexão com o ClickUp"></button>
     </div>
@@ -713,6 +734,7 @@
 </header>
 
 <div class="banner" id="banner"></div>
+<div id="aovivoLayer" aria-hidden="true"></div>
 
 <aside class="drawer" id="drawer">
   <div class="dr-head"><b id="drTitle">Bancos</b><span>arraste pro calendário</span><button class="dr-close" id="drClose" data-tip="fechar (ESC)">✕</button></div>
@@ -965,7 +987,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.41'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.42'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1416,7 +1438,7 @@ async function togglePostado(s){
 }
 
 // ================= render =================
-function render(){ aplicarTema(S.aba); renderTabs(); renderLegend(); renderDrawer(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); }
+function render(){ aplicarTema(S.aba); renderTabs(); renderLegend(); renderDrawer(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); renderPresenca(); }
 
 function renderRefLabel(){
   const el = $('#refLabel');
@@ -1936,6 +1958,7 @@ function celulaDia(c, di, porDia, semana){
   const gmDia = S.aba==='SEUBONÉ' && gmCadenciaDia(c.date);   // a cadência pede GM neste dia?
   const temGmPost = doDia.some(isGm);
   cell.className = 'day'+(di>=5?' fds':'')+(c.date===hoje?' hoje':'')+(semana?' big':'')+(doDia.some(isVaga)?' temvaga':'')+(gmDia&&!temGmPost?' gmpede':'');
+  cell.dataset.dia = c.date;
   const estrela = temGmPost
     ? '<span class="gmday" title="dia de grande marca (GM)">'+icon('star')+'</span>'
     : (gmDia ? '<span class="gmday esperado" title="este dia precisa de um post de GRANDE MARCA (GM), mesmo sem post ainda">'+icon('star')+'</span>' : '');
@@ -3619,6 +3642,104 @@ document.addEventListener('keydown', ev=>{
   if(ev.key==='ArrowRight' && LB.i<LB.imgs.length-1){ LB.i++; drawLb(); }
 });
 
+// ================= presença ao vivo (cursores estilo Figma, via SSE) =================
+const AV = { id:null, nome:null, cor:null, peers:new Map(), es:null, mx:0, my:0, moved:false, dentro:true, ultimoEnvio:0, raf:0 };
+function avMeuId(){
+  try{ let x=sessionStorage.getItem('av_id'); if(!x){ x=Math.random().toString(36).slice(2,10); sessionStorage.setItem('av_id',x);} return x; }
+  catch(e){ return Math.random().toString(36).slice(2,10); }
+}
+function cssEsc(s){ return String(s).replace(/["\\]/g,'\\$&'); }
+function aovivoIniciar(){
+  if(AV.es) return;
+  AV.id = avMeuId();
+  const es = new EventSource('/api/ao-vivo?id='+encodeURIComponent(AV.id));
+  AV.es = es;
+  es.addEventListener('eu', e=>{ const d=JSON.parse(e.data); AV.nome=d.nome; AV.cor=d.cor; renderPresenca(); });
+  es.addEventListener('roster', e=>{ const arr=JSON.parse(e.data); AV.peers.clear(); arr.forEach(p=>AV.peers.set(p.id,p)); renderPresenca(); });
+  es.addEventListener('entrou', e=>{ const p=JSON.parse(e.data); AV.peers.set(p.id, Object.assign(AV.peers.get(p.id)||{}, p)); renderPresenca(); });
+  es.addEventListener('saiu', e=>{ const d=JSON.parse(e.data); AV.peers.delete(d.id); const el=document.getElementById('avc-'+d.id); if(el) el.remove(); renderPresenca(); });
+  es.addEventListener('mexeu', e=>{ const p=JSON.parse(e.data); const antes=AV.peers.get(p.id); const contaMudou = !antes || antes.conta!==p.conta; const cur=Object.assign(antes||{id:p.id}, p); AV.peers.set(p.id, cur); avPosicionaUm(cur); if(contaMudou) renderPresenca(); });
+  es.onerror = ()=>{};
+  // envio DIRETO no mousemove (não depende do rAF, que trava em aba de fundo)
+  window.addEventListener('mousemove', e=>{
+    AV.mx=e.clientX; AV.my=e.clientY; AV.dentro=true;
+    const now=performance.now();
+    if(now-AV.ultimoEnvio>55){ AV.ultimoEnvio=now; avEnviaDaPos(); }
+    else { clearTimeout(AV.trail); AV.trail=setTimeout(()=>{ AV.ultimoEnvio=performance.now(); avEnviaDaPos(); }, 60); }
+  }, {passive:true});
+  window.addEventListener('mouseout', e=>{ if(!e.relatedTarget){ AV.dentro=false; avEnviar(null,0,0); } }, {passive:true});
+  window.addEventListener('scroll', avPosicionaTodos, {passive:true});
+  window.addEventListener('resize', avPosicionaTodos, {passive:true});
+  const tick=()=>{
+    avPosicionaTodos();
+    AV.raf=requestAnimationFrame(tick);
+  };
+  AV.raf=requestAnimationFrame(tick);
+}
+function avAncora(x,y){
+  const el = document.elementFromPoint(x,y);
+  if(!el) return null;
+  const card = el.closest('.card[data-id]');
+  if(card) return avRel(card, x, y, {t:'card', k:card.dataset.id});
+  const dia = el.closest('[data-dia]');
+  if(dia) return avRel(dia, x, y, {t:'dia', k:dia.dataset.dia});
+  const mes = el.closest('.mesbloco[data-mes]');
+  if(mes) return avRel(mes, x, y, {t:'mes', k:mes.dataset.mes});
+  return null; // sobre o topo/barra: sem cursor flutuante, só a bolinha de presença
+}
+function avRel(elm, x, y, a){ const r=elm.getBoundingClientRect(); return {anchor:a, fx:(x-r.left)/Math.max(1,r.width), fy:(y-r.top)/Math.max(1,r.height)}; }
+function avEnviaDaPos(){ if(AV.dentro){ const info=avAncora(AV.mx,AV.my); avEnviar(info?info.anchor:null, info?info.fx:0, info?info.fy:0); } else avEnviar(null,0,0); }
+function avEnviar(anchor, fx, fy){
+  if(!AV.id) return;
+  const body = JSON.stringify({ id:AV.id, conta:S.aba, anchor, fx, fy, temCursor:!!anchor });
+  fetch('/api/ao-vivo/mover', {method:'POST', headers:{'Content-Type':'application/json'}, body}).catch(()=>{});
+}
+function avElementoDe(p){
+  if(!p.anchor) return null;
+  if(p.anchor.t==='card') return document.querySelector('.card[data-id="'+cssEsc(p.anchor.k)+'"]');
+  if(p.anchor.t==='dia')  return document.querySelector('[data-dia="'+cssEsc(p.anchor.k)+'"]');
+  if(p.anchor.t==='mes')  return document.querySelector('.mesbloco[data-mes="'+cssEsc(p.anchor.k)+'"]');
+  return null;
+}
+function avPosicionaTodos(){ for(const p of AV.peers.values()) avPosicionaUm(p); }
+function avPosicionaUm(p){
+  const hh = (document.querySelector('header')?.offsetHeight||0);
+  let el = document.getElementById('avc-'+p.id);
+  const mostrar = p.temCursor && p.conta===S.aba;
+  const elm = mostrar ? avElementoDe(p) : null;
+  let vis=false, X=0, Y=0;
+  if(elm){
+    const r=elm.getBoundingClientRect();
+    X = r.left + (p.fx||0)*r.width; Y = r.top + (p.fy||0)*r.height;
+    vis = Y>=hh-2 && Y<=window.innerHeight-2 && X>=0 && X<=window.innerWidth-2;
+  }
+  if(!vis){ if(el) el.style.display='none'; return; }
+  if(!el) el=avCriaCursor(p);
+  el.style.display='';
+  el.style.transform='translate('+Math.round(X)+'px,'+Math.round(Y)+'px)';
+}
+function avCriaCursor(p){
+  const el=document.createElement('div'); el.className='aovivo-cursor'; el.id='avc-'+p.id;
+  el.innerHTML='<svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 2l6 15 2.3-6.4L18.7 8.2 4 2z" fill="'+(p.cor||'#888')+'" stroke="#000" stroke-width="1.1"/></svg>'+
+    '<span class="av-nome" style="background:'+(p.cor||'#888')+'">'+esc(p.nome||'alguém')+'</span>';
+  document.getElementById('aovivoLayer').appendChild(el);
+  return el;
+}
+function renderPresenca(){
+  const el=$('#presenca'); if(!el) return; el.innerHTML='';
+  if(AV.cor) el.appendChild(avPdot({nome:AV.nome, cor:AV.cor}, true));
+  for(const p of AV.peers.values()) el.appendChild(avPdot(p, false));
+}
+function avIniciais(n){ const w=String(n||'?').split(/[\s-]+/).filter(Boolean); if(w.length>=2) return (w[0][0]+w[w.length-1][0]).toUpperCase(); return String(n||'?').slice(0,2).toUpperCase(); }
+function avPdot(p, eu){
+  const d=document.createElement('div'); d.className='pdot'+(!eu && p.conta && p.conta!==S.aba?' fora':'');
+  d.style.background=p.cor||'#888';
+  d.textContent = avIniciais(p.nome);
+  const onde = eu ? (p.nome+' (você)') : (p.nome + (p.conta? ' · '+p.conta : ' · online'));
+  const tip=document.createElement('span'); tip.className='pd-tip'; tip.textContent=onde; d.appendChild(tip);
+  return d;
+}
+
 // ================= init =================
 function initIcons(){
   $('#mPrev').innerHTML = icon('chevL');
@@ -3641,6 +3762,7 @@ initIcons();
 S.mes = mesAtual();
 try{ const h = decodeURIComponent(location.hash.slice(1)); if(h) S.aba = h; }catch(e){}
 loadState().catch(e=>{ toast('Erro ao carregar: '+e.message, true); });
+try{ aovivoIniciar(); }catch(e){}
 setInterval(()=>{
   if(S.dragging || document.querySelector('.ov.open')) return;
   if(S.drawer && document.activeElement && $('#drawer').contains(document.activeElement)) return;

@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.41'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.42'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -591,6 +591,18 @@ function serveStatic(res, file) {
   fs.createReadStream(full).pipe(res);
 }
 
+// ===== presença ao vivo (cursores estilo Figma, via SSE, sem dependência) =====
+const AOVIVO_CORES = ['#FF5D5D', '#FFB020', '#3DDC97', '#4DA3FF', '#C77DFF', '#FF7AC6', '#00D0C0', '#8AE234', '#FF9F1C', '#5E9BFF'];
+const AOVIVO_BICHOS = ['Capivara Chique', 'Jacaré de Terno', 'Suricato Espião', 'Lagartixa MEI', 'Perereca Gamer', 'Gambá Perfumado', 'Pombo Sniper', 'Barata Ninja', 'Sapo Filósofo', 'Tatu Blindado', 'Preguiça Turbo', 'Ornitorrinco Confuso', 'Minhoca Executiva', 'Tamanduá Detetive', 'Quati Boêmio', 'Coruja Insone', 'Morcego Vegano', 'Lontra DJ', 'Furão Hacker', 'Cutia Ansiosa', 'Tucano Influencer', 'Bode Expiatório', 'Peixe-boi Voador', 'Galinha Cyberpunk', 'Porco Espião', 'Jegue Turbinado', 'Camaleão Indeciso', 'Pangolim Blindado', 'Jabuti Foguete', 'Preguiça CLT'];
+const aovivo = new Map();      // id -> { id, nome, cor, conta, anchor, fx, fy, temCursor, visto }
+const aovivoSSE = new Map();   // id -> res (conexão aberta)
+function aovivoCorLivre() { const usadas = new Set([...aovivo.values()].map(p => p.cor)); return AOVIVO_CORES.find(c => !usadas.has(c)) || AOVIVO_CORES[Math.floor(Math.random() * AOVIVO_CORES.length)]; }
+function aovivoNomeLivre() { const usados = new Set([...aovivo.values()].map(p => p.nome)); const livres = AOVIVO_BICHOS.filter(n => !usados.has(n)); const pool = livres.length ? livres : AOVIVO_BICHOS; return pool[Math.floor(Math.random() * pool.length)]; }
+function aovivoRoster() { return [...aovivo.values()].map(p => ({ id: p.id, nome: p.nome, cor: p.cor, conta: p.conta, anchor: p.anchor, fx: p.fx, fy: p.fy, temCursor: p.temCursor })); }
+function sseEnvia(res, evt, obj) { try { res.write('event: ' + evt + '\ndata: ' + JSON.stringify(obj) + '\n\n'); } catch (e) {} }
+function aovivoBroadcast(evt, obj, exceto) { for (const [id, r] of aovivoSSE) { if (id === exceto) continue; sseEnvia(r, evt, obj); } }
+setInterval(() => { const t = Date.now(); for (const [id, p] of aovivo) { if (t - p.visto > 40000 && !aovivoSSE.has(id)) { aovivo.delete(id); aovivoBroadcast('saiu', { id }); } } }, 20000);
+
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
   const p = u.pathname;
@@ -1149,6 +1161,35 @@ const server = http.createServer(async (req, res) => {
       if (!c.ancora) c.ativo = false; // sem âncora não tem como calcular
       saveDb();
       return json(res, 200, { ok: true, gmCadencia: c });
+    }
+
+    // ---------- presença ao vivo (cursores) ----------
+    if (p === '/api/ao-vivo' && req.method === 'GET') {
+      const id = (u.searchParams.get('id') || Math.random().toString(36).slice(2, 10)).slice(0, 24);
+      let peer = aovivo.get(id);
+      if (!peer) { peer = { id, nome: aovivoNomeLivre(), cor: aovivoCorLivre(), conta: null, anchor: null, fx: 0, fy: 0, temCursor: false, visto: Date.now() }; aovivo.set(id, peer); }
+      res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
+      res.write('retry: 3000\n\n');
+      aovivoSSE.set(id, res);
+      sseEnvia(res, 'eu', { id: peer.id, nome: peer.nome, cor: peer.cor });
+      sseEnvia(res, 'roster', aovivoRoster().filter(x => x.id !== id));
+      aovivoBroadcast('entrou', { id: peer.id, nome: peer.nome, cor: peer.cor, conta: peer.conta, temCursor: false }, id);
+      const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch (e) {} }, 15000);
+      req.on('close', () => { clearInterval(ping); aovivoSSE.delete(id); aovivo.delete(id); aovivoBroadcast('saiu', { id }); });
+      return;
+    }
+    if (p === '/api/ao-vivo/mover' && req.method === 'POST') {
+      const b = await readBody(req);
+      const peer = aovivo.get(String(b.id || ''));
+      if (!peer) return json(res, 200, { ok: false, reentrar: true });
+      peer.conta = b.conta || null;
+      peer.anchor = (b.anchor && b.anchor.t && b.anchor.k != null) ? { t: String(b.anchor.t), k: String(b.anchor.k) } : null;
+      peer.fx = Math.max(0, Math.min(1, +b.fx || 0));
+      peer.fy = Math.max(0, Math.min(1, +b.fy || 0));
+      peer.temCursor = !!b.temCursor && !!peer.anchor;
+      peer.visto = Date.now();
+      aovivoBroadcast('mexeu', { id: peer.id, conta: peer.conta, anchor: peer.anchor, fx: peer.fx, fy: peer.fy, temCursor: peer.temCursor }, peer.id);
+      return json(res, 200, { ok: true });
     }
 
     // ---------- manifesto e ícone do app instalável ----------
