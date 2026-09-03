@@ -767,6 +767,16 @@
       </label>
       <p class="note">Com senha definida, quem abrir o link precisa dela pra entrar. <b>Nunca deixe o painel exposto sem senha.</b> <span id="cLoginState"></span></p>
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
+      <div class="wpp-tit">GM automático da SeuBoné (estrela a cada N dias)</div>
+      <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer">
+        <input type="checkbox" id="gmAtivo" style="width:15px; height:15px"> marcar a estrela de GM sozinho na cadência
+      </label>
+      <div class="wpp-grid" style="margin-top:8px">
+        <div><label>Último GM (âncora)</label><input type="date" id="gmAncora"></div>
+        <div><label>A cada quantos dias</label><input type="number" id="gmPeriodo" min="1" max="30" value="3"></div>
+      </div>
+      <p class="note">A partir do último GM, a estrela aparece sozinha a cada N dias (3 = "2 dias sem, 1 com": quinta, domingo, quarta…). Vale só na SeuBoné. Você ainda pode clicar num card pra tirar ou pôr GM num dia específico, contra a cadência. <span id="gmEstado"></span></p>
+      <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
       <div class="wpp-tit">Aviso quando uma task vai pra APROVAR</div>
       <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer">
         <input type="checkbox" id="nAtivo" style="width:15px; height:15px"> avisar (faixa no topo + título da aba piscando)
@@ -896,7 +906,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.37'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.38'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -941,7 +951,7 @@ const $ = s => document.querySelector(s);
 const S = {
   contas:{}, abas:[], slots:[], referencias:[], duePendentes:[], hasToken:false, user:null,
   aba:'SEUBONÉ', mes:null, // "2026-07" = mês em FOCO (o que está sob os olhos no fluxo)
-  meses:[], crescendo:false, abriuNoMes:false, // janela de meses desenhados no fluxo contínuo
+  meses:[], crescendo:false, abriuNoMes:false, gmCadencia:null, // janela de meses desenhados no fluxo contínuo
   assinatura:'', // retrato do que está na tela, pra atualização automática não redesenhar à toa
   filtroConta:new Set(),
   editing:null, taskSlot:null, dragging:false, lastSync:null,
@@ -998,7 +1008,7 @@ async function loadState(fresh, silencioso){
     + '#' + (j.duePendentes||[]).length;
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], duePendentes:j.duePendentes||[], hasToken:j.hasToken, user:j.user, temSenha:j.temSenha});
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], duePendentes:j.duePendentes||[], hasToken:j.hasToken, user:j.user, temSenha:j.temSenha, gmCadencia:j.gmCadencia||S.gmCadencia});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   checarAprovacoes(S.slots);
@@ -1087,7 +1097,31 @@ function toast(msg, err){
   const d=document.createElement('div'); d.className='toast'+(err?' err':''); d.textContent=msg;
   $('#toasts').appendChild(d); setTimeout(()=>d.remove(), 3600);
 }
-function isGm(s){ return s.gm==='sim'; }
+// GM automático por cadência (a cada N dias a partir da âncora) — só SeuBoné.
+// gm do slot: 'sim' força ligado, 'nao' força desligado, '' segue a cadência.
+function gmCadenciaDia(dateStr){
+  const c = S.gmCadencia;
+  if(!c || !c.ativo || !c.ancora || !dateStr) return false;
+  const a = Date.parse(c.ancora+'T12:00:00Z'), d = Date.parse(dateStr+'T12:00:00Z');
+  if(isNaN(a) || isNaN(d)) return false;
+  const dias = Math.round((d-a)/86400000);
+  const per = c.periodo || 3;
+  return ((dias % per) + per) % per === 0;
+}
+function isGm(s){
+  if(s.conta!=='seubone') return s.gm==='sim';   // cadência é só da SeuBoné
+  if(s.gm==='sim') return true;
+  if(s.gm==='nao') return false;
+  return gmCadenciaDia(s.date);
+}
+/** GM veio da cadência (não de um clique manual)? Pra mostrar a estrela mais discreta. */
+function gmAuto(s){ return s.conta==='seubone' && !s.gm && gmCadenciaDia(s.date); }
+/** Converte "quero GM ligado/desligado neste dia" no valor a salvar (override só quando difere da cadência). */
+function gmOverride(s, quer){
+  if(s.conta!=='seubone') return quer ? 'sim' : '';
+  const cad = gmCadenciaDia(s.date);
+  return quer===cad ? '' : (quer ? 'sim' : 'nao');
+}
 function isBp(s){ return !!s.bp; } // tag BP (temporária, só SeuBoné)
 function fmtDataHora(ms){ return new Date(ms).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 function refIcon(url){
@@ -1370,8 +1404,11 @@ function renderLegend(){
   if(S.aba==='SEUBONÉ'){
     const gm = document.createElement('span');
     gm.className='chip gmchip';
-    gm.innerHTML = icon('star') + ' GM = grande marca na capa';
-    gm.title = 'Rotina: 2 dias sem GM, 1 dia com GM';
+    const gcAtivo = S.gmCadencia && S.gmCadencia.ativo && S.gmCadencia.ancora;
+    gm.innerHTML = icon('star') + ' GM = grande marca na capa' + (gcAtivo? ' · automático' : '');
+    gm.title = gcAtivo
+      ? ('GM automático: a cada '+(S.gmCadencia.periodo||3)+' dias desde '+S.gmCadencia.ancora.split('-').reverse().join('/')+'. Clique num card pra ajustar um dia. Configura na engrenagem.')
+      : 'Rotina: 2 dias sem GM, 1 dia com GM. Pra marcar sozinho, ligue o GM automático na engrenagem.';
     el.appendChild(gm);
     const bpc = document.createElement('span');
     bpc.className='chip bpchip';
@@ -1530,7 +1567,7 @@ function dropZone(el, getDate){
         await api('/api/slots', {method:'POST', body:JSON.stringify({
           conta: slot.conta, date: novaData, taskId: slot.taskId||null, titulo: slot.titulo||null,
           formato: slot.formato||'', angulo: slot.angulo||'', obs: slot.obs||'', notas: slot.notas||'',
-          gm: isGm(slot)?'sim':'', collab: slot.collab||[], drive: slot.drive||'', linkRef: slot.linkRef||'',
+          gm: slot.gm||'', collab: slot.collab||[], drive: slot.drive||'', linkRef: slot.linkRef||'',
           vaga: isVaga(slot)
         })});
         await loadState();
@@ -2356,7 +2393,7 @@ function tRowDraw(s){
   if(s.conta==='seubone'){
     const g = mk(icon('star'), 'iconb'+(isGm(s)?' gmon':''), isGm(s)? 'tirar grande marca da capa' : 'marcar grande marca na capa');
     g.onclick = async ()=>{
-      const antes = s.gm; s.gm = isGm(s)? '' : 'sim'; render(); tRowDraw(s);
+      const antes = s.gm; s.gm = gmOverride(s, !isGm(s)); render(); tRowDraw(s);
       try{ await api('/api/slots/'+s.id,{method:'PATCH', body:JSON.stringify({gm:s.gm})}); toast(isGm(s)?'Grande marca na capa':'GM removido'); }
       catch(e){ s.gm = antes; render(); tRowDraw(s); toast(e.message,true); }
     };
@@ -2707,7 +2744,7 @@ $('#eSave').onclick = async ()=>{
   const body = {
     conta:$('#eConta').value, date:$('#eDate').value||null, titulo:$('#eTitulo').value.trim()||null,
     formato:$('#eFormato').value, angulo:$('#eAngulo').value.trim(), taskUrl:$('#eTask').value.trim(), drive:$('#eDrive').value.trim(), obs:$('#eObs').value.trim(),
-    gm: ($('#eConta').value==='seubone' && $('#eGm').checked) ? 'sim' : '',
+    gm: gmOverride({conta:$('#eConta').value, date:$('#eDate').value||null}, $('#eConta').value==='seubone' && $('#eGm').checked),
     collab: [...eCollabSel],
   };
   try{
@@ -2751,6 +2788,12 @@ async function openConfig(){
   $('#nAtivo').checked = ALERTA.ligado();
   $('#nSom').checked = ALERTA.som();
   pintaNotificacao();
+  // GM automático: reflete o que está salvo; se nunca configurou, sugere hoje como âncora
+  const gc = S.gmCadencia || {};
+  $('#gmAtivo').checked = !!gc.ativo;
+  $('#gmAncora').value = gc.ancora || hojeStr();
+  $('#gmPeriodo').value = gc.periodo || 3;
+  pintaGm();
   $('#ovConfig').classList.add('open');
   try{ const c = await api('/api/config'); pintaZapi(c.zapi); }catch(e){}
 }
@@ -2797,6 +2840,24 @@ function pintaNotificacao(){
     : p==='denied' ? 'Bloqueada neste site. Libere no cadeado da barra de endereço → Notificações → Permitir.'
     : 'Ainda não ativada: por enquanto o aviso só aparece dentro do painel.';
 }
+function pintaGm(){
+  const el = $('#gmEstado'); if(!el) return;
+  const gc = S.gmCadencia || {};
+  if(gc.ativo && gc.ancora){
+    el.style.color='var(--ok)'; el.style.fontWeight='700';
+    el.textContent = ' Ligado: a cada '+(gc.periodo||3)+' dias desde '+gc.ancora.split('-').reverse().join('/')+'.';
+  } else { el.style.color=''; el.style.fontWeight=''; el.textContent=' Desligado.'; }
+}
+async function salvarGm(){
+  const body = { ativo: $('#gmAtivo').checked, ancora: $('#gmAncora').value || null, periodo: parseInt($('#gmPeriodo').value)||3 };
+  try{
+    const r = await api('/api/gm-cadencia', {method:'POST', body:JSON.stringify(body)});
+    S.gmCadencia = r.gmCadencia;
+    pintaGm(); render();
+    toast(r.gmCadencia.ativo? 'GM automático ligado' : 'GM automático desligado');
+  }catch(e){ toast(e.message, true); }
+}
+['#gmAtivo','#gmAncora','#gmPeriodo'].forEach(k=>{ const el=document.querySelector(k); if(el) el.addEventListener('change', salvarGm); });
 $('#nPermitir').onclick = async ()=>{
   try{
     const r = await Notification.requestPermission();
@@ -3479,7 +3540,7 @@ async function colarNoDia(dateStr){
       await api('/api/slots', {method:'POST', body:JSON.stringify({
         conta:s.conta, date:dateStr, taskId:s.taskId||null, titulo:s.titulo||null,
         formato:s.formato||'', angulo:s.angulo||'', obs:s.obs||'', notas:s.notas||'',
-        gm:isGm(s)?'sim':'', collab:s.collab||[], drive:s.drive||'', linkRef:s.linkRef||'',
+        gm:s.gm||'', collab:s.collab||[], drive:s.drive||'', linkRef:s.linkRef||'',
         vaga: isVaga(s)
       })});
       S.clip = null; // depois de colar, some com os botões "Colar aqui"

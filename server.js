@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.37'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.38'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -38,6 +38,9 @@ if (!Array.isArray(db.referencias)) db.referencias = [];
 if (!db.dueSync || typeof db.dueSync !== 'object' || Array.isArray(db.dueSync)) db.dueSync = {};
 // último status já avisado por task, pra não repetir aviso quando o status oscila ou o servidor reinicia
 if (!db.avisos || typeof db.avisos !== 'object' || Array.isArray(db.avisos)) db.avisos = {};
+// cadência automática de GM (grande marca na capa) — só SeuBoné. ancora null = desligado até configurar.
+if (!db.gmCadencia || typeof db.gmCadencia !== 'object' || Array.isArray(db.gmCadencia))
+  db.gmCadencia = { ativo: false, ancora: null, periodo: 3 };
 let saveTimer = null;
 function saveDb() {
   clearTimeout(saveTimer);
@@ -631,6 +634,7 @@ const server = http.createServer(async (req, res) => {
         hasToken: !!config.token, user: config.user || null, enriquecimento,
         temSenha: !!config.senha,
         zapiPronto: zapiPronto() && zapiCfg().ligado,
+        gmCadencia: db.gmCadencia,
         duePendentes: Object.keys(db.dueSync),
       });
     }
@@ -650,7 +654,7 @@ const server = http.createServer(async (req, res) => {
         taskId: b.taskUrl ? taskIdFromUrl(b.taskUrl) : (b.taskId || null),
         titulo: b.titulo || null, formato: b.formato || '', angulo: b.angulo || '', obs: b.obs || '',
         notas: typeof b.notas === 'string' ? b.notas : '', // caderno livre do post (só do painel, não vai pro ClickUp)
-        gm: b.gm === 'sim' ? 'sim' : '',
+        gm: (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '',
         collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
         drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: false, fixo: false,
         responsavelManual: '', origem: ['criativo', 'banco'].includes(b.origem) ? b.origem : 'painel',
@@ -931,7 +935,7 @@ const server = http.createServer(async (req, res) => {
       if ('date' in b) slot.date = b.date || null;
       for (const k of ['titulo', 'formato', 'obs', 'drive', 'linkRef', 'angulo', 'notas']) if (k in b) slot[k] = b[k] || '';
       if ('postado' in b) slot.postado = !!b.postado;
-      if ('gm' in b) slot.gm = b.gm === 'sim' ? 'sim' : '';
+      if ('gm' in b) slot.gm = (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '';
       if ('bp' in b) slot.bp = !!b.bp; // tag BP (temporária, só SeuBoné)
       if ('vaga' in b) slot.vaga = !!b.vaga; // vaga = falta criar este post
       if ('cat' in b) slot.cat = typeof b.cat === 'string' ? b.cat : '';
@@ -1135,6 +1139,18 @@ const server = http.createServer(async (req, res) => {
       const r = await zapiEnviar('✅ Teste do Central de Posts. Se você recebeu isto, os avisos de "pra aprovar" vão chegar aqui.');
       if (!r.ok) return json(res, 502, { erro: r.detalhe });
       return json(res, 200, { ok: true, detalhe: r.detalhe });
+    }
+
+    // ---------- cadência automática de GM (SeuBoné) ----------
+    if (p === '/api/gm-cadencia' && req.method === 'POST') {
+      const b = await readBody(req);
+      const c = db.gmCadencia;
+      if ('ativo' in b) c.ativo = !!b.ativo;
+      if ('ancora' in b) c.ancora = /^\d{4}-\d{2}-\d{2}$/.test(b.ancora || '') ? b.ancora : null;
+      if ('periodo' in b) c.periodo = Math.max(1, Math.min(30, parseInt(b.periodo) || 3));
+      if (!c.ancora) c.ativo = false; // sem âncora não tem como calcular
+      saveDb();
+      return json(res, 200, { ok: true, gmCadencia: c });
     }
 
     // ---------- manifesto e ícone do app instalável ----------
