@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Central de Posts · Grupo SB</title>
+<title>B.O.N.E · Grupo SB</title>
 <!-- Ícone da aba: calendário na cor da marca, embutido como PNG em base64. Vai dentro do
      próprio index.html de propósito, pra não depender de um arquivo extra que possa
      ficar pra trás quando o painel é copiado pra pasta da nuvem. -->
@@ -48,6 +48,7 @@
     background:var(--page); color:var(--ink); font-size:14px;
     background-image:radial-gradient(rgba(255,255,255,.028) 1px, transparent 1px);
     background-size:22px 22px;
+    transition:background-color .45s ease;
   }
   button{font:inherit; cursor:pointer; border:none; background:none; color:inherit}
   input,select,textarea{font:inherit; color:inherit}
@@ -71,26 +72,36 @@
   header{
     position:sticky; top:0; z-index:50; background:var(--page);
     border-bottom:var(--bw) solid var(--stroke);
+    transition:background-color .45s ease;
   }
-  .bar{display:flex; align-items:center; gap:12px; padding:12px 18px 10px; flex-wrap:wrap}
-  .brand{display:flex; align-items:center; gap:9px; margin-right:8px}
+  .bar{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+  .bar-top{padding:11px 18px 9px}
+  .bar-bot{padding:0 18px 11px; gap:10px}
+  .brand{display:flex; align-items:center; gap:9px; margin-right:8px; flex:1 1 0; min-width:200px}
+  .topright{flex:1 1 0; display:flex; align-items:center; justify-content:flex-end; gap:10px; min-width:110px}
   .brand .logo{width:30px; height:30px; background:var(--sb); border:var(--bw) solid var(--stroke);
     border-radius:7px; box-shadow:var(--hard-s); display:flex; align-items:center; justify-content:center;
-    color:#000; font-weight:800; font-size:15px; transform:rotate(-4deg)}
+    color:#000; font-weight:800; font-size:15px; transform:rotate(-4deg);
+    transition:transform .3s cubic-bezier(.34,1.56,.64,1), background-color .45s ease}
+  .brand:hover .logo{transform:rotate(5deg) scale(1.1)}
   .brand b{font-size:17px; font-weight:700; letter-spacing:-.02em}
   .brand span{font-size:10.5px; color:var(--ink-3); font-weight:600; letter-spacing:.14em; text-transform:uppercase}
-  .tabs{display:flex; gap:8px; flex-wrap:wrap}
+  /* abas das contas: centralizadas, maiores, com pop no hover */
+  .tabs{display:flex; gap:10px; flex:0 1 auto; justify-content:center; flex-wrap:wrap}
   .tab{
-    padding:7px 15px; border-radius:var(--radius-s); border:var(--bw) solid var(--hair);
-    background:transparent; font-weight:700; font-size:12.5px; letter-spacing:.02em;
-    color:var(--ink-2); display:flex; align-items:center; gap:8px;
-    transition:transform var(--t), box-shadow var(--t), border-color var(--t), background var(--t);
+    padding:10px 22px; border-radius:var(--radius-s); border:var(--bw) solid var(--hair);
+    background:transparent; font-weight:700; font-size:14px; letter-spacing:.02em;
+    color:var(--ink-2); display:flex; align-items:center; gap:9px;
+    transition:transform .24s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, border-color .2s, background .2s, color .2s;
   }
-  .tab:hover{border-color:var(--ink-3); transform:translate(-1px,-1px)}
-  .tab .n{font-size:10.5px; background:var(--hair-2); border:1.5px solid transparent; border-radius:5px; padding:1px 6px; color:var(--ink-2); font-weight:700}
-  .tab.on{color:#000; border-color:var(--stroke); box-shadow:var(--hard-s); transform:translate(-1px,-1px)}
+  .tab:hover{border-color:var(--ink-3); color:var(--ink); transform:translateY(-2px) scale(1.07)}
+  .tab:active{transform:translateY(0) scale(1.02)}
+  .tab .n{font-size:11.5px; background:var(--hair-2); border:1.5px solid transparent; border-radius:6px; padding:1px 8px; color:var(--ink-2); font-weight:800; transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+  .tab:hover .n{transform:scale(1.08)}
+  .tab.on{color:#000; border-color:var(--stroke); box-shadow:var(--hard); transform:translateY(-1px) scale(1.05)}
+  .tab.on:hover{transform:translateY(-2px) scale(1.09)}
   .tab.on .n{background:rgba(0,0,0,.2); color:#000; border-color:transparent}
-  .tab.on:active{transform:translate(0,0); box-shadow:1px 1px 0 rgba(0,0,0,.85)}
+  .tab.on:active{transform:translateY(0) scale(1.03); box-shadow:1px 1px 0 rgba(0,0,0,.85)}
   .spacer{flex:1}
   .mnav{display:flex; align-items:center; gap:2px; background:var(--surface); border:var(--bw) solid var(--hair); border-radius:var(--radius-s); padding:3px 5px}
   .mnav button{padding:4px 9px; border-radius:5px; color:var(--ink-2); font-weight:800; transition:background var(--t), color var(--t)}
@@ -99,19 +110,58 @@
   .act{
     display:flex; align-items:center; gap:7px; padding:7px 13px; border-radius:var(--radius-s);
     border:var(--bw) solid var(--hair); background:var(--surface); font-size:12.5px; font-weight:700; color:var(--ink-2);
-    transition:transform var(--t), box-shadow var(--t), border-color var(--t), color var(--t);
+    transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .18s, border-color .18s, color .18s;
   }
-  .act:hover{border-color:var(--ink-3); color:var(--ink); transform:translate(-1px,-1px); box-shadow:var(--hard-s)}
-  .act:active{transform:translate(0,0); box-shadow:none}
+  .act:hover{border-color:var(--ink-3); color:var(--ink); transform:translateY(-2px) scale(1.03); box-shadow:var(--hard-s)}
+  .act:active{transform:translateY(0) scale(.99); box-shadow:none}
   .act .n{font-size:10.5px; background:var(--hair-2); border-radius:5px; padding:1px 7px; color:var(--ink-2); font-weight:800}
   .act .n.alerta{background:var(--crit); color:#fff}
+  /* status de sincronização: discreto, parece informação e não botão */
+  .sync{display:flex; align-items:center; gap:7px; padding:6px 12px; border-radius:var(--radius-s);
+    border:1.5px solid transparent; background:transparent; font-size:11.5px; font-weight:600; color:var(--ink-3);
+    transition:border-color var(--t), color var(--t)}
+  .sync:hover{border-color:var(--hair); color:var(--ink-2)}
+  .sync .ic{width:14px; height:14px}
+  .sync.girando .ic{animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* botões só de ícone: config, ajuda */
+  .ico{display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:var(--radius-s);
+    border:var(--bw) solid var(--hair); background:var(--surface); color:var(--ink-2);
+    transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .18s, border-color .18s, color .18s}
+  .ico:hover{border-color:var(--ink-3); color:var(--ink); transform:translateY(-2px) scale(1.06) rotate(-3deg); box-shadow:var(--hard-s)}
+  .ico:active{transform:translateY(0) scale(1); box-shadow:none}
+  .ico .ic{width:17px; height:17px}
+  .ico-help{width:30px; height:30px; border-radius:50%; border-style:dashed; color:var(--ink-3)}
+  .ico-help .ic{width:15px; height:15px}
+  /* menu "mais": ações raras escondidas */
+  .maiswrap{position:relative}
+  .act-mais{padding:7px 11px}
+  .maismenu{position:absolute; top:calc(100% + 6px); right:0; z-index:60; min-width:172px;
+    background:var(--surface-2); border:var(--bw) solid var(--stroke); border-radius:var(--radius-s);
+    box-shadow:var(--hard); padding:5px; display:none; flex-direction:column; gap:2px}
+  .maiswrap.open .maismenu{display:flex; animation:menuin .18s cubic-bezier(.34,1.56,.64,1) both; transform-origin:top right}
+  @keyframes menuin{from{opacity:0; transform:translateY(-6px) scale(.94)} to{opacity:1; transform:none}}
+  .maismenu button{display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+    padding:9px 11px; border-radius:7px; font-size:12.5px; font-weight:700; color:var(--ink-2);
+    transition:background var(--t), color var(--t)}
+  .maismenu button:hover{background:var(--hair-2); color:var(--ink)}
+  .maismenu .ic{width:16px; height:16px; flex:none}
+  /* balão de atalhos atrás do "?" */
+  .ajudapop{position:fixed; z-index:80; max-width:320px; background:var(--surface-2);
+    border:var(--bw) solid var(--stroke); border-radius:var(--radius-s); box-shadow:var(--hard);
+    padding:13px 15px; font-size:11.5px; line-height:1.75; color:var(--ink-2);
+    animation:menuin .18s cubic-bezier(.34,1.56,.64,1) both; transform-origin:top right}
+  .ajudapop .apt{font-size:10px; font-weight:800; letter-spacing:.1em; color:var(--ink-3); text-transform:uppercase; margin-bottom:7px}
+  .ajudapop kbd{font-size:10.5px; font-weight:800; color:var(--ink); background:var(--hair-2);
+    border:1.5px solid var(--hair); border-radius:5px; padding:1px 6px}
+  .legend{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
   .sub{display:flex; align-items:center; gap:9px; padding:0 18px 12px; flex-wrap:wrap}
   .chip{
     display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:700; color:var(--ink-2);
     border:1.5px solid var(--hair); background:var(--surface); border-radius:6px; padding:4px 11px;
     transition:transform var(--t), border-color var(--t), opacity var(--t);
   }
-  .chip:hover{border-color:var(--ink-3)}
+  .chip:hover{border-color:var(--ink-3); transform:translateY(-1px)}
   .chip .dot{width:9px; height:9px; border-radius:2px; border:1.5px solid rgba(0,0,0,.55)}
   .chip.off{opacity:.32}
   .chip.gmchip{border-color:#5b4a17; color:var(--sb); cursor:default}
@@ -131,7 +181,7 @@
   .drawer.open{transform:translateX(0); visibility:visible}
   .drawer.dragover{outline:3px solid var(--sb); outline-offset:-3px}
   body.drawer-open main,body.drawer-open .banner{margin-right:356px}
-  body.drawer-open .bar,body.drawer-open .sub{padding-right:362px}
+  body.drawer-open .bar-top,body.drawer-open .bar-bot{padding-right:362px}
   .dr-head{display:flex; align-items:center; gap:9px; padding:14px 14px 11px; border-bottom:var(--bw) solid var(--stroke); background:var(--surface)}
   .dr-head b{font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px}
   .dr-head span{font-size:10.5px; color:var(--ink-3); font-weight:600}
@@ -203,6 +253,8 @@
 
   /* ---------- grade ---------- */
   main{padding:14px 18px 70px}
+  main.trocou{animation:fadeup .26s ease both}
+  @keyframes fadeup{from{opacity:.25} to{opacity:1}}
   .dows{display:grid; grid-template-columns:repeat(7,1fr); gap:9px; margin-bottom:7px}
   .dows div{font-size:10px; font-weight:800; letter-spacing:.14em; color:var(--ink-3); padding:0 4px}
   .grid{display:grid; grid-template-columns:repeat(7,1fr); gap:9px}
@@ -626,10 +678,15 @@
 <body>
 
 <header>
-  <div class="bar">
-    <div class="brand"><div class="logo">SB</div><b>Central de Posts</b><span>Grupo SB</span></div>
+  <div class="bar bar-top">
+    <div class="brand" title="Bora Organizar Nossas Entregas"><div class="logo">SB</div><b>B.O.N.E</b><span>Grupo SB</span></div>
     <nav class="tabs" id="tabs"></nav>
-    <div class="spacer"></div>
+    <div class="topright">
+      <button class="sync" id="btnRefresh" data-tip="forçar atualização do ClickUp agora"></button>
+      <button class="ico" id="btnConfig" data-tip="conexão com o ClickUp"></button>
+    </div>
+  </div>
+  <div class="bar bar-bot">
     <div class="vtoggle" id="vtoggle" title="alternar visualização">
       <button data-v="mes" class="on">Mês</button>
       <button data-v="semana">Semana</button>
@@ -640,15 +697,19 @@
       <button id="mNext" data-tip="próximo"></button>
       <button id="mHoje" style="font-size:11.5px">hoje</button>
     </div>
-    <button class="act" id="btnRefresh" data-tip="forçar atualização do ClickUp agora"></button>
-    <button class="act" id="btnProd" data-tip="entregas da equipe: atrasadas, hoje e próximas"></button>
-    <button class="act" id="btnRelatorio" data-tip="relatório da semana pra copiar: precisa sair (por dia até domingo), esperando a Maria e prontos"></button>
-    <button class="act" id="btnExportar" data-tip="gerar um arquivo HTML da semana pra enviar pra outras pessoas verem (só leitura): cada post com descrição, ângulo, formato e link do ClickUp"></button>
-    <button class="act" id="btnImportar" data-tip="colar vários links do ClickUp de uma vez e espalhar num dia da semana (ex.: 75 posts, um em cada domingo)"></button>
+    <div class="legend" id="legend"></div>
+    <div class="spacer"></div>
     <button class="act" id="btnDrawer" data-tip="sem data, criativos, reutilizáveis e referências"></button>
-    <button class="act" id="btnConfig" data-tip="conexão com o ClickUp"></button>
+    <button class="act" id="btnRelatorio" data-tip="relatório da semana pra copiar: precisa sair (por dia até domingo), esperando a Maria e prontos"></button>
+    <div class="maiswrap" id="maiswrap">
+      <button class="act act-mais" id="btnMais" data-tip="mais ações"></button>
+      <div class="maismenu" id="maismenu">
+        <button id="btnImportar" data-tip="colar vários links do ClickUp de uma vez e espalhar num dia da semana"></button>
+        <button id="btnExportar" data-tip="gerar um arquivo HTML da semana pra enviar pra outras pessoas verem (só leitura)"></button>
+      </div>
+    </div>
+    <button class="ico ico-help" id="btnAjuda" data-tip="atalhos do mouse e teclado"></button>
   </div>
-  <div class="sub" id="legend"></div>
 </header>
 
 <div class="banner" id="banner"></div>
@@ -657,12 +718,6 @@
   <div class="dr-head"><b id="drTitle">Bancos</b><span>arraste pro calendário</span><button class="dr-close" id="drClose" data-tip="fechar (ESC)">✕</button></div>
   <div class="dr-search"><input id="drBusca" placeholder="buscar em tudo…" autocomplete="off"></div>
   <div class="dr-body" id="drBody"></div>
-</aside>
-
-<aside class="drawer" id="prod">
-  <div class="dr-head"><b id="prodTitle">Produção</b><span>entregas por responsável</span><button class="dr-close" id="prodClose" data-tip="fechar (ESC)">✕</button></div>
-  <div class="pchips" id="prodChips"></div>
-  <div class="dr-body" id="prodBody"></div>
 </aside>
 
 <div id="marquee"></div>
@@ -818,7 +873,7 @@
 
 <!-- tela de login (aparece quando o painel exige senha e você ainda não entrou) -->
 <div class="ov" id="ovLogin"><div class="modal loginbox">
-  <div class="mhead"><div class="mtit">Central de Posts · Grupo SB</div></div>
+  <div class="mhead"><div class="mtit">B.O.N.E · Grupo SB</div></div>
   <div class="mbody">
     <p class="note">Esse painel está protegido. Digite a senha de acesso pra entrar.</p>
     <input type="password" id="loginSenha" placeholder="senha" autocomplete="current-password" style="width:100%">
@@ -910,7 +965,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.39'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.41'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -942,6 +997,8 @@ const ICONS = {
   list:'<path d="M8 6.5h11M8 12h11M8 17.5h11"/><circle cx="4" cy="6.5" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="17.5" r="1"/>',
   link:'<path d="M9.5 14.5l5-5"/><path d="M8 12l-2.2 2.2a3.6 3.6 0 0 0 5 5L13 17"/><path d="M16 12l2.2-2.2a3.6 3.6 0 0 0-5-5L11 7"/>',
   alerta:'<path d="M12 4.5L21 19.5H3L12 4.5z"/><path d="M12 10v4"/><circle cx="12" cy="16.8" r=".9"/>',
+  dots:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
+  help:'<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.9.6c0 1.7-2.5 2-2.5 3.6"/><circle cx="12" cy="17" r=".9"/>',
 };
 function icon(nome, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[nome]||ICONS.link)+'</svg>'; }
 function corTexto(hex){
@@ -961,7 +1018,6 @@ const S = {
   editing:null, taskSlot:null, dragging:false, lastSync:null,
   drawer:false, busca:'', editingRef:null,
   view:'mes', semIdx:0,
-  prod:false, prodPessoa:null,
   filtro:'todos', selecao:new Set(),
 };
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
@@ -1360,7 +1416,7 @@ async function togglePostado(s){
 }
 
 // ================= render =================
-function render(){ aplicarTema(S.aba); renderTabs(); renderLegend(); renderDrawer(); renderProd(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); }
+function render(){ aplicarTema(S.aba); renderTabs(); renderLegend(); renderDrawer(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); }
 
 function renderRefLabel(){
   const el = $('#refLabel');
@@ -1377,7 +1433,7 @@ function renderTabs(){
     const cor = contas.length===1 ? contaCor(contas[0]) : contaCor(contas[0]);
     if(S.aba===aba){ b.style.background = cor; }
     b.innerHTML = esc(aba) + ' <span class="n">'+n+'</span>';
-    b.onclick = ()=>{ S.aba=aba; S.filtroConta.clear(); try{history.replaceState(null,'','#'+encodeURIComponent(aba));}catch(e){} render(); };
+    b.onclick = ()=>{ S.aba=aba; S.filtroConta.clear(); try{history.replaceState(null,'','#'+encodeURIComponent(aba));}catch(e){} render(); const m=document.querySelector('main'); if(m){ m.classList.remove('trocou'); void m.offsetWidth; m.classList.add('trocou'); } };
     el.appendChild(b);
   }
 }
@@ -1414,10 +1470,6 @@ function renderLegend(){
       : 'Rotina: 2 dias sem GM, 1 dia com GM. Pra marcar sozinho, ligue o GM automático na engrenagem.';
     el.appendChild(gm);
   }
-  const hint = document.createElement('span');
-  hint.className='hint';
-  hint.textContent = 'arraste no vazio pra selecionar vários · arraste um card pra mover · alt+arrasta copia · shift+arrasta reajusta · clique abre artes';
-  el.appendChild(hint);
 }
 
 // ================= card =================
@@ -1710,7 +1762,7 @@ async function concluirFonte(s){
 }
 
 function renderDrawer(){
-  document.body.classList.toggle('drawer-open', S.drawer || S.prod);
+  document.body.classList.toggle('drawer-open', S.drawer);
   $('#drawer').classList.toggle('open', S.drawer);
   const semData = slotsVisiveis().filter(s=>!s.date && s.origem!=='banco' && s.origem!=='criativo');
   const criat   = slotsVisiveis().filter(s=>!s.date && s.origem==='criativo');
@@ -1789,81 +1841,6 @@ function renderDrawer(){
     if(!refsV.length) w.insertAdjacentHTML('beforeend','<div class="dr-empty">guarde links de posts que te inspiraram. Arraste uma referência pro calendário pra virar post.</div>');
     refsV.forEach(r=>w.appendChild(refEl(r)));
   }));
-}
-
-// ================= gaveta produção =================
-function addDias(iso, n){
-  const [y,m,d] = iso.split('-').map(Number);
-  const dt = new Date(y, m-1, d+n);
-  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
-}
-const PROD_PRONTO = new Set(['completo','publicar','banco de criativos']);
-function prodItens(ignorarPessoa){
-  const hoje = hojeStr(), amanha = addDias(hoje,1), fim = addDias(hoje,7);
-  const out = { atrasadas:[], hoje:[], amanha:[], proximos:[] };
-  for(const s of S.slots){
-    if(!s.taskId || !s.date || s.postado) continue;
-    const st = (s.statusCache && s.statusCache.status) || '';
-    if(PROD_PRONTO.has(st)) continue;
-    const pessoa = s.assigneeCache || s.responsavelManual || '';
-    if(!ignorarPessoa && S.prodPessoa && !pessoa.toLowerCase().includes(S.prodPessoa)) continue;
-    const due = s.dueCache!=null ? msLocalDateStr(s.dueCache) : dueEsperadoStr(s.date);
-    const item = { s, due, pessoa };
-    if(due < hoje) out.atrasadas.push(item);
-    else if(due === hoje) out.hoje.push(item);
-    else if(due === amanha) out.amanha.push(item);
-    else if(due <= fim) out.proximos.push(item);
-  }
-  for(const k in out) out[k].sort((a,b)=> a.due<b.due?-1: a.due>b.due?1: (a.pessoa<b.pessoa?-1:1));
-  return out;
-}
-function pitemEl(it){
-  const s = it.s;
-  const st = stInfo(s);
-  const d = document.createElement('div');
-  d.className = 'pitem';
-  d.innerHTML =
-    '<span class="cdot" style="background:'+contaCor(s.conta)+'" title="'+esc(S.contas[s.conta]?S.contas[s.conta].nome:s.conta)+'"></span>'+
-    '<div class="pb"><div class="pt">'+esc(slotTitulo(s))+'</div>'+
-    '<div class="pm"><span class="stpill" style="background:'+st.color+'; color:'+corTexto(st.color)+'">'+esc(st.label)+'</span>'+
-    '<span>post '+brData(s.date)+' · entrega '+brData(it.due)+'</span></div></div>'+
-    (it.pessoa?'<span class="avatar" title="'+esc(it.pessoa)+'">'+esc(initials(it.pessoa))+'</span>':'');
-  d.onclick = ()=> openTask(s.id);
-  return d;
-}
-function renderProd(){
-  const geral = prodItens(true);
-  const alerta = geral.atrasadas.length;
-  const n = $('#prodN');
-  if(n){ n.textContent = geral.atrasadas.length + geral.hoje.length; n.classList.toggle('alerta', alerta > 0); }
-  document.body.classList.toggle('drawer-open', S.drawer || S.prod);
-  $('#prod').classList.toggle('open', S.prod);
-  if(!S.prod) return;
-  const pessoas = [...new Set(S.slots
-    .filter(s=>s.taskId && s.date && !s.postado)
-    .flatMap(s=>(s.assigneeCache||'').split(',').map(x=>x.trim()).filter(Boolean)))].sort();
-  const chips = $('#prodChips'); chips.innerHTML='';
-  const mkChip = (label, val)=>{
-    const b = document.createElement('button');
-    b.textContent = label;
-    b.className = S.prodPessoa===val ? 'on' : '';
-    b.onclick = ()=>{ S.prodPessoa = val; renderProd(); };
-    chips.appendChild(b);
-  };
-  mkChip('Todos', null);
-  pessoas.forEach(p=> mkChip(p.split(' ')[0], p.toLowerCase()));
-  const it = prodItens(false);
-  const body = $('#prodBody'); body.innerHTML='';
-  const sec = (titulo, arr, vazio)=>{
-    body.appendChild(drawerSec(titulo, arr.length, w=>{
-      if(!arr.length){ w.innerHTML = '<div class="dr-empty">'+vazio+'</div>'; return; }
-      arr.forEach(x=>w.appendChild(pitemEl(x)));
-    }));
-  };
-  sec('<span style="color:var(--crit)">'+icon('clock')+'</span> ATRASADAS', it.atrasadas, 'nenhuma entrega atrasada');
-  sec('<span style="color:var(--warn)">'+icon('zap')+'</span> ENTREGAM HOJE', it.hoje, 'nada vence hoje');
-  sec(icon('chevR')+' AMANHÃ', it.amanha, 'nada vence amanhã');
-  sec(icon('calendar')+' PRÓXIMOS 7 DIAS', it.proximos, 'nada nos próximos 7 dias');
 }
 
 // ================= grade (mês / semana) =================
@@ -3145,9 +3122,11 @@ $('#mHoje').onclick = ()=>{
   irParaMes(mesAtual(), true);
 };
 $('#btnRefresh').onclick = async ()=>{
+  const btn = $('#btnRefresh'); btn.classList.add('girando');
   const el = $('#refLabel'); if(el) el.textContent='atualizando…';
   try{ await api('/api/sync',{method:'POST'}); await loadState(); toast('Status atualizados agora'); }
   catch(e){ toast(e.message,true); renderRefLabel(); }
+  finally{ btn.classList.remove('girando'); }
 };
 // aplicar datas no ClickUp: abre a revisão pra escolher quais posts aplicar
 $('#aplicarBtn').onclick = ()=>{ if((S.duePendentes||[]).length) openAplicar(); };
@@ -3261,12 +3240,39 @@ $('#aplicConfirmar').onclick = async ()=>{
 };
 
 // gavetas
-$('#btnDrawer').onclick = ()=>{ S.drawer = !S.drawer; if(S.drawer) S.prod = false; renderDrawer(); renderProd(); };
-$('#drClose').onclick = ()=>{ S.drawer = false; renderDrawer(); renderProd(); };
+$('#btnDrawer').onclick = ()=>{ S.drawer = !S.drawer; renderDrawer(); };
+$('#drClose').onclick = ()=>{ S.drawer = false; renderDrawer(); };
 $('#drBusca').addEventListener('input', ev=>{ S.busca = ev.target.value.trim().toLowerCase(); renderDrawer(); });
 dropZone($('#drawer'), ()=>null);
-$('#btnProd').onclick = ()=>{ S.prod = !S.prod; if(S.prod) S.drawer = false; renderDrawer(); renderProd(); };
-$('#prodClose').onclick = ()=>{ S.prod = false; renderDrawer(); renderProd(); };
+
+// menu "mais" (Importar, Exportar) e balão de atalhos
+(function(){
+  const wrap = $('#maiswrap');
+  $('#btnMais').onclick = (ev)=>{ ev.stopPropagation(); fecharAjuda(); wrap.classList.toggle('open'); };
+  document.addEventListener('click', ev=>{ if(!wrap.contains(ev.target)) wrap.classList.remove('open'); });
+  // fecha o menu ao escolher uma ação (o próprio handler de cada botão faz o resto)
+  $('#maismenu').addEventListener('click', ()=> wrap.classList.remove('open'));
+})();
+function fecharAjuda(){ const p=document.getElementById('ajudapop'); if(p) p.remove(); }
+$('#btnAjuda').onclick = (ev)=>{
+  ev.stopPropagation();
+  if(document.getElementById('ajudapop')){ fecharAjuda(); return; }
+  $('#maiswrap').classList.remove('open');
+  const r = ev.currentTarget.getBoundingClientRect();
+  const p = document.createElement('div');
+  p.className = 'ajudapop'; p.id = 'ajudapop';
+  p.innerHTML = '<div class="apt">atalhos</div>'+
+    '<div><b>Arraste no vazio</b> pra selecionar vários posts</div>'+
+    '<div><b>Arraste um card</b> pra mover de dia</div>'+
+    '<div><kbd>Alt</kbd> + arrasta: <b>copia</b> o card</div>'+
+    '<div><kbd>Shift</kbd> + arrasta: <b>reajusta</b> a sequência</div>'+
+    '<div><b>Clique</b> num card: abre as artes</div>';
+  document.body.appendChild(p);
+  const w = p.offsetWidth, top = r.bottom + 8;
+  let left = r.right - w; if(left < 10) left = 10;
+  p.style.top = top+'px'; p.style.left = left+'px';
+  setTimeout(()=>document.addEventListener('click', function h(e){ if(!p.contains(e.target)){ fecharAjuda(); document.removeEventListener('click', h); } }), 0);
+};
 
 // seleção múltipla
 function atualizaRotuloMover(){
@@ -3601,10 +3607,11 @@ document.addEventListener('keydown', ev=>{
   if($('#lb').classList.contains('open')) return closeLb();
   const abertos = [...document.querySelectorAll('.ov.open')].filter(o=>o.id!=='ovLogin'); // login não fecha no ESC
   if(abertos.length) return abertos.forEach(o=>o.classList.remove('open'));
+  if(document.getElementById('ajudapop')) return fecharAjuda();
+  if($('#maiswrap').classList.contains('open')) return $('#maiswrap').classList.remove('open');
   if(S.clip) return limparClip();
   if(S.selecao.size) return limparSelecao();
-  if(S.prod){ S.prod=false; renderProd(); renderDrawer(); return; }
-  if(S.drawer){ S.drawer=false; renderDrawer(); renderProd(); }
+  if(S.drawer){ S.drawer=false; renderDrawer(); }
 });
 document.addEventListener('keydown', ev=>{
   if(!$('#lb').classList.contains('open')) return;
@@ -3617,14 +3624,14 @@ function initIcons(){
   $('#mPrev').innerHTML = icon('chevL');
   $('#mNext').innerHTML = icon('chevR');
   $('#btnRefresh').innerHTML = icon('refresh') + '<span id="refLabel">atualizar</span>';
-  $('#btnProd').innerHTML = icon('target') + 'Produção <span class="n" id="prodN">0</span>';
   $('#btnRelatorio').innerHTML = icon('list') + 'Relatório';
   $('#btnExportar').innerHTML = icon('external') + 'Exportar';
-  $('#btnImportar').innerHTML = icon('list') + 'Importar';
+  $('#btnImportar').innerHTML = icon('plus') + 'Importar em lote';
   $('#btnDrawer').innerHTML = icon('box') + 'Bancos <span class="n" id="drawerN">0</span>';
+  $('#btnMais').innerHTML = icon('dots') + 'mais';
+  $('#btnAjuda').innerHTML = icon('help');
   $('#btnConfig').innerHTML = icon('gear');
   $('#drTitle').innerHTML = icon('box') + 'Bancos';
-  $('#prodTitle').innerHTML = icon('target') + 'Produção';
   atualizaRotuloMover();
   $('#selCollab').innerHTML = icon('users') + 'collab';
   $('#selBanco').innerHTML = icon('box') + 'banco';
