@@ -538,6 +538,63 @@
   .mhead{padding:18px 20px 0}
   .mtit{font-size:17px; font-weight:700; line-height:1.3; padding-right:30px; letter-spacing:-.01em}
   .mclose{position:absolute; top:10px; right:12px; color:var(--ink-3); padding:6px 9px; border-radius:6px; transition:all var(--t)}
+  /* ---------- perfil: card neo-brutal em 3D (inclinado, sombra dura, etiqueta flutuando) ---------- */
+  .pfwrap{perspective:1100px; margin-top:6vh; width:min(440px,100%)}
+  .pfcard{
+    position:relative; background:var(--surface-2); border:3px solid var(--stroke); border-radius:10px;
+    padding:30px 22px 18px; transform-style:preserve-3d;
+    transform:rotateX(7deg) rotateY(-7deg); box-shadow:10px 10px 0 #000;
+    transition:transform .4s cubic-bezier(.23,1,.32,1), box-shadow .4s cubic-bezier(.23,1,.32,1);
+  }
+  .pfcard:hover{transform:rotateX(3deg) rotateY(-2deg) scale(1.02); box-shadow:18px 18px 0 -4px var(--sb), 18px 18px 0 0 #000}
+  .ov.open .pfcard{animation:pfin .35s cubic-bezier(.23,1,.32,1) both}
+  @keyframes pfin{from{opacity:0; transform:rotateX(18deg) rotateY(-14deg) translateY(18px)} to{opacity:1; transform:rotateX(7deg) rotateY(-7deg)}}
+  .pf-tag{
+    position:absolute; top:-15px; left:20px; z-index:4; transform:translateZ(50px);
+    background:var(--sb); color:#000; font-weight:800; font-size:12px; letter-spacing:.14em;
+    padding:5px 11px; border:2px solid var(--stroke); border-radius:6px; box-shadow:3px 3px 0 #000;
+    transition:background-color .45s ease;
+  }
+  .pf-x{transform:translateZ(30px)}
+  .pf-preview{display:flex; align-items:center; gap:10px; justify-content:center; margin:2px 0 16px; transform:translateZ(20px)}
+  .pf-preview .pdot{margin:0; width:38px; height:38px; font-size:19px; border-color:var(--stroke); box-shadow:2px 2px 0 #000}
+  .pf-pvnome{font-size:12px; font-weight:800; color:#000; padding:4px 11px; border-radius:0 9px 9px 9px; box-shadow:2px 2px 0 #000; border:2px solid var(--stroke)}
+  .pf-lbl{display:block; font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); margin:12px 0 6px}
+  .pf-input{
+    width:100%; outline:none; border:3px solid var(--stroke); border-radius:8px; padding:12px 14px;
+    font:inherit; font-size:16px; font-weight:700; letter-spacing:-.01em; background:var(--surface); color:var(--ink);
+    position:relative; z-index:3; transform:translateZ(10px);
+    transition:transform .4s cubic-bezier(.23,1,.32,1), box-shadow .4s cubic-bezier(.23,1,.32,1), background .2s;
+  }
+  .pf-input::placeholder{color:var(--ink-3); font-weight:800; text-transform:uppercase; letter-spacing:.06em; font-size:12.5px}
+  .pf-input:hover,.pf-input:focus{background:var(--page); transform:translateZ(20px) translate(-4px,-4px); box-shadow:5px 5px 0 0 #000}
+  .pf-grid{display:grid; grid-template-columns:repeat(10,1fr); gap:6px; transform:translateZ(10px)}
+  .pf-ico{
+    height:34px; border:2px solid var(--hair); border-radius:7px; background:var(--surface); font-size:17px; line-height:1;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .15s, border-color .15s, background .15s;
+  }
+  .pf-ico:hover{transform:translate(-1px,-2px) scale(1.12); border-color:var(--ink-3)}
+  .pf-ico.on{background:var(--sb); border-color:var(--stroke); box-shadow:3px 3px 0 #000; transform:translate(-1px,-1px) scale(1.08)}
+  .pf-cores{display:flex; gap:8px; flex-wrap:wrap; transform:translateZ(10px)}
+  .pf-cor{width:26px; height:26px; border-radius:50%; border:2px solid var(--stroke); cursor:pointer;
+    transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .15s}
+  .pf-cor:hover{transform:scale(1.15)}
+  .pf-cor.on{transform:scale(1.22); box-shadow:0 0 0 2px var(--surface-2), 0 0 0 4px #fff}
+  .pf-acoes{display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:18px; transform:translateZ(20px)}
+  .pf-depois{color:var(--ink-3); font-weight:700; font-size:12px; padding:8px 10px; border-radius:6px; transition:color .15s, background .15s}
+  .pf-depois:hover{color:var(--ink); background:var(--hair-2)}
+  .pf-salvar{
+    background:var(--sb); color:#000; border:3px solid var(--stroke); border-radius:8px; padding:11px 22px;
+    font-weight:800; font-size:13px; letter-spacing:.1em; text-transform:uppercase; cursor:pointer;
+    transition:transform .4s cubic-bezier(.23,1,.32,1), box-shadow .4s cubic-bezier(.23,1,.32,1), background-color .45s ease;
+  }
+  .pf-salvar:hover{transform:translate(-5px,-5px); box-shadow:5px 5px 0 0 #000}
+  .pf-salvar:active{transform:translate(0,0); box-shadow:none}
+  .pf-nota{font-size:11px; color:var(--ink-3); margin:14px 0 0; line-height:1.5}
+  .pdot.eu{cursor:pointer; box-shadow:0 0 0 2px var(--page), 0 0 0 3.5px var(--sb)}
+  .pdot.ico{font-size:14px}
+  .av-ico{margin-right:4px}
   .mclose:hover{background:var(--crit); color:#fff}
   .mrow{display:flex; align-items:center; gap:7px; margin-top:11px; flex-wrap:wrap}
   .mbtn{display:inline-flex; align-items:center; gap:7px; border:1.5px solid var(--hair); border-radius:6px;
@@ -1021,6 +1078,28 @@
   </div>
 </div></div>
 
+<!-- perfil (nome + ícone + cor), sem login ainda: fica salvo neste navegador -->
+<div class="ov" id="ovPerfil">
+  <div class="pfwrap">
+    <div class="pfcard">
+      <span class="pf-tag">SEU PERFIL</span>
+      <button class="mclose pf-x" data-close="ovPerfil" title="fechar">✕</button>
+      <div class="pf-preview" id="pfPreview"></div>
+      <label class="pf-lbl" for="pfNome">username</label>
+      <input class="pf-input" id="pfNome" maxlength="24" placeholder="COMO TE CHAMAM?" autocomplete="off" spellcheck="false">
+      <label class="pf-lbl">ícone</label>
+      <div class="pf-grid" id="pfIcones"></div>
+      <label class="pf-lbl">cor</label>
+      <div class="pf-cores" id="pfCores"></div>
+      <div class="pf-acoes">
+        <button type="button" class="pf-depois" id="pfDepois">depois</button>
+        <button type="button" class="pf-salvar" id="pfSalvar">SALVAR</button>
+      </div>
+      <p class="pf-nota">Aparece no seu cursor e na barra de quem está online. Fica salvo neste navegador.</p>
+    </div>
+  </div>
+</div>
+
 <!-- lightbox das artes -->
 <div id="lb">
   <button class="lbx" title="fechar">✕</button>
@@ -1035,7 +1114,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.45'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.46'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -3724,7 +3803,17 @@ document.addEventListener('keydown', ev=>{
 });
 
 // ================= presença ao vivo (cursores estilo Figma, via SSE) =================
-const AV = { id:null, nome:null, cor:null, peers:new Map(), es:null, mx:0, my:0, moved:false, dentro:true, ultimoEnvio:0, raf:0 };
+const AV = { id:null, nome:null, icone:'', cor:null, peers:new Map(), es:null, mx:0, my:0, moved:false, dentro:true, ultimoEnvio:0, raf:0 };
+/** Perfil da pessoa neste navegador (sem login ainda): nome + ícone + cor, salvo local. */
+const PERFIL = {
+  chave:'sb.perfil',
+  get(){ try{ const p=JSON.parse(localStorage.getItem(this.chave)||'null'); return (p && p.nome) ? p : null; }catch(e){ return null; } },
+  set(p){ try{ localStorage.setItem(this.chave, JSON.stringify(p)); }catch(e){} },
+  pulou(){ try{ return localStorage.getItem(this.chave+'.pulou')==='1'; }catch(e){ return false; } },
+  marcaPulou(){ try{ localStorage.setItem(this.chave+'.pulou','1'); }catch(e){} },
+};
+const PERFIL_ICONES = ['🧢','🔥','⚡','🎯','🚀','🎬','📸','🎨','✂️','💡','🧠','🦖','🐊','🦦','🐢','🦜','🐸','🦩','🦈','🐙','🍍','🥥','🌵','🏄','🎸','👑','🛹','🎲','☕','🧃'];
+const PERFIL_CORES = ['#FF5D5D','#FFB020','#3DDC97','#4DA3FF','#C77DFF','#FF7AC6','#00D0C0','#8AE234','#FF9F1C','#5E9BFF'];
 function avMeuId(){
   try{ let x=sessionStorage.getItem('av_id'); if(!x){ x=Math.random().toString(36).slice(2,10); sessionStorage.setItem('av_id',x);} return x; }
   catch(e){ return Math.random().toString(36).slice(2,10); }
@@ -3733,11 +3822,15 @@ function cssEsc(s){ return String(s).replace(/["\\]/g,'\\$&'); }
 function aovivoIniciar(){
   if(AV.es) return;
   AV.id = avMeuId();
-  const es = new EventSource('/api/ao-vivo?id='+encodeURIComponent(AV.id));
+  const pf = PERFIL.get();
+  let url = '/api/ao-vivo?id='+encodeURIComponent(AV.id);
+  if(pf){ url += '&nome='+encodeURIComponent(pf.nome)+'&icone='+encodeURIComponent(pf.icone||'')+'&cor='+encodeURIComponent(pf.cor||''); }
+  const es = new EventSource(url);
   AV.es = es;
-  es.addEventListener('eu', e=>{ const d=JSON.parse(e.data); AV.nome=d.nome; AV.cor=d.cor; renderPresenca(); });
+  es.addEventListener('eu', e=>{ const d=JSON.parse(e.data); AV.nome=d.nome; AV.icone=d.icone||''; AV.cor=d.cor; renderPresenca(); });
   es.addEventListener('roster', e=>{ const arr=JSON.parse(e.data); AV.peers.clear(); arr.forEach(p=>AV.peers.set(p.id,p)); renderPresenca(); });
-  es.addEventListener('entrou', e=>{ const p=JSON.parse(e.data); AV.peers.set(p.id, Object.assign(AV.peers.get(p.id)||{}, p)); renderPresenca(); });
+  // entrou também é "mudou o perfil": recria o cursor daquela pessoa pra pegar nome/ícone/cor novos
+  es.addEventListener('entrou', e=>{ const p=JSON.parse(e.data); AV.peers.set(p.id, Object.assign(AV.peers.get(p.id)||{}, p)); const el=document.getElementById('avc-'+p.id); if(el) el.remove(); renderPresenca(); });
   es.addEventListener('saiu', e=>{ const d=JSON.parse(e.data); AV.peers.delete(d.id); const el=document.getElementById('avc-'+d.id); if(el) el.remove(); renderPresenca(); });
   es.addEventListener('mexeu', e=>{ const p=JSON.parse(e.data); const antes=AV.peers.get(p.id); const contaMudou = !antes || antes.conta!==p.conta; const cur=Object.assign(antes||{id:p.id}, p); AV.peers.set(p.id, cur); avPosicionaUm(cur); if(contaMudou) renderPresenca(); });
   es.onerror = ()=>{};
@@ -3802,23 +3895,54 @@ function avPosicionaUm(p){
 function avCriaCursor(p){
   const el=document.createElement('div'); el.className='aovivo-cursor'; el.id='avc-'+p.id;
   el.innerHTML='<svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 2l6 15 2.3-6.4L18.7 8.2 4 2z" fill="'+(p.cor||'#888')+'" stroke="#000" stroke-width="1.1"/></svg>'+
-    '<span class="av-nome" style="background:'+(p.cor||'#888')+'">'+esc(p.nome||'alguém')+'</span>';
+    '<span class="av-nome" style="background:'+(p.cor||'#888')+'">'+(p.icone? '<span class="av-ico">'+esc(p.icone)+'</span>' : '')+esc(p.nome||'alguém')+'</span>';
   document.getElementById('aovivoLayer').appendChild(el);
   return el;
 }
 function renderPresenca(){
   const el=$('#presenca'); if(!el) return; el.innerHTML='';
-  if(AV.cor) el.appendChild(avPdot({nome:AV.nome, cor:AV.cor}, true));
+  if(AV.cor) el.appendChild(avPdot({nome:AV.nome, icone:AV.icone, cor:AV.cor}, true));
   for(const p of AV.peers.values()) el.appendChild(avPdot(p, false));
 }
 function avIniciais(n){ const w=String(n||'?').split(/[\s-]+/).filter(Boolean); if(w.length>=2) return (w[0][0]+w[w.length-1][0]).toUpperCase(); return String(n||'?').slice(0,2).toUpperCase(); }
 function avPdot(p, eu){
-  const d=document.createElement('div'); d.className='pdot'+(!eu && p.conta && p.conta!==S.aba?' fora':'');
+  const d=document.createElement('div'); d.className='pdot'+(eu?' eu':'')+(!eu && p.conta && p.conta!==S.aba?' fora':'');
   d.style.background=p.cor||'#888';
-  d.textContent = avIniciais(p.nome);
-  const onde = eu ? (p.nome+' (você)') : (p.nome + (p.conta? ' · '+p.conta : ' · online'));
+  if(p.icone){ d.classList.add('ico'); d.textContent = p.icone; } else d.textContent = avIniciais(p.nome);
+  const onde = eu ? (p.nome+' (você) · clique pra editar seu perfil') : (p.nome + (p.conta? ' · '+p.conta : ' · online'));
   const tip=document.createElement('span'); tip.className='pd-tip'; tip.textContent=onde; d.appendChild(tip);
+  if(eu) d.onclick = openPerfil;
   return d;
+}
+// ---- modal de perfil (nome + ícone + cor) ----
+function openPerfil(){
+  const pf = PERFIL.get() || { nome:'', icone:'', cor:'' };
+  $('#pfNome').value = pf.nome || '';   // sem perfil: campo vazio, pra pessoa pôr o nome dela (não o bicho)
+  S._pfIcone = pf.icone || AV.icone || PERFIL_ICONES[0];
+  S._pfCor = pf.cor || AV.cor || PERFIL_CORES[0];
+  const grid = $('#pfIcones'); grid.innerHTML='';
+  PERFIL_ICONES.forEach(ic=>{ const b=document.createElement('button'); b.type='button'; b.className='pf-ico'+(ic===S._pfIcone?' on':''); b.textContent=ic; b.onclick=()=>{ S._pfIcone=ic; grid.querySelectorAll('.pf-ico').forEach(x=>x.classList.toggle('on', x.textContent===ic)); pfPreview(); }; grid.appendChild(b); });
+  const cores = $('#pfCores'); cores.innerHTML='';
+  PERFIL_CORES.forEach(c=>{ const b=document.createElement('button'); b.type='button'; b.className='pf-cor'+(c===S._pfCor?' on':''); b.style.background=c; b.onclick=()=>{ S._pfCor=c; cores.querySelectorAll('.pf-cor').forEach(x=>x.classList.toggle('on', x===b)); pfPreview(); }; cores.appendChild(b); });
+  pfPreview();
+  $('#ovPerfil').classList.add('open');
+  setTimeout(()=>$('#pfNome').focus(), 60);
+}
+function pfPreview(){
+  const nome = $('#pfNome').value.trim() || 'seu nome';
+  const pv = $('#pfPreview');
+  pv.innerHTML = '<span class="pdot ico" style="background:'+S._pfCor+'">'+esc(S._pfIcone)+'</span><span class="pf-pvnome" style="background:'+S._pfCor+'">'+esc(S._pfIcone)+' '+esc(nome)+'</span>';
+}
+async function salvarPerfil(){
+  const nome = $('#pfNome').value.replace(/[<>]/g,'').trim().slice(0,24);
+  if(!nome){ toast('Escolhe um nome', true); $('#pfNome').focus(); return; }
+  const pf = { nome, icone:S._pfIcone||'', cor:S._pfCor||'' };
+  PERFIL.set(pf);
+  AV.nome = pf.nome; AV.icone = pf.icone; AV.cor = pf.cor;
+  renderPresenca();
+  $('#ovPerfil').classList.remove('open');
+  toast(pf.icone+' Perfil salvo: '+pf.nome);
+  try{ if(AV.id) await api('/api/ao-vivo/perfil', {method:'POST', body:JSON.stringify({ id:AV.id, ...pf })}); }catch(e){}
 }
 
 // ================= init =================
@@ -3852,6 +3976,12 @@ S.mes = mesAtual();
 try{ const h = decodeURIComponent(location.hash.slice(1)); if(h) S.aba = h; }catch(e){}
 loadState().catch(e=>{ toast('Erro ao carregar: '+e.message, true); });
 try{ aovivoIniciar(); }catch(e){}
+// perfil: salvar / depois / preview ao vivo / Enter salva. Na primeira vez sem perfil, abre sozinho (dá pra pular).
+$('#pfSalvar').onclick = salvarPerfil;
+$('#pfDepois').onclick = ()=>{ PERFIL.marcaPulou(); $('#ovPerfil').classList.remove('open'); };
+$('#pfNome').addEventListener('input', pfPreview);
+$('#pfNome').addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); salvarPerfil(); } });
+if(!PERFIL.get() && !PERFIL.pulou()) setTimeout(()=>{ if(!document.querySelector('.ov.open')) openPerfil(); }, 900);
 setInterval(()=>{
   if(S.dragging || document.querySelector('.ov.open')) return;
   if(S.drawer && document.activeElement && $('#drawer').contains(document.activeElement)) return;

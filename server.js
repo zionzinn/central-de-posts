@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.45'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.46'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -598,7 +598,14 @@ const aovivo = new Map();      // id -> { id, nome, cor, conta, anchor, fx, fy, 
 const aovivoSSE = new Map();   // id -> res (conexão aberta)
 function aovivoCorLivre() { const usadas = new Set([...aovivo.values()].map(p => p.cor)); return AOVIVO_CORES.find(c => !usadas.has(c)) || AOVIVO_CORES[Math.floor(Math.random() * AOVIVO_CORES.length)]; }
 function aovivoNomeLivre() { const usados = new Set([...aovivo.values()].map(p => p.nome)); const livres = AOVIVO_BICHOS.filter(n => !usados.has(n)); const pool = livres.length ? livres : AOVIVO_BICHOS; return pool[Math.floor(Math.random() * pool.length)]; }
-function aovivoRoster() { return [...aovivo.values()].map(p => ({ id: p.id, nome: p.nome, cor: p.cor, conta: p.conta, anchor: p.anchor, fx: p.fx, fy: p.fy, temCursor: p.temCursor })); }
+function aovivoRoster() { return [...aovivo.values()].map(p => ({ id: p.id, nome: p.nome, icone: p.icone || '', cor: p.cor, conta: p.conta, anchor: p.anchor, fx: p.fx, fy: p.fy, temCursor: p.temCursor })); }
+/** Limpa o perfil vindo do navegador: nome curto sem tag, ícone curto (emoji), cor em hex. */
+function aovivoPerfilLimpo(b) {
+  const nome = String(b.nome || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  const icone = String(b.icone || '').trim().slice(0, 8);
+  const cor = /^#[0-9a-fA-F]{6}$/.test(String(b.cor || '')) ? String(b.cor) : '';
+  return { nome, icone, cor };
+}
 function sseEnvia(res, evt, obj) { try { res.write('event: ' + evt + '\ndata: ' + JSON.stringify(obj) + '\n\n'); } catch (e) {} }
 function aovivoBroadcast(evt, obj, exceto) { for (const [id, r] of aovivoSSE) { if (id === exceto) continue; sseEnvia(r, evt, obj); } }
 setInterval(() => { const t = Date.now(); for (const [id, p] of aovivo) { if (t - p.visto > 40000 && !aovivoSSE.has(id)) { aovivo.delete(id); aovivoBroadcast('saiu', { id }); } } }, 20000);
@@ -1167,14 +1174,17 @@ const server = http.createServer(async (req, res) => {
     // ---------- presença ao vivo (cursores) ----------
     if (p === '/api/ao-vivo' && req.method === 'GET') {
       const id = (u.searchParams.get('id') || Math.random().toString(36).slice(2, 10)).slice(0, 24);
+      // perfil escolhido pela pessoa (nome + ícone + cor). Sem perfil, cai no bicho aleatório só como quebra-galho.
+      const pf = aovivoPerfilLimpo({ nome: u.searchParams.get('nome'), icone: u.searchParams.get('icone'), cor: u.searchParams.get('cor') });
       let peer = aovivo.get(id);
-      if (!peer) { peer = { id, nome: aovivoNomeLivre(), cor: aovivoCorLivre(), conta: null, anchor: null, fx: 0, fy: 0, temCursor: false, visto: Date.now() }; aovivo.set(id, peer); }
+      if (!peer) { peer = { id, nome: pf.nome || aovivoNomeLivre(), icone: pf.icone || '', cor: pf.cor || aovivoCorLivre(), conta: null, anchor: null, fx: 0, fy: 0, temCursor: false, visto: Date.now() }; aovivo.set(id, peer); }
+      else { if (pf.nome) peer.nome = pf.nome; if (pf.icone) peer.icone = pf.icone; if (pf.cor) peer.cor = pf.cor; }
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
       res.write('retry: 3000\n\n');
       aovivoSSE.set(id, res);
-      sseEnvia(res, 'eu', { id: peer.id, nome: peer.nome, cor: peer.cor });
+      sseEnvia(res, 'eu', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor });
       sseEnvia(res, 'roster', aovivoRoster().filter(x => x.id !== id));
-      aovivoBroadcast('entrou', { id: peer.id, nome: peer.nome, cor: peer.cor, conta: peer.conta, temCursor: false }, id);
+      aovivoBroadcast('entrou', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor, conta: peer.conta, temCursor: false }, id);
       const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch (e) {} }, 15000);
       req.on('close', () => { clearInterval(ping); aovivoSSE.delete(id); aovivo.delete(id); aovivoBroadcast('saiu', { id }); });
       return;
@@ -1191,6 +1201,19 @@ const server = http.createServer(async (req, res) => {
       peer.visto = Date.now();
       aovivoBroadcast('mexeu', { id: peer.id, conta: peer.conta, anchor: peer.anchor, fx: peer.fx, fy: peer.fy, temCursor: peer.temCursor }, peer.id);
       return json(res, 200, { ok: true });
+    }
+    // a pessoa mudou o perfil (nome/ícone/cor): atualiza em memória e avisa os outros sem derrubar a conexão
+    if (p === '/api/ao-vivo/perfil' && req.method === 'POST') {
+      const b = await readBody(req);
+      const peer = aovivo.get(String(b.id || ''));
+      if (!peer) return json(res, 200, { ok: false, reentrar: true });
+      const pf = aovivoPerfilLimpo(b);
+      if (pf.nome) peer.nome = pf.nome;
+      peer.icone = pf.icone || '';
+      if (pf.cor) peer.cor = pf.cor;
+      peer.visto = Date.now();
+      aovivoBroadcast('entrou', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor, conta: peer.conta, temCursor: peer.temCursor }, peer.id);
+      return json(res, 200, { ok: true, nome: peer.nome, icone: peer.icone, cor: peer.cor });
     }
 
     // ---------- manifesto e ícone do app instalável ----------
