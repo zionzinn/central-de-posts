@@ -107,6 +107,30 @@
   .mnav button{padding:4px 9px; border-radius:5px; color:var(--ink-2); font-weight:800; transition:background var(--t), color var(--t)}
   .mnav button:hover{background:var(--hair-2); color:var(--ink)}
   .mnav .mes{min-width:150px; text-align:center; font-weight:700; font-size:13px; letter-spacing:.01em}
+  /* setas de mês em 3D: mecânica de 3 camadas (face, lado, base) que afunda ao clicar,
+     traduzida pra nossa identidade: face na cor da marca com traço preto, lado escuro embaixo. */
+  .mnav button.b3d, .mnav button.b3d:hover{
+    position:relative; appearance:none; -webkit-appearance:none; border:0; padding:0; background:transparent;
+    width:36px; height:34px; border-radius:8px; margin:0 1px; cursor:pointer; overflow:visible;
+  }
+  .b3d-top{
+    position:absolute; z-index:2; left:0; top:0; width:36px; height:28px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--sb); color:#000; border:2px solid var(--stroke); border-radius:8px;
+    transition:transform .1s ease, filter .12s, background-color .45s ease;
+  }
+  .b3d-top .ic{width:15px; height:15px; stroke:#000; stroke-width:2.4}
+  .b3d-bottom{
+    position:absolute; z-index:1; left:0; top:5px; width:36px; height:28px; border-radius:8px;
+    background:linear-gradient(rgba(0,0,0,.48), rgba(0,0,0,.48)), var(--sb);
+    border:2px solid var(--stroke); transition:background-color .45s ease;
+  }
+  .b3d-base{
+    position:absolute; z-index:0; left:1px; top:8px; width:34px; height:27px; border-radius:8px;
+    background:rgba(0,0,0,.5); filter:blur(1.2px);
+  }
+  .b3d:hover .b3d-top{filter:brightness(1.1); transform:translateY(-1px)}
+  .b3d:active .b3d-top{transform:translateY(5px); filter:brightness(.96)}
   .act{
     display:flex; align-items:center; gap:7px; padding:7px 13px; border-radius:var(--radius-s);
     border:var(--bw) solid var(--hair); background:var(--surface); font-size:12.5px; font-weight:700; color:var(--ink-2);
@@ -713,9 +737,9 @@
       <button data-v="semana">Semana</button>
     </div>
     <div class="mnav">
-      <button id="mPrev" data-tip="anterior"></button>
+      <button id="mPrev" class="b3d" data-tip="anterior"><span class="b3d-top"></span><span class="b3d-bottom"></span><span class="b3d-base"></span></button>
       <div class="mes" id="mesLabel"></div>
-      <button id="mNext" data-tip="próximo"></button>
+      <button id="mNext" class="b3d" data-tip="próximo"><span class="b3d-top"></span><span class="b3d-bottom"></span><span class="b3d-base"></span></button>
       <button id="mHoje" style="font-size:11.5px">hoje</button>
     </div>
     <div class="legend" id="legend"></div>
@@ -987,7 +1011,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.43'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.44'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -3757,8 +3781,8 @@ function avPdot(p, eu){
 
 // ================= init =================
 function initIcons(){
-  $('#mPrev').innerHTML = icon('chevL');
-  $('#mNext').innerHTML = icon('chevR');
+  $('#mPrev .b3d-top').innerHTML = icon('chevL');
+  $('#mNext .b3d-top').innerHTML = icon('chevR');
   $('#btnRefresh').innerHTML = icon('refresh') + '<span id="refLabel">atualizar</span>';
   $('#btnRelatorio').innerHTML = icon('list') + 'Relatório';
   $('#btnExportar').innerHTML = icon('external') + 'Exportar';
