@@ -157,6 +157,26 @@
   .ico .ic{width:17px; height:17px}
   .ico-help{width:30px; height:30px; border-radius:50%; border-style:dashed; color:var(--ink-3)}
   .ico-help .ic{width:15px; height:15px}
+  /* ---- botão de silenciar avisos: sino tocando (marca) / sino cortado (mudo) ----
+     mecânica: checkbox invisível por cima controla o estado via :has(); o sino balança ao voltar a tocar */
+  .mute{position:relative; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; border:var(--bw) solid var(--stroke); background:var(--sb); color:#000; box-shadow:var(--hard-s);
+    transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .18s, background-color .3s, border-color .3s, color .3s}
+  .mute:hover{transform:translateY(-2px) scale(1.06); box-shadow:var(--hard)}
+  .mute:active{transform:scale(.9); box-shadow:none}
+  .mute-chk{position:absolute; inset:0; width:100%; height:100%; opacity:0; margin:0; cursor:pointer; z-index:2}
+  .mute .ic-ring,.mute .ic-silent{position:absolute; display:flex; transform-origin:50% 15%; transition:opacity .15s}
+  .mute .ic{width:17px; height:17px}
+  .mute .ic-silent{opacity:0}
+  .mute:has(.mute-chk:not(:checked)) .ic-ring{animation:sino-balanca .5s ease-in-out}
+  .mute:has(.mute-chk:checked){background:var(--surface); color:var(--ink-3); border-style:dashed; border-color:var(--hair); box-shadow:none}
+  .mute:has(.mute-chk:checked) .ic-ring{opacity:0}
+  .mute:has(.mute-chk:checked) .ic-silent{opacity:1}
+  .mute .mn{position:absolute; top:-6px; right:-6px; min-width:16px; height:16px; padding:0 4px; border-radius:8px;
+    background:var(--crit); color:#fff; font-size:9.5px; font-weight:800; line-height:16px; text-align:center;
+    border:2px solid var(--page); display:none; z-index:3}
+  .mute .mn.on{display:block}
+  @keyframes sino-balanca{0%{transform:rotate(12deg)}20%{transform:rotate(-12deg)}40%{transform:rotate(16deg)}60%{transform:rotate(-16deg)}80%{transform:rotate(0)}}
   /* ---- presença ao vivo: barra de "quem está online" ---- */
   .presenca{display:flex; align-items:center; gap:-8px; padding-right:2px}
   .presenca:empty{display:none}
@@ -728,6 +748,10 @@
     <div class="topright">
       <div class="presenca" id="presenca"></div>
       <button class="sync" id="btnRefresh" data-tip="forçar atualização do ClickUp agora"></button>
+      <label class="mute" id="btnMute" data-tip="silenciar os avisos (site e Windows)">
+        <input type="checkbox" class="mute-chk" id="muteChk" aria-label="silenciar avisos">
+        <span class="ic-ring"></span><span class="ic-silent"></span><span class="mn" id="muteN"></span>
+      </label>
       <button class="ico" id="btnConfig" data-tip="conexão com o ClickUp"></button>
     </div>
   </div>
@@ -1011,7 +1035,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.44'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.45'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1044,6 +1068,8 @@ const ICONS = {
   link:'<path d="M9.5 14.5l5-5"/><path d="M8 12l-2.2 2.2a3.6 3.6 0 0 0 5 5L13 17"/><path d="M16 12l2.2-2.2a3.6 3.6 0 0 0-5-5L11 7"/>',
   alerta:'<path d="M12 4.5L21 19.5H3L12 4.5z"/><path d="M12 10v4"/><circle cx="12" cy="16.8" r=".9"/>',
   dots:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
+  sino:'<path d="M18 8.5a6 6 0 0 0-12 0c0 6.5-2.5 8-2.5 8h17S18 15 18 8.5z"/><path d="M13.7 20.5a2 2 0 0 1-3.4 0"/>',
+  sinoOff:'<path d="M8.6 3.9A6 6 0 0 1 18 8.5c0 3.2.6 5.3 1.3 6.8"/><path d="M17.5 16.5H3.5S6 15 6 8.5c0-.6.1-1.2.2-1.7"/><path d="M13.7 20.5a2 2 0 0 1-3.4 0"/><path d="M3 3l18 18"/>',
   help:'<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.9.6c0 1.7-2.5 2-2.5 3.6"/><circle cx="12" cy="17" r=".9"/>',
 };
 function icon(nome, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[nome]||ICONS.link)+'</svg>'; }
@@ -2142,6 +2168,9 @@ const ALERTA = {
   salvar(c){ try{ localStorage.setItem(this.chave, JSON.stringify(c)); }catch(e){} },
   ligado(){ return this.cfg().ligado !== false; },   // ligado por padrão
   som(){ return this.cfg().som !== false; },
+  // interruptor mestre (o sino no topo): mudo cala faixa, título, bipe E notificação do Windows de uma vez
+  mudo(){ return this.cfg().mudo === true; },
+  setMudo(v){ const c=this.cfg(); c.mudo=!!v; this.salvar(c); },
 };
 let statusConhecidos = null;   // taskId -> status na última checagem (null = ainda não sabemos nada)
 let pendentesAprovar = [];     // o que entrou em aprovar e você ainda não viu
@@ -2175,6 +2204,9 @@ function piscaTitulo(){
 }
 function renderAlerta(){
   const b = $('#alertaBar');
+  pintaMute();
+  // mudo: nada na tela nem no título; o que chegou fica guardado e aparece quando você destravar o sino
+  if(ALERTA.mudo()){ b.classList.remove('on'); clearInterval(piscaTimer); document.title = tituloOriginal; return; }
   if(!pendentesAprovar.length){ b.classList.remove('on'); piscaTitulo(); return; }
   const n = pendentesAprovar.length;
   b.innerHTML =
@@ -2234,7 +2266,17 @@ function checarAprovacoes(slots){
   statusConhecidos = agora;
   if(!novos.length || !ALERTA.ligado()) return;
   pendentesAprovar = pendentesAprovar.concat(novos).slice(-20);
+  if(ALERTA.mudo()){ renderAlerta(); return; }   // mudo: guarda em silêncio (só o contador no sino), sem bipe nem Windows
   renderAlerta(); bipe(); notificaSistema(novos);
+}
+/** Estado visual do sino: marcado = mudo; contador vermelho quando tem coisa guardada no silêncio. */
+function pintaMute(){
+  const chk = $('#muteChk'), lab = $('#btnMute'), n = $('#muteN');
+  if(!chk || !lab) return;
+  const mudo = ALERTA.mudo();
+  if(chk.checked !== mudo) chk.checked = mudo;
+  lab.dataset.tip = mudo ? 'avisos silenciados (site e Windows) · clique pra voltar a tocar' : 'silenciar os avisos (site e Windows)';
+  if(n){ const q = mudo ? pendentesAprovar.length : 0; n.textContent = q > 9 ? '9+' : String(q); n.classList.toggle('on', q > 0); }
 }
 
 // ---- atualização automática ----
@@ -3791,6 +3833,14 @@ function initIcons(){
   $('#btnMais').innerHTML = icon('dots') + 'mais';
   $('#btnAjuda').innerHTML = icon('help');
   $('#btnConfig').innerHTML = icon('gear');
+  $('#btnMute .ic-ring').innerHTML = icon('sino');
+  $('#btnMute .ic-silent').innerHTML = icon('sinoOff');
+  pintaMute();
+  $('#muteChk').addEventListener('change', ()=>{
+    ALERTA.setMudo($('#muteChk').checked);
+    renderAlerta();   // mudo esconde tudo; ao destravar, mostra o que ficou guardado
+    toast(ALERTA.mudo() ? 'Avisos silenciados (site e Windows)' : 'Avisos ligados de novo');
+  });
   $('#drTitle').innerHTML = icon('box') + 'Bancos';
   atualizaRotuloMover();
   $('#selCollab').innerHTML = icon('users') + 'collab';
