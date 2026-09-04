@@ -86,8 +86,22 @@
   .brand:hover .logo{transform:rotate(5deg) scale(1.1)}
   .brand b{font-size:17px; font-weight:700; letter-spacing:-.02em}
   .brand span{font-size:10.5px; color:var(--ink-3); font-weight:600; letter-spacing:.14em; text-transform:uppercase}
-  /* abas das contas: centralizadas, maiores, com pop no hover */
+  /* abas das contas: centralizadas, maiores, com pop no hover; setas 3D dos lados passam de conta */
+  .tabswrap{display:flex; align-items:center; gap:12px; flex:0 1 auto}
   .tabs{display:flex; gap:10px; flex:0 1 auto; justify-content:center; flex-wrap:wrap}
+  /* ---- seguindo alguém (estilo Figma): moldura na cor da pessoa + pílula pra parar ---- */
+  #seguindoFrame{position:fixed; inset:0; z-index:69; pointer-events:none; border:3px solid transparent; display:none}
+  #seguindoFrame.on{display:block}
+  #seguindoBar{position:fixed; top:calc(var(--htop,90px) + 10px); left:50%; transform:translateX(-50%); z-index:71; display:none;
+    align-items:center; gap:10px; padding:6px 7px 6px 13px; border-radius:999px; border:2px solid var(--stroke); color:#000;
+    font-size:12px; font-weight:800; box-shadow:var(--hard-s); animation:menuin .22s cubic-bezier(.34,1.56,.64,1) both}
+  #seguindoBar.on{display:flex}
+  #seguindoBar button{background:rgba(0,0,0,.2); border-radius:999px; padding:3px 9px; font-weight:800; font-size:11px; color:#000; transition:background .15s}
+  #seguindoBar button:hover{background:rgba(0,0,0,.35)}
+  .pdot{--pc:#888}
+  .pdot:not(.eu){cursor:pointer}
+  .pdot.seguindo{box-shadow:0 0 0 2px var(--page), 0 0 0 4px var(--pc); animation:pulsa .8s ease-in-out infinite alternate; z-index:2}
+  @keyframes pulsa{from{transform:scale(1)} to{transform:scale(1.15)}}
   .tab{
     padding:10px 22px; border-radius:var(--radius-s); border:var(--bw) solid var(--hair);
     background:transparent; font-weight:700; font-size:14px; letter-spacing:.02em;
@@ -109,7 +123,7 @@
   .mnav .mes{min-width:150px; text-align:center; font-weight:700; font-size:13px; letter-spacing:.01em}
   /* setas de mês em 3D: mecânica de 3 camadas (face, lado, base) que afunda ao clicar,
      traduzida pra nossa identidade: face na cor da marca com traço preto, lado escuro embaixo. */
-  .mnav button.b3d, .mnav button.b3d:hover{
+  button.b3d, button.b3d:hover, .mnav button.b3d, .mnav button.b3d:hover{
     position:relative; appearance:none; -webkit-appearance:none; border:0; padding:0; background:transparent;
     width:36px; height:34px; border-radius:8px; margin:0 1px; cursor:pointer; overflow:visible;
   }
@@ -143,7 +157,7 @@
   /* status de sincronização: discreto, parece informação e não botão */
   .sync{display:flex; align-items:center; gap:7px; padding:6px 12px; border-radius:var(--radius-s);
     border:1.5px solid transparent; background:transparent; font-size:11.5px; font-weight:600; color:var(--ink-3);
-    transition:border-color var(--t), color var(--t)}
+    white-space:nowrap; transition:border-color var(--t), color var(--t)}
   .sync:hover{border-color:var(--hair); color:var(--ink-2)}
   .sync .ic{width:14px; height:14px}
   .sync.girando .ic{animation:spin .8s linear infinite}
@@ -801,7 +815,11 @@
 <header>
   <div class="bar bar-top">
     <div class="brand" title="Bora Organizar Nossas Entregas"><div class="logo">SB</div><b>B.O.N.E</b><span>Grupo SB</span></div>
-    <nav class="tabs" id="tabs"></nav>
+    <div class="tabswrap">
+      <button class="b3d" id="abaPrev" data-tip="conta anterior"><span class="b3d-top"></span><span class="b3d-bottom"></span><span class="b3d-base"></span></button>
+      <nav class="tabs" id="tabs"></nav>
+      <button class="b3d" id="abaNext" data-tip="próxima conta"><span class="b3d-top"></span><span class="b3d-bottom"></span><span class="b3d-base"></span></button>
+    </div>
     <div class="topright">
       <div class="presenca" id="presenca"></div>
       <button class="sync" id="btnRefresh" data-tip="forçar atualização do ClickUp agora"></button>
@@ -840,6 +858,8 @@
 
 <div class="banner" id="banner"></div>
 <div id="aovivoLayer" aria-hidden="true"></div>
+<div id="seguindoFrame" aria-hidden="true"></div>
+<div id="seguindoBar"></div>
 
 <aside class="drawer" id="drawer">
   <div class="dr-head"><b id="drTitle">Bancos</b><span>arraste pro calendário</span><button class="dr-close" id="drClose" data-tip="fechar (ESC)">✕</button></div>
@@ -1114,7 +1134,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.46'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.47'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1599,9 +1619,23 @@ function renderTabs(){
     const cor = contas.length===1 ? contaCor(contas[0]) : contaCor(contas[0]);
     if(S.aba===aba){ b.style.background = cor; }
     b.innerHTML = esc(aba) + ' <span class="n">'+n+'</span>';
-    b.onclick = ()=>{ S.aba=aba; S.filtroConta.clear(); try{history.replaceState(null,'','#'+encodeURIComponent(aba));}catch(e){} render(); const m=document.querySelector('main'); if(m){ m.classList.remove('trocou'); void m.offsetWidth; m.classList.add('trocou'); } };
+    b.onclick = ()=> irParaAba(aba);
     el.appendChild(b);
   }
+}
+/** Troca de conta feita PELA PESSOA (aba ou seta): para de seguir alguém e dá o fade no conteúdo. */
+function irParaAba(aba){
+  if(typeof pararDeSeguir==='function') pararDeSeguir();
+  S.aba=aba; S.filtroConta.clear();
+  try{history.replaceState(null,'','#'+encodeURIComponent(aba));}catch(e){}
+  render();
+  const m=document.querySelector('main'); if(m){ m.classList.remove('trocou'); void m.offsetWidth; m.classList.add('trocou'); }
+}
+/** Setas 3D do topo: conta anterior / próxima, dando a volta no fim. */
+function trocarAba(delta){
+  if(!S.abas || !S.abas.length) return;
+  const i = Math.max(0, S.abas.indexOf(S.aba));
+  irParaAba(S.abas[(i+delta+S.abas.length)%S.abas.length]);
 }
 
 function renderLegend(){
@@ -3790,6 +3824,7 @@ document.addEventListener('keydown', ev=>{
   if($('#lb').classList.contains('open')) return closeLb();
   const abertos = [...document.querySelectorAll('.ov.open')].filter(o=>o.id!=='ovLogin'); // login não fecha no ESC
   if(abertos.length) return abertos.forEach(o=>o.classList.remove('open'));
+  if(AV.seguindo) return pararDeSeguir();
   if(document.getElementById('ajudapop')) return fecharAjuda();
   if($('#maiswrap').classList.contains('open')) return $('#maiswrap').classList.remove('open');
   if(S.clip) return limparClip();
@@ -3803,7 +3838,7 @@ document.addEventListener('keydown', ev=>{
 });
 
 // ================= presença ao vivo (cursores estilo Figma, via SSE) =================
-const AV = { id:null, nome:null, icone:'', cor:null, peers:new Map(), es:null, mx:0, my:0, moved:false, dentro:true, ultimoEnvio:0, raf:0 };
+const AV = { id:null, nome:null, icone:'', cor:null, peers:new Map(), es:null, mx:0, my:0, moved:false, dentro:true, ultimoEnvio:0, raf:0, seguindo:null };
 /** Perfil da pessoa neste navegador (sem login ainda): nome + ícone + cor, salvo local. */
 const PERFIL = {
   chave:'sb.perfil',
@@ -3831,9 +3866,13 @@ function aovivoIniciar(){
   es.addEventListener('roster', e=>{ const arr=JSON.parse(e.data); AV.peers.clear(); arr.forEach(p=>AV.peers.set(p.id,p)); renderPresenca(); });
   // entrou também é "mudou o perfil": recria o cursor daquela pessoa pra pegar nome/ícone/cor novos
   es.addEventListener('entrou', e=>{ const p=JSON.parse(e.data); AV.peers.set(p.id, Object.assign(AV.peers.get(p.id)||{}, p)); const el=document.getElementById('avc-'+p.id); if(el) el.remove(); renderPresenca(); });
-  es.addEventListener('saiu', e=>{ const d=JSON.parse(e.data); AV.peers.delete(d.id); const el=document.getElementById('avc-'+d.id); if(el) el.remove(); renderPresenca(); });
-  es.addEventListener('mexeu', e=>{ const p=JSON.parse(e.data); const antes=AV.peers.get(p.id); const contaMudou = !antes || antes.conta!==p.conta; const cur=Object.assign(antes||{id:p.id}, p); AV.peers.set(p.id, cur); avPosicionaUm(cur); if(contaMudou) renderPresenca(); });
+  es.addEventListener('saiu', e=>{ const d=JSON.parse(e.data); AV.peers.delete(d.id); const el=document.getElementById('avc-'+d.id); if(el) el.remove(); if(AV.seguindo===d.id) pararDeSeguir(); renderPresenca(); });
+  es.addEventListener('mexeu', e=>{ const p=JSON.parse(e.data); const antes=AV.peers.get(p.id); const contaMudou = !antes || antes.conta!==p.conta; const cur=Object.assign(antes||{id:p.id}, p); AV.peers.set(p.id, cur); if(AV.seguindo===p.id) acompanhar(cur,false); avPosicionaUm(cur); if(contaMudou) renderPresenca(); });
   es.onerror = ()=>{};
+  // seguir alguém termina no primeiro gesto seu de navegação (roda do mouse, toque, teclas de rolagem)
+  window.addEventListener('wheel', ()=>{ if(AV.seguindo) pararDeSeguir(); }, {passive:true});
+  window.addEventListener('touchmove', ()=>{ if(AV.seguindo) pararDeSeguir(); }, {passive:true});
+  window.addEventListener('keydown', ev=>{ if(AV.seguindo && ['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(ev.key) && !/input|textarea|select/i.test(ev.target.tagName)) pararDeSeguir(); });
   // envio DIRETO no mousemove (não depende do rAF, que trava em aba de fundo)
   window.addEventListener('mousemove', e=>{
     AV.mx=e.clientX; AV.my=e.clientY; AV.dentro=true;
@@ -3903,15 +3942,64 @@ function renderPresenca(){
   const el=$('#presenca'); if(!el) return; el.innerHTML='';
   if(AV.cor) el.appendChild(avPdot({nome:AV.nome, icone:AV.icone, cor:AV.cor}, true));
   for(const p of AV.peers.values()) el.appendChild(avPdot(p, false));
+  pintaSeguindo();
+}
+// ---- seguir alguém (estilo Figma) ----
+function seguir(id){
+  if(AV.seguindo===id){ pararDeSeguir(); return; }
+  const p = AV.peers.get(id); if(!p) return;
+  AV.seguindo = id;
+  pintaSeguindo();
+  acompanhar(p, true);
+  toast('Seguindo '+(p.icone?p.icone+' ':'')+p.nome+' · role a tela ou aperte Esc pra parar');
+}
+function pararDeSeguir(){
+  if(!AV.seguindo) return;
+  AV.seguindo = null;
+  pintaSeguindo();
+}
+function pintaSeguindo(){
+  const p = AV.seguindo ? AV.peers.get(AV.seguindo) : null;
+  const bar=$('#seguindoBar'), fr=$('#seguindoFrame');
+  document.querySelectorAll('#presenca .pdot').forEach(d=>d.classList.toggle('seguindo', !!p && d.dataset.pid===AV.seguindo));
+  if(!bar || !fr) return;
+  if(!p){ bar.classList.remove('on'); fr.classList.remove('on'); return; }
+  bar.style.background = p.cor||'#888';
+  bar.innerHTML = '<span>seguindo '+esc((p.icone?p.icone+' ':'')+p.nome)+'</span><button type="button">parar</button>';
+  bar.querySelector('button').onclick = ()=>pararDeSeguir();
+  bar.classList.add('on');
+  fr.style.borderColor = p.cor||'#888'; fr.classList.add('on');
+}
+/** Leva a tela até onde a pessoa está: troca de conta se precisar, pula pro mês e rola até o dia/card dela. */
+function acompanhar(p, forcar){
+  if(p.conta && p.conta!==S.aba){
+    S.aba=p.conta; S.filtroConta.clear();
+    try{history.replaceState(null,'','#'+encodeURIComponent(S.aba));}catch(e){}
+    render();
+  }
+  if(!p.anchor) return;
+  let el = avElementoDe(p);
+  if(!el){
+    let mes = null;
+    if(p.anchor.t==='mes') mes = p.anchor.k;
+    else if(p.anchor.t==='dia') mes = p.anchor.k.slice(0,7);
+    else if(p.anchor.t==='card'){ const s=S.slots.find(x=>x.id===p.anchor.k); if(s && s.date) mes = s.date.slice(0,7); }
+    if(mes && typeof irParaMes==='function'){ try{ irParaMes(mes); }catch(e){} el = avElementoDe(p); }
+    if(!el) return;
+  }
+  const r = el.getBoundingClientRect(), hh = (document.querySelector('header')?.offsetHeight||0);
+  const fora = r.top < hh+8 || r.bottom > window.innerHeight-8;
+  if(fora || forcar) el.scrollIntoView({block:'center', behavior:'smooth'});
 }
 function avIniciais(n){ const w=String(n||'?').split(/[\s-]+/).filter(Boolean); if(w.length>=2) return (w[0][0]+w[w.length-1][0]).toUpperCase(); return String(n||'?').slice(0,2).toUpperCase(); }
 function avPdot(p, eu){
   const d=document.createElement('div'); d.className='pdot'+(eu?' eu':'')+(!eu && p.conta && p.conta!==S.aba?' fora':'');
-  d.style.background=p.cor||'#888';
+  d.style.background=p.cor||'#888'; d.style.setProperty('--pc', p.cor||'#888');
+  if(!eu) d.dataset.pid = p.id;
   if(p.icone){ d.classList.add('ico'); d.textContent = p.icone; } else d.textContent = avIniciais(p.nome);
-  const onde = eu ? (p.nome+' (você) · clique pra editar seu perfil') : (p.nome + (p.conta? ' · '+p.conta : ' · online'));
+  const onde = eu ? (p.nome+' (você) · clique pra editar seu perfil') : (p.nome + (p.conta? ' · '+p.conta : ' · online') + ' · clique pra seguir');
   const tip=document.createElement('span'); tip.className='pd-tip'; tip.textContent=onde; d.appendChild(tip);
-  if(eu) d.onclick = openPerfil;
+  if(eu) d.onclick = openPerfil; else d.onclick = ()=> seguir(p.id);
   return d;
 }
 // ---- modal de perfil (nome + ícone + cor) ----
@@ -3949,6 +4037,10 @@ async function salvarPerfil(){
 function initIcons(){
   $('#mPrev .b3d-top').innerHTML = icon('chevL');
   $('#mNext .b3d-top').innerHTML = icon('chevR');
+  $('#abaPrev .b3d-top').innerHTML = icon('chevL');
+  $('#abaNext .b3d-top').innerHTML = icon('chevR');
+  $('#abaPrev').onclick = ()=> trocarAba(-1);
+  $('#abaNext').onclick = ()=> trocarAba(1);
   $('#btnRefresh').innerHTML = icon('refresh') + '<span id="refLabel">atualizar</span>';
   $('#btnRelatorio').innerHTML = icon('list') + 'Relatório';
   $('#btnExportar').innerHTML = icon('external') + 'Exportar';
