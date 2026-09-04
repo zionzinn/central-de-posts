@@ -853,10 +853,10 @@
         <input type="checkbox" id="gmAtivo" style="width:15px; height:15px"> marcar a estrela de GM sozinho na cadência
       </label>
       <div class="wpp-grid" style="margin-top:8px">
-        <div><label>Último GM (âncora)</label><input type="date" id="gmAncora"></div>
+        <div><label>Último GM (ponto de partida)</label><input type="date" id="gmAncora"></div>
         <div><label>A cada quantos dias</label><input type="number" id="gmPeriodo" min="1" max="30" value="3"></div>
       </div>
-      <p class="note">A partir do último GM, a estrela aparece sozinha a cada N dias (3 = "2 dias sem, 1 com": quinta, domingo, quarta…). Vale só na SeuBoné. Você ainda pode clicar num card pra tirar ou pôr GM num dia específico, contra a cadência. <span id="gmEstado"></span></p>
+      <p class="note">A estrela aparece sozinha a cada N dias contando <b>a partir da última grande marca que você marcou</b> (3 = "2 dias sem, 1 com"). Quando você marca um novo post como GM, as próximas se recalculam sozinhas a partir dele. O campo acima é só o ponto de partida (o último GM antes do sistema). Vale só na SeuBoné. <span id="gmEstado"></span></p>
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
       <div class="wpp-tit">Aviso quando uma task vai pra APROVAR</div>
       <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer">
@@ -987,7 +987,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.42'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.43'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1181,14 +1181,28 @@ function toast(msg, err){
 }
 // GM automático por cadência (a cada N dias a partir da âncora) — só SeuBoné.
 // gm do slot: 'sim' força ligado, 'nao' força desligado, '' segue a cadência.
+/** Datas das grandes marcas CONFIRMADAS (clique manual = 'sim') + a semente da config, em ordem crescente.
+    São as âncoras rolantes: a cadência conta a partir da última GM real, não de uma data fixa. */
+function gmColetaAncoras(){
+  const c = S.gmCadencia || {};
+  const set = new Set();
+  if(c.ancora) set.add(c.ancora);                 // ponto de partida (o último GM antes do sistema saber)
+  for(const s of S.slots){ if(s.conta==='seubone' && s.gm==='sim' && s.date) set.add(s.date); }
+  return [...set].sort();                          // ISO YYYY-MM-DD ordena igual cronológico
+}
+/** A cadência prevê GM neste dia? Conta os N dias a partir da ÚLTIMA grande marca confirmada até aquele dia. */
 function gmCadenciaDia(dateStr){
   const c = S.gmCadencia;
-  if(!c || !c.ativo || !c.ancora || !dateStr) return false;
-  const a = Date.parse(c.ancora+'T12:00:00Z'), d = Date.parse(dateStr+'T12:00:00Z');
-  if(isNaN(a) || isNaN(d)) return false;
-  const dias = Math.round((d-a)/86400000);
+  if(!c || !c.ativo || !dateStr) return false;
   const per = c.periodo || 3;
-  return ((dias % per) + per) % per === 0;
+  const anc = S._gmAncoras || (S._gmAncoras = gmColetaAncoras());
+  let a = null;
+  for(let i=anc.length-1; i>=0; i--){ if(anc[i] <= dateStr){ a = anc[i]; break; } } // última âncora <= o dia
+  if(!a) return false;                             // antes de qualquer GM: não prevê nada
+  const A = Date.parse(a+'T12:00:00Z'), D = Date.parse(dateStr+'T12:00:00Z');
+  if(isNaN(A) || isNaN(D)) return false;
+  const dias = Math.round((D-A)/86400000);         // >= 0 sempre (a <= dateStr)
+  return dias % per === 0;
 }
 function isGm(s){
   if(s.conta!=='seubone') return s.gm==='sim';   // cadência é só da SeuBoné
@@ -1198,11 +1212,12 @@ function isGm(s){
 }
 /** GM veio da cadência (não de um clique manual)? Pra mostrar a estrela mais discreta. */
 function gmAuto(s){ return s.conta==='seubone' && !s.gm && gmCadenciaDia(s.date); }
-/** Converte "quero GM ligado/desligado neste dia" no valor a salvar (override só quando difere da cadência). */
+/** Marcar GM SEMPRE vira confirmação ('sim' = nova âncora, recalcula as próximas).
+    Desligar só precisa gravar 'nao' quando a cadência previa GM ali; senão limpa. */
 function gmOverride(s, quer){
   if(s.conta!=='seubone') return quer ? 'sim' : '';
-  const cad = gmCadenciaDia(s.date);
-  return quer===cad ? '' : (quer ? 'sim' : 'nao');
+  if(quer) return 'sim';
+  return gmCadenciaDia(s.date) ? 'nao' : '';
 }
 function fmtDataHora(ms){ return new Date(ms).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 function refIcon(url){
@@ -1438,7 +1453,7 @@ async function togglePostado(s){
 }
 
 // ================= render =================
-function render(){ aplicarTema(S.aba); renderTabs(); renderLegend(); renderDrawer(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); renderPresenca(); }
+function render(){ S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba); renderTabs(); renderLegend(); renderDrawer(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); renderPresenca(); }
 
 function renderRefLabel(){
   const el = $('#refLabel');
@@ -1485,10 +1500,10 @@ function renderLegend(){
   if(S.aba==='SEUBONÉ'){
     const gm = document.createElement('span');
     gm.className='chip gmchip';
-    const gcAtivo = S.gmCadencia && S.gmCadencia.ativo && S.gmCadencia.ancora;
+    const gcAtivo = S.gmCadencia && S.gmCadencia.ativo;
     gm.innerHTML = icon('star') + ' GM = grande marca na capa' + (gcAtivo? ' · automático' : '');
     gm.title = gcAtivo
-      ? ('GM automático: a cada '+(S.gmCadencia.periodo||3)+' dias desde '+S.gmCadencia.ancora.split('-').reverse().join('/')+'. Clique num card pra ajustar um dia. Configura na engrenagem.')
+      ? ('GM automático: a cada '+(S.gmCadencia.periodo||3)+' dias a partir da ÚLTIMA grande marca que você marcou. Marque um post como GM e as próximas se recalculam sozinhas. Configura na engrenagem.')
       : 'Rotina: 2 dias sem GM, 1 dia com GM. Pra marcar sozinho, ligue o GM automático na engrenagem.';
     el.appendChild(gm);
   }
@@ -2848,9 +2863,9 @@ function pintaNotificacao(){
 function pintaGm(){
   const el = $('#gmEstado'); if(!el) return;
   const gc = S.gmCadencia || {};
-  if(gc.ativo && gc.ancora){
+  if(gc.ativo){
     el.style.color='var(--ok)'; el.style.fontWeight='700';
-    el.textContent = ' Ligado: a cada '+(gc.periodo||3)+' dias desde '+gc.ancora.split('-').reverse().join('/')+'.';
+    el.textContent = ' Ligado: a cada '+(gc.periodo||3)+' dias a partir da última grande marca marcada.';
   } else { el.style.color=''; el.style.fontWeight=''; el.textContent=' Desligado.'; }
 }
 async function salvarGm(){

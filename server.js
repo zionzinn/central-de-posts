@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.42'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.43'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -1158,7 +1158,8 @@ const server = http.createServer(async (req, res) => {
       if ('ativo' in b) c.ativo = !!b.ativo;
       if ('ancora' in b) c.ancora = /^\d{4}-\d{2}-\d{2}$/.test(b.ancora || '') ? b.ancora : null;
       if ('periodo' in b) c.periodo = Math.max(1, Math.min(30, parseInt(b.periodo) || 3));
-      if (!c.ancora) c.ativo = false; // sem âncora não tem como calcular
+      // âncora agora é só o ponto de partida: a cadência rola a partir das grandes marcas reais (gm='sim').
+      // Por isso não desliga mais quando a âncora vem vazia.
       saveDb();
       return json(res, 200, { ok: true, gmCadencia: c });
     }
