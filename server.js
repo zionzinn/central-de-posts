@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.49'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.50'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -647,7 +647,7 @@ const server = http.createServer(async (req, res) => {
     // PORTEIRO: com senha configurada, todo /api (menos login/logout) exige cookie válido.
     // Estáticos (a própria tela de login) passam sempre.
     // Rotas públicas da pauta (validam o próprio token) e o proxy de imagem quando vem com token de pauta.
-    const rotaPublica = p === '/api/login' || p === '/api/logout' || p === '/api/pauta' || p === '/api/pauta/task' || p === '/api/pauta/obs'
+    const rotaPublica = p === '/api/login' || p === '/api/logout' || p === '/api/pauta' || p === '/api/pauta/task' || p === '/api/pauta/obs' || p === '/api/pauta/sugestao'
       || (p === '/api/img' && pautaTokenQualquer(u.searchParams.get('pt')));
     if (config.senha && p.startsWith('/api/') && !rotaPublica) {
       if (!validAuthToken(parseCookies(req.headers.cookie).sb_auth)) return json(res, 401, { erro: 'login', precisaLogin: true });
@@ -667,6 +667,7 @@ const server = http.createServer(async (req, res) => {
         postado: !!s.postado, vaga: !!s.vaga, taskId: s.taskId || null, origem: s.origem || '',
         obs: s.origem === 'banco' ? (s.obs || '') : '',
         notas: s.notas || '',   // observações do post (as do painel + as que chegam pela pauta)
+        sugestao: !!s.sugestao, sugeridoPor: s.sugeridoPor || '',
         statusCache: s.statusCache ? { status: s.statusCache.status, color: s.statusCache.color } : null,
       }));
       const gc = db.gmCadencia || {};
@@ -721,6 +722,35 @@ const server = http.createServer(async (req, res) => {
       slot.notas = (slot.notas ? slot.notas.replace(/\s+$/, '') + '\n\n' : '') + linha;
       saveDb();
       return json(res, 200, { ok: true, notas: slot.notas });
+    }
+    // sugestão de post num dia vazio, vinda pela pauta: vira um card "SUGESTÃO" naquele dia (sem task).
+    // Você aceita colando a task nele (a marca de sugestão cai sozinha) ou apaga.
+    if (p === '/api/pauta/sugestao' && req.method === 'POST') {
+      const b = await readBody(req);
+      const aba = b.aba || null;
+      if (aba && !(db.abas || []).includes(aba)) return json(res, 401, { erro: 'link inválido' });
+      if (!pautaTokenOk(b.token, aba)) return json(res, 401, { erro: 'link inválido' });
+      const date = String(b.date || '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { erro: 'dia inválido' });
+      const conta = String(b.conta || '');
+      if (!db.contas[conta]) return json(res, 400, { erro: 'conta inválida' });
+      if (aba && !contasDaAbaSrv(aba).includes(conta)) return json(res, 403, { erro: 'conta fora do escopo deste link' });
+      const texto = String(b.texto || '').replace(/[<>]/g, '').trim().slice(0, 1500);
+      if (!texto) return json(res, 400, { erro: 'escreva a ideia' });
+      const nome = String(b.nome || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'alguém pela pauta';
+      const formato = ['estático', 'carrossel', 'reels', 'story'].includes(b.formato) ? b.formato : '';
+      const quando = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' });
+      const slot = {
+        id: 's' + crypto.randomBytes(4).toString('hex'),
+        conta, date, taskId: null,
+        titulo: 'SUGESTÃO: ' + texto.split('\n')[0].slice(0, 70), formato, angulo: '', obs: '',
+        notas: '• ' + nome + ', ' + quando + ' (sugestão pela pauta): ' + texto,
+        gm: '', collab: [], drive: '', linkRef: '', aprovado: false, postado: false, fixo: false,
+        responsavelManual: '', origem: 'pauta', cat: '', fonteId: '', sugestao: true, sugeridoPor: nome,
+        tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: null,
+      };
+      db.slots.push(slot); saveDb();
+      return json(res, 200, { ok: true, slot: { id: slot.id, conta, date, titulo: slot.titulo, formato, notas: slot.notas, sugestao: true, sugeridoPor: nome } });
     }
     if (p === '/api/pauta/link' && req.method === 'GET') {
       const aba = u.searchParams.get('aba') || null;
@@ -1064,7 +1094,7 @@ const server = http.createServer(async (req, res) => {
         taskMudou = tid !== slot.taskId;
         slot.taskId = tid; if (tid) { slot.statusCache = null; slot.tituloCache = null; enrichSlots([slot], { fresh: true }).catch(() => {}); }
         // colou a task: o post foi criado, então a vaga cai sozinha (Ctrl+Z devolve tudo junto)
-        if (tid) slot.vaga = false;
+        if (tid) { slot.vaga = false; slot.sugestao = false; }
       }
       saveDb();
       const entrega = (dataMudou || taskMudou) ? queueDue(slot) : null;

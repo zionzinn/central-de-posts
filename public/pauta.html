@@ -28,8 +28,25 @@
   .top{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px}
   .logo{width:30px; height:30px; background:var(--sb); border:var(--bw) solid var(--stroke); border-radius:7px; box-shadow:var(--hard-s);
     display:flex; align-items:center; justify-content:center; color:#000; font-weight:800; font-size:15px; transform:rotate(-4deg); transition:background-color .45s ease}
+  .top .bname{display:flex; flex-direction:column; line-height:1.05}
   .top b{font-size:17px; font-weight:700; letter-spacing:-.02em}
-  .top .sub{font-size:10.5px; color:var(--ink-3); font-weight:600; letter-spacing:.14em; text-transform:uppercase}
+  .top .sub{font-size:9px; color:var(--ink-3); font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-top:2px; white-space:nowrap}
+  .top .tag{font-size:10.5px; color:#000; background:var(--sb); font-weight:800; letter-spacing:.1em; text-transform:uppercase; border:2px solid var(--stroke); border-radius:6px; padding:3px 9px; box-shadow:2px 2px 0 #000; transition:background-color .45s ease}
+  /* dias sem post: aparecem também, compactos, pra os buracos ficarem visíveis */
+  .dia.semposto{padding:5px 0}
+  .dia.semposto .dnum b{color:var(--ink-3)}
+  .dia.semposto .fds .dnum b{color:var(--ink-3)}
+  .semposto-box{border:1.5px dashed var(--hair); border-radius:8px; padding:5px 6px 5px 11px; font-size:11px; font-weight:700; color:var(--ink-3); letter-spacing:.04em; display:flex; align-items:center; gap:8px}
+  .semposto-box.gm{border-color:var(--sb); color:var(--sb)}
+  .semposto-box .sugerir{margin-left:auto; font-size:10.5px; font-weight:800; letter-spacing:.06em; color:#C77DFF; border:1.5px dashed #C77DFF; border-radius:6px; padding:4px 9px; white-space:nowrap;
+    transition:transform .18s cubic-bezier(.34,1.56,.64,1), background .15s, color .15s}
+  .semposto-box .sugerir:hover{background:#C77DFF; color:#000; transform:translateY(-1px)}
+  .post.sugestao{border-style:dashed; border-color:#C77DFF; background:linear-gradient(90deg, rgba(199,125,255,.10), transparent 60%)}
+  .post.sugestao .fmt{font-size:15px; background:rgba(199,125,255,.15); border-color:#C77DFF}
+  .post .tit .quem{font-size:11px; color:var(--ink-3); font-weight:600}
+  .obsform .sel{font:inherit; font-size:13px; color:var(--ink); background:var(--surface-2); border:2px solid var(--hair); border-radius:8px; padding:9px 12px; flex:1; min-width:140px}
+  .nota{font-size:11.5px; color:var(--ink-3); line-height:1.5}
+  .dia.fds .dnum span{color:var(--ink-3); opacity:.8}
   .top .ro{margin-left:auto; font-size:10.5px; color:var(--ink-3); font-weight:700; letter-spacing:.08em; text-transform:uppercase; border:1.5px dashed var(--hair); border-radius:6px; padding:4px 9px}
   /* abas */
   .tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px}
@@ -135,7 +152,9 @@
 <body>
 <div class="wrap">
   <div class="top">
-    <div class="logo">SB</div><b>B.O.N.E</b><span class="sub">pauta do mês</span>
+    <div class="logo">SB</div>
+    <div class="bname"><b>B.O.N.E</b><span class="sub">Bora Organizar Nossas Entregas</span></div>
+    <span class="tag">pauta do mês</span>
     <span class="ro">só leitura · ao vivo</span>
   </div>
   <div class="tabs" id="tabs"></div>
@@ -200,8 +219,10 @@ function gmCadenciaDia(d){
 function isGm(s){ if(s.conta!=='seubone') return s.gm==='sim'; if(s.gm==='sim') return true; if(s.gm==='nao') return false; return gmCadenciaDia(s.date); }
 // ---- status (igual ao painel: completo = publicar) ----
 function ehPublicar(s){ const st=(s.statusCache&&s.statusCache.status)||''; return st==='publicar'||st==='completo'; }
+function ehSugestao(s){ return !!s.sugestao && !s.taskId; }
 function stInfo(s){
   if(s.vaga && !s.taskId) return {label:'falta criar', color:'#FF4D4D'};
+  if(ehSugestao(s)) return {label:'sugestão', color:'#C77DFF'};
   if(s.postado) return {label:'postado', color:'#2FD06A'};
   if(s.statusCache){ if(ehPublicar(s)) return {label:'publicar', color:'#ee5e99'}; return {label:s.statusCache.status, color:s.statusCache.color||'#8C897C'}; }
   if(s.taskId) return {label:'sincronizando', color:'#8C897C'};
@@ -210,6 +231,7 @@ function stInfo(s){
 function ehPronto(s){ return !!s.postado || ehPublicar(s); }
 function titulo(s){
   if(s.vaga && !s.taskId) return 'FALTA CRIAR: '+((s.formato||'post').toUpperCase());
+  if(ehSugestao(s)) return String(s.titulo||'Sugestão').replace(/^SUGESTÃO:\s*/i,'');
   if(s.titulo) return s.titulo;
   if(s.origem==='banco') return s.taskId ? (s.obs||'Task do ClickUp') : ('Reutilizar: '+(s.obs||'vídeo'));
   const c=ST.dados.contas[s.conta];
@@ -250,36 +272,52 @@ function render(){
   const tot=posts.length, prontos=posts.filter(ehPronto).length, aprovar=posts.filter(s=>(s.statusCache&&s.statusCache.status)==='aprovar').length,
         producao=posts.filter(s=>{const st=(s.statusCache&&s.statusCache.status)||''; return st&&!ehPronto(s)&&st!=='aprovar';}).length,
         semtask=posts.filter(s=>!s.taskId&&!s.vaga).length, vagas=posts.filter(s=>s.vaga&&!s.taskId).length;
+  // todos os dias do mês (os sem post também aparecem, pra os buracos ficarem visíveis)
+  const ultimo=new Date(y,m,0).getDate();
+  const diasMes=[]; for(let d=1; d<=ultimo; d++) diasMes.push(ST.mes+'-'+String(d).padStart(2,'0'));
+  const porDiaTodos={}; posts.forEach(s=>{ (porDiaTodos[s.date]=porDiaTodos[s.date]||[]).push(s); });
+  const diasSem=diasMes.filter(d=>!porDiaTodos[d]).length;
   $('#resumo').innerHTML=
     '<div class="kpi"><b>'+tot+'</b><span>posts no mês</span></div>'+
     '<div class="kpi pronto"><b>'+prontos+'</b><span>prontos / postados</span></div>'+
     '<div class="kpi"><b>'+producao+'</b><span>em produção</span></div>'+
     '<div class="kpi"><b>'+aprovar+'</b><span>pra aprovar</span></div>'+
+    (diasSem?'<div class="kpi"><b style="color:var(--warn)">'+diasSem+'</b><span>dias sem post</span></div>':'')+
     (semtask?'<div class="kpi"><b>'+semtask+'</b><span>sem task</span></div>':'')+
     (vagas?'<div class="kpi"><b style="color:var(--crit)">'+vagas+'</b><span>falta criar</span></div>':'');
   $('#soProntos').classList.toggle('on', ST.soProntos);
   if(ST.soProntos) posts=posts.filter(ehPronto);
+  const porDia={}; posts.forEach(s=>{ (porDia[s.date]=porDia[s.date]||[]).push(s); });
   const lista=$('#lista'); lista.innerHTML='';
-  if(!posts.length){ lista.innerHTML='<div class="vazio">'+(ST.soProntos?'Nada pronto ainda neste mês.':'Nenhum post planejado neste mês pra '+esc(ST.aba)+'.')+'</div>'; }
+  if(ST.soProntos && !posts.length){ lista.innerHTML='<div class="vazio">Nada pronto ainda neste mês.</div>'; }
   else{
+    // no filtro "só prontos" mostra só os dias que têm algo pronto; no normal, o mês inteiro
+    const diasVisiveis = ST.soProntos ? diasMes.filter(d=>porDia[d]) : diasMes;
     const porSem=new Map();
-    posts.forEach(s=>{ const k=segundaDe(s.date); if(!porSem.has(k)) porSem.set(k,new Map()); const dd=porSem.get(k); if(!dd.has(s.date)) dd.set(s.date,[]); dd.get(s.date).push(s); });
+    diasVisiveis.forEach(d=>{ const k=segundaDe(d); if(!porSem.has(k)) porSem.set(k,[]); porSem.get(k).push(d); });
     let n=0;
     for(const [seg,dias] of porSem){
       n++;
       const fim=(()=>{ const d=new Date(seg+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()+6); return d.toISOString().slice(0,10); })();
       const sec=document.createElement('section'); sec.className='sem';
       sec.innerHTML='<div class="semtit"><b>semana '+n+'</b><span>'+brDia(seg)+' a '+brDia(fim)+'</span></div>';
-      for(const [dia,arr] of dias){
+      for(const dia of dias){
+        const arr=porDia[dia]||[];
+        const fds=[0,6].includes(dow(dia));
         const gmPede = ST.aba==='SEUBONÉ' && gmCadenciaDia(dia) && !arr.some(isGm);
-        const row=document.createElement('div'); row.className='dia'+(dia===hoje?' hoje':'')+(gmPede?' gmpede':'');
+        const row=document.createElement('div'); row.className='dia'+(dia===hoje?' hoje':'')+(gmPede?' gmpede':'')+(arr.length?'':' semposto')+(fds?' fds':'');
         row.innerHTML='<div class="dnum"><b>'+dia.slice(8,10)+'</b><span>'+DOWS[dow(dia)]+'</span></div><div class="posts"></div>';
         const box=row.querySelector('.posts');
+        if(!arr.length){
+          box.innerHTML='<div class="semposto-box'+(gmPede?' gm':'')+'"><span>'+(gmPede?'☆ sem post · este dia pede grande marca':'sem post planejado')+'</span><button type="button" class="sugerir" title="mandar uma ideia de post pra este dia">+ sugerir post</button></div>';
+          box.querySelector('.sugerir').onclick=()=>abrirSugestao(dia);
+          sec.appendChild(row); continue;
+        }
         arr.forEach(s=>{
-          const st=stInfo(s), cc=corConta(s.conta), pronto=ehPronto(s);
-          const b=document.createElement('button'); b.className='post'+(pronto?' pronto':'')+((s.vaga&&!s.taskId)?' vaga':''); b.style.setProperty('--cc',cc); b.title='abrir detalhes';
-          b.innerHTML='<div class="fmt">'+(ICO[s.formato]||ICO.post)+'</div>'+
-            '<div class="body"><div class="tit">'+esc(titulo(s))+(isGm(s)?'<span class="gm" title="grande marca na capa">★</span>':'')+'</div>'+
+          const st=stInfo(s), cc=corConta(s.conta), pronto=ehPronto(s), sug=ehSugestao(s);
+          const b=document.createElement('button'); b.className='post'+(pronto?' pronto':'')+((s.vaga&&!s.taskId)?' vaga':'')+(sug?' sugestao':''); b.style.setProperty('--cc',cc); b.title='abrir detalhes';
+          b.innerHTML='<div class="fmt">'+(sug?'💡':(ICO[s.formato]||ICO.post))+'</div>'+
+            '<div class="body"><div class="tit">'+esc(titulo(s))+(isGm(s)?'<span class="gm" title="grande marca na capa">★</span>':'')+(sug&&s.sugeridoPor?' <span class="quem">por '+esc(s.sugeridoPor)+'</span>':'')+'</div>'+
             '<div class="chips"><span class="pill" style="background:'+esc(st.color)+'">'+esc(st.label)+'</span>'+
             (multi?'<span class="chip conta">'+esc(CONTA_CURTA[s.conta]||s.conta)+'</span>':'')+
             (s.formato?'<span class="chip">'+esc(s.formato)+'</span>':'')+(s.angulo?'<span class="chip">'+esc(s.angulo)+'</span>':'')+
@@ -369,6 +407,43 @@ async function enviarObs(s){
     render(); // atualiza o chip "obs" na lista
   }catch(e){ msg.textContent='Não deu: '+e.message; msg.className='obsmsg err'; }
   finally{ btn.disabled=false; }
+}
+// ---- sugerir post num dia vazio ----
+function abrirSugestao(dia){
+  ST.aberto=null;
+  const contas=contasDaAba(ST.aba);
+  $('#modal').style.setProperty('--cc','#C77DFF');
+  $('#mhead').innerHTML='<div class="mtit">💡 Sugerir post pra '+brData(dia)+' · '+DOWS[dow(dia)]+'</div>'+
+    '<div class="chips"><span class="pill" style="background:#C77DFF">sugestão</span><span class="chip">'+esc(ST.aba)+'</span></div>';
+  $('#mbody').innerHTML=
+    '<form class="obsform" id="sugform">'+
+      '<textarea id="sugTxt" placeholder="qual a ideia? (tema, gancho, referência… o que ajudar o time a criar)" maxlength="1500" required></textarea>'+
+      '<div class="obsrow">'+
+        (contas.length>1 ? '<select id="sugConta" class="sel">'+contas.map(k=>'<option value="'+esc(k)+'">'+esc(nomeConta(k))+'</option>').join('')+'</select>' : '<input type="hidden" id="sugConta" value="'+esc(contas[0]||'')+'">')+
+        '<select id="sugFmt" class="sel"><option value="">formato (opcional)</option><option value="reels">reels</option><option value="carrossel">carrossel</option><option value="estático">estático</option><option value="story">story</option></select>'+
+      '</div>'+
+      '<div class="obsrow"><input id="sugNome" maxlength="40" placeholder="seu nome" autocomplete="name"><button type="submit" class="obsenviar" id="sugEnviar">enviar sugestão</button></div>'+
+      '<div class="obsmsg" id="sugMsg"></div>'+
+    '</form>'+
+    '<p class="nota">A sugestão vira um card roxo neste dia, no painel do time e aqui na pauta. O time transforma em post colando a task, ou apaga.</p>';
+  $('#mfoot').innerHTML='';
+  try{ $('#sugNome').value = localStorage.getItem('pauta.nome')||''; }catch(e){}
+  $('#sugform').onsubmit = ev=>{ ev.preventDefault(); enviarSugestao(dia); };
+  $('#ovPost').classList.add('open');
+  setTimeout(()=>$('#sugTxt').focus(), 60);
+}
+async function enviarSugestao(dia){
+  const txt=$('#sugTxt').value.trim(), nome=$('#sugNome').value.trim(), msg=$('#sugMsg'), btn=$('#sugEnviar');
+  if(!txt){ msg.textContent='Escreva a ideia antes de enviar.'; msg.className='obsmsg err'; return; }
+  try{ if(nome) localStorage.setItem('pauta.nome', nome); }catch(e){}
+  btn.disabled=true; msg.textContent='enviando…'; msg.className='obsmsg';
+  try{
+    const r=await fetch('/api/pauta/sugestao',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token, aba:ESCOPO, date:dia, conta:$('#sugConta').value, formato:$('#sugFmt').value, texto:txt, nome})});
+    const j=await r.json();
+    if(!r.ok) throw new Error(j.erro||'falhou');
+    msg.textContent='Sugestão enviada. Já está no dia '+brDia(dia)+' no painel do time.'; msg.className='obsmsg ok';
+    setTimeout(()=>{ fecharPost(); carregar(); }, 900);
+  }catch(e){ msg.textContent='Não deu: '+e.message; msg.className='obsmsg err'; btn.disabled=false; }
 }
 function fecharPost(){ ST.aberto=null; $('#ovPost').classList.remove('open'); }
 $('#mclose').onclick=fecharPost;
