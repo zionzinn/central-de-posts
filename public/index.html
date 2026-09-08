@@ -848,7 +848,8 @@
     <div class="maiswrap" id="maiswrap">
       <button class="act act-mais" id="btnMais" data-tip="mais ações"></button>
       <div class="maismenu" id="maismenu">
-        <button id="btnPauta" data-tip="copia um link ao vivo da pauta deste mês (só leitura, abre sem login) pra mandar pra quem quiser"></button>
+        <button id="btnPauta" data-tip="link ao vivo da pauta SÓ desta conta: quem abrir vê só ela, sem login, sempre atualizado, e pode deixar observação"></button>
+        <button id="btnPautaTodas" data-tip="link ao vivo da pauta com TODAS as contas (pra quem é do time)"></button>
         <button id="btnImportar" data-tip="colar vários links do ClickUp de uma vez e espalhar num dia da semana"></button>
         <button id="btnExportar" data-tip="gerar um arquivo HTML da semana pra enviar pra outras pessoas verem (só leitura)"></button>
       </div>
@@ -1135,7 +1136,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.48'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.49'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1236,7 +1237,7 @@ async function loadState(fresh, silencioso){
   try{ j = await api('/api/state'+(q||fresh?'?':'')+q+(fresh?(q?'&':'')+'fresh=1':'')); }
   catch(e){ if(e.status===401){ if(!silencioso) mostrarLogin(); return; } if(silencioso) return; throw e; }
   // assinatura barata do que aparece na tela: se nada mudou, o modo silencioso não redesenha
-  const assinatura = j.slots.map(x=>x.id+'|'+(x.date||'')+'|'+(x.tituloCache||'')+'|'+((x.statusCache&&x.statusCache.status)||'')+'|'+(x.assigneeCache||'')+'|'+(x.postado?1:0)).join(';')
+  const assinatura = j.slots.map(x=>x.id+'|'+(x.date||'')+'|'+(x.tituloCache||'')+'|'+((x.statusCache&&x.statusCache.status)||'')+'|'+(x.assigneeCache||'')+'|'+(x.postado?1:0)+'|'+(x.notas?x.notas.length:0)).join(';')
     + '#' + (j.duePendentes||[]).length;
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
@@ -1623,6 +1624,13 @@ function renderTabs(){
     b.onclick = ()=> irParaAba(aba);
     el.appendChild(b);
   }
+  atualizaRotuloPauta();
+}
+/** Rótulos dos links da pauta no menu "mais" acompanham a conta atual. */
+function atualizaRotuloPauta(){
+  const a=$('#btnPauta'), b=$('#btnPautaTodas'); if(!a||!b) return;
+  a.innerHTML = icon('link') + 'Link da pauta · só '+esc(S.aba||'esta conta');
+  b.innerHTML = icon('link') + 'Link da pauta · todas as contas';
 }
 /** Troca de conta feita PELA PESSOA (aba ou seta): para de seguir alguém e dá o fade no conteúdo. */
 function irParaAba(aba){
@@ -4046,17 +4054,21 @@ function initIcons(){
   $('#btnRelatorio').innerHTML = icon('list') + 'Relatório';
   $('#btnExportar').innerHTML = icon('external') + 'Exportar';
   $('#btnImportar').innerHTML = icon('plus') + 'Importar em lote';
-  $('#btnPauta').innerHTML = icon('link') + 'Link da pauta do mês';
-  $('#btnPauta').onclick = async ()=>{
+  atualizaRotuloPauta();
+  // link da pauta: com escopo (só a conta atual) ou geral (todas). O token muda conforme o escopo,
+  // então o link de uma empresa não abre as outras nem dá pra "alargar" editando a URL.
+  const linkPauta = async (aba)=>{
     try{
-      const r = await api('/api/pauta/link');
-      const url = location.origin + '/pauta?token=' + encodeURIComponent(r.token) + '#' + encodeURIComponent(S.aba) + '/' + S.mes;
+      const r = await api('/api/pauta/link'+(aba?'?aba='+encodeURIComponent(aba):''));
+      const url = location.origin + '/pauta?token=' + encodeURIComponent(r.token) + (aba?'&aba='+encodeURIComponent(aba):'') + '#' + encodeURIComponent(S.aba) + '/' + S.mes;
       let copiou = false;
       try{ await navigator.clipboard.writeText(url); copiou = true; }catch(e){}
       window.open(url, '_blank');
-      toast(copiou ? 'Link da pauta copiado · abre sem login, sempre atualizado' : 'Pauta aberta em nova aba · copie o endereço de lá');
+      toast(copiou ? ('Link da pauta'+(aba?' só da '+aba:' (todas as contas)')+' copiado · abre sem login') : 'Pauta aberta em nova aba · copie o endereço de lá');
     }catch(e){ toast('Não consegui gerar o link: '+e.message, true); }
   };
+  $('#btnPauta').onclick = ()=> linkPauta(S.aba);
+  $('#btnPautaTodas').onclick = ()=> linkPauta(null);
   $('#btnDrawer').innerHTML = icon('box') + 'Bancos <span class="n" id="drawerN">0</span>';
   $('#btnMais').innerHTML = icon('dots') + 'mais';
   $('#btnAjuda').innerHTML = icon('help');

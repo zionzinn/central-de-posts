@@ -37,6 +37,7 @@
     transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .18s, border-color .18s}
   .tab:hover{border-color:var(--ink-3); transform:translateY(-2px) scale(1.04)}
   .tab.on{color:#000; border-color:var(--stroke); box-shadow:var(--hard-s); transform:translateY(-1px) scale(1.03)}
+  .tab.fixo{cursor:default} .tab.fixo:hover{transform:translateY(-1px) scale(1.03)}
   /* mês + resumo */
   .mes{display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap}
   .mnav{display:flex; align-items:center; gap:4px; background:var(--surface); border:var(--bw) solid var(--hair); border-radius:6px; padding:3px 5px}
@@ -63,13 +64,13 @@
   .dia.hoje .dnum b{background:var(--sb); color:#000; border-radius:6px; display:inline-block; padding:1px 7px}
   .dia.gmpede .dnum span::after{content:" ☆"; color:var(--sb)}
   .posts{display:flex; flex-direction:column; gap:7px}
-  .post{display:flex; align-items:flex-start; gap:10px; background:var(--surface); border:1.5px solid var(--hair); border-left:5px solid var(--cc,#8C897C); border-radius:8px; padding:9px 11px;
+  .post{display:flex; align-items:flex-start; gap:10px; background:var(--surface); border:1.5px solid var(--hair); border-left:5px solid var(--cc,#8C897C); border-radius:8px; padding:9px 11px; cursor:pointer; text-align:left; width:100%;
     transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .15s, border-color .15s}
   .post:hover{transform:translate(-1px,-2px); box-shadow:var(--hard-s); border-color:var(--ink-3); border-left-color:var(--cc,#8C897C)}
   .post.pronto{background:linear-gradient(90deg, rgba(238,94,153,.09), transparent 55%)}
   .post.vaga{border-style:dashed; opacity:.75}
   .post .fmt{width:28px; height:28px; border-radius:6px; background:var(--hair-2); border:1.5px solid var(--hair); display:flex; align-items:center; justify-content:center; flex:none; color:var(--ink-2)}
-  .post .fmt svg{width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+  svg.i{width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
   .post .body{min-width:0; flex:1}
   .post .tit{font-size:13.5px; font-weight:700; line-height:1.35; color:var(--ink)}
   .post .tit .gm{color:var(--sb); margin-left:4px}
@@ -77,13 +78,58 @@
   .pill{font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:2px 8px; border-radius:5px; color:#000}
   .chip{font-size:10.5px; font-weight:700; color:var(--ink-2); border:1.5px solid var(--hair); border-radius:5px; padding:1px 7px}
   .chip.conta{border-color:var(--cc); color:var(--cc)}
-  .post .link{flex:none; width:30px; height:30px; border-radius:6px; border:1.5px solid var(--hair); display:flex; align-items:center; justify-content:center; color:var(--ink-3); text-decoration:none; transition:all .15s}
-  .post .link:hover{border-color:var(--ink-3); color:var(--ink); background:var(--hair-2)}
-  .post .link svg{width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+  .chip.obs{border-color:var(--warn); color:var(--warn)}
+  .post .abrir{flex:none; align-self:center; color:var(--ink-3); font-size:11px; font-weight:800; letter-spacing:.06em}
   .vazio{text-align:center; color:var(--ink-3); padding:40px 10px; font-weight:600}
   .rodape{margin-top:26px; font-size:11px; color:var(--ink-3); text-align:center; line-height:1.6}
   .erro{background:var(--crit); color:#fff; border:var(--bw) solid var(--stroke); border-radius:8px; padding:14px; font-weight:700; text-align:center; margin-top:30px}
-  @media (max-width:560px){ .dia{grid-template-columns:48px 1fr} .dnum b{font-size:17px} .top .ro{display:none} .filtro{margin-left:0} }
+  /* ---- detalhe do post (modal) ---- */
+  .ov{position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:60; display:none; align-items:flex-start; justify-content:center; overflow:auto; padding:5vh 14px}
+  .ov.open{display:flex; animation:ovin .14s ease both}
+  @keyframes ovin{from{opacity:0} to{opacity:1}}
+  .modal{background:var(--surface); border:var(--bw) solid var(--stroke); border-radius:12px; width:min(720px,100%); box-shadow:var(--hard); position:relative; animation:popin .2s cubic-bezier(.2,.8,.3,1) both}
+  @keyframes popin{from{opacity:0; transform:translateY(10px) scale(.985)} to{opacity:1; transform:none}}
+  .mhead{padding:18px 20px 12px; border-bottom:var(--bw) solid var(--hair); border-left:6px solid var(--cc,#8C897C); border-radius:12px 0 0 0}
+  .mhead .mtit{font-size:17px; font-weight:800; letter-spacing:-.01em; line-height:1.3; padding-right:36px}
+  .mhead .chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:9px; align-items:center}
+  .mclose{position:absolute; top:12px; right:12px; color:var(--ink-3); padding:6px 9px; border-radius:6px; transition:all .15s}
+  .mclose:hover{background:var(--hair-2); color:var(--ink)}
+  .mbody{padding:14px 20px 20px; display:flex; flex-direction:column; gap:16px}
+  .sec .stit{font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); margin-bottom:7px; display:flex; align-items:center; gap:8px}
+  .sec .stit .n{background:var(--hair-2); border-radius:5px; padding:0 6px; font-size:10px}
+  .desc{white-space:pre-wrap; line-height:1.6; font-size:13.5px; color:var(--ink-2); background:var(--surface-2); border:1.5px solid var(--hair); border-radius:8px; padding:12px 14px; max-height:320px; overflow:auto}
+  .desc b{color:var(--ink)}
+  .meta{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px}
+  .meta div{background:var(--surface-2); border:1.5px solid var(--hair); border-radius:8px; padding:8px 11px}
+  .meta span{display:block; font-size:9.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); margin-bottom:3px}
+  .meta b{font-size:13px; font-weight:700}
+  .artes{display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px}
+  .arte{display:block; border:1.5px solid var(--hair); border-radius:8px; overflow:hidden; background:var(--surface-2); text-decoration:none; transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .15s, border-color .15s}
+  .arte:hover{transform:translate(-1px,-2px); box-shadow:var(--hard-s); border-color:var(--ink-3)}
+  .arte img{display:block; width:100%; aspect-ratio:1; object-fit:cover; background:#000}
+  .arte .an{font-size:10px; color:var(--ink-3); padding:5px 7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:700}
+  .arte.file{display:flex; align-items:center; gap:8px; padding:10px; aspect-ratio:auto}
+  .arte.file .ext{font-size:10px; font-weight:800; background:var(--hair-2); border-radius:5px; padding:2px 6px; text-transform:uppercase}
+  .carreg{color:var(--ink-3); font-size:12px; font-weight:600}
+  /* observações */
+  .notas{white-space:pre-wrap; line-height:1.6; font-size:13px; color:var(--ink-2); background:var(--surface-2); border:1.5px solid var(--hair); border-radius:8px; padding:11px 13px}
+  .notas:empty{display:none}
+  .obsform{display:grid; gap:8px; margin-top:8px}
+  .obsform textarea{width:100%; min-height:84px; resize:vertical; font:inherit; font-size:13.5px; line-height:1.5; color:var(--ink); background:var(--surface-2); border:2px solid var(--hair); border-radius:8px; padding:10px 12px; transition:border-color .15s, box-shadow .15s}
+  .obsform textarea:focus,.obsform input:focus{outline:none; border-color:var(--sb); box-shadow:3px 3px 0 #000}
+  .obsrow{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .obsform input{flex:1; min-width:140px; font:inherit; font-size:13px; color:var(--ink); background:var(--surface-2); border:2px solid var(--hair); border-radius:8px; padding:9px 12px; transition:border-color .15s, box-shadow .15s}
+  .obsenviar{background:var(--sb); color:#000; border:2px solid var(--stroke); border-radius:8px; padding:9px 16px; font-weight:800; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    transition:transform .3s cubic-bezier(.23,1,.32,1), box-shadow .3s cubic-bezier(.23,1,.32,1), background-color .45s ease}
+  .obsenviar:hover{transform:translate(-3px,-3px); box-shadow:4px 4px 0 #000}
+  .obsenviar:active{transform:none; box-shadow:none}
+  .obsenviar[disabled]{opacity:.5; cursor:wait; transform:none; box-shadow:none}
+  .obsmsg{font-size:11.5px; color:var(--ink-3); font-weight:600; min-height:1em}
+  .obsmsg.ok{color:var(--ok)} .obsmsg.err{color:var(--crit)}
+  .mfoot{padding:0 20px 16px; display:flex; justify-content:flex-end}
+  .mfoot a{font-size:11px; color:var(--ink-3); font-weight:700; text-decoration:none; display:flex; align-items:center; gap:5px; padding:6px 8px; border-radius:6px; transition:all .15s}
+  .mfoot a:hover{color:var(--ink); background:var(--hair-2)}
+  @media (max-width:560px){ .dia{grid-template-columns:48px 1fr} .dnum b{font-size:17px} .top .ro{display:none} .filtro{margin-left:0} .post .abrir{display:none} }
 </style>
 </head>
 <body>
@@ -105,27 +151,42 @@
   <div id="lista"><div class="vazio">carregando…</div></div>
   <div class="rodape" id="rodape"></div>
 </div>
+
+<!-- detalhe do post: abre aqui dentro, sem mandar ninguém pro ClickUp -->
+<div class="ov" id="ovPost">
+  <div class="modal" id="modal">
+    <div class="mhead" id="mhead"></div>
+    <button class="mclose" id="mclose" title="fechar (Esc)">✕</button>
+    <div class="mbody" id="mbody"></div>
+    <div class="mfoot" id="mfoot"></div>
+  </div>
+</div>
+
 <script>
 const TEMAS = { 'SEUBONÉ':{sb:'#FCC100',page:'#0F0F0D'}, 'CARBONE':{sb:'#F2F2EC',page:'#101010'}, 'ONEVO':{sb:'#0AFFA3',page:'#081815'}, 'WEEVO':{sb:'#177D81',page:'#0C1414'} };
 const CONTA_CORES = { 'seubone':'#FCC100','carbone-edu':'#F2F2EC','carbone-club':'#8A8A82','onevo-energia':'#0AFFA3','onevo-invest':'#FFC721','weevo':'#177D81' };
 const CONTA_CURTA = { 'seubone':'SEUBONÉ','carbone-edu':'EDUCAÇÃO','carbone-club':'CLUB','onevo-energia':'ENERGIA','onevo-invest':'INVESTIMENTOS','weevo':'WEEVO' };
 const ICO = {
-  reels:'<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M8.2 5v14M15.8 5v14M3.5 9.7h4.7M3.5 14.3h4.7M15.8 9.7h4.7M15.8 14.3h4.7"/></svg>',
-  carrossel:'<svg viewBox="0 0 24 24"><rect x="7.5" y="7.5" width="12.5" height="12.5" rx="2"/><path d="M4 16.5V5.5A1.5 1.5 0 0 1 5.5 4h11"/></svg>',
-  'estático':'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4.5 17l4.5-4.5 3.5 3.5 2.5-2.5 4.5 4.5"/></svg>',
-  story:'<svg viewBox="0 0 24 24"><path d="M13 2L5 13.5h6L11 22l8-11.5h-6L13 2z"/></svg>',
-  post:'<svg viewBox="0 0 24 24"><path d="M8 6.5h11M8 12h11M8 17.5h11"/><circle cx="4" cy="6.5" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="17.5" r="1"/></svg>',
-  link:'<svg viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M9 5H6.5A2.5 2.5 0 0 0 4 7.5v10A2.5 2.5 0 0 0 6.5 20h10a2.5 2.5 0 0 0 2.5-2.5V15"/></svg>',
+  reels:'<svg class="i" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M8.2 5v14M15.8 5v14M3.5 9.7h4.7M3.5 14.3h4.7M15.8 9.7h4.7M15.8 14.3h4.7"/></svg>',
+  carrossel:'<svg class="i" viewBox="0 0 24 24"><rect x="7.5" y="7.5" width="12.5" height="12.5" rx="2"/><path d="M4 16.5V5.5A1.5 1.5 0 0 1 5.5 4h11"/></svg>',
+  'estático':'<svg class="i" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4.5 17l4.5-4.5 3.5 3.5 2.5-2.5 4.5 4.5"/></svg>',
+  story:'<svg class="i" viewBox="0 0 24 24"><path d="M13 2L5 13.5h6L11 22l8-11.5h-6L13 2z"/></svg>',
+  post:'<svg class="i" viewBox="0 0 24 24"><path d="M8 6.5h11M8 12h11M8 17.5h11"/><circle cx="4" cy="6.5" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="17.5" r="1"/></svg>',
+  link:'<svg class="i" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M9 5H6.5A2.5 2.5 0 0 0 4 7.5v10A2.5 2.5 0 0 0 6.5 20h10a2.5 2.5 0 0 0 2.5-2.5V15"/></svg>',
 };
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const DOWS = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
 const $ = s=>document.querySelector(s);
 const esc = s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const token = new URLSearchParams(location.search).get('token')||'';
-const ST = { aba:null, mes:null, dados:null, soProntos:false };
+const Q = new URLSearchParams(location.search);
+const token = Q.get('token')||'';
+const ESCOPO = Q.get('aba')||null;         // link de UMA empresa: trava a aba
+const ST = { aba:null, mes:null, dados:null, soProntos:false, aberto:null };
+function qs(extra){ return 'token='+encodeURIComponent(token)+(ESCOPO?'&aba='+encodeURIComponent(ESCOPO):'')+(extra||''); }
+function img(u){ return '/api/img?u='+encodeURIComponent(u)+'&pt='+encodeURIComponent(token); }
 function hojeStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function lerHash(){ const h=decodeURIComponent(location.hash.slice(1)); const [aba,mes]=h.split('/'); return {aba:aba||null, mes:/^\d{4}-\d{2}$/.test(mes||'')?mes:null}; }
-function gravarHash(){ try{ history.replaceState(null,'','#'+encodeURIComponent(ST.aba)+'/'+ST.mes+(location.search?'':'')); }catch(e){} }
+function gravarHash(){ try{ history.replaceState(null,'','#'+encodeURIComponent(ST.aba)+'/'+ST.mes); }catch(e){} }
 function aplicarTema(aba){ const t=TEMAS[aba]||TEMAS['SEUBONÉ']; document.documentElement.style.setProperty('--sb',t.sb); document.documentElement.style.setProperty('--page',t.page); }
 // ---- GM (mesma regra do painel: âncora rolante a partir da última grande marca confirmada) ----
 function gmCadenciaDia(d){
@@ -156,31 +217,36 @@ function titulo(s){
 }
 function contasDaAba(aba){ return Object.entries(ST.dados.contas).filter(([,c])=>c.aba===aba).map(([k])=>k); }
 function corConta(k){ return CONTA_CORES[k]||(ST.dados.contas[k]&&ST.dados.contas[k].cor)||'#8C897C'; }
+function nomeConta(k){ return (ST.dados.contas[k]&&ST.dados.contas[k].nome)||k; }
 function addMes(mes,n){ const [y,m]=mes.split('-').map(Number); const d=new Date(y,m-1+n,1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function dow(iso){ const [y,m,d]=iso.split('-').map(Number); return new Date(Date.UTC(y,m-1,d,12)).getUTCDay(); }
 function segundaDe(iso){ const [y,m,d]=iso.split('-').map(Number); const dt=new Date(Date.UTC(y,m-1,d,12)); const off=(dt.getUTCDay()+6)%7; dt.setUTCDate(dt.getUTCDate()-off); return dt.toISOString().slice(0,10); }
 function brDia(iso){ return iso.slice(8,10)+'/'+iso.slice(5,7); }
+function brData(iso){ return iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4); }
+/** Markdown leve da descrição do ClickUp: negrito, itens de lista e quebras. */
+function mdLeve(t){
+  return esc(String(t||'')).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/^#{1,6}\s?(.+)$/gm,'<b>$1</b>').replace(/^\s*[\*\-]\s+/gm,'• ').replace(/\n{3,}/g,'\n\n').trim();
+}
 
 async function carregar(){
   try{
-    const r=await fetch('/api/pauta?token='+encodeURIComponent(token)+'&mes='+ST.mes,{cache:'no-store'});
+    const r=await fetch('/api/pauta?'+qs('&mes='+ST.mes),{cache:'no-store'});
     if(r.status===401){ $('#lista').innerHTML='<div class="erro">Este link não é válido. Peça um link novo pra quem cuida do painel.</div>'; $('#resumo').innerHTML=''; return; }
     ST.dados=await r.json();
     if(!ST.aba || !ST.dados.abas.includes(ST.aba)) ST.aba=ST.dados.abas[0];
     render();
+    if(ST.aberto){ const s=ST.dados.slots.find(x=>x.id===ST.aberto); if(s) atualizaNotas(s); }
   }catch(e){ $('#lista').innerHTML='<div class="erro">Não consegui carregar a pauta agora. Tenta de novo em instantes.</div>'; }
 }
 function render(){
   const D=ST.dados; aplicarTema(ST.aba); gravarHash();
   document.title='Pauta '+ST.aba+' · '+MESES[+ST.mes.slice(5)-1]+' · B.O.N.E';
-  // abas
   const tabs=$('#tabs'); tabs.innerHTML='';
-  D.abas.forEach(aba=>{ const b=document.createElement('button'); b.className='tab'+(aba===ST.aba?' on':''); b.textContent=aba; if(aba===ST.aba) b.style.background=(TEMAS[aba]||{}).sb||'#888'; b.onclick=()=>{ ST.aba=aba; render(); }; tabs.appendChild(b); });
+  D.abas.forEach(aba=>{ const b=document.createElement('button'); b.className='tab'+(aba===ST.aba?' on':'')+(D.abas.length===1?' fixo':''); b.textContent=aba; if(aba===ST.aba) b.style.background=(TEMAS[aba]||{}).sb||'#888'; if(D.abas.length>1) b.onclick=()=>{ ST.aba=aba; render(); }; tabs.appendChild(b); });
   const [y,m]=ST.mes.split('-').map(Number);
   $('#mesLbl').textContent=MESES[m-1]+' '+y;
   const contas=contasDaAba(ST.aba), multi=contas.length>1, hoje=hojeStr();
   let posts=D.slots.filter(s=>contas.includes(s.conta)).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
-  // resumo
   const tot=posts.length, prontos=posts.filter(ehPronto).length, aprovar=posts.filter(s=>(s.statusCache&&s.statusCache.status)==='aprovar').length,
         producao=posts.filter(s=>{const st=(s.statusCache&&s.statusCache.status)||''; return st&&!ehPronto(s)&&st!=='aprovar';}).length,
         semtask=posts.filter(s=>!s.taskId&&!s.vaga).length, vagas=posts.filter(s=>s.vaga&&!s.taskId).length;
@@ -193,7 +259,6 @@ function render(){
     (vagas?'<div class="kpi"><b style="color:var(--crit)">'+vagas+'</b><span>falta criar</span></div>':'');
   $('#soProntos').classList.toggle('on', ST.soProntos);
   if(ST.soProntos) posts=posts.filter(ehPronto);
-  // lista por semana > dia
   const lista=$('#lista'); lista.innerHTML='';
   if(!posts.length){ lista.innerHTML='<div class="vazio">'+(ST.soProntos?'Nada pronto ainda neste mês.':'Nenhum post planejado neste mês pra '+esc(ST.aba)+'.')+'</div>'; }
   else{
@@ -208,30 +273,113 @@ function render(){
       for(const [dia,arr] of dias){
         const gmPede = ST.aba==='SEUBONÉ' && gmCadenciaDia(dia) && !arr.some(isGm);
         const row=document.createElement('div'); row.className='dia'+(dia===hoje?' hoje':'')+(gmPede?' gmpede':'');
-        row.innerHTML='<div class="dnum"><b>'+dia.slice(8,10)+'</b><span>'+DOWS[dow(dia)]+'</span></div><div class="posts">'+arr.map(s=>{
+        row.innerHTML='<div class="dnum"><b>'+dia.slice(8,10)+'</b><span>'+DOWS[dow(dia)]+'</span></div><div class="posts"></div>';
+        const box=row.querySelector('.posts');
+        arr.forEach(s=>{
           const st=stInfo(s), cc=corConta(s.conta), pronto=ehPronto(s);
-          return '<div class="post'+(pronto?' pronto':'')+((s.vaga&&!s.taskId)?' vaga':'')+'" style="--cc:'+cc+'">'+
-            '<div class="fmt" title="'+esc(s.formato||'post')+'">'+(ICO[s.formato]||ICO.post)+'</div>'+
+          const b=document.createElement('button'); b.className='post'+(pronto?' pronto':'')+((s.vaga&&!s.taskId)?' vaga':''); b.style.setProperty('--cc',cc); b.title='abrir detalhes';
+          b.innerHTML='<div class="fmt">'+(ICO[s.formato]||ICO.post)+'</div>'+
             '<div class="body"><div class="tit">'+esc(titulo(s))+(isGm(s)?'<span class="gm" title="grande marca na capa">★</span>':'')+'</div>'+
             '<div class="chips"><span class="pill" style="background:'+esc(st.color)+'">'+esc(st.label)+'</span>'+
             (multi?'<span class="chip conta">'+esc(CONTA_CURTA[s.conta]||s.conta)+'</span>':'')+
-            (s.formato?'<span class="chip">'+esc(s.formato)+'</span>':'')+(s.angulo?'<span class="chip">'+esc(s.angulo)+'</span>':'')+'</div></div>'+
-            (s.taskId?'<a class="link" href="https://app.clickup.com/t/'+esc(s.taskId)+'" target="_blank" rel="noopener" title="abrir no ClickUp">'+ICO.link+'</a>':'')+
-          '</div>';
-        }).join('')+'</div>';
+            (s.formato?'<span class="chip">'+esc(s.formato)+'</span>':'')+(s.angulo?'<span class="chip">'+esc(s.angulo)+'</span>':'')+
+            (s.notas?'<span class="chip obs" title="tem observação">obs</span>':'')+'</div></div>'+
+            '<span class="abrir">ABRIR ›</span>';
+          b.onclick=()=>abrirPost(s.id);
+          box.appendChild(b);
+        });
         sec.appendChild(row);
       }
       lista.appendChild(sec);
     }
   }
   const t=new Date(D.geradoEm);
-  $('#rodape').innerHTML='Página só de leitura, atualiza sozinha a cada minuto · gerada '+t.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'<br>★ = grande marca na capa · ☆ no dia = dia pede grande marca e ainda não tem';
+  $('#rodape').innerHTML='Página só de leitura, atualiza sozinha a cada minuto · gerada '+t.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'<br>★ = grande marca na capa · ☆ no dia = dia pede grande marca e ainda não tem · clique num post pra ver detalhes e deixar observação';
 }
+
+// ---- detalhe do post ----
+function abrirPost(id){
+  const s=ST.dados.slots.find(x=>x.id===id); if(!s) return;
+  ST.aberto=id;
+  const st=stInfo(s), cc=corConta(s.conta), contas=contasDaAba(ST.aba);
+  $('#modal').style.setProperty('--cc',cc);
+  $('#mhead').innerHTML='<div class="mtit">'+esc(titulo(s))+(isGm(s)?' <span style="color:var(--sb)" title="grande marca na capa">★</span>':'')+'</div>'+
+    '<div class="chips"><span class="pill" style="background:'+esc(st.color)+'">'+esc(st.label)+'</span>'+
+    '<span class="chip conta">'+esc(nomeConta(s.conta))+'</span>'+
+    (s.formato?'<span class="chip">'+esc(s.formato)+'</span>':'')+(s.angulo?'<span class="chip">ângulo: '+esc(s.angulo)+'</span>':'')+'</div>';
+  $('#mbody').innerHTML=
+    '<div class="meta"><div><span>dia do post</span><b>'+brData(s.date)+' · '+DOWS[dow(s.date)]+'</b></div>'+
+      (isGm(s)?'<div><span>capa</span><b style="color:var(--sb)">★ grande marca</b></div>':'')+
+      '<div id="mresp"><span>responsável</span><b class="carreg">…</b></div><div id="mdue"><span>entrega</span><b class="carreg">…</b></div></div>'+
+    '<div class="sec"><div class="stit">descrição</div><div class="desc" id="mdesc"><span class="carreg">'+(s.taskId?'lendo a task…':'este post ainda não tem task no ClickUp')+'</span></div></div>'+
+    '<div class="sec" id="martes"'+(s.taskId?'':' hidden')+'><div class="stit">artes <span class="n" id="martesN"></span></div><div class="artes" id="martesG"><span class="carreg">…</span></div></div>'+
+    '<div class="sec"><div class="stit">observações <span class="n" id="mnotasN"></span></div><div class="notas" id="mnotas"></div>'+
+      '<form class="obsform" id="obsform"><textarea id="obsTxt" placeholder="deixe uma observação sobre este post (cai direto na aba Observação do painel)" maxlength="1500"></textarea>'+
+      '<div class="obsrow"><input id="obsNome" maxlength="40" placeholder="seu nome" autocomplete="name"><button type="submit" class="obsenviar" id="obsEnviar">enviar observação</button></div><div class="obsmsg" id="obsMsg"></div></form></div>';
+  $('#mfoot').innerHTML = s.taskId ? '<a href="https://app.clickup.com/t/'+esc(s.taskId)+'" target="_blank" rel="noopener">'+ICO.link+' ver no ClickUp (se você tiver acesso)</a>' : '';
+  try{ $('#obsNome').value = localStorage.getItem('pauta.nome')||''; }catch(e){}
+  atualizaNotas(s);
+  $('#obsform').onsubmit = ev=>{ ev.preventDefault(); enviarObs(s); };
+  $('#ovPost').classList.add('open');
+  if(s.taskId) carregarTask(s);
+}
+function atualizaNotas(s){
+  const el=$('#mnotas'), n=$('#mnotasN'); if(!el) return;
+  el.textContent = s.notas||'';
+  const q = s.notas ? s.notas.split(/\n\s*\n/).filter(Boolean).length : 0;
+  if(n) n.textContent = q ? q : '';
+}
+async function carregarTask(s){
+  try{
+    const r=await fetch('/api/pauta/task?'+qs('&id='+encodeURIComponent(s.taskId)),{cache:'no-store'});
+    const t=await r.json();
+    if(!r.ok || t.semClickUp){ $('#mdesc').innerHTML='<span class="carreg">'+esc(t.erro||'sem conexão com o ClickUp agora')+'</span>'; $('#martes').hidden=true; $('#mresp b').textContent='?'; $('#mdue b').textContent='?'; return; }
+    if(ST.aberto!==s.id) return;   // fechou/trocou enquanto carregava
+    $('#mresp b').textContent = (t.responsaveis||[]).join(', ') || 'sem responsável';
+    $('#mresp b').className='';
+    $('#mdue b').textContent = t.due ? new Date(t.due).toLocaleDateString('pt-BR') : 'sem data';
+    $('#mdue b').className='';
+    $('#mdesc').innerHTML = t.descricao ? mdLeve(t.descricao) : '<span class="carreg">sem descrição na task</span>';
+    const arts=(t.arquivos||[]);
+    const g=$('#martesG'); g.innerHTML='';
+    if(!arts.length){ $('#martes').hidden=true; }
+    else{
+      $('#martes').hidden=false; $('#martesN').textContent=arts.length;
+      arts.forEach(f=>{
+        const isImg=/^(png|jpe?g|gif|webp|avif)$/i.test(f.ext||'');
+        const a=document.createElement('a'); a.className='arte'+(isImg?'':' file'); a.href=img(f.url); a.target='_blank'; a.rel='noopener'; a.title=f.name;
+        a.innerHTML = isImg ? '<img loading="lazy" src="'+esc(img(f.thumb||f.url))+'" alt="'+esc(f.name)+'"><div class="an">'+esc(f.name)+'</div>'
+                            : '<span class="ext">'+esc(f.ext||'arq')+'</span><span class="an">'+esc(f.name)+'</span>';
+        g.appendChild(a);
+      });
+    }
+  }catch(e){ $('#mdesc').innerHTML='<span class="carreg">não consegui ler a task agora</span>'; }
+}
+async function enviarObs(s){
+  const txt=$('#obsTxt').value.trim(), nome=$('#obsNome').value.trim(), msg=$('#obsMsg'), btn=$('#obsEnviar');
+  if(!txt){ msg.textContent='Escreva algo antes de enviar.'; msg.className='obsmsg err'; return; }
+  try{ if(nome) localStorage.setItem('pauta.nome', nome); }catch(e){}
+  btn.disabled=true; msg.textContent='enviando…'; msg.className='obsmsg';
+  try{
+    const r=await fetch('/api/pauta/obs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token, aba:ESCOPO, id:s.id, texto:txt, nome})});
+    const j=await r.json();
+    if(!r.ok){ throw new Error(j.erro||'falhou'); }
+    s.notas=j.notas; atualizaNotas(s); $('#obsTxt').value='';
+    msg.textContent='Observação salva. Já aparece no painel.'; msg.className='obsmsg ok';
+    render(); // atualiza o chip "obs" na lista
+  }catch(e){ msg.textContent='Não deu: '+e.message; msg.className='obsmsg err'; }
+  finally{ btn.disabled=false; }
+}
+function fecharPost(){ ST.aberto=null; $('#ovPost').classList.remove('open'); }
+$('#mclose').onclick=fecharPost;
+$('#ovPost').addEventListener('mousedown', ev=>{ if(ev.target===$('#ovPost')) fecharPost(); });
+document.addEventListener('keydown', ev=>{ if(ev.key==='Escape' && $('#ovPost').classList.contains('open')) fecharPost(); });
+
 $('#mPrev').onclick=()=>{ ST.mes=addMes(ST.mes,-1); carregar(); };
 $('#mNext').onclick=()=>{ ST.mes=addMes(ST.mes,1); carregar(); };
 $('#soProntos').onclick=()=>{ ST.soProntos=!ST.soProntos; render(); };
 (function init(){
-  const h=lerHash(); ST.aba=h.aba; ST.mes=h.mes||hojeStr().slice(0,7);
+  const h=lerHash(); ST.aba=ESCOPO||h.aba; ST.mes=h.mes||hojeStr().slice(0,7);
   if(!token){ $('#lista').innerHTML='<div class="erro">Faltou o token no link. Abra pelo link copiado no painel.</div>'; return; }
   carregar();
   setInterval(carregar, 60000);

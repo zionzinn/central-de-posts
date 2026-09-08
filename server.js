@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.48'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.49'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -85,12 +85,21 @@ function validAuthToken(tok) {
 // Pauta do mês (link só-leitura, sem login). O token é derivado do secret, então é estável
 // entre reinícios e deploys (no Render o secret vem do ambiente) e não precisa de arquivo.
 // Pra invalidar todos os links já enviados: troque o secret.
-function pautaToken() { return crypto.createHmac('sha256', config.secret).update('pauta-do-mes').digest('hex').slice(0, 24); }
-function pautaTokenOk(t) {
-  const bom = pautaToken(), dado = String(t || '');
+// Com `aba`, o token é de UMA empresa só: quem tem o link da ONEVO não consegue ver as outras
+// nem "alargar" o link tirando o parâmetro (o token não bate com o geral).
+function pautaToken(aba) { return crypto.createHmac('sha256', config.secret).update('pauta-do-mes' + (aba ? ':' + aba : '')).digest('hex').slice(0, 24); }
+function pautaTokenOk(t, aba) {
+  const bom = pautaToken(aba || null), dado = String(t || '');
   if (dado.length !== bom.length) return false;
   try { return crypto.timingSafeEqual(Buffer.from(dado), Buffer.from(bom)); } catch { return false; }
 }
+/** Vale pra qualquer token de pauta (geral ou de qualquer empresa). Usado só pelo proxy de imagem. */
+function pautaTokenQualquer(t) {
+  if (!t) return false;
+  if (pautaTokenOk(t, null)) return true;
+  return (db.abas || []).some(a => pautaTokenOk(t, a));
+}
+function contasDaAbaSrv(aba) { return Object.entries(db.contas || {}).filter(([, c]) => c.aba === aba).map(([k]) => k); }
 
 // ---------------- ClickUp ----------------
 const cuCache = new Map(); // key -> {t, data}
@@ -637,20 +646,27 @@ const server = http.createServer(async (req, res) => {
     }
     // PORTEIRO: com senha configurada, todo /api (menos login/logout) exige cookie válido.
     // Estáticos (a própria tela de login) passam sempre.
-    if (config.senha && p.startsWith('/api/') && p !== '/api/login' && p !== '/api/logout' && p !== '/api/pauta') {
+    // Rotas públicas da pauta (validam o próprio token) e o proxy de imagem quando vem com token de pauta.
+    const rotaPublica = p === '/api/login' || p === '/api/logout' || p === '/api/pauta' || p === '/api/pauta/task' || p === '/api/pauta/obs'
+      || (p === '/api/img' && pautaTokenQualquer(u.searchParams.get('pt')));
+    if (config.senha && p.startsWith('/api/') && !rotaPublica) {
       if (!validAuthToken(parseCookies(req.headers.cookie).sb_auth)) return json(res, 401, { erro: 'login', precisaLogin: true });
     }
 
     // ---------- pauta do mês: página só-leitura pra compartilhar por link (sem login, com token) ----------
     if (p === '/api/pauta' && req.method === 'GET') {
-      if (!pautaTokenOk(u.searchParams.get('token'))) return json(res, 401, { erro: 'link inválido' });
+      const aba = u.searchParams.get('aba') || null;                 // escopo: uma empresa só, ou tudo
+      if (aba && !(db.abas || []).includes(aba)) return json(res, 401, { erro: 'link inválido' });
+      if (!pautaTokenOk(u.searchParams.get('token'), aba)) return json(res, 401, { erro: 'link inválido' });
       const mesQ = u.searchParams.get('mes') || '';
       const mes = /^\d{4}-\d{2}$/.test(mesQ) ? mesQ : new Date().toISOString().slice(0, 7);
-      const slots = db.slots.filter(s => s.date && s.date.startsWith(mes)).map(s => ({
+      const contasOk = aba ? contasDaAbaSrv(aba) : null;
+      const slots = db.slots.filter(s => s.date && s.date.startsWith(mes) && (!contasOk || contasOk.includes(s.conta))).map(s => ({
         id: s.id, conta: s.conta, date: s.date,
         titulo: s.titulo || s.tituloCache || '', formato: s.formato || '', angulo: s.angulo || '', gm: s.gm || '',
         postado: !!s.postado, vaga: !!s.vaga, taskId: s.taskId || null, origem: s.origem || '',
         obs: s.origem === 'banco' ? (s.obs || '') : '',
+        notas: s.notas || '',   // observações do post (as do painel + as que chegam pela pauta)
         statusCache: s.statusCache ? { status: s.statusCache.status, color: s.statusCache.color } : null,
       }));
       const gc = db.gmCadencia || {};
@@ -659,10 +675,57 @@ const server = http.createServer(async (req, res) => {
         ...db.slots.filter(s => s.conta === 'seubone' && s.gm === 'sim' && s.date).map(s => s.date),
       ])].sort();
       res.setHeader('Cache-Control', 'no-store');
-      return json(res, 200, { mes, contas: db.contas, abas: db.abas, gmCadencia: { ativo: !!gc.ativo, periodo: gc.periodo || 3 }, gmAncoras, slots, geradoEm: Date.now() });
+      return json(res, 200, { mes, escopo: aba, contas: db.contas, abas: aba ? [aba] : db.abas, gmCadencia: { ativo: !!gc.ativo, periodo: gc.periodo || 3 }, gmAncoras, slots, geradoEm: Date.now() });
+    }
+    // detalhe de UMA task pra pauta: só se ela pertence a um post dentro do escopo do link
+    if (p === '/api/pauta/task' && req.method === 'GET') {
+      const aba = u.searchParams.get('aba') || null;
+      if (aba && !(db.abas || []).includes(aba)) return json(res, 401, { erro: 'link inválido' });
+      if (!pautaTokenOk(u.searchParams.get('token'), aba)) return json(res, 401, { erro: 'link inválido' });
+      const id = String(u.searchParams.get('id') || '');
+      if (!/^[a-z0-9]+$/i.test(id)) return json(res, 400, { erro: 'id inválido' });
+      const contasOk = aba ? contasDaAbaSrv(aba) : null;
+      const dono = db.slots.some(s => s.taskId === id && s.date && (!contasOk || contasOk.includes(s.conta)));
+      if (!dono) return json(res, 403, { erro: 'fora do escopo deste link' });
+      if (!config.token) return json(res, 200, { semClickUp: true });
+      try {
+        const [{ data: task }, comRes] = await Promise.all([
+          cuFetchStale(`/task/${id}`),
+          cuFetchStale(`/task/${id}/comment`).catch(() => ({ data: { comments: [] } })),
+        ]);
+        const { arquivos } = parseComments(comRes.data || { comments: [] }, taskFiles(task));
+        res.setHeader('Cache-Control', 'no-store');
+        return json(res, 200, {
+          nome: task.name, status: normStatus(task.status?.status), cor: statusColor(task),
+          responsaveis: (task.assignees || []).map(a => a.username),
+          due: task.due_date ? Number(task.due_date) : null,
+          descricao: task.markdown_description || task.text_content || '',
+          arquivos: arquivos.map(f => ({ name: f.name, ext: f.ext, url: f.url, thumb: f.thumb || '' })),
+        });
+      } catch (e) { return json(res, 502, { erro: 'não consegui ler a task agora' }); }
+    }
+    // observação vinda pela pauta: ANEXA no caderno do post (nunca apaga o que já estava), com nome e hora
+    if (p === '/api/pauta/obs' && req.method === 'POST') {
+      const b = await readBody(req);
+      const aba = b.aba || null;
+      if (aba && !(db.abas || []).includes(aba)) return json(res, 401, { erro: 'link inválido' });
+      if (!pautaTokenOk(b.token, aba)) return json(res, 401, { erro: 'link inválido' });
+      const texto = String(b.texto || '').replace(/[<>]/g, '').trim().slice(0, 1500);
+      if (!texto) return json(res, 400, { erro: 'escreva algo' });
+      const nome = String(b.nome || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'alguém pela pauta';
+      const contasOk = aba ? contasDaAbaSrv(aba) : null;
+      const slot = db.slots.find(s => s.id === String(b.id || '') && s.date && (!contasOk || contasOk.includes(s.conta)));
+      if (!slot) return json(res, 403, { erro: 'post fora do escopo deste link' });
+      const quando = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' });
+      const linha = '• ' + nome + ', ' + quando + ' (pela pauta): ' + texto;
+      slot.notas = (slot.notas ? slot.notas.replace(/\s+$/, '') + '\n\n' : '') + linha;
+      saveDb();
+      return json(res, 200, { ok: true, notas: slot.notas });
     }
     if (p === '/api/pauta/link' && req.method === 'GET') {
-      return json(res, 200, { token: pautaToken() });
+      const aba = u.searchParams.get('aba') || null;
+      if (aba && !(db.abas || []).includes(aba)) return json(res, 400, { erro: 'conta desconhecida' });
+      return json(res, 200, { token: pautaToken(aba), escopo: aba });
     }
     if (p === '/pauta' && req.method === 'GET') return serveStatic(res, 'pauta.html');
 
