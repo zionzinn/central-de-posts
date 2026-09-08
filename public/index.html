@@ -848,6 +848,7 @@
     <div class="maiswrap" id="maiswrap">
       <button class="act act-mais" id="btnMais" data-tip="mais ações"></button>
       <div class="maismenu" id="maismenu">
+        <button id="btnPauta" data-tip="copia um link ao vivo da pauta deste mês (só leitura, abre sem login) pra mandar pra quem quiser"></button>
         <button id="btnImportar" data-tip="colar vários links do ClickUp de uma vez e espalhar num dia da semana"></button>
         <button id="btnExportar" data-tip="gerar um arquivo HTML da semana pra enviar pra outras pessoas verem (só leitura)"></button>
       </div>
@@ -1134,7 +1135,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.47'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.48'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -4045,6 +4046,17 @@ function initIcons(){
   $('#btnRelatorio').innerHTML = icon('list') + 'Relatório';
   $('#btnExportar').innerHTML = icon('external') + 'Exportar';
   $('#btnImportar').innerHTML = icon('plus') + 'Importar em lote';
+  $('#btnPauta').innerHTML = icon('link') + 'Link da pauta do mês';
+  $('#btnPauta').onclick = async ()=>{
+    try{
+      const r = await api('/api/pauta/link');
+      const url = location.origin + '/pauta?token=' + encodeURIComponent(r.token) + '#' + encodeURIComponent(S.aba) + '/' + S.mes;
+      let copiou = false;
+      try{ await navigator.clipboard.writeText(url); copiou = true; }catch(e){}
+      window.open(url, '_blank');
+      toast(copiou ? 'Link da pauta copiado · abre sem login, sempre atualizado' : 'Pauta aberta em nova aba · copie o endereço de lá');
+    }catch(e){ toast('Não consegui gerar o link: '+e.message, true); }
+  };
   $('#btnDrawer').innerHTML = icon('box') + 'Bancos <span class="n" id="drawerN">0</span>';
   $('#btnMais').innerHTML = icon('dots') + 'mais';
   $('#btnAjuda').innerHTML = icon('help');

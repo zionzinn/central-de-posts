@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.47'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.48'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -81,6 +81,15 @@ function validAuthToken(tok) {
   const good = crypto.createHmac('sha256', config.secret).update('sb:' + exp).digest('hex');
   if (sig.length !== good.length) return false;
   try { return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(good)); } catch { return false; }
+}
+// Pauta do mês (link só-leitura, sem login). O token é derivado do secret, então é estável
+// entre reinícios e deploys (no Render o secret vem do ambiente) e não precisa de arquivo.
+// Pra invalidar todos os links já enviados: troque o secret.
+function pautaToken() { return crypto.createHmac('sha256', config.secret).update('pauta-do-mes').digest('hex').slice(0, 24); }
+function pautaTokenOk(t) {
+  const bom = pautaToken(), dado = String(t || '');
+  if (dado.length !== bom.length) return false;
+  try { return crypto.timingSafeEqual(Buffer.from(dado), Buffer.from(bom)); } catch { return false; }
 }
 
 // ---------------- ClickUp ----------------
@@ -628,9 +637,34 @@ const server = http.createServer(async (req, res) => {
     }
     // PORTEIRO: com senha configurada, todo /api (menos login/logout) exige cookie válido.
     // Estáticos (a própria tela de login) passam sempre.
-    if (config.senha && p.startsWith('/api/') && p !== '/api/login' && p !== '/api/logout') {
+    if (config.senha && p.startsWith('/api/') && p !== '/api/login' && p !== '/api/logout' && p !== '/api/pauta') {
       if (!validAuthToken(parseCookies(req.headers.cookie).sb_auth)) return json(res, 401, { erro: 'login', precisaLogin: true });
     }
+
+    // ---------- pauta do mês: página só-leitura pra compartilhar por link (sem login, com token) ----------
+    if (p === '/api/pauta' && req.method === 'GET') {
+      if (!pautaTokenOk(u.searchParams.get('token'))) return json(res, 401, { erro: 'link inválido' });
+      const mesQ = u.searchParams.get('mes') || '';
+      const mes = /^\d{4}-\d{2}$/.test(mesQ) ? mesQ : new Date().toISOString().slice(0, 7);
+      const slots = db.slots.filter(s => s.date && s.date.startsWith(mes)).map(s => ({
+        id: s.id, conta: s.conta, date: s.date,
+        titulo: s.titulo || s.tituloCache || '', formato: s.formato || '', angulo: s.angulo || '', gm: s.gm || '',
+        postado: !!s.postado, vaga: !!s.vaga, taskId: s.taskId || null, origem: s.origem || '',
+        obs: s.origem === 'banco' ? (s.obs || '') : '',
+        statusCache: s.statusCache ? { status: s.statusCache.status, color: s.statusCache.color } : null,
+      }));
+      const gc = db.gmCadencia || {};
+      const gmAncoras = [...new Set([
+        ...(gc.ancora ? [gc.ancora] : []),
+        ...db.slots.filter(s => s.conta === 'seubone' && s.gm === 'sim' && s.date).map(s => s.date),
+      ])].sort();
+      res.setHeader('Cache-Control', 'no-store');
+      return json(res, 200, { mes, contas: db.contas, abas: db.abas, gmCadencia: { ativo: !!gc.ativo, periodo: gc.periodo || 3 }, gmAncoras, slots, geradoEm: Date.now() });
+    }
+    if (p === '/api/pauta/link' && req.method === 'GET') {
+      return json(res, 200, { token: pautaToken() });
+    }
+    if (p === '/pauta' && req.method === 'GET') return serveStatic(res, 'pauta.html');
 
     // ---------- estado (INSTANTÂNEO: nunca espera o ClickUp) ----------
     if (p === '/api/state' && req.method === 'GET') {
