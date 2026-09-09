@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.54'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.55'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -110,24 +110,48 @@ function curarArtes(arquivos, slot) {
   return (arquivos || []).filter(f => !ocultas.has(arteChave(f)))
     .map((f, i) => ({ f, i })).sort((a, b) => (pos(arteChave(a.f)) - pos(arteChave(b.f))) || (a.i - b.i)).map(x => x.f);
 }
-/** Pedido de alteração vindo da pauta: comenta na task (notifica o time) e manda pra ALTERAR.
-    É o mesmo efeito do botão "alterar" do painel. Lança erro se não conseguir falar com o ClickUp. */
-async function alterarNoClickUp(taskId, texto, autor) {
+/** Mexe numa task a partir da pauta: comenta (notifica o time) e troca o status.
+    É o mesmo efeito dos botões do painel. Lança erro se não conseguir falar com o ClickUp. */
+async function pautaMoverClickUp(taskId, { status, comentario, desc, aprovado }) {
   if (!config.token) throw Object.assign(new Error('sem token do ClickUp'), { code: 'NO_TOKEN' });
   let statusAntes = '';
   try { const t0 = await cuFetch(`/task/${taskId}`, { fresh: true }); statusAntes = (t0.status && t0.status.status) || ''; } catch {}
   pushUndo({
-    tipo: 'status', desc: 'pedido de alteração pela pauta (status alterar)', taskId, statusAntes,
+    tipo: 'status', desc, taskId, statusAntes,
     slots: db.slots.filter(s => s.taskId === taskId).map(s => ({ id: s.id, aprovado: s.aprovado, statusCache: s.statusCache ? { ...s.statusCache } : null })),
   });
-  await cuWrite(`/task/${taskId}/comment`, 'POST', { comment_text: 'ALTERAÇÃO SOLICITADA (pela pauta, por ' + autor + '): ' + texto, notify_all: true });
+  await cuWrite(`/task/${taskId}/comment`, 'POST', { comment_text: comentario, notify_all: true });
   cuCache.delete(`/task/${taskId}/comment`);
-  await cuWrite(`/task/${taskId}`, 'PUT', { status: 'alterar' });
+  await cuWrite(`/task/${taskId}`, 'PUT', { status });
   cuCache.delete(`/task/${taskId}`);
-  let st = { status: 'alterar', color: (db.statusColors && db.statusColors['alterar']) || '#87909e' };
+  let st = { status, color: (db.statusColors && db.statusColors[status]) || '#87909e' };
   try { const task = await cuFetch(`/task/${taskId}`, { fresh: true }); st = { status: normStatus(task.status?.status), color: statusColor(task) }; } catch {}
-  for (const s of db.slots) if (s.taskId === taskId) { s.statusCache = st; s.aprovado = false; s.atualizadoEm = new Date().toISOString(); }
+  for (const s of db.slots) if (s.taskId === taskId) { s.statusCache = st; s.aprovado = !!aprovado; s.atualizadoEm = new Date().toISOString(); }
+  db.avisos[taskId] = st.status; // a gente mesmo moveu: não é pra avisar de novo (WhatsApp)
   return st;
+}
+/** Pedido de alteração pela pauta: comentário + ALTERAR. */
+function alterarNoClickUp(taskId, texto, autor) {
+  return pautaMoverClickUp(taskId, {
+    status: 'alterar', aprovado: false, desc: 'pedido de alteração pela pauta (status alterar)',
+    comentario: 'ALTERAÇÃO SOLICITADA (pela pauta, por ' + autor + '): ' + texto,
+  });
+}
+/** Aprovação pela pauta: só vai pra PUBLICAR se a task está em APROVAR (arte pronta, esperando o ok).
+    Em qualquer outro status a aprovação fica registrada aqui e como comentário na task, sem mover:
+    mover pra PUBLICAR um post que ainda está em criação pularia a produção. */
+async function aprovarNoClickUp(taskId, texto, autor) {
+  if (!config.token) throw Object.assign(new Error('sem token do ClickUp'), { code: 'NO_TOKEN' });
+  let atual = '';
+  try { const t0 = await cuFetch(`/task/${taskId}`, { fresh: true }); atual = normStatus(t0.status && t0.status.status); } catch {}
+  const coment = 'APROVADO (pela pauta, por ' + autor + ')' + (texto ? ': ' + texto : '');
+  if (atual === 'aprovar') {
+    const st = await pautaMoverClickUp(taskId, { status: 'publicar', aprovado: true, desc: 'aprovação pela pauta (status publicar)', comentario: coment });
+    return { movido: true, status: st };
+  }
+  // não está esperando aprovação: registra o ok na task (o time vê), mas deixa o status como está
+  try { await cuWrite(`/task/${taskId}/comment`, 'POST', { comment_text: coment + ' · registrado; a task ainda está em ' + (atual || 'status desconhecido').toUpperCase() + ', não foi movida', notify_all: true }); cuCache.delete(`/task/${taskId}/comment`); } catch {}
+  return { movido: false, status: null, motivo: 'a task está em ' + (atual || 'status desconhecido').toUpperCase() + ', não em APROVAR' };
 }
 const IMG_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'heic', 'bmp']);
 /** Capa pra lista da pauta: primeira imagem visível, só do que já está em cache (nunca espera o ClickUp). */
@@ -288,23 +312,27 @@ async function zapiEnviar(texto) {
     return { ok: false, detalhe: String(e && e.message || e) };
   } finally { clearTimeout(to); }
 }
-/** Texto do aviso de uma task que entrou em aprovar. */
-function textoAviso(slot, nome) {
+/** Status que geram aviso quando a task ENTRA neles. */
+const AVISA_STATUS = new Set(['aprovar', 'alterar']);
+/** Texto do aviso de uma task que entrou em aprovar ou alterar. */
+function textoAviso(slot, nome, status) {
   const conta = (db.contas[slot.conta] && db.contas[slot.conta].nome) || slot.conta;
   const quando = slot.date ? slot.date.split('-').reverse().join('/') : 'sem data';
+  const motivo = status === 'alterar' && slot.parecer && slot.parecer.veredito === 'alterar' && Date.now() - (slot.parecer.quando || 0) < 3 * 3600e3
+    ? '\n"' + slot.parecer.motivo + '" (' + slot.parecer.por + ')' : '';
   return [
-    '🟡 *PRA APROVAR* · ' + conta,
+    (status === 'alterar' ? '✏️ *PRA ALTERAR* · ' : '🟡 *PRA APROVAR* · ') + conta + motivo,
     nome || '(sem nome)',
     'Post do dia ' + quando,
     'https://app.clickup.com/t/' + slot.taskId,
   ].join('\n');
 }
-/** Dispara os avisos das tasks que ACABARAM de entrar em aprovar. */
+/** Dispara os avisos das tasks que ACABARAM de entrar em aprovar ou alterar. */
 async function avisarAprovar(transicoes) {
   if (!transicoes.length || !zapiPronto() || !zapiCfg().ligado) return;
   for (const t of transicoes.slice(0, 12)) { // teto por ciclo, pra nunca virar enxurrada
-    const r = await zapiEnviar(textoAviso(t.slot, t.nome));
-    if (r.ok) { db.avisos[t.taskId] = 'aprovar'; }
+    const r = await zapiEnviar(textoAviso(t.slot, t.nome, t.status || 'aprovar'));
+    if (r.ok) { db.avisos[t.taskId] = t.status || 'aprovar'; }
     else console.log('[whatsapp] falhou:', r.detalhe);
   }
   saveDb();
@@ -348,17 +376,18 @@ async function enrichSlots(slotList, { fresh = false } = {}) {
     // ENTROU em aprovar agora? Só avisa se a gente JÁ CONHECIA um status anterior diferente
     // disso. Sem essa trava, um restart do servidor mandaria aviso de tudo que já estava
     // em aprovar. E db.avisos impede repetir quando o status vai e volta.
-    if (st.status === 'aprovar' && db.avisos[id] !== 'aprovar') {
+    // vale pra APROVAR e pra ALTERAR (alguém mandou voltar, pela pauta ou direto no ClickUp)
+    if (AVISA_STATUS.has(st.status) && db.avisos[id] !== st.status) {
       const antes = db.slots.find(s => s.taskId === id && s.statusCache && s.statusCache.status);
       const anterior = antes ? antes.statusCache.status : null;
-      if (anterior && anterior !== 'aprovar') {
+      if (anterior && anterior !== st.status) {
         const slot = db.slots.find(s => s.taskId === id);
-        if (slot) novasAprovacoes.push({ taskId: id, slot, nome: task.name || '' });
+        if (slot) novasAprovacoes.push({ taskId: id, slot, nome: task.name || '', status: st.status });
       } else if (!anterior) {
-        db.avisos[id] = 'aprovar'; // primeira vez que vemos: registra sem avisar
+        db.avisos[id] = st.status; // primeira vez que vemos: registra sem avisar
       }
     }
-    if (st.status !== 'aprovar' && db.avisos[id]) delete db.avisos[id];
+    if (!AVISA_STATUS.has(st.status) && db.avisos[id]) delete db.avisos[id];
     for (const s of db.slots) {
       if (s.taskId === id) {
         s.tituloCache = task.name || s.tituloCache;
@@ -803,7 +832,8 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, notas: slot.notas });
     }
     // parecer pela pauta: aprovado ou reprovado (com motivo), em qualquer post, pronto ou não.
-    // Fica gravado no post (selo no card do painel) e também cai nas observações. NÃO mexe no ClickUp.
+    // Fica gravado no post (selo no card do painel), cai nas observações e mexe no ClickUp:
+    // alteração -> comentário + ALTERAR; aprovado -> comentário + PUBLICAR (só se a task estava em APROVAR).
     if (p === '/api/pauta/parecer' && req.method === 'POST') {
       const b = await readBody(req);
       const aba = b.aba || null;
@@ -820,14 +850,19 @@ const server = http.createServer(async (req, res) => {
       if (!slot) return json(res, 403, { erro: 'post fora do escopo deste link' });
       const quando = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' });
       // alteração: além de registrar aqui, comenta na task e manda pra ALTERAR no ClickUp (igual ao botão do painel)
+      // aprovação: task em APROVAR vai pra PUBLICAR (igual ao botão do painel)
       let clickup = false, clickupErro = '';
-      if (veredito === 'alterar') {
-        if (!slot.taskId) clickupErro = 'este post ainda não tem task no ClickUp';
-        else { try { await alterarNoClickUp(slot.taskId, motivo, nome); clickup = true; } catch (e) { clickupErro = e.code === 'NO_TOKEN' ? 'painel sem token do ClickUp' : (e.message || 'falha no ClickUp'); } }
+      if (!slot.taskId) clickupErro = 'este post ainda não tem task no ClickUp';
+      else if (veredito === 'alterar') {
+        try { await alterarNoClickUp(slot.taskId, motivo, nome); clickup = true; } catch (e) { clickupErro = e.code === 'NO_TOKEN' ? 'painel sem token do ClickUp' : (e.message || 'falha no ClickUp'); }
+      } else {
+        try { const r = await aprovarNoClickUp(slot.taskId, motivo, nome); clickup = r.movido; if (!r.movido) clickupErro = r.motivo; }
+        catch (e) { clickupErro = e.code === 'NO_TOKEN' ? 'painel sem token do ClickUp' : (e.message || 'falha no ClickUp'); }
       }
-      slot.parecer = { veredito, motivo, por: nome, quando: Date.now(), clickup };
+      slot.parecer = { veredito, motivo, por: nome, quando: Date.now(), clickup, clickupErro: clickup ? '' : clickupErro };
+      const alvo = veredito === 'alterar' ? 'ALTERAR' : 'PUBLICAR';
       const linha = (veredito === 'aprovado' ? '✅ Aprovado por ' : '✏️ Alteração pedida por ') + nome + ', ' + quando + ' (pela pauta)' + (motivo ? ': ' + motivo : '')
-        + (veredito === 'alterar' ? (clickup ? ' · task foi pra ALTERAR no ClickUp' : ' · não foi pro ClickUp (' + clickupErro + ')') : '');
+        + (clickup ? ' · task foi pra ' + alvo + ' no ClickUp' : ' · não foi pra ' + alvo + ' (' + clickupErro + ')');
       slot.notas = (slot.notas ? slot.notas.replace(/\s+$/, '') + '\n\n' : '') + linha;
       saveDb();
       return json(res, 200, { ok: true, parecer: slot.parecer, notas: slot.notas, clickup, clickupErro, status: slot.statusCache || null });
@@ -1354,6 +1389,7 @@ const server = http.createServer(async (req, res) => {
         const task = await cuFetch(`/task/${mAcao[1]}`, { fresh: true });
         st = { status: normStatus(task.status?.status), color: statusColor(task) };
       } catch {}
+      db.avisos[mAcao[1]] = st.status; // fui eu que movi: nada de aviso
       for (const s of db.slots) {
         if (s.taskId === mAcao[1]) {
           s.statusCache = st;

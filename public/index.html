@@ -674,6 +674,12 @@
     letter-spacing:.05em; background:#fff; color:var(--crit); border:1.5px solid var(--stroke);
     border-radius:6px; padding:2px 9px; white-space:nowrap}
   #alertaBar .ab-selo svg{width:13px; height:13px}
+  #alertaBar .ab-selo.alt{background:#000; color:var(--warn); border-color:var(--warn)}
+  #alertaBar.so-alterar{background:var(--warn); color:#000; animation:none}
+  #alertaBar.so-alterar .ab-item{background:rgba(0,0,0,.14); color:#000; border-color:rgba(0,0,0,.35)}
+  #alertaBar.so-alterar .ab-item:hover{background:#000; color:var(--warn)}
+  #alertaBar.so-alterar .ab-x{border-color:rgba(0,0,0,.5); color:#000}
+  #alertaBar .ab-item.alt{border-style:dashed}
   #alertaBar .ab-lista{display:flex; align-items:center; gap:6px; overflow:hidden; flex:1; flex-wrap:wrap}
   #alertaBar .ab-item{background:rgba(0,0,0,.28); color:#fff; border:1.5px solid rgba(255,255,255,.35);
     border-radius:6px; padding:3px 9px; font-size:12px; font-weight:700; cursor:pointer; max-width:340px;
@@ -1007,7 +1013,7 @@
       </div>
       <p class="note">A estrela aparece sozinha a cada N dias contando <b>a partir da última grande marca que você marcou</b> (3 = "2 dias sem, 1 com"). Quando você marca um novo post como GM, as próximas se recalculam sozinhas a partir dele. O campo acima é só o ponto de partida (o último GM antes do sistema). Vale só na SeuBoné. <span id="gmEstado"></span></p>
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
-      <div class="wpp-tit">Aviso quando uma task vai pra APROVAR</div>
+      <div class="wpp-tit">Aviso quando uma task vai pra APROVAR ou pra ALTERAR</div>
       <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer">
         <input type="checkbox" id="nAtivo" style="width:15px; height:15px"> avisar (faixa no topo + título da aba piscando)
       </label>
@@ -1019,6 +1025,7 @@
         <button class="mbtn" id="nTestar">Testar o aviso</button>
         <span class="note" id="nEstado"></span>
       </div>
+      <p class="note">Entrou em <b>APROVAR</b>: aviso amarelo. Entrou em <b>ALTERAR</b> (pela pauta ou direto no ClickUp): aviso com o motivo e quem pediu. O que você mesmo move pelo painel não avisa.</p>
       <p class="note">A notificação do Windows aparece no canto da tela e fica na central de notificações, mesmo com o painel minimizado ou atrás de outra janela. Precisa do painel <b>aberto em alguma aba</b>. Pra virar app com ícone na barra de tarefas: no Chrome, ícone de instalar na barra de endereço, ou menu <b>⋮ → Transmitir, salvar e compartilhar → Instalar página como app</b>.</p>
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
       <div class="wpp-tit">Também mandar no WhatsApp (opcional)</div>
@@ -1158,7 +1165,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.54'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.55'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2309,7 +2316,7 @@ function irParaMes(mes, suave){
   window.scrollTo({ top: bloco.getBoundingClientRect().top + window.scrollY - topo, behavior: suave?'smooth':'auto' });
   S.mes = mes; marcarMesFoco();
 }
-// ================= alerta de "PRA APROVAR" =================
+// ================= alerta de "PRA APROVAR" e "PRA ALTERAR" =================
 // Grita de três jeitos, do mais discreto pro mais chamativo: faixa no topo do painel,
 // título da aba piscando, e notificação nativa do Windows (quando você autorizar).
 // A detecção é de graça: a atualização automática já traz o status de tudo a cada 20s.
@@ -2324,7 +2331,12 @@ const ALERTA = {
   setMudo(v){ const c=this.cfg(); c.mudo=!!v; this.salvar(c); },
 };
 let statusConhecidos = null;   // taskId -> status na última checagem (null = ainda não sabemos nada)
-let pendentesAprovar = [];     // o que entrou em aprovar e você ainda não viu
+let pendentesAprovar = [];     // o que entrou em aprovar/alterar e você ainda não viu ({tipo:'aprovar'|'alterar', ...})
+const AVISA_TIPOS = { aprovar:{ selo:'PRA APROVAR', emoji:'🟡', titulo:'Pra aprovar' }, alterar:{ selo:'PRA ALTERAR', emoji:'✏️', titulo:'Pra alterar' } };
+function contaTipos(){ const c={aprovar:0, alterar:0}; pendentesAprovar.forEach(x=>{ c[x.tipo||'aprovar']++; }); return c; }
+function tituloAlerta(){ const c=contaTipos(); return [c.aprovar? '🟡 ('+c.aprovar+') PRA APROVAR':'', c.alterar? '✏️ ('+c.alterar+') PRA ALTERAR':''].filter(Boolean).join(' · '); }
+/** Depois de uma ação SUA (aprovar/alterar no painel), memoriza o status novo pra não se avisar da própria mudança. */
+function lembrarStatus(taskId, st){ if(statusConhecidos && taskId && st && st.status) statusConhecidos[taskId] = st.status; }
 let tituloOriginal = document.title, piscaTimer = null;
 
 /** Bipe curto gerado na hora, sem arquivo de som. */
@@ -2350,7 +2362,7 @@ function piscaTitulo(){
   let alt = false;
   piscaTimer = setInterval(()=>{
     alt = !alt;
-    document.title = alt ? '🟡 ('+pendentesAprovar.length+') PRA APROVAR' : tituloOriginal;
+    document.title = alt ? tituloAlerta() : tituloOriginal;
   }, 1100);
 }
 function renderAlerta(){
@@ -2359,11 +2371,13 @@ function renderAlerta(){
   // mudo: nada na tela nem no título; o que chegou fica guardado e aparece quando você destravar o sino
   if(ALERTA.mudo()){ b.classList.remove('on'); clearInterval(piscaTimer); document.title = tituloOriginal; return; }
   if(!pendentesAprovar.length){ b.classList.remove('on'); piscaTitulo(); return; }
-  const n = pendentesAprovar.length;
+  const n = pendentesAprovar.length, c = contaTipos();
+  b.classList.toggle('so-alterar', c.aprovar===0 && c.alterar>0);
   b.innerHTML =
-    '<span class="ab-selo">'+icon('alerta')+n+' PRA APROVAR</span>'+
+    (c.aprovar? '<span class="ab-selo">'+icon('alerta')+c.aprovar+' PRA APROVAR</span>' : '')+
+    (c.alterar? '<span class="ab-selo alt">'+icon('msg')+c.alterar+' PRA ALTERAR</span>' : '')+
     '<span class="ab-lista">'+pendentesAprovar.slice(0,4).map((x,i)=>
-      '<button class="ab-item" data-i="'+i+'" title="abrir esta task">'+esc(x.titulo)+'</button>').join('')+
+      '<button class="ab-item'+(x.tipo==='alterar'?' alt':'')+'" data-i="'+i+'" title="'+esc(x.tipo==='alterar' ? ('pedido de alteração'+(x.motivo? ': '+x.motivo : '')) : 'abrir esta task')+'">'+(x.tipo==='alterar'?'✏️ ':'')+esc(x.titulo)+'</button>').join('')+
       (n>4? '<span class="ab-mais">+'+(n-4)+'</span>' : '')+'</span>'+
     '<button class="ab-x" title="dispensar">✕</button>';
   b.classList.add('on');
@@ -2392,15 +2406,16 @@ function notificaSistema(novos){
   if(!('Notification' in window) || Notification.permission !== 'granted') return;
   novos.slice(0,5).forEach(x=>{
     try{
-      const n = new Notification('🟡 Pra aprovar · '+x.conta, {
-        body: x.titulo + (x.data? '\nPost do dia '+brData(x.data) : ''),
-        icon: '/icone.png', badge: '/icone.png', tag: 'aprovar-'+x.taskId, renotify: false,
+      const t = AVISA_TIPOS[x.tipo||'aprovar'];
+      const n = new Notification(t.emoji+' '+t.titulo+' · '+x.conta, {
+        body: x.titulo + (x.data? '\nPost do dia '+brData(x.data) : '') + (x.motivo? '\n"'+x.motivo+'"'+(x.por? ' ('+x.por+')':'') : ''),
+        icon: '/icone.png', badge: '/icone.png', tag: (x.tipo||'aprovar')+'-'+x.taskId, renotify: false,
       });
       n.onclick = ()=>{ window.focus(); abrirTaskDoAlerta(x); n.close(); };
     }catch(e){}
   });
 }
-/** Compara o retrato anterior com o novo e dispara o que entrou em aprovar. */
+/** Compara o retrato anterior com o novo e dispara o que entrou em aprovar ou em alterar. */
 function checarAprovacoes(slots){
   const agora = {};
   slots.forEach(s=>{ if(s.taskId && s.statusCache && s.statusCache.status) agora[s.taskId] = s.statusCache.status; });
@@ -2409,9 +2424,14 @@ function checarAprovacoes(slots){
   const novos = [];
   for(const [taskId, st] of Object.entries(agora)){
     const antes = statusConhecidos[taskId];
-    if(st === 'aprovar' && antes && antes !== 'aprovar'){
+    if(AVISA_TIPOS[st] && antes && antes !== st){
       const slot = slots.find(x=>x.taskId===taskId);
-      if(slot && !slot.postado) novos.push({ taskId, id: slot.id, conta: nomeConta(slot.conta), titulo: slotTitulo(slot), data: slot.date });
+      if(slot && !slot.postado){
+        // pedido de alteração recente vindo da pauta: leva o motivo e quem pediu junto no aviso
+        const pr = slot.parecer;
+        const rec = st==='alterar' && pr && pr.veredito==='alterar' && (Date.now()-(pr.quando||0)) < 3*3600e3;
+        novos.push({ tipo: st, taskId, id: slot.id, conta: nomeConta(slot.conta), titulo: slotTitulo(slot), data: slot.date, motivo: rec? pr.motivo : '', por: rec? pr.por : '' });
+      }
     }
   }
   statusConhecidos = agora;
@@ -2578,6 +2598,7 @@ function tRowDraw(s){
         try{
           const r = await api('/api/task/'+s.taskId+'/acao', {method:'POST', body:JSON.stringify({acao:'aprovar'})});
           for(const x of S.slots) if(x.taskId===s.taskId){ x.statusCache = r.status; x.aprovado = true; }
+          lembrarStatus(s.taskId, r.status);
           render(); tRowDraw(s);
           toast('Aprovado: task foi pra PUBLICAR no ClickUp');
         }catch(e){ ok.disabled = false; toast(e.message, true); }
@@ -2597,6 +2618,7 @@ function tRowDraw(s){
       try{
         const r = await api('/api/task/'+s.taskId+'/acao', {method:'POST', body:JSON.stringify({acao:'alterar', comentario:txt})});
         for(const x of S.slots) if(x.taskId===s.taskId){ x.statusCache = r.status; x.aprovado = false; }
+        lembrarStatus(s.taskId, r.status);
         $('#alterBox').style.display='none';
         render(); tRowDraw(s);
         toast('Alteração enviada: comentário publicado e task em ALTERAR');
@@ -3132,13 +3154,17 @@ $('#nPermitir').onclick = async ()=>{
   try{
     const r = await Notification.requestPermission();
     pintaNotificacao();
-    if(r==='granted') new Notification('Pronto!', { body:'Os avisos de "pra aprovar" vão chegar aqui.', icon:'/icone.png' });
+    if(r==='granted') new Notification('Pronto!', { body:'Os avisos de "pra aprovar" e "pra alterar" vão chegar aqui.', icon:'/icone.png' });
   }catch(e){ $('#nEstado').textContent = 'Não consegui pedir a permissão: '+e.message; }
 };
 $('#nTestar').onclick = ()=>{
-  pendentesAprovar = [{ taskId:'teste', id:null, conta:'SeuBoné', titulo:'[CARROSSEL] Exemplo de teste', data:hojeStr() }];
+  const ex = [
+    { tipo:'aprovar', taskId:'teste1', id:null, conta:'SeuBoné', titulo:'[CARROSSEL] Exemplo de teste', data:hojeStr() },
+    { tipo:'alterar', taskId:'teste2', id:null, conta:'Onevo', titulo:'[REELS] Exemplo de alteração', data:hojeStr(), motivo:'trocar a foto da capa', por:'Maria Clara' },
+  ];
+  pendentesAprovar = ex.slice();
   renderAlerta(); bipe();
-  notificaSistema([{ taskId:'teste', conta:'SeuBoné', titulo:'[CARROSSEL] Exemplo de teste', data:hojeStr() }]);
+  notificaSistema(ex);
 };
 ['#nAtivo','#nSom'].forEach(k=>{
   document.querySelector(k).addEventListener('change', ()=>{

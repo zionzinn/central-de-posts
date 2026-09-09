@@ -434,15 +434,15 @@ function abrirPost(id){
       (isGm(s)?'<div><span>capa</span><b style="color:var(--sb)">★ grande marca</b></div>':'')+
       '<div id="mresp"><span>responsável</span><b class="carreg">…</b></div><div id="mdue"><span>entrega</span><b class="carreg">…</b></div></div>'+
     '<div class="sec"><div class="stit">descrição</div><div class="desc" id="mdesc"><span class="carreg">'+(s.taskId?'lendo a task…':'este post ainda não tem task no ClickUp')+'</span></div></div>'+
-    // parecer: aprova ou reprova (com motivo), pronto ou não. Fica no card do painel e nas observações.
+    // parecer: aprova (-> PUBLICAR) ou pede alteração (-> ALTERAR), pronto ou não. Fica no card do painel e nas observações.
     '<div class="sec parecer-sec"><div class="stit">seu parecer</div>'+
       '<div id="parecerAtual" class="parecer-atual'+(pr?(' '+(pr.veredito==='aprovado'?'ok':'alt')):' vazio')+'">'+(pr
-        ? (pr.veredito==='aprovado'?'✓ Aprovado':'✎ Alteração pedida')+' por '+esc(pr.por||'alguém')+(pr.motivo?': '+esc(pr.motivo):'')+(pr.veredito!=='aprovado'&&pr.clickup?' <span class="cu">· task foi pra ALTERAR no ClickUp</span>':'')+' <button type="button" class="mudar" id="prMudar">mudar</button>'
+        ? (pr.veredito==='aprovado'?'✓ Aprovado':'✎ Alteração pedida')+' por '+esc(pr.por||'alguém')+(pr.motivo?': '+esc(pr.motivo):'')+(pr.clickup?' <span class="cu">· task foi pra '+(pr.veredito==='aprovado'?'PUBLICAR':'ALTERAR')+' no ClickUp</span>':(pr.clickupErro?' <span class="cu">· não foi pro ClickUp ('+esc(pr.clickupErro)+')</span>':''))+' <button type="button" class="mudar" id="prMudar">mudar</button>'
         : 'ainda sem parecer')+'</div>'+
       '<form class="obsform" id="prform"'+(pr?' hidden':'')+'>'+
         '<div class="obsrow prbtns"><button type="button" class="prbtn ok" data-v="aprovado">✓ aprovar</button><button type="button" class="prbtn alt" data-v="alterar">✎ pedir alteração</button></div>'+
         '<textarea id="prMotivo" placeholder="o que precisa mudar? (obrigatório ao pedir alteração; opcional ao aprovar)" maxlength="1500"></textarea>'+
-        '<p class="nota">Pedir alteração comenta na task e manda ela pra <b>ALTERAR</b> no ClickUp, avisando o time. Aprovar fica registrado aqui e no painel.</p>'+
+        '<p class="nota">Pedir alteração comenta na task e manda ela pra <b>ALTERAR</b> no ClickUp. Aprovar manda pra <b>PUBLICAR</b> (se a task já estava esperando aprovação; se ainda está em produção, fica só registrado). O time é avisado nos dois casos.</p>'+
         '<div class="obsrow"><input id="prNome" maxlength="40" placeholder="seu nome" autocomplete="name"><button type="submit" class="obsenviar" id="prEnviar" disabled>enviar parecer</button></div>'+
         '<div class="obsmsg" id="prMsg"></div>'+
       '</form></div>'+
@@ -536,7 +536,7 @@ async function enviarObs(s){
 }
 async function enviarParecer(s){
   const v=ST._veredito, motivo=$('#prMotivo').value.trim(), nome=$('#prNome').value.trim(), msg=$('#prMsg'), btn=$('#prEnviar');
-  if(!v){ msg.textContent='Escolha aprovar ou reprovar.'; msg.className='obsmsg err'; return; }
+  if(!v){ msg.textContent='Escolha aprovar ou pedir alteração.'; msg.className='obsmsg err'; return; }
   if(v==='alterar' && !motivo){ msg.textContent='Diga o que precisa mudar.'; msg.className='obsmsg err'; $('#prMotivo').focus(); return; }
   try{ if(nome) localStorage.setItem('pauta.nome', nome); }catch(e){}
   btn.disabled=true; msg.textContent='enviando…'; msg.className='obsmsg';
@@ -547,10 +547,11 @@ async function enviarParecer(s){
     s.parecer=j.parecer; s.notas=j.notas;
     atualizaNotas(s);
     const at=$('#parecerAtual'); at.className='parecer-atual '+(v==='aprovado'?'ok':'alt');
-    at.innerHTML=(v==='aprovado'?'✓ Aprovado':'✎ Alteração pedida')+' por '+esc(nome||'alguém')+(motivo?': '+esc(motivo):'')+(v==='alterar'&&j.clickup?' <span class="cu">· task foi pra ALTERAR no ClickUp</span>':'')+' <button type="button" class="mudar" id="prMudar">mudar</button>';
+    const alvo = v==='alterar' ? 'ALTERAR' : 'PUBLICAR';
+    at.innerHTML=(v==='aprovado'?'✓ Aprovado':'✎ Alteração pedida')+' por '+esc(nome||'alguém')+(motivo?': '+esc(motivo):'')+(j.clickup?' <span class="cu">· task foi pra '+alvo+' no ClickUp</span>':'')+' <button type="button" class="mudar" id="prMudar">mudar</button>';
     $('#prMudar').onclick=()=>{ $('#prform').hidden=false; };
     $('#prform').hidden=true; $('#prMotivo').value='';
-    if(v==='alterar' && !j.clickup){ msg.textContent='Registrado aqui, mas não foi pro ClickUp: '+(j.clickupErro||'sem detalhe')+'.'; msg.className='obsmsg err'; }
+    if(!j.clickup){ msg.textContent = v==='aprovado' ? 'Aprovação registrada. A task não foi pra PUBLICAR: '+(j.clickupErro||'sem detalhe')+'.' : 'Registrado aqui, mas não foi pro ClickUp: '+(j.clickupErro||'sem detalhe')+'.'; msg.className='obsmsg '+(v==='aprovado'?'':'err'); }
     else { msg.textContent=''; }
     if(j.status){ s.statusCache=j.status; }
     render(); // selo na lista
