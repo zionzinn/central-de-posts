@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.53'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.54'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -142,6 +142,40 @@ function capaDoSlot(slot) {
 
 // ---------------- ClickUp ----------------
 const cuCache = new Map(); // key -> {t, data}
+// cache de IMAGENS proxiadas (artes): memória, LRU, com teto total e por item. Render free tem ~512MB, então é comedido.
+const IMG_CACHE_MAX = 120 * 1024 * 1024, IMG_CACHE_ITEM_MAX = 6 * 1024 * 1024;
+const imgCache = new Map(); let imgCacheBytes = 0;
+/** Baixa (uma vez) as imagens pro cache, sem bloquear ninguém. Só hosts do ClickUp; ignora erros. */
+const aquecendo = new Set();
+function aquecerImagens(urls) {
+  for (const u of (urls || []).slice(0, 12)) {
+    if (!u) continue;
+    const chave = u.split('?')[0];
+    if (imgCache.has(chave) || aquecendo.has(chave)) continue;
+    let host = ''; try { host = new URL(u).hostname; } catch { continue; }
+    if (!(host === 'clickup.com' || host.endsWith('.clickup.com') || host.endsWith('clickup-attachments.com') || (process.env.IMG_HOST_EXTRA && host === process.env.IMG_HOST_EXTRA))) continue;
+    aquecendo.add(chave);
+    (async () => {
+      try {
+        const assinado = host.endsWith('clickup-attachments.com');
+        const hh = assinado ? {} : (config.token ? { Authorization: config.token } : {});
+        let r = await fetch(u, { headers: hh, redirect: 'follow' }).catch(() => null);
+        if (!(r && r.ok)) r = await fetch(u, { headers: assinado ? (config.token ? { Authorization: config.token } : {}) : {}, redirect: 'follow' }).catch(() => null);
+        if (!(r && r.ok)) return;
+        const tipo = r.headers.get('content-type') || '';
+        if (!/^image\//i.test(tipo)) return;
+        const buf = Buffer.from(await r.arrayBuffer());
+        if (buf.length <= IMG_CACHE_ITEM_MAX) imgCachePut(chave, buf, tipo);
+      } catch {} finally { aquecendo.delete(chave); }
+    })();
+  }
+}
+function imgCachePut(chave, buf, type) {
+  const old = imgCache.get(chave); if (old) { imgCacheBytes -= old.buf.length; imgCache.delete(chave); }
+  while (imgCacheBytes + buf.length > IMG_CACHE_MAX && imgCache.size) { const k = imgCache.keys().next().value; imgCacheBytes -= imgCache.get(k).buf.length; imgCache.delete(k); }
+  imgCache.set(chave, { buf, type, etag: crypto.createHash('md5').update(buf).digest('hex').slice(0, 16), t: Date.now() });
+  imgCacheBytes += buf.length;
+}
 const CACHE_MS = 60_000;
 
 async function cuFetch(pathname, { fresh = false } = {}) {
@@ -512,6 +546,7 @@ function attToFile(a) {
     name,
     url: a.url_w_query || a.url || a.url_w_host || '',
     thumb: a.thumbnail_medium || a.thumbnail_small || a.thumbnail_large || '',
+    thumbL: a.thumbnail_large || a.thumbnail_medium || '',   // versão grande: nítida na tela, muito mais leve que a original
     ext: String(a.extension || name.split('.').pop() || '').toLowerCase(),
   };
 }
@@ -523,6 +558,7 @@ function imageBlockToFile(im) {
     name,
     url: im.url,
     thumb: im.thumbnail_url || im.thumbnail_medium || im.thumbnail_small || im.url,
+    thumbL: im.thumbnail_large || im.thumbnail_url || '',
     ext: String(name.split('.').pop() || 'png').toLowerCase(),
   };
 }
@@ -736,13 +772,15 @@ const server = http.createServer(async (req, res) => {
           cuFetchStale(`/task/${id}/comment`).catch(() => ({ data: { comments: [] } })),
         ]);
         const arquivos = curarArtes(parseComments(comRes.data || { comments: [] }, taskFiles(task)).arquivos, dono);
+        // aquece o cache das artes em segundo plano: quem abriu o card vê a próxima na hora
+        aquecerImagens(arquivos.filter(f => IMG_EXTS.has(String(f.ext || '').toLowerCase()) || f.thumb).map(f => f.thumbL || f.thumb || f.url));
         res.setHeader('Cache-Control', 'no-store');
         return json(res, 200, {
           nome: task.name, status: normStatus(task.status?.status), cor: statusColor(task),
           responsaveis: (task.assignees || []).map(a => a.username),
           due: task.due_date ? Number(task.due_date) : null,
           descricao: task.markdown_description || task.text_content || '',
-          arquivos: arquivos.map(f => ({ name: f.name, ext: f.ext, url: f.url, thumb: f.thumb || '' })),
+          arquivos: arquivos.map(f => ({ name: f.name, ext: f.ext, url: f.url, thumb: f.thumb || '', thumbL: f.thumbL || '' })),
         });
       } catch (e) { return json(res, 502, { erro: 'não consegui ler a task agora' }); }
     }
@@ -1181,7 +1219,7 @@ const server = http.createServer(async (req, res) => {
       const raw = u.searchParams.get('u') || '';
       let dec; try { dec = decodeURIComponent(raw); } catch { dec = raw; }
       let host = ''; try { host = new URL(dec).hostname; } catch {}
-      const okHost = host === 'clickup.com' || host.endsWith('.clickup.com') || host.endsWith('clickup-attachments.com');
+      const okHost = host === 'clickup.com' || host.endsWith('.clickup.com') || host.endsWith('clickup-attachments.com') || (process.env.IMG_HOST_EXTRA && host === process.env.IMG_HOST_EXTRA);
       if (!okHost) return json(res, 403, { erro: 'domínio não permitido' });
       const range = req.headers.range;
       // Anexos do ClickUp hoje sao URLs ASSINADAS (S3): mandar o header Authorization QUEBRA elas (S3 recusa auth duplicada).
@@ -1189,6 +1227,19 @@ const server = http.createServer(async (req, res) => {
       const comToken = () => { const hh = {}; if (config.token) hh.Authorization = config.token; if (range) hh.Range = range; return hh; };
       const semToken = () => { const hh = {}; if (range) hh.Range = range; return hh; };
       const assinado = host.endsWith('clickup-attachments.com');
+      // CACHE EM MEMÓRIA: a mesma arte é vista por várias pessoas; depois da primeira, sai daqui na hora.
+      // Chave = URL sem a assinatura (a assinatura muda, a imagem não). Só cacheia sem Range e até IMG_CACHE_ITEM_MAX.
+      const chaveImg = dec.split('?')[0];
+      if (!range) {
+        const hit = imgCache.get(chaveImg);
+        if (hit) {
+          imgCache.delete(chaveImg); imgCache.set(chaveImg, hit); // LRU: vai pro fim
+          const etag = '"' + hit.etag + '"';
+          if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, 'Cache-Control': 'public, max-age=86400' }); return res.end(); }
+          res.writeHead(200, { 'Content-Type': hit.type, 'Content-Length': hit.buf.length, 'Cache-Control': 'public, max-age=86400', ETag: etag, 'X-Img-Cache': 'hit' });
+          return res.end(hit.buf);
+        }
+      }
       const bom = r => r && (r.ok || r.status === 206) && r.body;
       let up = await fetch(dec, { headers: assinado ? semToken() : comToken(), redirect: 'follow' }).catch(() => null);
       if (!bom(up)) {
@@ -1196,11 +1247,17 @@ const server = http.createServer(async (req, res) => {
         if (bom(up2)) up = up2;
       }
       if (!bom(up)) { res.writeHead((up && up.status) || 502); return res.end(); }
-      const h2 = {
-        'Content-Type': up.headers.get('content-type') || 'application/octet-stream',
-        'Cache-Control': 'public, max-age=3600',
-        'Accept-Ranges': 'bytes',
-      };
+      const tipo = up.headers.get('content-type') || 'application/octet-stream';
+      const tam = Number(up.headers.get('content-length') || 0);
+      const cacheavel = !range && up.status === 200 && /^image\//i.test(tipo) && (!tam || tam <= IMG_CACHE_ITEM_MAX);
+      if (cacheavel) {
+        const buf = Buffer.from(await up.arrayBuffer());
+        if (buf.length <= IMG_CACHE_ITEM_MAX) imgCachePut(chaveImg, buf, tipo);
+        const etag = '"' + crypto.createHash('md5').update(buf).digest('hex').slice(0, 16) + '"';
+        res.writeHead(200, { 'Content-Type': tipo, 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=86400', ETag: etag, 'X-Img-Cache': 'miss' });
+        return res.end(buf);
+      }
+      const h2 = { 'Content-Type': tipo, 'Cache-Control': 'public, max-age=3600', 'Accept-Ranges': 'bytes' };
       for (const k of ['content-range', 'content-length']) { const v = up.headers.get(k); if (v) h2[k] = v; }
       res.writeHead(up.status === 206 ? 206 : 200, h2);
       Readable.fromWeb(up.body).pipe(res);

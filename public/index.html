@@ -1158,7 +1158,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.53'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.54'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2831,7 +2831,7 @@ function drawTab(){
         html += '<div class="arts">'+imgsOrd.map((a,i)=>{ const k=chave(a), oc=ocultas.has(k); return (
           '<div class="art'+(oc?' oculta':'')+'" data-lb="'+i+'" data-k="'+esc(k)+'">'+
             (isCarrossel?'<div class="artnum">'+(i+1)+' / '+imgsOrd.length+'</div>':'')+
-            '<img loading="lazy" src="'+esc(proxied(a.thumb||a.url))+'" data-full="'+esc(proxied(a.url||''))+'" alt="'+esc(a.name)+'">'+
+            '<img loading="lazy" src="'+esc(proxied(a.thumbL||a.thumb||a.url))+'" data-full="'+esc(proxied(a.url||''))+'" alt="'+esc(a.name)+'">'+
             (oc?'<div class="ocultatag">oculta na pauta</div>':'')+
             '<div class="artctl">'+
               '<button type="button" class="ac" data-mv="-1" title="mover pra antes">'+icon('chevL')+'</button>'+

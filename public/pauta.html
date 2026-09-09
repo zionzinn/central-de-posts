@@ -160,8 +160,14 @@
   .mbody{padding:14px 20px 20px; display:flex; flex-direction:column; gap:16px}
   .sec .stit{font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); margin-bottom:7px; display:flex; align-items:center; gap:8px}
   .sec .stit .n{background:var(--hair-2); border-radius:5px; padding:0 6px; font-size:10px}
-  .desc{white-space:pre-wrap; line-height:1.6; font-size:13.5px; color:var(--ink-2); background:var(--surface-2); border:1.5px solid var(--hair); border-radius:8px; padding:12px 14px; max-height:320px; overflow:auto}
+  .desc{line-height:1.7; font-size:14px; color:var(--ink-2); background:var(--surface-2); border:1.5px solid var(--hair); border-radius:8px; padding:14px 16px; max-height:420px; overflow:auto}
   .desc b{color:var(--ink)}
+  .desc p{margin:0 0 11px} .desc p:last-child{margin-bottom:0}
+  .desc p.h{font-weight:800; color:var(--ink); font-size:13px; letter-spacing:.06em; text-transform:uppercase; margin:16px 0 8px; padding-top:10px; border-top:1.5px solid var(--hair-2)}
+  .desc p.h:first-child{margin-top:0; padding-top:0; border-top:0}
+  .desc .rot{color:var(--sb); font-weight:800}
+  .desc ul,.desc ol{margin:0 0 12px 20px; padding:0} .desc li{margin:0 0 6px; padding-left:2px}
+  .desc code{font-family:inherit; background:var(--hair-2); border-radius:4px; padding:0 5px}
   .meta{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px}
   .meta div{background:var(--surface-2); border:1.5px solid var(--hair); border-radius:8px; padding:8px 11px}
   .meta span{display:block; font-size:9.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); margin-bottom:3px}
@@ -300,9 +306,26 @@ function dow(iso){ const [y,m,d]=iso.split('-').map(Number); return new Date(Dat
 function segundaDe(iso){ const [y,m,d]=iso.split('-').map(Number); const dt=new Date(Date.UTC(y,m-1,d,12)); const off=(dt.getUTCDay()+6)%7; dt.setUTCDate(dt.getUTCDate()-off); return dt.toISOString().slice(0,10); }
 function brDia(iso){ return iso.slice(8,10)+'/'+iso.slice(5,7); }
 function brData(iso){ return iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4); }
-/** Markdown leve da descrição do ClickUp: negrito, itens de lista e quebras. */
+/** Descrição do ClickUp em blocos legíveis: parágrafos com respiro, títulos destacados, listas de verdade, negrito. */
 function mdLeve(t){
-  return esc(String(t||'')).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/^#{1,6}\s?(.+)$/gm,'<b>$1</b>').replace(/^\s*[\*\-]\s+/gm,'• ').replace(/\n{3,}/g,'\n\n').trim();
+  const inl = x => esc(x).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/__(.+?)__/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>');
+  const lines = String(t||'').replace(/\r/g,'').replace(/\\n/g,'\n').split('\n');
+  let html='', lista=null;
+  const fecha = ()=>{ if(lista){ html+='</'+lista+'>'; lista=null; } };
+  for(const raw of lines){
+    const l = raw.trim();
+    if(!l){ fecha(); continue; }
+    const hm = l.match(/^#{1,6}\s+(.+)$/);
+    if(hm){ fecha(); html+='<p class="h">'+inl(hm[1])+'</p>'; continue; }
+    const ul = l.match(/^(?:[-*•]|\[[ x]\])\s+(.+)$/i), ol = l.match(/^\d+[.)]\s+(.+)$/);
+    if(ul||ol){ const tipo = ol?'ol':'ul'; if(lista!==tipo){ fecha(); html+='<'+tipo+'>'; lista=tipo; } html+='<li>'+inl((ul||ol)[1])+'</li>'; continue; }
+    fecha();
+    // rótulo no começo da linha ("Legenda:", "Roteiro:") ganha destaque
+    const rot = l.match(/^([A-Za-zÀ-ú0-9 ]{2,24}):\s+(.+)$/);
+    html += rot ? '<p><b class="rot">'+esc(rot[1])+':</b> '+inl(rot[2])+'</p>' : '<p>'+inl(l)+'</p>';
+  }
+  fecha();
+  return html || '<span class="carreg">sem descrição na task</span>';
 }
 
 async function carregar(){
@@ -454,7 +477,7 @@ async function carregarTask(s){
     $('#mresp b').className='';
     $('#mdue b').textContent = t.due ? new Date(t.due).toLocaleDateString('pt-BR') : 'sem data';
     $('#mdue b').className='';
-    $('#mdesc').innerHTML = t.descricao ? mdLeve(t.descricao) : '<span class="carreg">sem descrição na task</span>';
+    $('#mdesc').innerHTML = mdLeve(t.descricao||'');
     const arts=(t.arquivos||[]);
     const g=$('#martesG'); g.innerHTML='';
     if(!arts.length){ $('#martes').hidden=true; }
@@ -473,10 +496,14 @@ async function carregarTask(s){
             '<div class="vnome" id="vnome"></div>'+
           '</div>'+
           (imgs.length>1?'<div class="vstrip" id="vstrip">'+imgs.map((f,i)=>'<button type="button" class="vth" data-i="'+i+'" title="'+esc(f.name)+'"><img loading="lazy" src="'+esc(img(f.thumb||f.url))+'" alt=""></button>').join('')+'</div>':'');
+        // no card vai a versão GRANDE do ClickUp (nítida e leve); a original só na tela cheia.
+        const srcCard=f=>img(f.thumbL||f.url);
+        const pre=i=>{ const f=imgs[(i+imgs.length)%imgs.length]; if(f && !f._pre){ f._pre=1; const im=new Image(); im.src=srcCard(f); } };
         const mostra=i=>{
           ST.arteIdx=(i+imgs.length)%imgs.length; const f=imgs[ST.arteIdx];
-          $('#vimg').src=img(f.url); $('#vcount').textContent=imgs.length>1?(ST.arteIdx+1)+' / '+imgs.length:''; $('#vnome').textContent=f.name;
+          $('#vimg').src=srcCard(f); $('#vcount').textContent=imgs.length>1?(ST.arteIdx+1)+' / '+imgs.length:''; $('#vnome').textContent=f.name;
           document.querySelectorAll('#vstrip .vth').forEach(b=>b.classList.toggle('on', Number(b.dataset.i)===ST.arteIdx));
+          pre(ST.arteIdx+1); pre(ST.arteIdx-1);   // a seta vira instantânea
         };
         mostra(0);
         const pv=g.querySelector('.vnav.prev'), nx=g.querySelector('.vnav.next');
@@ -570,8 +597,12 @@ async function enviarSugestao(dia){
 function abrirLb(i){
   const imgs=ST.artes||[]; if(!imgs.length) return;
   ST.lbIdx=(i+imgs.length)%imgs.length;
-  const f=imgs[ST.lbIdx];
-  $('#lbimg').src=img(f.url); $('#lbcap').textContent=(imgs.length>1?(ST.lbIdx+1)+' / '+imgs.length+' · ':'')+f.name;
+  const f=imgs[ST.lbIdx], idx=ST.lbIdx;
+  // mostra a versão grande NA HORA (já está no cache do card) e troca pela original quando ela terminar de baixar
+  $('#lbimg').src=img(f.thumbL||f.url);
+  if(f.thumbL && f.url){ const full=new Image(); full.onload=()=>{ if(ST.lbIdx===idx && $('#lb').classList.contains('open')) $('#lbimg').src=full.src; }; full.src=img(f.url); }
+  $('#lbcap').textContent=(imgs.length>1?(ST.lbIdx+1)+' / '+imgs.length+' · ':'')+f.name;
+  [idx+1, idx-1].forEach(j=>{ const g=imgs[(j+imgs.length)%imgs.length]; if(g){ const im=new Image(); im.src=img(g.thumbL||g.url); } });
   $('#lbprev').style.display=$('#lbnext').style.display=imgs.length>1?'':'none';
   $('#lb').classList.add('open');
 }
