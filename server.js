@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.51'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.53'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -109,6 +109,25 @@ function curarArtes(arquivos, slot) {
   const pos = k => { const i = ordem.indexOf(k); return i < 0 ? 1e6 : i; };
   return (arquivos || []).filter(f => !ocultas.has(arteChave(f)))
     .map((f, i) => ({ f, i })).sort((a, b) => (pos(arteChave(a.f)) - pos(arteChave(b.f))) || (a.i - b.i)).map(x => x.f);
+}
+/** Pedido de alteração vindo da pauta: comenta na task (notifica o time) e manda pra ALTERAR.
+    É o mesmo efeito do botão "alterar" do painel. Lança erro se não conseguir falar com o ClickUp. */
+async function alterarNoClickUp(taskId, texto, autor) {
+  if (!config.token) throw Object.assign(new Error('sem token do ClickUp'), { code: 'NO_TOKEN' });
+  let statusAntes = '';
+  try { const t0 = await cuFetch(`/task/${taskId}`, { fresh: true }); statusAntes = (t0.status && t0.status.status) || ''; } catch {}
+  pushUndo({
+    tipo: 'status', desc: 'pedido de alteração pela pauta (status alterar)', taskId, statusAntes,
+    slots: db.slots.filter(s => s.taskId === taskId).map(s => ({ id: s.id, aprovado: s.aprovado, statusCache: s.statusCache ? { ...s.statusCache } : null })),
+  });
+  await cuWrite(`/task/${taskId}/comment`, 'POST', { comment_text: 'ALTERAÇÃO SOLICITADA (pela pauta, por ' + autor + '): ' + texto, notify_all: true });
+  cuCache.delete(`/task/${taskId}/comment`);
+  await cuWrite(`/task/${taskId}`, 'PUT', { status: 'alterar' });
+  cuCache.delete(`/task/${taskId}`);
+  let st = { status: 'alterar', color: (db.statusColors && db.statusColors['alterar']) || '#87909e' };
+  try { const task = await cuFetch(`/task/${taskId}`, { fresh: true }); st = { status: normStatus(task.status?.status), color: statusColor(task) }; } catch {}
+  for (const s of db.slots) if (s.taskId === taskId) { s.statusCache = st; s.aprovado = false; s.atualizadoEm = new Date().toISOString(); }
+  return st;
 }
 const IMG_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'heic', 'bmp']);
 /** Capa pra lista da pauta: primeira imagem visível, só do que já está em cache (nunca espera o ClickUp). */
@@ -752,20 +771,28 @@ const server = http.createServer(async (req, res) => {
       const aba = b.aba || null;
       if (aba && !(db.abas || []).includes(aba)) return json(res, 401, { erro: 'link inválido' });
       if (!pautaTokenOk(b.token, aba)) return json(res, 401, { erro: 'link inválido' });
-      const veredito = b.veredito === 'aprovado' ? 'aprovado' : (b.veredito === 'reprovado' ? 'reprovado' : '');
+      // 'reprovado' (nome antigo) vira 'alterar': pedido de alteração, que também vai pro ClickUp
+      const veredito = b.veredito === 'aprovado' ? 'aprovado' : ((b.veredito === 'alterar' || b.veredito === 'reprovado') ? 'alterar' : '');
       if (!veredito) return json(res, 400, { erro: 'veredito inválido' });
       const motivo = String(b.motivo || '').replace(/[<>]/g, '').trim().slice(0, 1500);
-      if (veredito === 'reprovado' && !motivo) return json(res, 400, { erro: 'diga o motivo da reprovação' });
+      if (veredito === 'alterar' && !motivo) return json(res, 400, { erro: 'diga o que precisa mudar' });
       const nome = String(b.nome || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'alguém pela pauta';
       const contasOk = aba ? contasDaAbaSrv(aba) : null;
       const slot = db.slots.find(s => s.id === String(b.id || '') && s.date && (!contasOk || contasOk.includes(s.conta)));
       if (!slot) return json(res, 403, { erro: 'post fora do escopo deste link' });
       const quando = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' });
-      slot.parecer = { veredito, motivo, por: nome, quando: Date.now() };
-      const linha = (veredito === 'aprovado' ? '✅ Aprovado por ' : '❌ Reprovado por ') + nome + ', ' + quando + ' (pela pauta)' + (motivo ? ': ' + motivo : '');
+      // alteração: além de registrar aqui, comenta na task e manda pra ALTERAR no ClickUp (igual ao botão do painel)
+      let clickup = false, clickupErro = '';
+      if (veredito === 'alterar') {
+        if (!slot.taskId) clickupErro = 'este post ainda não tem task no ClickUp';
+        else { try { await alterarNoClickUp(slot.taskId, motivo, nome); clickup = true; } catch (e) { clickupErro = e.code === 'NO_TOKEN' ? 'painel sem token do ClickUp' : (e.message || 'falha no ClickUp'); } }
+      }
+      slot.parecer = { veredito, motivo, por: nome, quando: Date.now(), clickup };
+      const linha = (veredito === 'aprovado' ? '✅ Aprovado por ' : '✏️ Alteração pedida por ') + nome + ', ' + quando + ' (pela pauta)' + (motivo ? ': ' + motivo : '')
+        + (veredito === 'alterar' ? (clickup ? ' · task foi pra ALTERAR no ClickUp' : ' · não foi pro ClickUp (' + clickupErro + ')') : '');
       slot.notas = (slot.notas ? slot.notas.replace(/\s+$/, '') + '\n\n' : '') + linha;
       saveDb();
-      return json(res, 200, { ok: true, parecer: slot.parecer, notas: slot.notas });
+      return json(res, 200, { ok: true, parecer: slot.parecer, notas: slot.notas, clickup, clickupErro, status: slot.statusCache || null });
     }
     // sugestão de post num dia vazio, vinda pela pauta: vira um card "SUGESTÃO" naquele dia (sem task).
     // Você aceita colando a task nele (a marca de sugestão cai sozinha) ou apaga.

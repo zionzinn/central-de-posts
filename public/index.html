@@ -407,7 +407,7 @@
   .card .vagatag.parecer{display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:800; letter-spacing:.04em; padding:2px 6px; border-radius:5px; margin-bottom:5px; border:1.5px solid var(--stroke)}
   .card .vagatag.parecer svg{width:10px; height:10px; stroke-width:3}
   .card .vagatag.parecer.ok{background:var(--ok); color:#000} .card .vagatag.parecer.ok svg{stroke:#000}
-  .card .vagatag.parecer.nao{background:var(--crit); color:#fff} .card .vagatag.parecer.nao svg{stroke:#fff}
+  .card .vagatag.parecer.alt{background:var(--warn); color:#000} .card .vagatag.parecer.alt svg{stroke:#000}
   /* popover de sinalizar */
   .vagapop{position:fixed; z-index:70; width:262px; background:var(--surface); border:var(--bw) solid var(--stroke);
     border-radius:10px; box-shadow:6px 6px 0 rgba(0,0,0,.55); padding:11px 12px}
@@ -1158,7 +1158,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.51'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.53'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1728,7 +1728,7 @@ function cardEl(s){
   d.innerHTML =
     (vaga?'<div class="vagatag">'+icon('alerta')+'FALTA CRIAR</div>':'')+
     (sug?'<div class="vagatag sugtag" title="ideia enviada pela pauta: cole a task pra virar post, ou apague">'+icon('sparkle')+'SUGESTÃO'+(s.sugeridoPor?' · '+esc(s.sugeridoPor):'')+'</div>':'')+
-    (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'nao')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Reprovado')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'x')+(s.parecer.veredito==='aprovado'?'APROVADO':'REPROVADO')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '')+
+    (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'alt')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Alteração pedida')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:'')+(s.parecer.veredito!=='aprovado'?(s.parecer.clickup?' · foi pra ALTERAR no ClickUp':''):''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'pencil')+(s.parecer.veredito==='aprovado'?'APROVADO':'ALTERAR')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '')+
     // selo da conta: nome por extenso na cor da marca. Só em aba com mais de uma conta,
     // porque na SeuBoné e na Weevo seria repetir o que a aba já diz.
     (multi?'<div class="contatag" style="background:'+cor+'; color:'+corTexto(cor)+'">'+esc(contaCurta(s.conta))+'</div>':'')+

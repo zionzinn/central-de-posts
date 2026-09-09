@@ -50,9 +50,10 @@
   .post .capa img{width:100%; height:100%; object-fit:cover; display:block}
   .post .capa .capan{position:absolute; right:3px; bottom:3px; background:rgba(0,0,0,.8); color:#fff; font-size:9.5px; font-weight:800; border-radius:4px; padding:1px 5px}
   /* parecer: selo na lista, bloco no modal */
-  .pill.parecer.ok{background:var(--ok)} .pill.parecer.nao{background:var(--crit); color:#fff}
+  .pill.parecer.ok{background:var(--ok)} .pill.parecer.alt{background:var(--warn); color:#000}
   .parecer-atual{font-size:13px; font-weight:700; padding:10px 12px; border-radius:8px; border:2px solid var(--hair); background:var(--surface-2); display:flex; align-items:center; gap:10px; flex-wrap:wrap}
-  .parecer-atual.ok{border-color:var(--ok); color:var(--ok)} .parecer-atual.nao{border-color:var(--crit); color:#FF8B8B}
+  .parecer-atual.ok{border-color:var(--ok); color:var(--ok)} .parecer-atual.alt{border-color:var(--warn); color:var(--warn)}
+  .parecer-atual .cu{font-size:11px; color:var(--ink-3); font-weight:600}
   .parecer-atual.vazio{color:var(--ink-3); font-weight:600}
   .parecer-atual .mudar{margin-left:auto; font-size:11px; font-weight:800; color:var(--ink-3); border:1.5px dashed var(--hair); border-radius:6px; padding:3px 9px}
   .parecer-atual .mudar:hover{color:var(--ink); border-color:var(--ink-3)}
@@ -61,9 +62,34 @@
     transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .15s, background .15s, color .15s, border-color .15s}
   .prbtn:hover{transform:translateY(-2px)}
   .prbtn.ok.on{background:var(--ok); color:#000; border-color:var(--stroke); box-shadow:3px 3px 0 #000}
-  .prbtn.nao.on{background:var(--crit); color:#fff; border-color:var(--stroke); box-shadow:3px 3px 0 #000}
-  .artes{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
-  .arte img{aspect-ratio:4/5}
+  .prbtn.alt.on{background:var(--warn); color:#000; border-color:var(--stroke); box-shadow:3px 3px 0 #000}
+  /* visualizador de artes dentro do card: imagem grande, setas, contador, tira de miniaturas */
+  #martesG.artes{display:block}
+  .viewer{position:relative; background:#000; border:2px solid var(--stroke); border-radius:10px; overflow:hidden; box-shadow:var(--hard-s)}
+  .vimg{display:block; width:100%; max-height:72vh; object-fit:contain; background:#000; cursor:zoom-in; min-height:220px}
+  .vnav{position:absolute; top:50%; transform:translateY(-50%); width:40px; height:40px; border-radius:50%; background:rgba(0,0,0,.7); color:#fff; border:2px solid var(--stroke);
+    font-size:26px; line-height:1; display:flex; align-items:center; justify-content:center; box-shadow:var(--hard-s); transition:background .15s, transform .15s}
+  .vnav:hover{background:var(--sb); color:#000; transform:translateY(-50%) scale(1.08)}
+  .vnav.prev{left:10px} .vnav.next{right:10px}
+  .vcount{position:absolute; top:10px; left:10px; background:var(--sb); color:#000; font-size:11px; font-weight:800; border:1.5px solid var(--stroke); border-radius:5px; padding:2px 8px}
+  .vcount:empty{display:none}
+  .vnome{position:absolute; bottom:0; left:0; right:0; padding:6px 10px; font-size:10.5px; font-weight:700; color:#fff; background:linear-gradient(transparent, rgba(0,0,0,.75)); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none}
+  .vstrip{display:flex; gap:6px; margin-top:8px; overflow-x:auto; padding-bottom:4px}
+  .vth{flex:none; width:64px; height:64px; border-radius:7px; overflow:hidden; border:2px solid var(--hair); background:#000; padding:0; opacity:.6; transition:opacity .15s, border-color .15s, transform .15s}
+  .vth img{width:100%; height:100%; object-fit:cover; display:block}
+  .vth:hover{opacity:1} .vth.on{opacity:1; border-color:var(--sb); transform:translateY(-2px)}
+  .outros{display:flex; flex-direction:column; gap:6px; margin-top:8px}
+  /* tela cheia */
+  .lb{position:fixed; inset:0; z-index:90; background:rgba(0,0,0,.94); display:none; align-items:center; justify-content:center}
+  .lb.open{display:flex; animation:ovin .12s ease both}
+  .lb img{max-width:96vw; max-height:90vh; object-fit:contain; border:2px solid var(--stroke); box-shadow:var(--hard)}
+  .lbx{position:fixed; top:14px; right:14px; width:40px; height:40px; border-radius:50%; background:var(--surface); color:var(--ink); border:2px solid var(--stroke); font-size:18px; font-weight:800; box-shadow:var(--hard-s)}
+  .lbx:hover{background:var(--sb); color:#000}
+  .lbnav{position:fixed; top:50%; transform:translateY(-50%); width:48px; height:48px; border-radius:50%; background:var(--surface); color:var(--ink); border:2px solid var(--stroke); font-size:30px; line-height:1; box-shadow:var(--hard-s)}
+  .lbnav:hover{background:var(--sb); color:#000}
+  .lbnav.prev{left:14px} .lbnav.next{right:14px}
+  .lbcap{position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--surface); color:var(--ink-2); font-size:12px; font-weight:700; border:2px solid var(--stroke); border-radius:999px; padding:6px 14px; box-shadow:var(--hard-s); max-width:80vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  @media (max-width:560px){ .vimg{max-height:60vh} .vnav{width:34px; height:34px; font-size:22px} }
   .obsform .sel{font:inherit; font-size:13px; color:var(--ink); background:var(--surface-2); border:2px solid var(--hair); border-radius:8px; padding:9px 12px; flex:1; min-width:140px}
   .nota{font-size:11.5px; color:var(--ink-3); line-height:1.5}
   .dia.fds .dnum span{color:var(--ink-3); opacity:.8}
@@ -199,6 +225,15 @@
     <div class="mbody" id="mbody"></div>
     <div class="mfoot" id="mfoot"></div>
   </div>
+</div>
+
+<!-- tela cheia da arte: sem sair da página -->
+<div class="lb" id="lb">
+  <button type="button" class="lbx" id="lbx" title="fechar (Esc)">✕</button>
+  <button type="button" class="lbnav prev" id="lbprev" title="anterior (←)">‹</button>
+  <img id="lbimg" alt="">
+  <button type="button" class="lbnav next" id="lbnext" title="próxima (→)">›</button>
+  <div class="lbcap" id="lbcap"></div>
 </div>
 
 <script>
@@ -341,7 +376,7 @@ function render(){
               ? '<div class="capa"><img loading="lazy" src="'+esc(img(s.capa))+'" alt="">'+(s.nArtes>1?'<span class="capan">'+s.nArtes+'</span>':'')+'</div>'
               : '<div class="fmt">'+(sug?'💡':(ICO[s.formato]||ICO.post))+'</div>')+
             '<div class="body"><div class="tit">'+esc(titulo(s))+(isGm(s)?'<span class="gm" title="grande marca na capa">★</span>':'')+(sug&&s.sugeridoPor?' <span class="quem">por '+esc(s.sugeridoPor)+'</span>':'')+'</div>'+
-            '<div class="chips">'+(pr?'<span class="pill parecer '+(pr.veredito==='aprovado'?'ok':'nao')+'" title="'+esc(pr.motivo||'')+'">'+(pr.veredito==='aprovado'?'✓ aprovado':'✕ reprovado')+(pr.por?' · '+esc(pr.por):'')+'</span>':'')+
+            '<div class="chips">'+(pr?'<span class="pill parecer '+(pr.veredito==='aprovado'?'ok':'alt')+'" title="'+esc(pr.motivo||'')+'">'+(pr.veredito==='aprovado'?'✓ aprovado':'✎ alterar')+(pr.por?' · '+esc(pr.por):'')+'</span>':'')+
             '<span class="pill" style="background:'+esc(st.color)+'">'+esc(st.label)+'</span>'+
             (multi?'<span class="chip conta">'+esc(CONTA_CURTA[s.conta]||s.conta)+'</span>':'')+
             (s.formato?'<span class="chip">'+esc(s.formato)+'</span>':'')+(s.angulo?'<span class="chip">'+esc(s.angulo)+'</span>':'')+
@@ -378,12 +413,13 @@ function abrirPost(id){
     '<div class="sec"><div class="stit">descrição</div><div class="desc" id="mdesc"><span class="carreg">'+(s.taskId?'lendo a task…':'este post ainda não tem task no ClickUp')+'</span></div></div>'+
     // parecer: aprova ou reprova (com motivo), pronto ou não. Fica no card do painel e nas observações.
     '<div class="sec parecer-sec"><div class="stit">seu parecer</div>'+
-      '<div id="parecerAtual" class="parecer-atual'+(pr?(' '+(pr.veredito==='aprovado'?'ok':'nao')):' vazio')+'">'+(pr
-        ? (pr.veredito==='aprovado'?'✓ Aprovado':'✕ Reprovado')+' por '+esc(pr.por||'alguém')+(pr.motivo?': '+esc(pr.motivo):'')+' <button type="button" class="mudar" id="prMudar">mudar</button>'
+      '<div id="parecerAtual" class="parecer-atual'+(pr?(' '+(pr.veredito==='aprovado'?'ok':'alt')):' vazio')+'">'+(pr
+        ? (pr.veredito==='aprovado'?'✓ Aprovado':'✎ Alteração pedida')+' por '+esc(pr.por||'alguém')+(pr.motivo?': '+esc(pr.motivo):'')+(pr.veredito!=='aprovado'&&pr.clickup?' <span class="cu">· task foi pra ALTERAR no ClickUp</span>':'')+' <button type="button" class="mudar" id="prMudar">mudar</button>'
         : 'ainda sem parecer')+'</div>'+
       '<form class="obsform" id="prform"'+(pr?' hidden':'')+'>'+
-        '<div class="obsrow prbtns"><button type="button" class="prbtn ok" data-v="aprovado">✓ aprovar</button><button type="button" class="prbtn nao" data-v="reprovado">✕ reprovar</button></div>'+
-        '<textarea id="prMotivo" placeholder="por quê? (obrigatório se reprovar; opcional se aprovar)" maxlength="1500"></textarea>'+
+        '<div class="obsrow prbtns"><button type="button" class="prbtn ok" data-v="aprovado">✓ aprovar</button><button type="button" class="prbtn alt" data-v="alterar">✎ pedir alteração</button></div>'+
+        '<textarea id="prMotivo" placeholder="o que precisa mudar? (obrigatório ao pedir alteração; opcional ao aprovar)" maxlength="1500"></textarea>'+
+        '<p class="nota">Pedir alteração comenta na task e manda ela pra <b>ALTERAR</b> no ClickUp, avisando o time. Aprovar fica registrado aqui e no painel.</p>'+
         '<div class="obsrow"><input id="prNome" maxlength="40" placeholder="seu nome" autocomplete="name"><button type="submit" class="obsenviar" id="prEnviar" disabled>enviar parecer</button></div>'+
         '<div class="obsmsg" id="prMsg"></div>'+
       '</form></div>'+
@@ -396,7 +432,7 @@ function abrirPost(id){
   $('#obsform').onsubmit = ev=>{ ev.preventDefault(); enviarObs(s); };
   // parecer: escolhe aprovar/reprovar, escreve o motivo, envia
   ST._veredito = null;
-  document.querySelectorAll('#prform .prbtn').forEach(btn=>{ btn.onclick=()=>{ ST._veredito=btn.dataset.v; document.querySelectorAll('#prform .prbtn').forEach(x=>x.classList.toggle('on', x===btn)); $('#prEnviar').disabled=false; $('#prMotivo').placeholder = btn.dataset.v==='reprovado' ? 'por quê? (obrigatório ao reprovar)' : 'algum comentário? (opcional)'; $('#prMotivo').focus(); }; });
+  document.querySelectorAll('#prform .prbtn').forEach(btn=>{ btn.onclick=()=>{ ST._veredito=btn.dataset.v; document.querySelectorAll('#prform .prbtn').forEach(x=>x.classList.toggle('on', x===btn)); $('#prEnviar').disabled=false; $('#prMotivo').placeholder = btn.dataset.v==='alterar' ? 'o que precisa mudar? (obrigatório)' : 'algum comentário? (opcional)'; $('#prMotivo').focus(); }; });
   $('#prform').onsubmit = ev=>{ ev.preventDefault(); enviarParecer(s); };
   const mudar=$('#prMudar'); if(mudar) mudar.onclick=()=>{ $('#prform').hidden=false; $('#parecerAtual').classList.add('mudando'); };
   $('#ovPost').classList.add('open');
@@ -424,13 +460,35 @@ async function carregarTask(s){
     if(!arts.length){ $('#martes').hidden=true; }
     else{
       $('#martes').hidden=false; $('#martesN').textContent=arts.length;
-      arts.forEach(f=>{
-        const isImg=/^(png|jpe?g|gif|webp|avif)$/i.test(f.ext||'');
-        const a=document.createElement('a'); a.className='arte'+(isImg?'':' file'); a.href=img(f.url); a.target='_blank'; a.rel='noopener'; a.title=f.name;
-        a.innerHTML = isImg ? '<img loading="lazy" src="'+esc(img(f.thumb||f.url))+'" alt="'+esc(f.name)+'"><div class="an">'+esc(f.name)+'</div>'
-                            : '<span class="ext">'+esc(f.ext||'arq')+'</span><span class="an">'+esc(f.name)+'</span>';
-        g.appendChild(a);
-      });
+      const isImg=f=>/^(png|jpe?g|gif|webp|avif|heic|bmp)$/i.test(f.ext||'')||!!f.thumb;
+      const imgs=arts.filter(isImg), outros=arts.filter(f=>!isImg(f));
+      ST.artes=imgs; ST.arteIdx=0;
+      if(imgs.length){
+        g.innerHTML=
+          '<div class="viewer">'+
+            (imgs.length>1?'<button type="button" class="vnav prev" title="anterior">‹</button>':'')+
+            '<img class="vimg" id="vimg" alt="" title="clique pra ver em tela cheia">'+
+            (imgs.length>1?'<button type="button" class="vnav next" title="próxima">›</button>':'')+
+            '<div class="vcount" id="vcount"></div>'+
+            '<div class="vnome" id="vnome"></div>'+
+          '</div>'+
+          (imgs.length>1?'<div class="vstrip" id="vstrip">'+imgs.map((f,i)=>'<button type="button" class="vth" data-i="'+i+'" title="'+esc(f.name)+'"><img loading="lazy" src="'+esc(img(f.thumb||f.url))+'" alt=""></button>').join('')+'</div>':'');
+        const mostra=i=>{
+          ST.arteIdx=(i+imgs.length)%imgs.length; const f=imgs[ST.arteIdx];
+          $('#vimg').src=img(f.url); $('#vcount').textContent=imgs.length>1?(ST.arteIdx+1)+' / '+imgs.length:''; $('#vnome').textContent=f.name;
+          document.querySelectorAll('#vstrip .vth').forEach(b=>b.classList.toggle('on', Number(b.dataset.i)===ST.arteIdx));
+        };
+        mostra(0);
+        const pv=g.querySelector('.vnav.prev'), nx=g.querySelector('.vnav.next');
+        if(pv) pv.onclick=()=>mostra(ST.arteIdx-1); if(nx) nx.onclick=()=>mostra(ST.arteIdx+1);
+        document.querySelectorAll('#vstrip .vth').forEach(b=>b.onclick=()=>mostra(Number(b.dataset.i)));
+        $('#vimg').onclick=()=>abrirLb(ST.arteIdx);
+      }
+      if(outros.length){
+        const box=document.createElement('div'); box.className='outros';
+        box.innerHTML=outros.map(f=>'<a class="arte file" href="'+esc(img(f.url))+'" target="_blank" rel="noopener" title="'+esc(f.name)+'"><span class="ext">'+esc(f.ext||'arq')+'</span><span class="an">'+esc(f.name)+'</span></a>').join('');
+        g.appendChild(box);
+      }
     }
   }catch(e){ $('#mdesc').innerHTML='<span class="carreg">não consegui ler a task agora</span>'; }
 }
@@ -452,7 +510,7 @@ async function enviarObs(s){
 async function enviarParecer(s){
   const v=ST._veredito, motivo=$('#prMotivo').value.trim(), nome=$('#prNome').value.trim(), msg=$('#prMsg'), btn=$('#prEnviar');
   if(!v){ msg.textContent='Escolha aprovar ou reprovar.'; msg.className='obsmsg err'; return; }
-  if(v==='reprovado' && !motivo){ msg.textContent='Diga o motivo da reprovação.'; msg.className='obsmsg err'; $('#prMotivo').focus(); return; }
+  if(v==='alterar' && !motivo){ msg.textContent='Diga o que precisa mudar.'; msg.className='obsmsg err'; $('#prMotivo').focus(); return; }
   try{ if(nome) localStorage.setItem('pauta.nome', nome); }catch(e){}
   btn.disabled=true; msg.textContent='enviando…'; msg.className='obsmsg';
   try{
@@ -461,11 +519,13 @@ async function enviarParecer(s){
     if(!r.ok) throw new Error(j.erro||'falhou');
     s.parecer=j.parecer; s.notas=j.notas;
     atualizaNotas(s);
-    const at=$('#parecerAtual'); at.className='parecer-atual '+(v==='aprovado'?'ok':'nao');
-    at.innerHTML=(v==='aprovado'?'✓ Aprovado':'✕ Reprovado')+' por '+esc(nome||'alguém')+(motivo?': '+esc(motivo):'')+' <button type="button" class="mudar" id="prMudar">mudar</button>';
+    const at=$('#parecerAtual'); at.className='parecer-atual '+(v==='aprovado'?'ok':'alt');
+    at.innerHTML=(v==='aprovado'?'✓ Aprovado':'✎ Alteração pedida')+' por '+esc(nome||'alguém')+(motivo?': '+esc(motivo):'')+(v==='alterar'&&j.clickup?' <span class="cu">· task foi pra ALTERAR no ClickUp</span>':'')+' <button type="button" class="mudar" id="prMudar">mudar</button>';
     $('#prMudar').onclick=()=>{ $('#prform').hidden=false; };
     $('#prform').hidden=true; $('#prMotivo').value='';
-    msg.textContent='';
+    if(v==='alterar' && !j.clickup){ msg.textContent='Registrado aqui, mas não foi pro ClickUp: '+(j.clickupErro||'sem detalhe')+'.'; msg.className='obsmsg err'; }
+    else { msg.textContent=''; }
+    if(j.status){ s.statusCache=j.status; }
     render(); // selo na lista
   }catch(e){ msg.textContent='Não deu: '+e.message; msg.className='obsmsg err'; btn.disabled=false; }
 }
@@ -506,10 +566,30 @@ async function enviarSugestao(dia){
     setTimeout(()=>{ fecharPost(); carregar(); }, 900);
   }catch(e){ msg.textContent='Não deu: '+e.message; msg.className='obsmsg err'; btn.disabled=false; }
 }
+// ---- tela cheia da arte ----
+function abrirLb(i){
+  const imgs=ST.artes||[]; if(!imgs.length) return;
+  ST.lbIdx=(i+imgs.length)%imgs.length;
+  const f=imgs[ST.lbIdx];
+  $('#lbimg').src=img(f.url); $('#lbcap').textContent=(imgs.length>1?(ST.lbIdx+1)+' / '+imgs.length+' · ':'')+f.name;
+  $('#lbprev').style.display=$('#lbnext').style.display=imgs.length>1?'':'none';
+  $('#lb').classList.add('open');
+}
+function fecharLb(){ $('#lb').classList.remove('open'); }
+$('#lbx').onclick=fecharLb;
+$('#lbprev').onclick=ev=>{ ev.stopPropagation(); abrirLb(ST.lbIdx-1); };
+$('#lbnext').onclick=ev=>{ ev.stopPropagation(); abrirLb(ST.lbIdx+1); };
+$('#lb').addEventListener('click', ev=>{ if(ev.target===$('#lb')||ev.target.id==='lbimg') fecharLb(); });
+document.addEventListener('keydown', ev=>{
+  if(!$('#lb').classList.contains('open')) return;
+  if(ev.key==='Escape'){ ev.stopImmediatePropagation(); fecharLb(); }
+  if(ev.key==='ArrowLeft') abrirLb(ST.lbIdx-1);
+  if(ev.key==='ArrowRight') abrirLb(ST.lbIdx+1);
+});
 function fecharPost(){ ST.aberto=null; $('#ovPost').classList.remove('open'); }
 $('#mclose').onclick=fecharPost;
 $('#ovPost').addEventListener('mousedown', ev=>{ if(ev.target===$('#ovPost')) fecharPost(); });
-document.addEventListener('keydown', ev=>{ if(ev.key==='Escape' && $('#ovPost').classList.contains('open')) fecharPost(); });
+document.addEventListener('keydown', ev=>{ if(ev.key==='Escape' && !$('#lb').classList.contains('open') && $('#ovPost').classList.contains('open')) fecharPost(); });
 
 $('#mPrev').onclick=()=>{ ST.mes=addMes(ST.mes,-1); carregar(); };
 $('#mNext').onclick=()=>{ ST.mes=addMes(ST.mes,1); carregar(); };
