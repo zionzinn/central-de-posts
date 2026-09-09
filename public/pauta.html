@@ -18,6 +18,7 @@
     --bw:2px; --hard:4px 4px 0 rgba(0,0,0,.85); --hard-s:3px 3px 0 rgba(0,0,0,.85);
   }
   *{box-sizing:border-box; margin:0}
+  [hidden]{display:none !important}
   html{color-scheme:dark}
   body{font-family:"Space Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--page); color:var(--ink); font-size:14px;
     background-image:radial-gradient(rgba(255,255,255,.028) 1px, transparent 1px); background-size:22px 22px; transition:background-color .45s ease; min-height:100vh}
@@ -44,6 +45,25 @@
   .post.sugestao{border-style:dashed; border-color:#C77DFF; background:linear-gradient(90deg, rgba(199,125,255,.10), transparent 60%)}
   .post.sugestao .fmt{font-size:15px; background:rgba(199,125,255,.15); border-color:#C77DFF}
   .post .tit .quem{font-size:11px; color:var(--ink-3); font-weight:600}
+  /* capa (primeira arte visível) na lista */
+  .post .capa{position:relative; width:64px; height:64px; flex:none; border-radius:7px; overflow:hidden; border:1.5px solid var(--hair); background:#000}
+  .post .capa img{width:100%; height:100%; object-fit:cover; display:block}
+  .post .capa .capan{position:absolute; right:3px; bottom:3px; background:rgba(0,0,0,.8); color:#fff; font-size:9.5px; font-weight:800; border-radius:4px; padding:1px 5px}
+  /* parecer: selo na lista, bloco no modal */
+  .pill.parecer.ok{background:var(--ok)} .pill.parecer.nao{background:var(--crit); color:#fff}
+  .parecer-atual{font-size:13px; font-weight:700; padding:10px 12px; border-radius:8px; border:2px solid var(--hair); background:var(--surface-2); display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .parecer-atual.ok{border-color:var(--ok); color:var(--ok)} .parecer-atual.nao{border-color:var(--crit); color:#FF8B8B}
+  .parecer-atual.vazio{color:var(--ink-3); font-weight:600}
+  .parecer-atual .mudar{margin-left:auto; font-size:11px; font-weight:800; color:var(--ink-3); border:1.5px dashed var(--hair); border-radius:6px; padding:3px 9px}
+  .parecer-atual .mudar:hover{color:var(--ink); border-color:var(--ink-3)}
+  .prbtns{gap:8px}
+  .prbtn{flex:1; font-size:13px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:11px; border-radius:8px; border:2px solid var(--hair); background:var(--surface-2); color:var(--ink-2);
+    transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .15s, background .15s, color .15s, border-color .15s}
+  .prbtn:hover{transform:translateY(-2px)}
+  .prbtn.ok.on{background:var(--ok); color:#000; border-color:var(--stroke); box-shadow:3px 3px 0 #000}
+  .prbtn.nao.on{background:var(--crit); color:#fff; border-color:var(--stroke); box-shadow:3px 3px 0 #000}
+  .artes{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  .arte img{aspect-ratio:4/5}
   .obsform .sel{font:inherit; font-size:13px; color:var(--ink); background:var(--surface-2); border:2px solid var(--hair); border-radius:8px; padding:9px 12px; flex:1; min-width:140px}
   .nota{font-size:11.5px; color:var(--ink-3); line-height:1.5}
   .dia.fds .dnum span{color:var(--ink-3); opacity:.8}
@@ -316,9 +336,13 @@ function render(){
         arr.forEach(s=>{
           const st=stInfo(s), cc=corConta(s.conta), pronto=ehPronto(s), sug=ehSugestao(s);
           const b=document.createElement('button'); b.className='post'+(pronto?' pronto':'')+((s.vaga&&!s.taskId)?' vaga':'')+(sug?' sugestao':''); b.style.setProperty('--cc',cc); b.title='abrir detalhes';
-          b.innerHTML='<div class="fmt">'+(sug?'💡':(ICO[s.formato]||ICO.post))+'</div>'+
+          const pr = s.parecer && s.parecer.veredito ? s.parecer : null;
+          b.innerHTML=(s.capa
+              ? '<div class="capa"><img loading="lazy" src="'+esc(img(s.capa))+'" alt="">'+(s.nArtes>1?'<span class="capan">'+s.nArtes+'</span>':'')+'</div>'
+              : '<div class="fmt">'+(sug?'💡':(ICO[s.formato]||ICO.post))+'</div>')+
             '<div class="body"><div class="tit">'+esc(titulo(s))+(isGm(s)?'<span class="gm" title="grande marca na capa">★</span>':'')+(sug&&s.sugeridoPor?' <span class="quem">por '+esc(s.sugeridoPor)+'</span>':'')+'</div>'+
-            '<div class="chips"><span class="pill" style="background:'+esc(st.color)+'">'+esc(st.label)+'</span>'+
+            '<div class="chips">'+(pr?'<span class="pill parecer '+(pr.veredito==='aprovado'?'ok':'nao')+'" title="'+esc(pr.motivo||'')+'">'+(pr.veredito==='aprovado'?'✓ aprovado':'✕ reprovado')+(pr.por?' · '+esc(pr.por):'')+'</span>':'')+
+            '<span class="pill" style="background:'+esc(st.color)+'">'+esc(st.label)+'</span>'+
             (multi?'<span class="chip conta">'+esc(CONTA_CURTA[s.conta]||s.conta)+'</span>':'')+
             (s.formato?'<span class="chip">'+esc(s.formato)+'</span>':'')+(s.angulo?'<span class="chip">'+esc(s.angulo)+'</span>':'')+
             (s.notas?'<span class="chip obs" title="tem observação">obs</span>':'')+'</div></div>'+
@@ -345,19 +369,36 @@ function abrirPost(id){
     '<div class="chips"><span class="pill" style="background:'+esc(st.color)+'">'+esc(st.label)+'</span>'+
     '<span class="chip conta">'+esc(nomeConta(s.conta))+'</span>'+
     (s.formato?'<span class="chip">'+esc(s.formato)+'</span>':'')+(s.angulo?'<span class="chip">ângulo: '+esc(s.angulo)+'</span>':'')+'</div>';
+  const pr = s.parecer && s.parecer.veredito ? s.parecer : null;
   $('#mbody').innerHTML=
+    '<div class="sec" id="martes"'+(s.taskId?'':' hidden')+'><div class="stit">artes <span class="n" id="martesN"></span></div><div class="artes" id="martesG"><span class="carreg">…</span></div></div>'+
     '<div class="meta"><div><span>dia do post</span><b>'+brData(s.date)+' · '+DOWS[dow(s.date)]+'</b></div>'+
       (isGm(s)?'<div><span>capa</span><b style="color:var(--sb)">★ grande marca</b></div>':'')+
       '<div id="mresp"><span>responsável</span><b class="carreg">…</b></div><div id="mdue"><span>entrega</span><b class="carreg">…</b></div></div>'+
     '<div class="sec"><div class="stit">descrição</div><div class="desc" id="mdesc"><span class="carreg">'+(s.taskId?'lendo a task…':'este post ainda não tem task no ClickUp')+'</span></div></div>'+
-    '<div class="sec" id="martes"'+(s.taskId?'':' hidden')+'><div class="stit">artes <span class="n" id="martesN"></span></div><div class="artes" id="martesG"><span class="carreg">…</span></div></div>'+
+    // parecer: aprova ou reprova (com motivo), pronto ou não. Fica no card do painel e nas observações.
+    '<div class="sec parecer-sec"><div class="stit">seu parecer</div>'+
+      '<div id="parecerAtual" class="parecer-atual'+(pr?(' '+(pr.veredito==='aprovado'?'ok':'nao')):' vazio')+'">'+(pr
+        ? (pr.veredito==='aprovado'?'✓ Aprovado':'✕ Reprovado')+' por '+esc(pr.por||'alguém')+(pr.motivo?': '+esc(pr.motivo):'')+' <button type="button" class="mudar" id="prMudar">mudar</button>'
+        : 'ainda sem parecer')+'</div>'+
+      '<form class="obsform" id="prform"'+(pr?' hidden':'')+'>'+
+        '<div class="obsrow prbtns"><button type="button" class="prbtn ok" data-v="aprovado">✓ aprovar</button><button type="button" class="prbtn nao" data-v="reprovado">✕ reprovar</button></div>'+
+        '<textarea id="prMotivo" placeholder="por quê? (obrigatório se reprovar; opcional se aprovar)" maxlength="1500"></textarea>'+
+        '<div class="obsrow"><input id="prNome" maxlength="40" placeholder="seu nome" autocomplete="name"><button type="submit" class="obsenviar" id="prEnviar" disabled>enviar parecer</button></div>'+
+        '<div class="obsmsg" id="prMsg"></div>'+
+      '</form></div>'+
     '<div class="sec"><div class="stit">observações <span class="n" id="mnotasN"></span></div><div class="notas" id="mnotas"></div>'+
       '<form class="obsform" id="obsform"><textarea id="obsTxt" placeholder="deixe uma observação sobre este post (cai direto na aba Observação do painel)" maxlength="1500"></textarea>'+
       '<div class="obsrow"><input id="obsNome" maxlength="40" placeholder="seu nome" autocomplete="name"><button type="submit" class="obsenviar" id="obsEnviar">enviar observação</button></div><div class="obsmsg" id="obsMsg"></div></form></div>';
   $('#mfoot').innerHTML = s.taskId ? '<a href="https://app.clickup.com/t/'+esc(s.taskId)+'" target="_blank" rel="noopener">'+ICO.link+' ver no ClickUp (se você tiver acesso)</a>' : '';
-  try{ $('#obsNome').value = localStorage.getItem('pauta.nome')||''; }catch(e){}
+  try{ $('#obsNome').value = localStorage.getItem('pauta.nome')||''; $('#prNome').value = localStorage.getItem('pauta.nome')||''; }catch(e){}
   atualizaNotas(s);
   $('#obsform').onsubmit = ev=>{ ev.preventDefault(); enviarObs(s); };
+  // parecer: escolhe aprovar/reprovar, escreve o motivo, envia
+  ST._veredito = null;
+  document.querySelectorAll('#prform .prbtn').forEach(btn=>{ btn.onclick=()=>{ ST._veredito=btn.dataset.v; document.querySelectorAll('#prform .prbtn').forEach(x=>x.classList.toggle('on', x===btn)); $('#prEnviar').disabled=false; $('#prMotivo').placeholder = btn.dataset.v==='reprovado' ? 'por quê? (obrigatório ao reprovar)' : 'algum comentário? (opcional)'; $('#prMotivo').focus(); }; });
+  $('#prform').onsubmit = ev=>{ ev.preventDefault(); enviarParecer(s); };
+  const mudar=$('#prMudar'); if(mudar) mudar.onclick=()=>{ $('#prform').hidden=false; $('#parecerAtual').classList.add('mudando'); };
   $('#ovPost').classList.add('open');
   if(s.taskId) carregarTask(s);
 }
@@ -407,6 +448,26 @@ async function enviarObs(s){
     render(); // atualiza o chip "obs" na lista
   }catch(e){ msg.textContent='Não deu: '+e.message; msg.className='obsmsg err'; }
   finally{ btn.disabled=false; }
+}
+async function enviarParecer(s){
+  const v=ST._veredito, motivo=$('#prMotivo').value.trim(), nome=$('#prNome').value.trim(), msg=$('#prMsg'), btn=$('#prEnviar');
+  if(!v){ msg.textContent='Escolha aprovar ou reprovar.'; msg.className='obsmsg err'; return; }
+  if(v==='reprovado' && !motivo){ msg.textContent='Diga o motivo da reprovação.'; msg.className='obsmsg err'; $('#prMotivo').focus(); return; }
+  try{ if(nome) localStorage.setItem('pauta.nome', nome); }catch(e){}
+  btn.disabled=true; msg.textContent='enviando…'; msg.className='obsmsg';
+  try{
+    const r=await fetch('/api/pauta/parecer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token, aba:ESCOPO, id:s.id, veredito:v, motivo, nome})});
+    const j=await r.json();
+    if(!r.ok) throw new Error(j.erro||'falhou');
+    s.parecer=j.parecer; s.notas=j.notas;
+    atualizaNotas(s);
+    const at=$('#parecerAtual'); at.className='parecer-atual '+(v==='aprovado'?'ok':'nao');
+    at.innerHTML=(v==='aprovado'?'✓ Aprovado':'✕ Reprovado')+' por '+esc(nome||'alguém')+(motivo?': '+esc(motivo):'')+' <button type="button" class="mudar" id="prMudar">mudar</button>';
+    $('#prMudar').onclick=()=>{ $('#prform').hidden=false; };
+    $('#prform').hidden=true; $('#prMotivo').value='';
+    msg.textContent='';
+    render(); // selo na lista
+  }catch(e){ msg.textContent='Não deu: '+e.message; msg.className='obsmsg err'; btn.disabled=false; }
 }
 // ---- sugerir post num dia vazio ----
 function abrirSugestao(dia){

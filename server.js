@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.50'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.51'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -100,6 +100,26 @@ function pautaTokenQualquer(t) {
   return (db.abas || []).some(a => pautaTokenOk(t, a));
 }
 function contasDaAbaSrv(aba) { return Object.entries(db.contas || {}).filter(([, c]) => c.aba === aba).map(([k]) => k); }
+/** Chave estável de um arquivo de arte (id do anexo, senão o nome). */
+function arteChave(f) { return String((f && (f.id || f.name)) || ''); }
+/** Aplica a curadoria do painel: tira as ocultas e ordena como você deixou (desconhecidas vão pro fim, na ordem original). */
+function curarArtes(arquivos, slot) {
+  const ocultas = new Set(slot.artesOcultas || []);
+  const ordem = slot.artesOrdem || [];
+  const pos = k => { const i = ordem.indexOf(k); return i < 0 ? 1e6 : i; };
+  return (arquivos || []).filter(f => !ocultas.has(arteChave(f)))
+    .map((f, i) => ({ f, i })).sort((a, b) => (pos(arteChave(a.f)) - pos(arteChave(b.f))) || (a.i - b.i)).map(x => x.f);
+}
+const IMG_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'heic', 'bmp']);
+/** Capa pra lista da pauta: primeira imagem visível, só do que já está em cache (nunca espera o ClickUp). */
+function capaDoSlot(slot) {
+  if (!slot.taskId) return null;
+  const hit = cuCache.get(`/task/${slot.taskId}`);
+  if (!hit || !hit.data) return null;
+  const imgs = curarArtes(taskFiles(hit.data), slot).filter(f => IMG_EXTS.has(String(f.ext || '').toLowerCase()) || f.thumb);
+  if (!imgs.length) return { capa: null, n: 0 };
+  return { capa: imgs[0].thumb || imgs[0].url, n: imgs.length };
+}
 
 // ---------------- ClickUp ----------------
 const cuCache = new Map(); // key -> {t, data}
@@ -647,7 +667,7 @@ const server = http.createServer(async (req, res) => {
     // PORTEIRO: com senha configurada, todo /api (menos login/logout) exige cookie válido.
     // Estáticos (a própria tela de login) passam sempre.
     // Rotas públicas da pauta (validam o próprio token) e o proxy de imagem quando vem com token de pauta.
-    const rotaPublica = p === '/api/login' || p === '/api/logout' || p === '/api/pauta' || p === '/api/pauta/task' || p === '/api/pauta/obs' || p === '/api/pauta/sugestao'
+    const rotaPublica = p === '/api/login' || p === '/api/logout' || p === '/api/pauta' || p === '/api/pauta/task' || p === '/api/pauta/obs' || p === '/api/pauta/sugestao' || p === '/api/pauta/parecer'
       || (p === '/api/img' && pautaTokenQualquer(u.searchParams.get('pt')));
     if (config.senha && p.startsWith('/api/') && !rotaPublica) {
       if (!validAuthToken(parseCookies(req.headers.cookie).sb_auth)) return json(res, 401, { erro: 'login', precisaLogin: true });
@@ -668,6 +688,8 @@ const server = http.createServer(async (req, res) => {
         obs: s.origem === 'banco' ? (s.obs || '') : '',
         notas: s.notas || '',   // observações do post (as do painel + as que chegam pela pauta)
         sugestao: !!s.sugestao, sugeridoPor: s.sugeridoPor || '',
+        parecer: s.parecer || null,                       // aprovado/reprovado pela pauta, com motivo
+        ...(() => { const c = capaDoSlot(s); return c ? { capa: c.capa, nArtes: c.n } : {}; })(),
         statusCache: s.statusCache ? { status: s.statusCache.status, color: s.statusCache.color } : null,
       }));
       const gc = db.gmCadencia || {};
@@ -686,7 +708,7 @@ const server = http.createServer(async (req, res) => {
       const id = String(u.searchParams.get('id') || '');
       if (!/^[a-z0-9]+$/i.test(id)) return json(res, 400, { erro: 'id inválido' });
       const contasOk = aba ? contasDaAbaSrv(aba) : null;
-      const dono = db.slots.some(s => s.taskId === id && s.date && (!contasOk || contasOk.includes(s.conta)));
+      const dono = db.slots.find(s => s.taskId === id && s.date && (!contasOk || contasOk.includes(s.conta)));
       if (!dono) return json(res, 403, { erro: 'fora do escopo deste link' });
       if (!config.token) return json(res, 200, { semClickUp: true });
       try {
@@ -694,7 +716,7 @@ const server = http.createServer(async (req, res) => {
           cuFetchStale(`/task/${id}`),
           cuFetchStale(`/task/${id}/comment`).catch(() => ({ data: { comments: [] } })),
         ]);
-        const { arquivos } = parseComments(comRes.data || { comments: [] }, taskFiles(task));
+        const arquivos = curarArtes(parseComments(comRes.data || { comments: [] }, taskFiles(task)).arquivos, dono);
         res.setHeader('Cache-Control', 'no-store');
         return json(res, 200, {
           nome: task.name, status: normStatus(task.status?.status), cor: statusColor(task),
@@ -722,6 +744,28 @@ const server = http.createServer(async (req, res) => {
       slot.notas = (slot.notas ? slot.notas.replace(/\s+$/, '') + '\n\n' : '') + linha;
       saveDb();
       return json(res, 200, { ok: true, notas: slot.notas });
+    }
+    // parecer pela pauta: aprovado ou reprovado (com motivo), em qualquer post, pronto ou não.
+    // Fica gravado no post (selo no card do painel) e também cai nas observações. NÃO mexe no ClickUp.
+    if (p === '/api/pauta/parecer' && req.method === 'POST') {
+      const b = await readBody(req);
+      const aba = b.aba || null;
+      if (aba && !(db.abas || []).includes(aba)) return json(res, 401, { erro: 'link inválido' });
+      if (!pautaTokenOk(b.token, aba)) return json(res, 401, { erro: 'link inválido' });
+      const veredito = b.veredito === 'aprovado' ? 'aprovado' : (b.veredito === 'reprovado' ? 'reprovado' : '');
+      if (!veredito) return json(res, 400, { erro: 'veredito inválido' });
+      const motivo = String(b.motivo || '').replace(/[<>]/g, '').trim().slice(0, 1500);
+      if (veredito === 'reprovado' && !motivo) return json(res, 400, { erro: 'diga o motivo da reprovação' });
+      const nome = String(b.nome || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'alguém pela pauta';
+      const contasOk = aba ? contasDaAbaSrv(aba) : null;
+      const slot = db.slots.find(s => s.id === String(b.id || '') && s.date && (!contasOk || contasOk.includes(s.conta)));
+      if (!slot) return json(res, 403, { erro: 'post fora do escopo deste link' });
+      const quando = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' });
+      slot.parecer = { veredito, motivo, por: nome, quando: Date.now() };
+      const linha = (veredito === 'aprovado' ? '✅ Aprovado por ' : '❌ Reprovado por ') + nome + ', ' + quando + ' (pela pauta)' + (motivo ? ': ' + motivo : '');
+      slot.notas = (slot.notas ? slot.notas.replace(/\s+$/, '') + '\n\n' : '') + linha;
+      saveDb();
+      return json(res, 200, { ok: true, parecer: slot.parecer, notas: slot.notas });
     }
     // sugestão de post num dia vazio, vinda pela pauta: vira um card "SUGESTÃO" naquele dia (sem task).
     // Você aceita colando a task nele (a marca de sugestão cai sozinha) ou apaga.
@@ -1079,6 +1123,10 @@ const server = http.createServer(async (req, res) => {
       if (trocaConta) slot.conta = b.conta; // ANTES do collab: collab não pode conter a própria conta
       if ('date' in b) slot.date = b.date || null;
       for (const k of ['titulo', 'formato', 'obs', 'drive', 'linkRef', 'angulo', 'notas']) if (k in b) slot[k] = b[k] || '';
+      // curadoria das artes pra pauta: quais ficam escondidas e em que ordem aparecem (chave = id ou nome do arquivo)
+      const listaStr = v => Array.isArray(v) ? v.map(x => String(x).slice(0, 200)).filter(Boolean).slice(0, 200) : [];
+      if ('artesOcultas' in b) slot.artesOcultas = listaStr(b.artesOcultas);
+      if ('artesOrdem' in b) slot.artesOrdem = listaStr(b.artesOrdem);
       if ('postado' in b) slot.postado = !!b.postado;
       if ('gm' in b) slot.gm = (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '';
       if ('vaga' in b) slot.vaga = !!b.vaga; // vaga = falta criar este post
