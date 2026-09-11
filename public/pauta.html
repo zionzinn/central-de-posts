@@ -61,7 +61,10 @@
   .prbtn{flex:1; font-size:13px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:11px; border-radius:8px; border:2px solid var(--hair); background:var(--surface-2); color:var(--ink-2);
     transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .15s, background .15s, color .15s, border-color .15s}
   .prbtn:hover{transform:translateY(-2px)}
-  .prbtn.ok.on{background:var(--ok); color:#000; border-color:var(--stroke); box-shadow:3px 3px 0 #000}
+  /* aprovar é a ação principal: já nasce verde e maior; pedir alteração fica discreto até ser escolhido */
+  .prbtn.ok{flex:1.45; font-size:14.5px; padding:13px; background:rgba(47,208,106,.14); color:var(--ok); border-color:var(--ok); box-shadow:3px 3px 0 rgba(47,208,106,.35)}
+  .prbtn.ok:hover{background:rgba(47,208,106,.28); box-shadow:4px 4px 0 rgba(47,208,106,.5)}
+  .prbtn.ok.on{background:var(--ok); color:#000; border-color:var(--stroke); box-shadow:4px 4px 0 #000; transform:translateY(-2px) scale(1.03)}
   .prbtn.alt.on{background:var(--warn); color:#000; border-color:var(--stroke); box-shadow:3px 3px 0 #000}
   /* visualizador de artes dentro do card: imagem grande, setas, contador, tira de miniaturas */
   #martesG.artes{display:block}
@@ -149,6 +152,12 @@
     transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .15s, border-color .15s}
   .post:hover{transform:translate(-1px,-2px); box-shadow:var(--hard-s); border-color:var(--ink-3); border-left-color:var(--cc,#8C897C)}
   .post.pronto{background:linear-gradient(90deg, rgba(238,94,153,.09), transparent 55%)}
+  /* postado = arquivado: verde apagado, some do caminho, volta ao passar o mouse */
+  .post.postado{opacity:.48; background:rgba(47,208,106,.07); border-color:rgba(47,208,106,.35); border-left-color:var(--ok)}
+  .post.postado:hover{opacity:1; border-left-color:var(--ok)}
+  .post.postado .tit{color:var(--ink-2); text-decoration:line-through; text-decoration-color:rgba(47,208,106,.55); text-decoration-thickness:1.5px}
+  .post.postado .capa img{filter:saturate(.6)}
+  .post.postado .abrir{color:var(--ok)}
   .post.vaga{border-style:dashed; opacity:.75}
   .post .fmt{width:28px; height:28px; border-radius:6px; background:var(--hair-2); border:1.5px solid var(--hair); display:flex; align-items:center; justify-content:center; flex:none; color:var(--ink-2)}
   svg.i{width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
@@ -432,7 +441,7 @@ function render(){
         }
         arr.forEach(s=>{
           const st=stInfo(s), cc=corConta(s.conta), pronto=ehPronto(s), sug=ehSugestao(s);
-          const b=document.createElement('button'); b.className='post'+(pronto?' pronto':'')+((s.vaga&&!s.taskId)?' vaga':'')+(sug?' sugestao':''); b.style.setProperty('--cc',cc); b.title='abrir detalhes';
+          const b=document.createElement('button'); b.className='post'+(s.postado?' postado':(pronto?' pronto':''))+((s.vaga&&!s.taskId)?' vaga':'')+(sug?' sugestao':''); b.style.setProperty('--cc',cc); b.title='abrir detalhes';
           const pr = s.parecer && s.parecer.veredito ? s.parecer : null;
           b.innerHTML=(s.capa
               ? '<div class="capa"><img loading="lazy" src="'+esc(img(s.capa))+'" alt="">'+(s.nArtes>1?'<span class="capan">'+s.nArtes+'</span>':'')+'</div>'
