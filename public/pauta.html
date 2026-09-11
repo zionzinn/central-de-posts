@@ -109,11 +109,29 @@
   .mnav .lbl{min-width:150px; text-align:center; font-weight:800; font-size:14px; text-transform:capitalize}
   .filtro{margin-left:auto; display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; color:var(--ink-2); border:1.5px solid var(--hair); border-radius:6px; padding:5px 11px; background:var(--surface); cursor:pointer; transition:border-color .15s}
   .filtro.on{border-color:var(--pub); color:var(--pub)}
-  .resumo{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; margin-bottom:18px}
-  .kpi{background:var(--surface); border:var(--bw) solid var(--hair); border-radius:8px; padding:10px 12px}
-  .kpi b{display:block; font-size:22px; font-weight:800; letter-spacing:-.02em; line-height:1}
-  .kpi span{font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3)}
-  .kpi.pronto{border-color:var(--pub)} .kpi.pronto b{color:var(--pub)}
+  /* bloco fixo no topo: mês + resumo. Os números são filtros: clique num pra ver só aquilo. */
+  #fixo{position:sticky; top:0; z-index:30; background:var(--page); padding:10px 0 10px; margin:0 0 14px;
+    border-bottom:var(--bw) solid var(--stroke); box-shadow:0 8px 18px -12px rgba(0,0,0,.8)}
+  #fixo .mes{margin-bottom:10px}
+  .resumo{display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:8px}
+  .kpi{background:var(--surface); border:var(--bw) solid var(--hair); border-radius:8px; padding:9px 11px; text-align:left; cursor:pointer;
+    color:var(--ink); font-family:inherit; position:relative;
+    transition:transform .2s cubic-bezier(.34,1.56,.64,1), border-color .15s, box-shadow .15s, background .15s}
+  .kpi b{display:block; font-size:21px; font-weight:800; letter-spacing:-.02em; line-height:1}
+  .kpi span{font-size:9.5px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); display:block; margin-top:3px}
+  .kpi:hover{border-color:var(--ink-3); transform:translateY(-2px)}
+  .kpi.on{border-color:var(--k,var(--sb)); box-shadow:3px 3px 0 var(--k,var(--sb)); transform:translateY(-1px)}
+  .kpi.on span{color:var(--k,var(--sb))}
+  .kpi.on::after{content:"✕"; position:absolute; top:6px; right:8px; font-size:10px; font-weight:800; color:var(--k,var(--sb)); opacity:.85}
+  .kpi.pronto{--k:var(--pub)} .kpi.pronto b{color:var(--pub)}
+  .kpi.aprovar{--k:#0f9d9f} .kpi.producao{--k:#f9d900} .kpi.diasSem{--k:var(--warn)} .kpi.diasSem b{color:var(--warn)}
+  .kpi.semtask{--k:var(--ink-2)} .kpi.vagas{--k:var(--crit)} .kpi.vagas b{color:var(--crit)}
+  .kpi.todos.on{--k:var(--sb)}
+  .kpi.todos.on::after{content:""}
+  .filtro-aviso{font-size:12px; font-weight:700; color:var(--ink-2); margin:-4px 0 12px; display:flex; align-items:center; gap:8px}
+  .filtro-aviso button{font-size:11px; font-weight:800; letter-spacing:.05em; color:var(--ink); border:1.5px solid var(--hair); border-radius:6px; padding:3px 9px; background:var(--surface); cursor:pointer}
+  .filtro-aviso button:hover{border-color:var(--ink-3)}
+  .dia{scroll-margin-top:var(--fixo-h,150px)}
   /* semanas e dias */
   .sem{margin-bottom:18px}
   .semtit{display:flex; align-items:baseline; gap:10px; padding:0 0 8px; border-bottom:var(--bw) solid var(--stroke); margin-bottom:10px}
@@ -198,7 +216,9 @@
   .mfoot{padding:0 20px 16px; display:flex; justify-content:flex-end}
   .mfoot a{font-size:11px; color:var(--ink-3); font-weight:700; text-decoration:none; display:flex; align-items:center; gap:5px; padding:6px 8px; border-radius:6px; transition:all .15s}
   .mfoot a:hover{color:var(--ink); background:var(--hair-2)}
-  @media (max-width:560px){ .dia{grid-template-columns:48px 1fr} .dnum b{font-size:17px} .top .ro{display:none} .filtro{margin-left:0} .post .abrir{display:none} }
+  @media (max-width:560px){ .dia{grid-template-columns:48px 1fr} .dnum b{font-size:17px} .top .ro{display:none} .post .abrir{display:none}
+    .resumo{display:flex; overflow-x:auto; gap:6px; padding-bottom:4px; scrollbar-width:none} .resumo::-webkit-scrollbar{display:none}
+    .kpi{flex:0 0 auto; min-width:96px; padding:7px 10px} .kpi b{font-size:18px} }
 </style>
 </head>
 <body>
@@ -210,15 +230,18 @@
     <span class="ro">só leitura · ao vivo</span>
   </div>
   <div class="tabs" id="tabs"></div>
-  <div class="mes">
-    <div class="mnav">
-      <button id="mPrev" title="mês anterior">‹</button>
-      <div class="lbl" id="mesLbl">…</div>
-      <button id="mNext" title="próximo mês">›</button>
+  <div id="fixo">
+    <div class="mes">
+      <div class="mnav">
+        <button id="mPrev" title="mês anterior">‹</button>
+        <div class="lbl" id="mesLbl">…</div>
+        <button id="mNext" title="próximo mês">›</button>
+      </div>
+      <button class="filtro" id="btnHoje" title="ir pro dia de hoje">● hoje</button>
     </div>
-    <button class="filtro" id="soProntos" title="mostrar só o que está pronto pra publicar ou já postado">● só prontos</button>
+    <div class="resumo" id="resumo"></div>
   </div>
-  <div class="resumo" id="resumo"></div>
+  <div class="filtro-aviso" id="filtroAviso" hidden></div>
   <div id="lista"><div class="vazio">carregando…</div></div>
   <div class="rodape" id="rodape"></div>
 </div>
@@ -261,7 +284,16 @@ const esc = s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;
 const Q = new URLSearchParams(location.search);
 const token = Q.get('token')||'';
 const ESCOPO = Q.get('aba')||null;         // link de UMA empresa: trava a aba
-const ST = { aba:null, mes:null, dados:null, soProntos:false, aberto:null };
+const ST = { aba:null, mes:null, dados:null, filtro:null, aberto:null, irHoje:true };
+// filtros dos números do topo: cada um diz quais posts (ou dias) entram
+const FILTROS = {
+  pronto:  { rotulo:'prontos / postados', ok:s=>ehPronto(s), vazio:'Nada pronto ainda neste mês.' },
+  producao:{ rotulo:'em produção', ok:s=>{const st=(s.statusCache&&s.statusCache.status)||''; return st&&!ehPronto(s)&&st!=='aprovar';}, vazio:'Nada em produção neste mês.' },
+  aprovar: { rotulo:'pra aprovar', ok:s=>(s.statusCache&&s.statusCache.status)==='aprovar', vazio:'Nada esperando aprovação neste mês.' },
+  semtask: { rotulo:'sem task', ok:s=>!s.taskId&&!s.vaga, vazio:'Todos os posts do mês já têm task.' },
+  vagas:   { rotulo:'falta criar', ok:s=>s.vaga&&!s.taskId, vazio:'Nenhum post marcado como falta criar.' },
+  diasSem: { rotulo:'dias sem post', dias:true, vazio:'Todos os dias do mês têm post.' },
+};
 function qs(extra){ return 'token='+encodeURIComponent(token)+(ESCOPO?'&aba='+encodeURIComponent(ESCOPO):'')+(extra||''); }
 function img(u){ return '/api/img?u='+encodeURIComponent(u)+'&pt='+encodeURIComponent(token); }
 function hojeStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -347,35 +379,42 @@ function render(){
   $('#mesLbl').textContent=MESES[m-1]+' '+y;
   const contas=contasDaAba(ST.aba), multi=contas.length>1, hoje=hojeStr();
   let posts=D.slots.filter(s=>contas.includes(s.conta)).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
-  const tot=posts.length, prontos=posts.filter(ehPronto).length, aprovar=posts.filter(s=>(s.statusCache&&s.statusCache.status)==='aprovar').length,
-        producao=posts.filter(s=>{const st=(s.statusCache&&s.statusCache.status)||''; return st&&!ehPronto(s)&&st!=='aprovar';}).length,
-        semtask=posts.filter(s=>!s.taskId&&!s.vaga).length, vagas=posts.filter(s=>s.vaga&&!s.taskId).length;
+  const tot=posts.length, prontos=posts.filter(FILTROS.pronto.ok).length, aprovar=posts.filter(FILTROS.aprovar.ok).length,
+        producao=posts.filter(FILTROS.producao.ok).length, semtask=posts.filter(FILTROS.semtask.ok).length, vagas=posts.filter(FILTROS.vagas.ok).length;
   // todos os dias do mês (os sem post também aparecem, pra os buracos ficarem visíveis)
   const ultimo=new Date(y,m,0).getDate();
   const diasMes=[]; for(let d=1; d<=ultimo; d++) diasMes.push(ST.mes+'-'+String(d).padStart(2,'0'));
   const porDiaTodos={}; posts.forEach(s=>{ (porDiaTodos[s.date]=porDiaTodos[s.date]||[]).push(s); });
   const diasSem=diasMes.filter(d=>!porDiaTodos[d]).length;
+  // se o filtro ativo ficou sem sentido neste mês (ex.: nenhum dia sem post), cai pro mês inteiro
+  if(ST.filtro && !FILTROS[ST.filtro]) ST.filtro=null;
+  const kpi=(chave,n,rot,cls)=>'<button type="button" class="kpi '+cls+(ST.filtro===chave?' on':'')+'" data-f="'+chave+'" title="'+(chave==='todos'?'mostrar o mês inteiro':(ST.filtro===chave?'tirar o filtro':'ver só: '+rot))+'"><b>'+n+'</b><span>'+rot+'</span></button>';
   $('#resumo').innerHTML=
-    '<div class="kpi"><b>'+tot+'</b><span>posts no mês</span></div>'+
-    '<div class="kpi pronto"><b>'+prontos+'</b><span>prontos / postados</span></div>'+
-    '<div class="kpi"><b>'+producao+'</b><span>em produção</span></div>'+
-    '<div class="kpi"><b>'+aprovar+'</b><span>pra aprovar</span></div>'+
-    (diasSem?'<div class="kpi"><b style="color:var(--warn)">'+diasSem+'</b><span>dias sem post</span></div>':'')+
-    (semtask?'<div class="kpi"><b>'+semtask+'</b><span>sem task</span></div>':'')+
-    (vagas?'<div class="kpi"><b style="color:var(--crit)">'+vagas+'</b><span>falta criar</span></div>':'');
-  $('#soProntos').classList.toggle('on', ST.soProntos);
-  if(ST.soProntos) posts=posts.filter(ehPronto);
+    kpi('todos',tot,'posts no mês','todos')+
+    kpi('pronto',prontos,'prontos / postados','pronto')+
+    kpi('producao',producao,'em produção','producao')+
+    kpi('aprovar',aprovar,'pra aprovar','aprovar')+
+    (diasSem||ST.filtro==='diasSem'?kpi('diasSem',diasSem,'dias sem post','diasSem'):'')+
+    (semtask||ST.filtro==='semtask'?kpi('semtask',semtask,'sem task','semtask'):'')+
+    (vagas||ST.filtro==='vagas'?kpi('vagas',vagas,'falta criar','vagas'):'');
+  document.querySelectorAll('#resumo .kpi').forEach(b=>{ b.onclick=()=>{ const f=b.dataset.f; ST.filtro = (f==='todos'||ST.filtro===f) ? null : f; render(); }; });
+  const F = ST.filtro ? FILTROS[ST.filtro] : null;
+  const aviso=$('#filtroAviso');
+  if(F){ aviso.hidden=false; aviso.innerHTML='mostrando só <b style="color:var(--ink)">'+F.rotulo+'</b> <button type="button" id="tirarFiltro">ver o mês inteiro ✕</button>'; $('#tirarFiltro').onclick=()=>{ ST.filtro=null; render(); }; }
+  else aviso.hidden=true;
+  if(F && !F.dias) posts=posts.filter(F.ok);
   const porDia={}; posts.forEach(s=>{ (porDia[s.date]=porDia[s.date]||[]).push(s); });
   const lista=$('#lista'); lista.innerHTML='';
-  if(ST.soProntos && !posts.length){ lista.innerHTML='<div class="vazio">Nada pronto ainda neste mês.</div>'; }
+  // com filtro de posts: só os dias que têm algo do filtro; "dias sem post": só os dias vazios; sem filtro: o mês inteiro
+  const diasVisiveis = !F ? diasMes : (F.dias ? diasMes.filter(d=>!porDiaTodos[d]) : diasMes.filter(d=>porDia[d]));
+  if(F && !diasVisiveis.length){ lista.innerHTML='<div class="vazio">'+F.vazio+'</div>'; }
   else{
-    // no filtro "só prontos" mostra só os dias que têm algo pronto; no normal, o mês inteiro
-    const diasVisiveis = ST.soProntos ? diasMes.filter(d=>porDia[d]) : diasMes;
     const porSem=new Map();
     diasVisiveis.forEach(d=>{ const k=segundaDe(d); if(!porSem.has(k)) porSem.set(k,[]); porSem.get(k).push(d); });
-    let n=0;
+    // número da semana é o do mês inteiro, mesmo com filtro (senão "semana 1" pularia de lugar)
+    const numSem=new Map(); diasMes.forEach(d=>{ const k=segundaDe(d); if(!numSem.has(k)) numSem.set(k,numSem.size+1); });
     for(const [seg,dias] of porSem){
-      n++;
+      const n=numSem.get(seg);
       const fim=(()=>{ const d=new Date(seg+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()+6); return d.toISOString().slice(0,10); })();
       const sec=document.createElement('section'); sec.className='sem';
       sec.innerHTML='<div class="semtit"><b>semana '+n+'</b><span>'+brDia(seg)+' a '+brDia(fim)+'</span></div>';
@@ -413,6 +452,9 @@ function render(){
       lista.appendChild(sec);
     }
   }
+  // altura do bloco fixo vira margem de rolagem, pra nada ficar escondido atrás dele
+  try{ document.documentElement.style.setProperty('--fixo-h', ($('#fixo').offsetHeight+8)+'px'); }catch(e){}
+  if(ST.irHoje){ ST.irHoje=false; irParaHoje(false); }
   const t=new Date(D.geradoEm);
   $('#rodape').innerHTML='Página só de leitura, atualiza sozinha a cada minuto · gerada '+t.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'<br>★ = grande marca na capa · ☆ no dia = dia pede grande marca e ainda não tem · clique num post pra ver detalhes e deixar observação';
 }
@@ -623,9 +665,16 @@ $('#mclose').onclick=fecharPost;
 $('#ovPost').addEventListener('mousedown', ev=>{ if(ev.target===$('#ovPost')) fecharPost(); });
 document.addEventListener('keydown', ev=>{ if(ev.key==='Escape' && !$('#lb').classList.contains('open') && $('#ovPost').classList.contains('open')) fecharPost(); });
 
-$('#mPrev').onclick=()=>{ ST.mes=addMes(ST.mes,-1); carregar(); };
-$('#mNext').onclick=()=>{ ST.mes=addMes(ST.mes,1); carregar(); };
-$('#soProntos').onclick=()=>{ ST.soProntos=!ST.soProntos; render(); };
+/** Rola até o dia de hoje (só faz sentido no mês atual; em outro mês, vai pro começo da lista). */
+function irParaHoje(suave){
+  const hoje=hojeStr();
+  if(ST.mes!==hoje.slice(0,7)){ ST.mes=hoje.slice(0,7); ST.irHoje=true; carregar(); return; }
+  const el=document.querySelector('.dia.hoje');
+  if(el) el.scrollIntoView({block:'start', behavior: suave?'smooth':'auto'});
+}
+$('#mPrev').onclick=()=>{ ST.mes=addMes(ST.mes,-1); ST.filtro=null; window.scrollTo(0,0); carregar(); };
+$('#mNext').onclick=()=>{ ST.mes=addMes(ST.mes,1); ST.filtro=null; window.scrollTo(0,0); carregar(); };
+$('#btnHoje').onclick=()=>irParaHoje(true);
 (function init(){
   const h=lerHash(); ST.aba=ESCOPO||h.aba; ST.mes=h.mes||hojeStr().slice(0,7);
   if(!token){ $('#lista').innerHTML='<div class="erro">Faltou o token no link. Abra pelo link copiado no painel.</div>'; return; }
