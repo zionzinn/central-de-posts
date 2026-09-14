@@ -1165,7 +1165,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.57'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.58'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1637,7 +1637,11 @@ async function togglePostado(s){
 }
 
 // ================= render =================
-function render(){ S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba); renderTabs(); renderLegend(); renderDrawer(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); renderPresenca(); }
+function render(){
+  // no meio de um arrasto NUNCA redesenha: trocar o card que está na mão do mouse mata o dragend
+  // e o painel ficaria preso em "arrastando" (clique não abre, atualização para, rolagem automática solta).
+  if(S.dragging){ S._renderDepois = true; return; }
+  S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba); renderTabs(); renderLegend(); renderDrawer(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); renderPresenca(); }
 
 function renderRefLabel(){
   const el = $('#refLabel');
@@ -3751,7 +3755,7 @@ $('#impCriar').onclick = async ()=>{
     arrastando=true;
     clearInterval(timer);
     timer=setInterval(()=>{
-      if(!arrastando) return;
+      if(!arrastando || !S.dragging){ parar(); return; }   // arrasto acabou sem dragend? para de rolar
       const h=window.innerHeight; let dy=0;
       if(y>0 && y<margem) dy = -(1 - y/margem)*26 - 6;
       else if(y>h-margem) dy = (1 - (h-y)/margem)*26 + 6;
@@ -3762,6 +3766,27 @@ $('#impCriar').onclick = async ()=>{
   document.addEventListener('dragend', parar, true);
   document.addEventListener('drop', parar, true);
 })();
+
+// ================= rede de segurança do arrasto =================
+// O dragend só chega se o card que você pegou ainda existir na tela ao soltar. Se ele foi
+// trocado no meio (redesenho por atualização, alguém mexendo ao vivo, mudança de aba pelo
+// "seguir"), o navegador simplesmente não avisa, e S.dragging ficaria ligado pra sempre:
+// clique não abre card, marcação não funciona, atualização automática para. Aqui a gente
+// destrava por qualquer sinal de que o mouse já foi solto.
+function limparArrasto(){
+  const tinha = S.dragging;
+  S.dragging = false;
+  document.querySelectorAll('.card.dragging, .ref.dragging').forEach(c=>c.classList.remove('dragging'));
+  document.querySelectorAll('.dragover').forEach(c=>c.classList.remove('dragover'));
+  if(S._renderDepois){ S._renderDepois=false; render(); }
+  return tinha;
+}
+document.addEventListener('dragend', ()=>setTimeout(limparArrasto, 0), true);
+document.addEventListener('drop', ()=>setTimeout(limparArrasto, 0), true);
+window.addEventListener('mousemove', ev=>{ if(S.dragging && ev.buttons===0) limparArrasto(); }, {passive:true});
+window.addEventListener('mouseup', ()=>{ if(S.dragging) setTimeout(()=>{ if(S.dragging) limparArrasto(); }, 250); }, true);
+window.addEventListener('blur', ()=>{ if(S.dragging) setTimeout(()=>{ if(S.dragging) limparArrasto(); }, 500); });
+document.addEventListener('keydown', ev=>{ if(ev.key==='Escape' && S.dragging) limparArrasto(); });
 
 // ================= seleção por arrasto (marquee) =================
 // Desenhar um retângulo no ESPAÇO VAZIO seleciona os cards que ele toca. Trabalha em
@@ -3819,12 +3844,13 @@ $('#impCriar').onclick = async ()=>{
     px0=ev.pageX; py0=ev.pageY; lastX=ev.clientX; lastY=ev.clientY;
     base = (ev.ctrlKey||ev.metaKey||ev.shiftKey) ? new Set(S.selecao) : new Set();
 
-    const mover = e=>{ lastX=e.clientX; lastY=e.clientY; desenhar(); };
+    const mover = e=>{ if(e.buttons===0){ soltar(); return; } lastX=e.clientX; lastY=e.clientY; desenhar(); };
     const noScroll = ()=>{ if(ativo) desenhar(); };
     const soltar = ()=>{
       clearInterval(autoTimer); autoTimer=null;
       window.removeEventListener('mousemove', mover);
       window.removeEventListener('mouseup', soltar);
+      window.removeEventListener('blur', soltar);
       window.removeEventListener('scroll', noScroll, true);
       document.body.classList.remove('marcando');
       cx.style.display='none';
@@ -3839,6 +3865,7 @@ $('#impCriar').onclick = async ()=>{
     };
     window.addEventListener('mousemove', mover);
     window.addEventListener('mouseup', soltar);
+    window.addEventListener('blur', soltar);            // perdeu a janela no meio? solta, senão fica travado marcando
     window.addEventListener('scroll', noScroll, true);  // segue o retângulo enquanto a página rola
     autoTimer = setInterval(autoScroll, 40);            // rolagem automática na borda
   });
