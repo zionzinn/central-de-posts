@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.61'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.62'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -258,6 +258,10 @@ async function cuWrite(pathname, method, body) {
 // Lista onde os posts vivem no ClickUp (House Quatro5). Pode ser trocada por CU_LISTA no ambiente.
 const CU_LISTA = process.env.CU_LISTA || config.listaClickUp || '901321051391';
 const CU_STATUS_NOVA = process.env.CU_STATUS_NOVA || 'pendente'; // status em que a task nasce
+// quem pode ser responsável (o resto da lista fica escondido). Troque por CU_RESPONSAVEIS no ambiente: "Nome A, Nome B".
+const RESPONSAVEIS = (process.env.CU_RESPONSAVEIS || 'Samuel Melo, Zion, Anny Beatriz, Klenio Braz').split(',').map(x => x.trim()).filter(Boolean);
+/** "Zion" casa com "Zion Alves"; "Samuel Melo" casa com "Samuel"; sem acento e sem caixa. */
+function casaNome(nome, alvo) { const a = semAcento(nome), b = semAcento(alvo); return !!a && !!b && (a === b || a.startsWith(b) || b.startsWith(a)); }
 function semAcento(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 let cuOpcoesCache = { t: 0, dados: null };
 /** Membros da lista + campos "Empresa Tag" e "Formato SKILL" (com as opções), pro formulário do painel.
@@ -277,7 +281,10 @@ async function cuOpcoes(fresh) {
   const fe = campo('Empresa Tag'), ff = campo('Formato SKILL');
   const dados = {
     lista: CU_LISTA, nomeLista: (lst && lst.name) || '', statusNova: stNova ? stNova.status : null,
-    membros: (mem.members || []).map(m => ({ id: m.id, nome: m.username || m.email || String(m.id), email: m.email || '', cor: m.color || '' })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
+    membros: (mem.members || []).map(m => ({ id: m.id, nome: m.username || m.email || String(m.id), email: m.email || '', cor: m.color || '' }))
+      .filter(m => RESPONSAVEIS.some(r => casaNome(m.nome, r)))
+      .sort((a, b) => RESPONSAVEIS.findIndex(r => casaNome(a.nome, r)) - RESPONSAVEIS.findIndex(r => casaNome(b.nome, r))),
+    responsaveis: RESPONSAVEIS,
     empresa: fe ? { id: fe.id, opcoes: opcoes(fe) } : null,
     formato: ff ? { id: ff.id, opcoes: opcoes(ff) } : null,
   };
@@ -311,7 +318,7 @@ async function criarTaskClickUp(b) {
   const body = { name, markdown_description: String(b.briefing || '').trim() || undefined, custom_fields };
   const resp = b.responsavel ? Number(b.responsavel) : null;
   if (resp && op.membros.some(m => m.id === resp)) body.assignees = [resp];
-  if (b.date && /^\d{4}-\d{2}-\d{2}$/.test(b.date)) { body.due_date = dueMsFor(b.date); body.due_date_time = false; }
+  // entrega (due date) desligada por enquanto: a task nasce sem data no ClickUp
   if (op.statusNova) body.status = op.statusNova;
   let task;
   try { task = await cuWrite(`/list/${CU_LISTA}/task`, 'POST', body); }
@@ -328,6 +335,8 @@ async function criarTaskClickUp(b) {
 // de CTA/métrica são derivadas do Objetivo (como na planilha) e podem ganhar versão por aba.
 const MATRIZ = {
   campos: ['objetivo', 'funil', 'consciencia', 'tipo', 'tipoConteudo', 'emocao', 'pautaQuente', 'tema', 'tese', 'gancho'],
+  livres: ['objetivo', 'tipo', 'tipoConteudo'],   // texto livre (as opções abaixo viram só sugestão)
+  responsaveis: RESPONSAVEIS,
   opcoes: {
     objetivo: ['Crescimento', 'Conversão'],
     funil: ['Topo', 'Meio', 'Fundo'],
@@ -347,7 +356,7 @@ function matrizLimpa(m) {
   const out = {};
   for (const k of MATRIZ.campos) {
     const v = String(m[k] || '').replace(/[<>]/g, '').trim().slice(0, 1200);
-    if (MATRIZ.opcoes[k] && v && !MATRIZ.opcoes[k].includes(v)) continue; // opção fora da lista: ignora
+    if (MATRIZ.opcoes[k] && !MATRIZ.livres.includes(k) && v && !MATRIZ.opcoes[k].includes(v)) continue; // lista fechada: fora dela, ignora
     if (v) out[k] = v;
   }
   return Object.keys(out).length ? out : null;
@@ -360,11 +369,16 @@ function matrizStatus(s) {
   if (s.taskId || (s.matriz && s.matriz.tese && s.matriz.gancho)) return 'Briefing criado';
   return 'Não iniciado';
 }
+/** Regras de CTA/métrica pelo objetivo escrito (aceita "crescimento", "Conversao", etc.). */
+function regraObjetivo(obj) {
+  const k = Object.keys(MATRIZ.regras).find(x => semAcento(x) === semAcento(obj) || (obj && semAcento(obj).startsWith(semAcento(x).slice(0, 5))));
+  return k ? MATRIZ.regras[k] : {};
+}
 function semanaDoMes(dateStr) { if (!dateStr) return ''; const d = Number(dateStr.slice(8, 10)); return Math.ceil(d / 7); }
 /** Linha da matriz de um post (o que vai pra tabela e pra planilha). */
 function matrizLinha(s, i) {
   const m = s.matriz || {};
-  const r = MATRIZ.regras[m.objetivo] || {};
+  const r = regraObjetivo(m.objetivo);
   return {
     n: i + 1, semana: semanaDoMes(s.date), objetivo: m.objetivo || '', funil: m.funil || '', consciencia: m.consciencia || '',
     tipo: m.tipo || '', tipoConteudo: m.tipoConteudo || '', formato: s.formato || '', emocao: m.emocao || '',
@@ -444,8 +458,8 @@ function matrizXlsx(aba, mes) {
   const N = Math.max(linhas.length, 1), fim = H + N;
   const ref = col => `${col}${H + 1}:${col}${H + Math.max(N, 200)}`;
   const validacoes = [
-    { ref: ref('C'), lista: MATRIZ.opcoes.objetivo }, { ref: ref('D'), lista: MATRIZ.opcoes.funil }, { ref: ref('E'), lista: MATRIZ.opcoes.consciencia },
-    { ref: ref('F'), lista: MATRIZ.opcoes.tipo }, { ref: ref('G'), lista: MATRIZ.opcoes.tipoConteudo }, { ref: ref('I'), lista: MATRIZ.opcoes.emocao }, { ref: ref('S'), lista: MATRIZ.status },
+    { ref: ref('D'), lista: MATRIZ.opcoes.funil }, { ref: ref('E'), lista: MATRIZ.opcoes.consciencia }, { ref: ref('I'), lista: MATRIZ.opcoes.emocao },
+    { ref: ref('Q'), lista: RESPONSAVEIS }, { ref: ref('S'), lista: MATRIZ.status },
   ];
   const matrizXml = xSheet(mat, [4, 8, 13, 13, 22, 15, 22, 14, 12, 26, 34, 40, 26, 34, 44, 44, 16, 16, 16, 34, 18, 30], validacoes, H);
   // Dash: tudo fórmula em cima da aba Matriz, pra continuar recontando se alguém editar a planilha
@@ -1171,7 +1185,7 @@ const server = http.createServer(async (req, res) => {
         zapiPronto: zapiPronto() && zapiCfg().ligado,
         gmCadencia: db.gmCadencia,
         duePendentes: Object.keys(db.dueSync),
-        matriz: { opcoes: MATRIZ.opcoes, regras: MATRIZ.regras, status: MATRIZ.status },
+        matriz: { opcoes: MATRIZ.opcoes, livres: MATRIZ.livres, regras: MATRIZ.regras, status: MATRIZ.status, responsaveis: RESPONSAVEIS },
       });
     }
 
@@ -1224,7 +1238,7 @@ const server = http.createServer(async (req, res) => {
       undoSlots('criar task no ClickUp', [], [slot.id]);
       db.slots.push(slot); saveDb();
       cuCache.delete(`/task/${slot.taskId}`);
-      return json(res, 200, { ok: true, slot, taskId: slot.taskId, url: cu.task.url || ('https://app.clickup.com/t/' + slot.taskId), nome: cu.task.name || cu.name, empresaTag: cu.empresaTag, formatoSkill: cu.formatoSkill, responsavel: cu.responsavel, entrega: slot.date ? dueStrFor(slot.date) : null });
+      return json(res, 200, { ok: true, slot, taskId: slot.taskId, url: cu.task.url || ('https://app.clickup.com/t/' + slot.taskId), nome: cu.task.name || cu.name, empresaTag: cu.empresaTag, formatoSkill: cu.formatoSkill, responsavel: cu.responsavel, entrega: null });
     }
 
     if (p === '/api/slots' && req.method === 'POST') {

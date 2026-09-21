@@ -1006,13 +1006,13 @@
       <div id="eMatWrap" class="matwrap" data-modos="matriz edit" hidden>
         <div class="mattit">Matriz de conteúdo <small>CTA e métricas saem do objetivo, como na planilha da Weevo</small></div>
         <div class="f3">
-          <div><label>Objetivo</label><select id="mObjetivo" data-m="objetivo"></select></div>
+          <div><label>Objetivo</label><input id="mObjetivo" data-m="objetivo" list="lstObjetivo" placeholder="ex.: Crescimento, Conversão…" maxlength="80"><datalist id="lstObjetivo"></datalist></div>
           <div><label>Etapa de funil</label><select id="mFunil" data-m="funil"></select></div>
           <div><label>Nível de consciência</label><select id="mConsc" data-m="consciencia"></select></div>
         </div>
         <div class="f3">
-          <div><label>Tipo</label><select id="mTipo" data-m="tipo"></select></div>
-          <div><label>Tipo de conteúdo</label><select id="mTipoC" data-m="tipoConteudo"></select></div>
+          <div><label>Tipo</label><input id="mTipo" data-m="tipo" list="lstTipo" placeholder="ex.: Posicionamento, Técnico…" maxlength="80"><datalist id="lstTipo"></datalist></div>
+          <div><label>Tipo de conteúdo</label><input id="mTipoC" data-m="tipoConteudo" list="lstTipoC" placeholder="ex.: Infotainment…" maxlength="80"><datalist id="lstTipoC"></datalist></div>
           <div><label>Emoção alvo</label><select id="mEmocao" data-m="emocao"></select></div>
         </div>
         <div class="matderiv" id="mDeriv">escolha o objetivo pra ver CTA e métricas</div>
@@ -1022,7 +1022,7 @@
         </div>
         <div><label>Tese em uma frase</label><textarea id="mTese" data-m="tese" rows="2" placeholder="a opinião da marca. Sem tese não existe posicionamento."></textarea></div>
         <div><label>Gancho escolhido</label><textarea id="mGancho" data-m="gancho" rows="2" placeholder="o gancho aprovado (rubrica das 4 perguntas + veto do genérico)"></textarea></div>
-        <div id="mRespWrap"><label>Responsável</label><input id="mResp" list="respLista" placeholder="quem produz" maxlength="80"><datalist id="respLista"></datalist></div>
+        <div id="mRespWrap"><label>Responsável</label><select id="mResp"><option value="">sem responsável</option></select></div>
       </div>
       <div data-modos="link edit"><label>Ângulo</label><input id="eAngulo" list="angulosLista" placeholder="educacional, institucional… ou escreva um novo"></div>
       <div data-modos="link edit"><label>Drive / referência</label><input id="eDrive" placeholder="https://drive.google.com/... ou link do Instagram"></div>
@@ -1043,10 +1043,7 @@
         <div class="cutit"><b>Task no ClickUp</b><small id="eCuSub">lista House Quatro5 · a conta vira o Empresa Tag, o formato vira o Formato SKILL</small></div>
         <input type="checkbox" id="eCu" hidden>
         <div id="eCuCampos">
-          <div class="f2">
-            <div><label>Responsável</label><select id="eResp"><option value="">sem responsável</option></select></div>
-            <div><label>Entrega no ClickUp</label><div class="cuinfo" id="eDueInfo">2 dias úteis antes do post</div></div>
-          </div>
+          <div><label>Responsável</label><select id="eResp"><option value="">sem responsável</option></select></div>
           <div><label>Briefing (descrição da task)</label><textarea id="eBrief" rows="5" placeholder="o que é o post, gancho, referências, o que não pode faltar… (vira a descrição da task)"></textarea></div>
           <p class="note" id="eCuNota">Nome da task: <b id="eCuNome">…</b>. Nada é obrigatório; a task nasce em <b>PENDENTE</b>.</p>
         </div>
@@ -1257,7 +1254,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.61'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.62'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -3175,11 +3172,14 @@ function matPreencher(m, resp){
     sel.innerHTML = '<option value="">—</option>' + lista.map(o=>'<option>'+esc(o)+'</option>').join('');
     sel.value = m[k] || '';
   });
+  // campos livres: o que está na lista vira só sugestão ao digitar
+  [['lstObjetivo','objetivo'],['lstTipo','tipo'],['lstTipoC','tipoConteudo']].forEach(([id,k])=>{ const dl=$('#'+id); if(dl) dl.innerHTML=(op[k]||[]).map(o=>'<option value="'+esc(o)+'"></option>').join(''); });
   document.querySelectorAll('#eMatWrap input[data-m], #eMatWrap textarea[data-m]').forEach(el=>{ el.value = m[el.dataset.m] || ''; });
+  // responsável: só a equipe (lista fixa do servidor); um nome antigo fora dela continua aparecendo pra não sumir
+  const eq = (S.matriz && S.matriz.responsaveis) || [];
+  const nomes = eq.slice(); if(resp && !nomes.includes(resp)) nomes.push(resp);
+  $('#mResp').innerHTML = '<option value="">sem responsável</option>' + nomes.map(n=>'<option>'+esc(n)+'</option>').join('');
   $('#mResp').value = resp || '';
-  // quem já apareceu como responsável em algum post vira sugestão
-  const nomes = new Set(); S.slots.forEach(x=>{ if(x.responsavelManual) nomes.add(x.responsavelManual); if(x.assigneeCache) String(x.assigneeCache).split(',').forEach(n=>{ n=n.trim(); if(n) nomes.add(n); }); });
-  $('#respLista').innerHTML = [...nomes].sort().map(n=>'<option value="'+esc(n)+'"></option>').join('');
   matDerivados();
 }
 function matLer(){
@@ -3187,13 +3187,18 @@ function matLer(){
   document.querySelectorAll('#eMatWrap [data-m]').forEach(el=>{ const v = el.value.trim(); if(v) m[el.dataset.m] = v; });
   return Object.keys(m).length ? m : null;
 }
+function regraObjetivoFront(obj){
+  const R = (S.matriz && S.matriz.regras) || {}; const n = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const k = Object.keys(R).find(x => n(x)===n(obj) || (obj && n(obj).startsWith(n(x).slice(0,5))));
+  return k ? R[k] : null;
+}
 function matDerivados(){
-  const obj = $('#mObjetivo').value; const r = S.matriz && S.matriz.regras && S.matriz.regras[obj];
+  const obj = $('#mObjetivo').value; const r = regraObjetivoFront(obj);
   $('#mDeriv').innerHTML = r
     ? '<b>CTA:</b> '+esc(r.cta)+' &nbsp;·&nbsp; <b>Métrica primária:</b> '+esc(r.metrica1)+' &nbsp;·&nbsp; <b>Secundária:</b> '+esc(r.metrica2)
     : 'escolha o objetivo pra ver CTA e métricas (saem sozinhos, como na planilha)';
 }
-$('#mObjetivo').addEventListener('change', matDerivados);
+$('#mObjetivo').addEventListener('input', matDerivados);
 
 // ---- criar a task no ClickUp a partir do "Novo post" ----
 let CU_OPCOES = null;
@@ -3213,8 +3218,7 @@ function atualizaCuNome(){
   const el = $('#eCuNome'); if(!el) return;
   const conta = $('#eConta').value, fmt = $('#eFormato').value, tit = $('#eTitulo').value.trim();
   el.textContent = [fmt?'['+fmt.toUpperCase()+']':null, conta?nomeConta(conta):null, tit||null].filter(Boolean).join(' - ') || 'Novo post (sem nome)';
-  const d = $('#eDate').value;
-  $('#eDueInfo').textContent = d ? brData(entregaPara(d))+' (2 dias úteis antes do post)' : 'sem data (post vai pro banco)';
+
 }
 /** Mesma regra do servidor: entrega = 2 dias úteis antes do dia do post. */
 function entregaPara(dateStr){
@@ -3248,7 +3252,7 @@ $('#eSave').onclick = async ()=>{
       r = await api('/api/clickup/criar', {method:'POST', body:JSON.stringify(Object.assign({}, body, { briefing: $('#eBrief').value.trim(), responsavel: $('#eResp').value || null }))});
       closeOv('ovEdit'); await loadState();
       const el = document.createElement('div');
-      el.innerHTML = 'Task criada no ClickUp: <b>'+esc(r.nome)+'</b>'+(r.responsavel?' · '+esc(r.responsavel):'')+(r.entrega?' · entrega '+brData(r.entrega):'')+' <a href="'+esc(r.url)+'" target="_blank" rel="noopener" style="color:inherit; font-weight:800; text-decoration:underline">abrir no ClickUp ↗</a>';
+      el.innerHTML = 'Task criada no ClickUp: <b>'+esc(r.nome)+'</b>'+(r.responsavel?' · '+esc(r.responsavel):'')+' <a href="'+esc(r.url)+'" target="_blank" rel="noopener" style="color:inherit; font-weight:800; text-decoration:underline">abrir no ClickUp ↗</a>';
       toast(el, false, 9000);
     } else {
       r = S.editing
