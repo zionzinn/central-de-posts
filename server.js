@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.59'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.60'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -293,7 +293,8 @@ function opcaoEmpresa(op, conta) {
 /** Opção do "Formato SKILL" pro formato do painel (reels -> Vídeo, story -> Stories, etc.). */
 function opcaoFormato(op, formato) {
   if (!op || !formato) return null;
-  const alvo = { reels: 'video', video: 'video', carrossel: 'carrossel', 'estatico': 'estatico', story: 'stories', stories: 'stories', capa: 'capa de reels' }[semAcento(formato)] || semAcento(formato);
+  const alvo = { reels: 'video', video: 'video', carrossel: 'carrossel', 'estatico': 'estatico', story: 'stories', stories: 'stories', capa: 'capa de reels',
+    'corte de podcast': 'video', 'video medio': 'video', 'video de anuncio': 'video ads' }[semAcento(formato)] || semAcento(formato);
   return op.opcoes.find(o => semAcento(o.nome) === alvo) || null;
 }
 /** Cria a task na lista do ClickUp com os mesmos campos que o time usa lá. Nada é obrigatório. */
@@ -320,6 +321,182 @@ async function criarTaskClickUp(b) {
     else throw e;
   }
   return { task, name, empresaTag: oe ? oe.nome : null, formatoSkill: of ? of.nome : null, responsavel: body.assignees ? op.membros.find(m => m.id === resp).nome : null };
+}
+
+// ---------------- MATRIZ DE CONTEÚDO ----------------
+// Mesmas colunas da planilha da Weevo. As listas valem pras 4 empresas por enquanto; as regras
+// de CTA/métrica são derivadas do Objetivo (como na planilha) e podem ganhar versão por aba.
+const MATRIZ = {
+  campos: ['objetivo', 'funil', 'consciencia', 'tipo', 'tipoConteudo', 'emocao', 'pautaQuente', 'tema', 'tese', 'gancho'],
+  opcoes: {
+    objetivo: ['Crescimento', 'Conversão'],
+    funil: ['Topo', 'Meio', 'Fundo'],
+    consciencia: ['Inconsciente', 'Consciente do problema', 'Consciente da solução', 'Consciente do produto', 'Totalmente consciente'],
+    tipo: ['Posicionamento', 'Técnico', 'Storytelling', 'Indicação'],
+    tipoConteudo: ['Infotainment', 'Depoimento / autoridade', 'Chamada direta'],
+    emocao: ['Dor', 'Desejo'],
+  },
+  regras: {
+    'Crescimento': { cta: 'Siga o perfil', metrica1: 'Seguidores | Custo por seguidor | Taxa de seguidores', metrica2: 'Compartilhamentos | Tempo de tela | Visualizações por slide | Alcance | Comentários' },
+    'Conversão':   { cta: 'ManyChat: telefone e email', metrica1: 'Leads | Custo por lead | Vendas | Custo por venda', metrica2: 'Comentários | Tempo de tela | Visualizações por slide | Seguidores' },
+  },
+  status: ['Não iniciado', 'Briefing criado', 'Em aprovação', 'Postado'],
+};
+function matrizLimpa(m) {
+  if (!m || typeof m !== 'object') return null;
+  const out = {};
+  for (const k of MATRIZ.campos) {
+    const v = String(m[k] || '').replace(/[<>]/g, '').trim().slice(0, 1200);
+    if (MATRIZ.opcoes[k] && v && !MATRIZ.opcoes[k].includes(v)) continue; // opção fora da lista: ignora
+    if (v) out[k] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
+/** Status da linha na matriz, derivado do que o painel já sabe (nada de marcar na mão). */
+function matrizStatus(s) {
+  if (s.postado) return 'Postado';
+  const st = s.statusCache && s.statusCache.status;
+  if (st === 'aprovar' || st === 'aprovação líder' || st === 'publicar' || st === 'revisão solicitada') return 'Em aprovação';
+  if (s.taskId || (s.matriz && s.matriz.tese && s.matriz.gancho)) return 'Briefing criado';
+  return 'Não iniciado';
+}
+function semanaDoMes(dateStr) { if (!dateStr) return ''; const d = Number(dateStr.slice(8, 10)); return Math.ceil(d / 7); }
+/** Linha da matriz de um post (o que vai pra tabela e pra planilha). */
+function matrizLinha(s, i) {
+  const m = s.matriz || {};
+  const r = MATRIZ.regras[m.objetivo] || {};
+  return {
+    n: i + 1, semana: semanaDoMes(s.date), objetivo: m.objetivo || '', funil: m.funil || '', consciencia: m.consciencia || '',
+    tipo: m.tipo || '', tipoConteudo: m.tipoConteudo || '', formato: s.formato || '', emocao: m.emocao || '',
+    cta: r.cta || '', metrica1: r.metrica1 || '', metrica2: r.metrica2 || '',
+    pautaQuente: m.pautaQuente || '', tema: m.tema || '', tese: m.tese || '', gancho: m.gancho || '',
+    responsavel: s.responsavelManual || s.assigneeCache || '', data: s.date || '', status: matrizStatus(s),
+    titulo: s.titulo || s.tituloCache || '', conta: (db.contas[s.conta] && db.contas[s.conta].nome) || s.conta, id: s.id, taskId: s.taskId || null,
+  };
+}
+// --- .xlsx sem dependência: um ZIP (stored) com os XMLs mínimos que Excel e Google Sheets aceitam ---
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(buf) { let c = 0xFFFFFFFF; for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipStored(arquivos) { // [{nome, dados:Buffer}]
+  const locais = [], centrais = []; let off = 0;
+  const u16 = n => { const b = Buffer.alloc(2); b.writeUInt16LE(n); return b; }, u32 = n => { const b = Buffer.alloc(4); b.writeUInt32LE(n >>> 0); return b; };
+  for (const a of arquivos) {
+    const nome = Buffer.from(a.nome), dados = a.dados, crc = crc32(dados);
+    const cab = Buffer.concat([u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(0), u16(0x21), u32(crc), u32(dados.length), u32(dados.length), u16(nome.length), u16(0), nome]);
+    locais.push(cab, dados);
+    centrais.push(Buffer.concat([u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(0), u16(0x21), u32(crc), u32(dados.length), u32(dados.length), u16(nome.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(off), nome]));
+    off += cab.length + dados.length;
+  }
+  const cd = Buffer.concat(centrais);
+  const fim = Buffer.concat([u32(0x06054b50), u16(0), u16(0), u16(arquivos.length), u16(arquivos.length), u32(cd.length), u32(off), u16(0)]);
+  return Buffer.concat([...locais, cd, fim]);
+}
+const xmlEsc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function colLetra(n) { let s = ''; n++; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+/** Célula: string, número, {f:'fórmula'}, ou null. Estilo: 0 normal, 1 cabeçalho, 2 título, 3 editável (amarelo), 4 percentual. */
+function xCell(ref, v, st) {
+  const s = st ? ` s="${st}"` : '';
+  if (v == null || v === '') return st ? `<c r="${ref}"${s}/>` : '';
+  if (typeof v === 'number') return `<c r="${ref}"${s}><v>${v}</v></c>`;
+  if (typeof v === 'object' && v.f) return `<c r="${ref}"${s}><f>${xmlEsc(v.f)}</f></c>`;
+  return `<c r="${ref}" t="inlineStr"${s}><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
+}
+/** Planilha a partir de linhas [[célula|{v,s}]]; larguras por coluna; validações [{ref, lista}]. */
+function xSheet(linhas, larguras, validacoes, congelar) {
+  let rows = '';
+  linhas.forEach((ln, ri) => {
+    const cells = ln.map((c, ci) => { const v = c && typeof c === 'object' && 'v' in c ? c.v : c; const st = c && typeof c === 'object' && 's' in c ? c.s : 0; return xCell(colLetra(ci) + (ri + 1), v, st); }).join('');
+    rows += `<row r="${ri + 1}">${cells}</row>`;
+  });
+  const cols = larguras ? '<cols>' + larguras.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('') + '</cols>' : '';
+  const dv = validacoes && validacoes.length ? `<dataValidations count="${validacoes.length}">` + validacoes.map(v => `<dataValidation type="list" allowBlank="1" showDropDown="0" sqref="${v.ref}"><formula1>"${xmlEsc(v.lista.join(','))}"</formula1></dataValidation>`).join('') + '</dataValidations>' : '';
+  const views = congelar ? `<sheetViews><sheetView workbookViewId="0"><pane ySplit="${congelar}" topLeftCell="A${congelar + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` : '';
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${views}${cols}<sheetData>${rows}</sheetData>${dv}</worksheet>`;
+}
+function xlsxMontar(abas) { // [{nome, xml}]
+  const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${abas.map((a, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`;
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const wb = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><calcPr fullCalcOnLoad="1"/><sheets>${abas.map((a, i) => `<sheet name="${xmlEsc(a.nome)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`;
+  const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${abas.map((a, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${abas.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  // estilos: 0 normal, 1 cabeçalho (preto/amarelo), 2 título, 3 editável (amarelo claro), 4 percentual, 5 texto com quebra
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0%"/></numFmts><fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font><font><b/><sz val="13"/><name val="Arial"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1E1E19"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2B3"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf></cellXfs></styleSheet>`;
+  const arquivos = [
+    { nome: '[Content_Types].xml', dados: Buffer.from(ct) }, { nome: '_rels/.rels', dados: Buffer.from(rels) },
+    { nome: 'xl/workbook.xml', dados: Buffer.from(wb) }, { nome: 'xl/_rels/workbook.xml.rels', dados: Buffer.from(wbRels) }, { nome: 'xl/styles.xml', dados: Buffer.from(styles) },
+    ...abas.map((a, i) => ({ nome: `xl/worksheets/sheet${i + 1}.xml`, dados: Buffer.from(a.xml) })),
+  ];
+  return zipStored(arquivos);
+}
+/** Planilha da matriz de uma aba/mês: aba Matriz (linhas + validações) e aba Dash (recontagens por fórmula, como o modelo). */
+function matrizXlsx(aba, mes) {
+  const contas = contasDaAbaSrv(aba);
+  const posts = db.slots.filter(s => contas.includes(s.conta) && s.date && s.date.startsWith(mes)).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const linhas = posts.map((s, i) => matrizLinha(s, i));
+  const cab = ['#', 'Semana', 'Objetivo', 'Etapa de funil', 'Nível de consciência', 'Tipo', 'Tipo de conteúdo', 'Formato', 'Emoção alvo', 'CTA', 'Métrica primária', 'Métrica secundária', 'Pauta quente', 'Tema', 'Tese em uma frase', 'Gancho escolhido', 'Responsável', 'Data de publicação', 'Status', 'Post', 'Conta', 'Task'];
+  const H = 1; // linha do cabeçalho
+  const mat = [cab.map(c => ({ v: c, s: 1 }))];
+  linhas.forEach(l => mat.push([
+    l.n, l.semana === '' ? '' : l.semana, l.objetivo, l.funil, l.consciencia, l.tipo, l.tipoConteudo, l.formato, l.emocao,
+    { v: l.cta, s: 5 }, { v: l.metrica1, s: 5 }, { v: l.metrica2, s: 5 },
+    { v: l.pautaQuente, s: 3 }, { v: l.tema, s: 3 }, { v: l.tese, s: 3 }, { v: l.gancho, s: 3 }, { v: l.responsavel, s: 3 },
+    l.data ? l.data.split('-').reverse().join('/') : '', l.status, l.titulo, l.conta, l.taskId ? 'https://app.clickup.com/t/' + l.taskId : '',
+  ]));
+  const N = Math.max(linhas.length, 1), fim = H + N;
+  const ref = col => `${col}${H + 1}:${col}${H + Math.max(N, 200)}`;
+  const validacoes = [
+    { ref: ref('C'), lista: MATRIZ.opcoes.objetivo }, { ref: ref('D'), lista: MATRIZ.opcoes.funil }, { ref: ref('E'), lista: MATRIZ.opcoes.consciencia },
+    { ref: ref('F'), lista: MATRIZ.opcoes.tipo }, { ref: ref('G'), lista: MATRIZ.opcoes.tipoConteudo }, { ref: ref('I'), lista: MATRIZ.opcoes.emocao }, { ref: ref('S'), lista: MATRIZ.status },
+  ];
+  const matrizXml = xSheet(mat, [4, 8, 13, 13, 22, 15, 22, 14, 12, 26, 34, 40, 26, 34, 44, 44, 16, 16, 16, 34, 18, 30], validacoes, H);
+  // Dash: tudo fórmula em cima da aba Matriz, pra continuar recontando se alguém editar a planilha
+  const M = "Matriz";
+  const R = (col) => `${M}!$${col}$${H + 1}:$${col}$${H + Math.max(N, 200)}`;
+  const nomeAba = (db.abas || []).includes(aba) ? aba : aba;
+  const d = [];
+  const t = (v) => ({ v, s: 2 }), h = (v) => ({ v, s: 1 }), y = (v) => ({ v, s: 3 }), pc = (f) => ({ v: { f }, s: 4 });
+  d.push([t('Dash de conteúdo ' + nomeAba + ' · ' + mes.split('-').reverse().join('/'))]);
+  d.push(['Gerado pelo B.O.N.E. Se editar a aba Matriz, tudo aqui reconta sozinho.']);
+  d.push([]);
+  d.push([t('Progresso do ciclo')]);
+  d.push([h('Total'), h('Postados'), h('Em aprovação'), h('Briefing criado'), h('Não iniciado'), h('% concluído')]);
+  d.push([{ f: `COUNTA(${R('A')})` }, { f: `COUNTIF(${R('S')},"Postado")` }, { f: `COUNTIF(${R('S')},"Em aprovação")` }, { f: `COUNTIF(${R('S')},"Briefing criado")` }, { f: `COUNTIF(${R('S')},"Não iniciado")` }, pc('IF(A6=0,0,B6/A6)')]);
+  d.push([]);
+  d.push([t('Status por semana')]);
+  d.push([h('Status'), h('Semana 1'), h('Semana 2'), h('Semana 3'), h('Semana 4'), h('Semana 5'), h('Total')]);
+  MATRIZ.status.forEach((st, i) => {
+    const r = 10 + i;
+    d.push([st, ...[1, 2, 3, 4, 5].map(w => ({ f: `COUNTIFS(${R('S')},$A${r},${R('B')},${w})` })), { f: `SUM(B${r}:F${r})` }]);
+  });
+  d.push([]);
+  d.push([t('Parâmetros (edite só as células amarelas)')]);
+  d.push(['Posts por semana', y(Math.max(1, Math.round(N / 4)))]);          // linha 16
+  d.push(['Semanas no ciclo', y(4)]);                                          // 17
+  d.push(['% Crescimento', pc('IF(A6=0,0,COUNTIF(' + R('C') + ',"Crescimento")/A6)')]); // 18 (calculado)
+  d.push(['Mix Posicionamento', { v: 0.3, s: 3 }]);                            // 19
+  d.push(['Mix Técnico', { v: 0.3, s: 3 }]);                                   // 20
+  d.push(['Mix Storytelling', { v: 0.25, s: 3 }]);                             // 21
+  d.push(['Mix Indicação', { v: 0.15, s: 3 }]);                                // 22
+  d.push(['Soma do mix (precisa dar 100%)', pc('SUM(B19:B22)')]);              // 23
+  d.push([]);
+  d.push([t('Metas por semana e no ciclo')]);                                  // 25
+  d.push([h('Categoria'), h('% do mix'), h('Meta / semana'), h('Meta no ciclo'), h('Planejado'), h('Diferença')]); // 26
+  [['Posicionamento', 19], ['Técnico', 20], ['Storytelling', 21], ['Indicação', 22]].forEach(([nome, lr], i) => {
+    const r = 27 + i;
+    d.push([nome, pc(`B${lr}`), { f: `ROUND(B16*B${r},1)` }, { f: `ROUND(C${r}*B17,1)` }, { f: `COUNTIF(${R('F')},A${r})` }, { f: `E${r}-D${r}` }]);
+  });
+  d.push([]);
+  d.push([t('Objetivo')]);                                                     // 32
+  d.push([h('Objetivo'), h('Planejado'), h('% do total')]);
+  d.push(['Crescimento', { f: `COUNTIF(${R('C')},A34)` }, pc('IF($A$6=0,0,B34/$A$6)')]);
+  d.push(['Conversão', { f: `COUNTIF(${R('C')},A35)` }, pc('IF($A$6=0,0,B35/$A$6)')]);
+  d.push([]);
+  d.push([t('Pendências de preenchimento')]);
+  d.push([h('Campo'), h('Faltando'), h('Preenchido'), h('Total')]);
+  [['Objetivo', 'C'], ['Funil', 'D'], ['Consciência', 'E'], ['Tipo', 'F'], ['Pauta quente', 'M'], ['Tema', 'N'], ['Tese', 'O'], ['Gancho', 'P'], ['Responsável', 'Q']].forEach(([nome, col]) => {
+    d.push([nome, { f: `$A$6-COUNTIFS(${R('A')},"<>",${R(col)},"<>")` }, { f: `COUNTIFS(${R('A')},"<>",${R(col)},"<>")` }, { f: '$A$6' }]);
+  });
+  const dashXml = xSheet(d, [34, 14, 14, 14, 14, 14, 12], [], 0);
+  return xlsxMontar([{ nome: 'Dash', xml: dashXml }, { nome: 'Matriz', xml: matrizXml }]);
 }
 
 // ---------------- app instalável (PWA) ----------------
@@ -994,6 +1171,7 @@ const server = http.createServer(async (req, res) => {
         zapiPronto: zapiPronto() && zapiCfg().ligado,
         gmCadencia: db.gmCadencia,
         duePendentes: Object.keys(db.dueSync),
+        matriz: { opcoes: MATRIZ.opcoes, regras: MATRIZ.regras, status: MATRIZ.status },
       });
     }
 
@@ -1003,6 +1181,22 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---------- criar post (calendário, banco ou criativo) ----------
+    // matriz de conteúdo: linhas prontas (com CTA/métricas derivadas) e a planilha .xlsx
+    if (p === '/api/matriz' && req.method === 'GET') {
+      const aba = u.searchParams.get('aba') || '', mes = u.searchParams.get('mes') || '';
+      if (!(db.abas || []).includes(aba) || !/^\d{4}-\d{2}$/.test(mes)) return json(res, 400, { erro: 'aba ou mês inválido' });
+      const contas = contasDaAbaSrv(aba);
+      const posts = db.slots.filter(s => contas.includes(s.conta) && s.date && s.date.startsWith(mes)).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+      return json(res, 200, { aba, mes, linhas: posts.map((s, i) => matrizLinha(s, i)) });
+    }
+    if (p === '/api/matriz.xlsx' && req.method === 'GET') {
+      const aba = u.searchParams.get('aba') || '', mes = u.searchParams.get('mes') || '';
+      if (!(db.abas || []).includes(aba) || !/^\d{4}-\d{2}$/.test(mes)) return json(res, 400, { erro: 'aba ou mês inválido' });
+      const buf = matrizXlsx(aba, mes);
+      const nome = 'matriz-' + semAcento(aba).replace(/[^a-z0-9]+/g, '-') + '-' + mes + '.xlsx';
+      res.writeHead(200, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="${nome}"`, 'Content-Length': buf.length });
+      return res.end(buf);
+    }
     // opções pro formulário "criar task no ClickUp": membros da lista e as etiquetas de empresa/formato
     if (p === '/api/clickup/opcoes' && req.method === 'GET') {
       try { return json(res, 200, await cuOpcoes(u.searchParams.get('fresh') === '1')); }
@@ -1022,7 +1216,7 @@ const server = http.createServer(async (req, res) => {
         notas: '', gm: (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '',
         collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
         drive: b.drive || '', linkRef: '', aprovado: false, postado: false, fixo: false,
-        responsavelManual: '', origem: 'painel', cat: '', fonteId: '',
+        responsavelManual: '', origem: 'painel', cat: '', fonteId: '', matriz: matrizLimpa(b.matriz),
         tituloCache: cu.task.name || cu.name, statusCache: cu.task.status ? { status: normStatus(cu.task.status.status), color: statusColor(cu.task) } : null,
         assigneeCache: cu.responsavel || null, dueCache: cu.task.due_date ? Number(cu.task.due_date) : null, atualizadoEm: new Date().toISOString(),
       };
@@ -1045,7 +1239,8 @@ const server = http.createServer(async (req, res) => {
         gm: (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '',
         collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
         drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: false, fixo: false,
-        responsavelManual: '', origem: ['criativo', 'banco'].includes(b.origem) ? b.origem : 'painel',
+        responsavelManual: String(b.responsavelManual || '').slice(0, 80), origem: ['criativo', 'banco'].includes(b.origem) ? b.origem : 'painel',
+        matriz: matrizLimpa(b.matriz),
         cat: typeof b.cat === 'string' ? b.cat : '', // categoria dentro do banco (ex.: conselho, corte-reels, outros)
         fonteId: typeof b.fonteId === 'string' ? b.fonteId : '', // id do item do banco que gerou este post
         tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: null,
@@ -1321,6 +1516,8 @@ const server = http.createServer(async (req, res) => {
       if (trocaConta) slot.conta = b.conta; // ANTES do collab: collab não pode conter a própria conta
       if ('date' in b) slot.date = b.date || null;
       for (const k of ['titulo', 'formato', 'obs', 'drive', 'linkRef', 'angulo', 'notas']) if (k in b) slot[k] = b[k] || '';
+      if ('matriz' in b) slot.matriz = matrizLimpa(b.matriz);           // campos da matriz de conteúdo
+      if ('responsavelManual' in b) slot.responsavelManual = String(b.responsavelManual || '').slice(0, 80);
       // curadoria das artes pra pauta: quais ficam escondidas e em que ordem aparecem (chave = id ou nome do arquivo)
       const listaStr = v => Array.isArray(v) ? v.map(x => String(x).slice(0, 200)).filter(Boolean).slice(0, 200) : [];
       if ('artesOcultas' in b) slot.artesOcultas = listaStr(b.artesOcultas);

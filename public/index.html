@@ -690,6 +690,34 @@
     padding:4px 10px; cursor:pointer; background:#000; color:#fff}
   #alertaBar .ab-ver:hover{background:#fff; color:#000}
   #alertaBar .ab-x{padding:4px 8px; background:transparent; border-color:rgba(255,255,255,.5)}
+  .modos{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+  .f .modos .modo{display:flex; flex-direction:column; gap:2px; align-items:flex-start; text-align:left; padding:9px 11px; border:2px solid var(--hair); border-radius:8px; background:var(--surface-2); color:var(--ink-2); cursor:pointer; font-family:inherit;
+    transition:transform .2s cubic-bezier(.34,1.56,.64,1), border-color .15s, box-shadow .15s}
+  .f .modos .modo b{font-size:12.5px; color:var(--ink)} .f .modos .modo small{font-size:10.5px; color:var(--ink-3); font-weight:500}
+  .f .modos .modo:hover{transform:translateY(-2px); border-color:var(--ink-3)}
+  .f .modos .modo.on{border-color:var(--sb); box-shadow:3px 3px 0 var(--sb); background:var(--surface)}
+  .f .modos .modo.on b{color:var(--sb)}
+  .matwrap{border:2px solid var(--sb); border-radius:8px; padding:12px; background:var(--surface-2); display:flex; flex-direction:column; gap:10px; box-shadow:3px 3px 0 var(--sb)}
+  .mattit{font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--sb)}
+  .mattit small{display:block; font-size:10.5px; color:var(--ink-3); font-weight:500; text-transform:none; letter-spacing:0; margin-top:2px}
+  .f3{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+  .matderiv{font-size:11.5px; color:var(--ink-2); border:1.5px dashed var(--hair); border-radius:6px; padding:8px 10px; line-height:1.5}
+  .matderiv b{color:var(--ink)}
+  .f .mattoggle{text-align:left; font-size:12px; font-weight:800; color:var(--ink-2); border:1.5px dashed var(--hair); border-radius:6px; padding:9px 12px; background:transparent; cursor:pointer; font-family:inherit}
+  .f .mattoggle:hover{color:var(--ink); border-color:var(--ink-3)}
+  @media (max-width:640px){ .modos,.f3{grid-template-columns:1fr} }
+  /* tabela da matriz */
+  .mattable{overflow:auto; max-height:62vh; border:1.5px solid var(--hair); border-radius:8px}
+  .mattable table{border-collapse:collapse; font-size:11.5px; min-width:1500px}
+  .mattable th{position:sticky; top:0; background:#000; color:var(--sb); font-size:10px; letter-spacing:.06em; text-transform:uppercase; text-align:left; padding:8px 9px; border-bottom:2px solid var(--stroke); white-space:nowrap; z-index:1}
+  .mattable td{padding:7px 9px; border-bottom:1px solid var(--hair-2); vertical-align:top; max-width:260px; white-space:nowrap}
+  .mattable td.longo{white-space:normal; min-width:200px}
+  .mattable tr{cursor:pointer} .mattable tbody tr:hover td{background:var(--hair-2)}
+  .mattable td.vazio{color:var(--ink-3); font-style:italic}
+  .mattable .st{display:inline-block; font-size:10px; font-weight:800; letter-spacing:.05em; padding:2px 7px; border-radius:5px; border:1.5px solid var(--stroke); color:#000; white-space:nowrap}
+  .matkpis{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px}
+  .matkpis .k{border:1.5px solid var(--hair); border-radius:7px; padding:6px 10px; font-size:11px; color:var(--ink-3); font-weight:800; letter-spacing:.05em; text-transform:uppercase}
+  .matkpis .k b{display:block; font-size:18px; color:var(--ink); letter-spacing:0}
   .cuwrap{border:2px solid var(--hair); border-radius:8px; padding:10px 12px; background:var(--surface-2)}
   .cuwrap:has(#eCu:checked){border-color:var(--sb); box-shadow:3px 3px 0 var(--sb)}
   .f .cuwrap label.cuchk{display:flex; align-items:flex-start; gap:10px; cursor:pointer; text-transform:none; letter-spacing:0; font-size:13px; color:var(--ink); margin:0; font-weight:600}
@@ -887,6 +915,7 @@
       <div class="maismenu" id="maismenu">
         <button id="btnPauta" data-tip="link ao vivo da pauta SÓ desta conta: quem abrir vê só ela, sem login, sempre atualizado, e pode deixar observação"></button>
         <button id="btnPautaTodas" data-tip="link ao vivo da pauta com TODAS as contas (pra quem é do time)"></button>
+        <button id="btnMatriz" data-tip="tabela da matriz de conteúdo desta conta no mês (objetivo, funil, tese, gancho…) e a planilha .xlsx no padrão da Weevo"></button>
         <button id="btnImportar" data-tip="colar vários links do ClickUp de uma vez e espalhar num dia da semana"></button>
         <button id="btnExportar" data-tip="gerar um arquivo HTML da semana pra enviar pra outras pessoas verem (só leitura)"></button>
       </div>
@@ -955,6 +984,11 @@
   <div class="mhead"><div class="mtit" id="eTit">Novo post</div></div>
   <div class="mbody">
     <div class="f">
+      <div class="modos" id="eModos">
+        <button type="button" class="modo on" data-modo="link"><b>1 · Colar link</b><small>já existe no ClickUp</small></button>
+        <button type="button" class="modo" data-modo="clickup"><b>2 · Criar no ClickUp</b><small>nasce lá em PENDENTE</small></button>
+        <button type="button" class="modo" data-modo="matriz"><b>3 · Matriz de conteúdo</b><small>planejamento + planilha</small></button>
+      </div>
       <div class="f2">
         <div><label>Conta</label><select id="eConta"></select></div>
         <div><label>Data (vazio = banco)</label><input type="date" id="eDate"></div>
@@ -962,9 +996,30 @@
       <div><label>Título (se vazio, usa o nome da task do ClickUp)</label><input id="eTitulo" placeholder="ex.: Reels case cliente X"></div>
       <div class="f2">
         <div><label>Formato</label><select id="eFormato">
-          <option value="">definir depois</option><option>reels</option><option>carrossel</option><option>estático</option><option>story</option>
+          <option value="">definir depois</option><option>reels</option><option>carrossel</option><option>estático</option><option>story</option><option>corte de podcast</option><option>vídeo médio</option><option>vídeo de anúncio</option>
         </select></div>
-        <div><label>Link da task no ClickUp</label><input id="eTask" placeholder="https://app.clickup.com/t/..."></div>
+        <div id="eLinkWrap"><label>Link da task no ClickUp</label><input id="eTask" placeholder="https://app.clickup.com/t/..."></div>
+      </div>
+      <div id="eMatWrap" class="matwrap" hidden>
+        <div class="mattit">Matriz de conteúdo <small>CTA e métricas saem do objetivo, como na planilha da Weevo</small></div>
+        <div class="f3">
+          <div><label>Objetivo</label><select id="mObjetivo" data-m="objetivo"></select></div>
+          <div><label>Etapa de funil</label><select id="mFunil" data-m="funil"></select></div>
+          <div><label>Nível de consciência</label><select id="mConsc" data-m="consciencia"></select></div>
+        </div>
+        <div class="f3">
+          <div><label>Tipo</label><select id="mTipo" data-m="tipo"></select></div>
+          <div><label>Tipo de conteúdo</label><select id="mTipoC" data-m="tipoConteudo"></select></div>
+          <div><label>Emoção alvo</label><select id="mEmocao" data-m="emocao"></select></div>
+        </div>
+        <div class="matderiv" id="mDeriv">escolha o objetivo pra ver CTA e métricas</div>
+        <div class="f2">
+          <div><label>Pauta quente</label><input id="mPauta" data-m="pautaQuente" placeholder="assunto do momento que ancora a peça (ou ATEMPORAL)" maxlength="300"></div>
+          <div><label>Tema</label><input id="mTema" data-m="tema" placeholder="o recorte específico dentro da pauta" maxlength="300"></div>
+        </div>
+        <div><label>Tese em uma frase</label><textarea id="mTese" data-m="tese" rows="2" placeholder="a opinião da marca. Sem tese não existe posicionamento."></textarea></div>
+        <div><label>Gancho escolhido</label><textarea id="mGancho" data-m="gancho" rows="2" placeholder="o gancho aprovado (rubrica das 4 perguntas + veto do genérico)"></textarea></div>
+        <div id="mRespWrap"><label>Responsável</label><input id="mResp" list="respLista" placeholder="quem produz" maxlength="80"><datalist id="respLista"></datalist></div>
       </div>
       <div><label>Ângulo</label><input id="eAngulo" list="angulosLista" placeholder="educacional, institucional… ou escreva um novo"></div>
       <div><label>Drive / referência</label><input id="eDrive" placeholder="https://drive.google.com/... ou link do Instagram"></div>
@@ -980,6 +1035,7 @@
         <div id="eCollab" style="display:flex; gap:6px; flex-wrap:wrap"></div>
       </div>
       <div><label>Observação</label><textarea id="eObs"></textarea></div>
+      <button type="button" class="mattoggle" id="eMatToggle" hidden>▸ Matriz de conteúdo (objetivo, funil, tese, gancho…)</button>
       <div id="eCuWrap" class="cuwrap">
         <label class="cuchk"><input type="checkbox" id="eCu"><span><b>Criar a task no ClickUp junto</b><small id="eCuSub">lista House Quatro5 · a conta vira o Empresa Tag, o formato vira o Formato SKILL</small></span></label>
         <div id="eCuCampos" hidden>
@@ -1081,6 +1137,18 @@
 </div></div>
 
 <!-- relatório do dia (texto pra copiar) -->
+<div class="ov" id="ovMatriz"><div class="modal" style="width:min(1400px,96vw); position:relative">
+  <button class="mclose" data-close="ovMatriz">✕</button>
+  <div class="mhead"><div class="mtit" id="matTit">Matriz de conteúdo</div></div>
+  <div class="mbody">
+    <div class="matkpis" id="matKpis"></div>
+    <div class="mattable" id="matTable"></div>
+  </div>
+  <div class="mfoot" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap">
+    <span class="note" id="matMsg">Clique numa linha pra editar o post. A planilha sai com as abas Dash e Matriz, no padrão da Weevo.</span>
+    <a class="mbtn primary" id="matBaixar" href="#" download>Baixar planilha .xlsx</a>
+  </div>
+</div></div>
 <div class="ov" id="ovRelatorio"><div class="modal" style="max-width:580px; position:relative">
   <button class="mclose" data-close="ovRelatorio">✕</button>
   <div class="mhead"><div class="mtit">Relatório da semana</div></div>
@@ -1185,7 +1253,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.59'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.60'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1290,7 +1358,7 @@ async function loadState(fresh, silencioso){
     + '#' + (j.duePendentes||[]).length;
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], duePendentes:j.duePendentes||[], hasToken:j.hasToken, user:j.user, temSenha:j.temSenha, gmCadencia:j.gmCadencia||S.gmCadencia});
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], duePendentes:j.duePendentes||[], hasToken:j.hasToken, user:j.user, temSenha:j.temSenha, gmCadencia:j.gmCadencia||S.gmCadencia, matriz:j.matriz||S.matriz});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   checarAprovacoes(S.slots);
@@ -3049,14 +3117,68 @@ function openEdit(id, dateStr, pre){
   $('#eGm').checked = s? isGm(s) : false;
   syncGmVisibility();
   $('#eDelete').style.display = s? '' : 'none';
-  // criar no ClickUp: só pra post novo, sem link de task colado, e com token
-  $('#eCuWrap').style.display = (!s && S.hasToken) ? '' : 'none';
-  $('#eCu').checked = false; $('#eCuCampos').hidden = true; $('#eBrief').value=''; $('#eResp').value='';
+  // modos de criação (só pra post novo): 1 colar link · 2 criar no ClickUp · 3 matriz de conteúdo
+  $('#eModos').style.display = s ? 'none' : '';
+  $('#eBrief').value=''; $('#eResp').value='';
+  matPreencher(s ? (s.matriz||{}) : {}, s ? (s.responsavelManual||'') : '');
+  if(s){
+    // editando: matriz aparece fechada (aberta se o post já tem algo preenchido)
+    $('#eMatToggle').hidden = false; $('#eMatWrap').hidden = !(s.matriz && Object.keys(s.matriz).length);
+    $('#eMatToggle').textContent = ($('#eMatWrap').hidden ? '▸' : '▾') + ' Matriz de conteúdo (objetivo, funil, tese, gancho…)';
+    $('#eLinkWrap').style.display = ''; $('#eCuWrap').style.display = 'none';
+  } else {
+    $('#eMatToggle').hidden = true;
+    setModo(pre && pre.modo ? pre.modo : 'link');
+  }
   if(!s && S.hasToken) carregarOpcoesCu();
   atualizaCuNome();
   $('#eMsg').textContent = pre? 'Criando post a partir de uma referência' : (s && s.tituloCache ? 'Task vinculada: '+s.tituloCache : '');
   $('#ovEdit').classList.add('open');
 }
+// ---- os 3 modos do "Novo post" ----
+let E_MODO = 'link';
+function setModo(m){
+  E_MODO = m;
+  document.querySelectorAll('#eModos .modo').forEach(b=> b.classList.toggle('on', b.dataset.modo===m));
+  $('#eLinkWrap').style.display = m==='link' ? '' : 'none';
+  $('#eCuWrap').style.display = (m==='clickup' && S.hasToken) ? '' : 'none';
+  $('#eCu').checked = m==='clickup'; $('#eCuCampos').hidden = m!=='clickup';
+  $('#eMatWrap').hidden = m!=='matriz';
+  $('#eSave').textContent = m==='clickup' ? 'Criar no ClickUp e salvar' : (m==='matriz' ? 'Salvar na matriz' : 'Salvar');
+  $('#eMsg').textContent = (m==='clickup' && !S.hasToken) ? 'Sem token do ClickUp configurado: esse modo não funciona ainda.' : '';
+  if(m==='clickup') atualizaCuNome();
+  if(m==='matriz') setTimeout(()=>$('#mObjetivo').focus(), 40);
+}
+document.querySelectorAll('#eModos .modo').forEach(b=> b.onclick = ()=> setModo(b.dataset.modo));
+$('#eMatToggle').onclick = ()=>{ const w=$('#eMatWrap'); w.hidden=!w.hidden; $('#eMatToggle').textContent = (w.hidden?'▸':'▾')+' Matriz de conteúdo (objetivo, funil, tese, gancho…)'; };
+/** Monta os selects da matriz com as listas que vêm do servidor e preenche com o que o post já tem. */
+function matPreencher(m, resp){
+  const op = (S.matriz && S.matriz.opcoes) || {};
+  document.querySelectorAll('#eMatWrap select[data-m]').forEach(sel=>{
+    const k = sel.dataset.m; const lista = op[k] || [];
+    sel.innerHTML = '<option value="">—</option>' + lista.map(o=>'<option>'+esc(o)+'</option>').join('');
+    sel.value = m[k] || '';
+  });
+  document.querySelectorAll('#eMatWrap input[data-m], #eMatWrap textarea[data-m]').forEach(el=>{ el.value = m[el.dataset.m] || ''; });
+  $('#mResp').value = resp || '';
+  // quem já apareceu como responsável em algum post vira sugestão
+  const nomes = new Set(); S.slots.forEach(x=>{ if(x.responsavelManual) nomes.add(x.responsavelManual); if(x.assigneeCache) String(x.assigneeCache).split(',').forEach(n=>{ n=n.trim(); if(n) nomes.add(n); }); });
+  $('#respLista').innerHTML = [...nomes].sort().map(n=>'<option value="'+esc(n)+'"></option>').join('');
+  matDerivados();
+}
+function matLer(){
+  const m = {};
+  document.querySelectorAll('#eMatWrap [data-m]').forEach(el=>{ const v = el.value.trim(); if(v) m[el.dataset.m] = v; });
+  return Object.keys(m).length ? m : null;
+}
+function matDerivados(){
+  const obj = $('#mObjetivo').value; const r = S.matriz && S.matriz.regras && S.matriz.regras[obj];
+  $('#mDeriv').innerHTML = r
+    ? '<b>CTA:</b> '+esc(r.cta)+' &nbsp;·&nbsp; <b>Métrica primária:</b> '+esc(r.metrica1)+' &nbsp;·&nbsp; <b>Secundária:</b> '+esc(r.metrica2)
+    : 'escolha o objetivo pra ver CTA e métricas (saem sozinhos, como na planilha)';
+}
+$('#mObjetivo').addEventListener('change', matDerivados);
+
 // ---- criar a task no ClickUp a partir do "Novo post" ----
 let CU_OPCOES = null;
 async function carregarOpcoesCu(fresh){
@@ -3099,8 +3221,9 @@ $('#eSave').onclick = async ()=>{
     gm: gmOverride({conta:$('#eConta').value, date:$('#eDate').value||null}, $('#eConta').value==='seubone' && $('#eGm').checked),
     collab: [...eCollabSel],
   };
-  const criarCu = !S.editing && $('#eCu').checked && $('#eCuWrap').style.display !== 'none';
-  if(criarCu && body.taskUrl){ $('#eMsg').textContent = 'Você colou um link de task E marcou criar no ClickUp. Escolha um dos dois.'; return; }
+  const criarCu = !S.editing && E_MODO==='clickup' && S.hasToken;
+  if(!S.editing && E_MODO!=='link') body.taskUrl = '';   // nos modos 2 e 3 o link colado não vale
+  if(S.editing || E_MODO==='matriz'){ body.matriz = matLer(); body.responsavelManual = $('#mResp').value.trim(); }
   $('#eSave').disabled = true; $('#eMsg').textContent = criarCu ? 'criando a task no ClickUp…' : '';
   try{
     let r;
@@ -3115,11 +3238,39 @@ $('#eSave').onclick = async ()=>{
         ? await api('/api/slots/'+S.editing, {method:'PATCH', body:JSON.stringify(body)})
         : await api('/api/slots', {method:'POST', body:JSON.stringify(body)});
       closeOv('ovEdit'); await loadState();
-      toast('Salvo'+(r.entrega? ' · entrega no ClickUp: '+r.entrega.split('-').reverse().slice(0,2).join('/') : ''));
+      toast((!S.editing && E_MODO==='matriz') ? 'Salvo na matriz · veja em mais → Matriz de conteúdo' : 'Salvo'+(r.entrega? ' · entrega no ClickUp: '+r.entrega.split('-').reverse().slice(0,2).join('/') : ''));
     }
   }catch(e){ $('#eMsg').textContent = 'Erro: '+e.message; }
   finally{ $('#eSave').disabled = false; }
 };
+
+// ================= matriz de conteúdo: tabela + planilha =================
+const MAT_COLS = [['n','#'],['semana','Sem'],['objetivo','Objetivo'],['funil','Funil'],['consciencia','Consciência'],['tipo','Tipo'],['tipoConteudo','Tipo de conteúdo'],['formato','Formato'],['emocao','Emoção'],['cta','CTA'],['metrica1','Métrica primária'],['metrica2','Métrica secundária'],['pautaQuente','Pauta quente'],['tema','Tema'],['tese','Tese'],['gancho','Gancho'],['responsavel','Responsável'],['data','Data'],['status','Status'],['titulo','Post']];
+const MAT_ST_COR = { 'Postado':'#2FD06A', 'Em aprovação':'#0f9d9f', 'Briefing criado':'#FFB020', 'Não iniciado':'#8C897C' };
+async function abrirMatriz(){
+  $('#matTit').textContent = 'Matriz de conteúdo · '+S.aba+' · '+MESES[+S.mes.slice(5)-1]+' '+S.mes.slice(0,4);
+  $('#matBaixar').href = '/api/matriz.xlsx?aba='+encodeURIComponent(S.aba)+'&mes='+S.mes;
+  $('#matTable').innerHTML = '<div class="note" style="padding:14px">carregando…</div>'; $('#matKpis').innerHTML='';
+  $('#ovMatriz').classList.add('open');
+  try{
+    const r = await api('/api/matriz?aba='+encodeURIComponent(S.aba)+'&mes='+S.mes);
+    const L = r.linhas;
+    const cont = st => L.filter(l=>l.status===st).length;
+    const semMatriz = L.filter(l=>!l.objetivo && !l.tese && !l.gancho).length;
+    $('#matKpis').innerHTML = [['posts',L.length],['postados',cont('Postado')],['em aprovação',cont('Em aprovação')],['briefing criado',cont('Briefing criado')],['não iniciado',cont('Não iniciado')],['sem matriz',semMatriz]]
+      .map(([k,v])=>'<div class="k"><b>'+v+'</b>'+k+'</div>').join('');
+    if(!L.length){ $('#matTable').innerHTML = '<div class="note" style="padding:14px">Nenhum post com data neste mês nesta conta.</div>'; return; }
+    const longos = new Set(['metrica1','metrica2','tese','gancho','pautaQuente','tema','titulo']);
+    $('#matTable').innerHTML = '<table><thead><tr>'+MAT_COLS.map(([k,t])=>'<th>'+esc(t)+'</th>').join('')+'</tr></thead><tbody>'+
+      L.map(l=>'<tr data-id="'+esc(l.id)+'">'+MAT_COLS.map(([k])=>{
+        let v = l[k];
+        if(k==='data') v = v ? brData(v) : '';
+        if(k==='status') return '<td><span class="st" style="background:'+(MAT_ST_COR[v]||'#8C897C')+'">'+esc(v)+'</span></td>';
+        return '<td class="'+(longos.has(k)?'longo':'')+(v===''||v==null?' vazio':'')+'">'+(v===''||v==null?'—':esc(String(v)))+'</td>';
+      }).join('')+'</tr>').join('')+'</tbody></table>';
+    $('#matTable').querySelectorAll('tr[data-id]').forEach(tr=> tr.onclick = ()=>{ closeOv('ovMatriz'); openEdit(tr.dataset.id); });
+  }catch(e){ $('#matTable').innerHTML = '<div class="note err" style="padding:14px">'+esc(e.message)+'</div>'; }
+}
 $('#eDelete').onclick = async ()=>{
   if(!S.editing) return;
   if(!confirm('Excluir este post do painel? (a task do ClickUp não é apagada; Ctrl+Z desfaz)')) return;
@@ -4238,6 +4389,8 @@ function initIcons(){
   $('#btnRelatorio').innerHTML = icon('list') + 'Relatório';
   $('#btnExportar').innerHTML = icon('external') + 'Exportar';
   $('#btnImportar').innerHTML = icon('plus') + 'Importar em lote';
+  $('#btnMatriz').innerHTML = icon('list') + 'Matriz de conteúdo';
+  $('#btnMatriz').onclick = abrirMatriz;
   atualizaRotuloPauta();
   // link da pauta: com escopo (só a conta atual) ou geral (todas). O token muda conforme o escopo,
   // então o link de uma empresa não abre as outras nem dá pra "alargar" editando a URL.
