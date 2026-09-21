@@ -690,6 +690,7 @@
     padding:4px 10px; cursor:pointer; background:#000; color:#fff}
   #alertaBar .ab-ver:hover{background:#fff; color:#000}
   #alertaBar .ab-x{padding:4px 8px; background:transparent; border-color:rgba(255,255,255,.5)}
+  [hidden]{display:none !important}
   .modos{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
   .f .modos .modo{display:flex; flex-direction:column; gap:2px; align-items:flex-start; text-align:left; padding:9px 11px; border:2px solid var(--hair); border-radius:8px; background:var(--surface-2); color:var(--ink-2); cursor:pointer; font-family:inherit;
     transition:transform .2s cubic-bezier(.34,1.56,.64,1), border-color .15s, box-shadow .15s}
@@ -719,7 +720,9 @@
   .matkpis .k{border:1.5px solid var(--hair); border-radius:7px; padding:6px 10px; font-size:11px; color:var(--ink-3); font-weight:800; letter-spacing:.05em; text-transform:uppercase}
   .matkpis .k b{display:block; font-size:18px; color:var(--ink); letter-spacing:0}
   .cuwrap{border:2px solid var(--hair); border-radius:8px; padding:10px 12px; background:var(--surface-2)}
-  .cuwrap:has(#eCu:checked){border-color:var(--sb); box-shadow:3px 3px 0 var(--sb)}
+  .cutit b{display:block; font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--sb)}
+  .cutit small{display:block; font-size:10.5px; color:var(--ink-3); font-weight:500; margin-top:2px}
+  .cuwrap{border-color:var(--sb); box-shadow:3px 3px 0 var(--sb)}
   .f .cuwrap label.cuchk{display:flex; align-items:flex-start; gap:10px; cursor:pointer; text-transform:none; letter-spacing:0; font-size:13px; color:var(--ink); margin:0; font-weight:600}
   .f .cuwrap .cuchk input{width:16px; height:16px; margin:1px 0 0; accent-color:var(--sb); flex:none; padding:0}
   .cuchk > span{flex:1; min-width:0}
@@ -993,14 +996,14 @@
         <div><label>Conta</label><select id="eConta"></select></div>
         <div><label>Data (vazio = banco)</label><input type="date" id="eDate"></div>
       </div>
-      <div><label>Título (se vazio, usa o nome da task do ClickUp)</label><input id="eTitulo" placeholder="ex.: Reels case cliente X"></div>
-      <div class="f2">
+      <div data-modos="link clickup edit"><label id="eTituloLbl">Título (se vazio, usa o nome da task do ClickUp)</label><input id="eTitulo" placeholder="ex.: Reels case cliente X"></div>
+      <div class="f2" id="eFmtRow">
         <div><label>Formato</label><select id="eFormato">
           <option value="">definir depois</option><option>reels</option><option>carrossel</option><option>estático</option><option>story</option><option>corte de podcast</option><option>vídeo médio</option><option>vídeo de anúncio</option>
         </select></div>
-        <div id="eLinkWrap"><label>Link da task no ClickUp</label><input id="eTask" placeholder="https://app.clickup.com/t/..."></div>
+        <div id="eLinkWrap" data-modos="link edit"><label>Link da task no ClickUp</label><input id="eTask" placeholder="https://app.clickup.com/t/..."></div>
       </div>
-      <div id="eMatWrap" class="matwrap" hidden>
+      <div id="eMatWrap" class="matwrap" data-modos="matriz edit" hidden>
         <div class="mattit">Matriz de conteúdo <small>CTA e métricas saem do objetivo, como na planilha da Weevo</small></div>
         <div class="f3">
           <div><label>Objetivo</label><select id="mObjetivo" data-m="objetivo"></select></div>
@@ -1021,24 +1024,25 @@
         <div><label>Gancho escolhido</label><textarea id="mGancho" data-m="gancho" rows="2" placeholder="o gancho aprovado (rubrica das 4 perguntas + veto do genérico)"></textarea></div>
         <div id="mRespWrap"><label>Responsável</label><input id="mResp" list="respLista" placeholder="quem produz" maxlength="80"><datalist id="respLista"></datalist></div>
       </div>
-      <div><label>Ângulo</label><input id="eAngulo" list="angulosLista" placeholder="educacional, institucional… ou escreva um novo"></div>
-      <div><label>Drive / referência</label><input id="eDrive" placeholder="https://drive.google.com/... ou link do Instagram"></div>
-      <div id="eGmWrap" style="display:none">
+      <div data-modos="link edit"><label>Ângulo</label><input id="eAngulo" list="angulosLista" placeholder="educacional, institucional… ou escreva um novo"></div>
+      <div data-modos="link edit"><label>Drive / referência</label><input id="eDrive" placeholder="https://drive.google.com/... ou link do Instagram"></div>
+      <div id="eGmWrap" data-modos="link edit" style="display:none">
         <label>Grande Marca (GM)</label>
         <label style="display:flex; align-items:center; gap:9px; font-size:13px; font-weight:500; cursor:pointer; border:1.5px solid var(--hair); border-radius:6px; padding:10px 12px; background:var(--surface-2); text-transform:none; letter-spacing:0">
           <input type="checkbox" id="eGm" style="width:16px; height:16px; accent-color:#FCC100">
           <span>Este post tem <b>grande marca na capa</b></span>
         </label>
       </div>
-      <div>
+      <div data-modos="link edit">
         <label>Collab (o post aparece também na aba da conta parceira)</label>
         <div id="eCollab" style="display:flex; gap:6px; flex-wrap:wrap"></div>
       </div>
-      <div><label>Observação</label><textarea id="eObs"></textarea></div>
+      <div data-modos="link edit"><label>Observação</label><textarea id="eObs"></textarea></div>
       <button type="button" class="mattoggle" id="eMatToggle" hidden>▸ Matriz de conteúdo (objetivo, funil, tese, gancho…)</button>
-      <div id="eCuWrap" class="cuwrap">
-        <label class="cuchk"><input type="checkbox" id="eCu"><span><b>Criar a task no ClickUp junto</b><small id="eCuSub">lista House Quatro5 · a conta vira o Empresa Tag, o formato vira o Formato SKILL</small></span></label>
-        <div id="eCuCampos" hidden>
+      <div id="eCuWrap" class="cuwrap" data-modos="clickup">
+        <div class="cutit"><b>Task no ClickUp</b><small id="eCuSub">lista House Quatro5 · a conta vira o Empresa Tag, o formato vira o Formato SKILL</small></div>
+        <input type="checkbox" id="eCu" hidden>
+        <div id="eCuCampos">
           <div class="f2">
             <div><label>Responsável</label><select id="eResp"><option value="">sem responsável</option></select></div>
             <div><label>Entrega no ClickUp</label><div class="cuinfo" id="eDueInfo">2 dias úteis antes do post</div></div>
@@ -1253,7 +1257,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.60'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.61'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -3070,7 +3074,7 @@ function drawTab(){
 
 // ================= modal edit =================
 function syncGmVisibility(){
-  $('#eGmWrap').style.display = $('#eConta').value==='seubone' ? '' : 'none';
+  $('#eGmWrap').style.display = ($('#eConta').value==='seubone' && (E_MODO==='link'||E_MODO==='edit')) ? '' : 'none';
 }
 let eCollabSel = new Set();
 function drawCollabChips(){
@@ -3122,10 +3126,13 @@ function openEdit(id, dateStr, pre){
   $('#eBrief').value=''; $('#eResp').value='';
   matPreencher(s ? (s.matriz||{}) : {}, s ? (s.responsavelManual||'') : '');
   if(s){
-    // editando: matriz aparece fechada (aberta se o post já tem algo preenchido)
-    $('#eMatToggle').hidden = false; $('#eMatWrap').hidden = !(s.matriz && Object.keys(s.matriz).length);
+    // editando: tudo aparece; a matriz fica dobrada (aberta se o post já tem algo preenchido)
+    E_MODO = 'edit';
+    $('#eMatToggle').hidden = false;
+    $('#eMatWrap').dataset.fechado = (s.matriz && Object.keys(s.matriz).length) ? '0' : '1';
+    aplicaModo('edit');
     $('#eMatToggle').textContent = ($('#eMatWrap').hidden ? '▸' : '▾') + ' Matriz de conteúdo (objetivo, funil, tese, gancho…)';
-    $('#eLinkWrap').style.display = ''; $('#eCuWrap').style.display = 'none';
+    $('#eSave').textContent = 'Salvar';
   } else {
     $('#eMatToggle').hidden = true;
     setModo(pre && pre.modo ? pre.modo : 'link');
@@ -3137,20 +3144,29 @@ function openEdit(id, dateStr, pre){
 }
 // ---- os 3 modos do "Novo post" ----
 let E_MODO = 'link';
+/** Cada aba mostra SÓ os campos dela: 1 link = o formulário de sempre; 2 ClickUp = o que a task tem; 3 matriz = as colunas da planilha. */
+function aplicaModo(m){
+  document.querySelectorAll('#ovEdit [data-modos]').forEach(el=>{
+    const ok = el.dataset.modos.split(' ').includes(m);
+    if(el.id==='eGmWrap'){ el.style.display = ok && $('#eConta').value==='seubone' ? '' : 'none'; return; }
+    if(el.id==='eMatWrap'){ el.hidden = !ok || (m==='edit' && el.dataset.fechado==='1'); return; }
+    el.style.display = ok ? '' : 'none';
+  });
+  $('#eFmtRow').style.gridTemplateColumns = (m==='link'||m==='edit') ? '' : '1fr';
+  $('#eTituloLbl').textContent = m==='clickup' ? 'Nome da task (se vazio, monta com formato + empresa)' : 'Título (se vazio, usa o nome da task do ClickUp)';
+}
 function setModo(m){
   E_MODO = m;
   document.querySelectorAll('#eModos .modo').forEach(b=> b.classList.toggle('on', b.dataset.modo===m));
-  $('#eLinkWrap').style.display = m==='link' ? '' : 'none';
-  $('#eCuWrap').style.display = (m==='clickup' && S.hasToken) ? '' : 'none';
-  $('#eCu').checked = m==='clickup'; $('#eCuCampos').hidden = m!=='clickup';
-  $('#eMatWrap').hidden = m!=='matriz';
+  aplicaModo(m);
+  $('#eCu').checked = m==='clickup';
   $('#eSave').textContent = m==='clickup' ? 'Criar no ClickUp e salvar' : (m==='matriz' ? 'Salvar na matriz' : 'Salvar');
   $('#eMsg').textContent = (m==='clickup' && !S.hasToken) ? 'Sem token do ClickUp configurado: esse modo não funciona ainda.' : '';
   if(m==='clickup') atualizaCuNome();
   if(m==='matriz') setTimeout(()=>$('#mObjetivo').focus(), 40);
 }
 document.querySelectorAll('#eModos .modo').forEach(b=> b.onclick = ()=> setModo(b.dataset.modo));
-$('#eMatToggle').onclick = ()=>{ const w=$('#eMatWrap'); w.hidden=!w.hidden; $('#eMatToggle').textContent = (w.hidden?'▸':'▾')+' Matriz de conteúdo (objetivo, funil, tese, gancho…)'; };
+$('#eMatToggle').onclick = ()=>{ const w=$('#eMatWrap'); w.hidden=!w.hidden; w.dataset.fechado = w.hidden?'1':'0'; $('#eMatToggle').textContent = (w.hidden?'▸':'▾')+' Matriz de conteúdo (objetivo, funil, tese, gancho…)'; };
 /** Monta os selects da matriz com as listas que vêm do servidor e preenche com o que o post já tem. */
 function matPreencher(m, resp){
   const op = (S.matriz && S.matriz.opcoes) || {};
@@ -3206,7 +3222,7 @@ function entregaPara(dateStr){
   while(faltam>0){ dt=new Date(dt.getTime()-86400000); const dow=dt.getUTCDay(); if(dow!==0&&dow!==6) faltam--; }
   return dt.toISOString().slice(0,10);
 }
-$('#eCu').addEventListener('change', ()=>{ $('#eCuCampos').hidden = !$('#eCu').checked; $('#eSave').textContent = $('#eCu').checked ? 'Criar no ClickUp e salvar' : 'Salvar'; if($('#eCu').checked){ atualizaCuNome(); setTimeout(()=>$('#eBrief').focus(),50); } });
+$('#eCu').addEventListener('change', ()=>{ if($('#eCu').checked){ atualizaCuNome(); setTimeout(()=>$('#eBrief').focus(),50); } });
 ['#eConta','#eFormato','#eTitulo','#eDate'].forEach(k=>{ const el=document.querySelector(k); el.addEventListener('input', atualizaCuNome); el.addEventListener('change', atualizaCuNome); });
 
 $('#eSave').onclick = async ()=>{
@@ -3224,6 +3240,7 @@ $('#eSave').onclick = async ()=>{
   const criarCu = !S.editing && E_MODO==='clickup' && S.hasToken;
   if(!S.editing && E_MODO!=='link') body.taskUrl = '';   // nos modos 2 e 3 o link colado não vale
   if(S.editing || E_MODO==='matriz'){ body.matriz = matLer(); body.responsavelManual = $('#mResp').value.trim(); }
+  if(!S.editing && E_MODO==='matriz' && !body.titulo && body.matriz && body.matriz.tema) body.titulo = body.matriz.tema.slice(0,120); // o tema vira o nome do card
   $('#eSave').disabled = true; $('#eMsg').textContent = criarCu ? 'criando a task no ClickUp…' : '';
   try{
     let r;
