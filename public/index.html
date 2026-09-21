@@ -690,6 +690,15 @@
     padding:4px 10px; cursor:pointer; background:#000; color:#fff}
   #alertaBar .ab-ver:hover{background:#fff; color:#000}
   #alertaBar .ab-x{padding:4px 8px; background:transparent; border-color:rgba(255,255,255,.5)}
+  .cuwrap{border:2px solid var(--hair); border-radius:8px; padding:10px 12px; background:var(--surface-2)}
+  .cuwrap:has(#eCu:checked){border-color:var(--sb); box-shadow:3px 3px 0 var(--sb)}
+  .f .cuwrap label.cuchk{display:flex; align-items:flex-start; gap:10px; cursor:pointer; text-transform:none; letter-spacing:0; font-size:13px; color:var(--ink); margin:0; font-weight:600}
+  .f .cuwrap .cuchk input{width:16px; height:16px; margin:1px 0 0; accent-color:var(--sb); flex:none; padding:0}
+  .cuchk > span{flex:1; min-width:0}
+  .cuchk b{font-size:13px; letter-spacing:0}
+  .cuchk small{display:block; font-size:11px; color:var(--ink-3); font-weight:500; margin-top:2px; text-transform:none; letter-spacing:0}
+  #eCuCampos{margin-top:10px; display:flex; flex-direction:column; gap:10px}
+  .cuinfo{font-size:12.5px; font-weight:700; color:var(--ink-2); border:1.5px solid var(--hair); border-radius:6px; padding:10px 12px; background:var(--surface)}
   .wpp-tit{font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--sb); margin-bottom:6px}
   .wpp-grid{display:grid; grid-template-columns:1fr 1fr; gap:9px}
   .wpp-grid label{display:block; font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3); margin-bottom:3px}
@@ -971,6 +980,17 @@
         <div id="eCollab" style="display:flex; gap:6px; flex-wrap:wrap"></div>
       </div>
       <div><label>Observação</label><textarea id="eObs"></textarea></div>
+      <div id="eCuWrap" class="cuwrap">
+        <label class="cuchk"><input type="checkbox" id="eCu"><span><b>Criar a task no ClickUp junto</b><small id="eCuSub">lista House Quatro5 · a conta vira o Empresa Tag, o formato vira o Formato SKILL</small></span></label>
+        <div id="eCuCampos" hidden>
+          <div class="f2">
+            <div><label>Responsável</label><select id="eResp"><option value="">sem responsável</option></select></div>
+            <div><label>Entrega no ClickUp</label><div class="cuinfo" id="eDueInfo">2 dias úteis antes do post</div></div>
+          </div>
+          <div><label>Briefing (descrição da task)</label><textarea id="eBrief" rows="5" placeholder="o que é o post, gancho, referências, o que não pode faltar… (vira a descrição da task)"></textarea></div>
+          <p class="note" id="eCuNota">Nome da task: <b id="eCuNome">…</b>. Nada é obrigatório; a task nasce em <b>PENDENTE</b>.</p>
+        </div>
+      </div>
     </div>
   </div>
   <div class="mfoot">
@@ -1165,7 +1185,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.58'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.59'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1358,9 +1378,10 @@ function fmtIconSvg(f){
   return m[f] ? icon(m[f]) : '';
 }
 function esc(t){ return String(t??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function toast(msg, err){
-  const d=document.createElement('div'); d.className='toast'+(err?' err':''); d.textContent=msg;
-  $('#toasts').appendChild(d); setTimeout(()=>d.remove(), 3600);
+function toast(msg, err, ms){
+  const d=document.createElement('div'); d.className='toast'+(err?' err':'');
+  if(msg instanceof HTMLElement) d.appendChild(msg); else d.textContent=msg;
+  $('#toasts').appendChild(d); setTimeout(()=>d.remove(), ms||3600);
 }
 // GM automático por cadência (a cada N dias a partir da âncora) — só SeuBoné.
 // gm do slot: 'sim' força ligado, 'nao' força desligado, '' segue a cadência.
@@ -3028,9 +3049,44 @@ function openEdit(id, dateStr, pre){
   $('#eGm').checked = s? isGm(s) : false;
   syncGmVisibility();
   $('#eDelete').style.display = s? '' : 'none';
+  // criar no ClickUp: só pra post novo, sem link de task colado, e com token
+  $('#eCuWrap').style.display = (!s && S.hasToken) ? '' : 'none';
+  $('#eCu').checked = false; $('#eCuCampos').hidden = true; $('#eBrief').value=''; $('#eResp').value='';
+  if(!s && S.hasToken) carregarOpcoesCu();
+  atualizaCuNome();
   $('#eMsg').textContent = pre? 'Criando post a partir de uma referência' : (s && s.tituloCache ? 'Task vinculada: '+s.tituloCache : '');
   $('#ovEdit').classList.add('open');
 }
+// ---- criar a task no ClickUp a partir do "Novo post" ----
+let CU_OPCOES = null;
+async function carregarOpcoesCu(fresh){
+  const sel = $('#eResp');
+  try{
+    CU_OPCOES = await api('/api/clickup/opcoes'+(fresh?'?fresh=1':''));
+    const atual = sel.value;
+    sel.innerHTML = '<option value="">sem responsável</option>' + CU_OPCOES.membros.map(m=>'<option value="'+m.id+'">'+esc(m.nome)+'</option>').join('');
+    sel.value = atual;
+    const perfil = PERFIL.get();  // se o seu username bate com alguém da lista, já sugere você
+    if(!sel.value && perfil && perfil.nome){ const eu = CU_OPCOES.membros.find(m=>m.nome.toLowerCase().startsWith(perfil.nome.toLowerCase())); if(eu) sel.value = String(eu.id); }
+    $('#eCuSub').textContent = 'lista House Quatro5 · '+CU_OPCOES.membros.length+' pessoas · a conta vira o Empresa Tag, o formato vira o Formato SKILL';
+  }catch(e){ $('#eCuSub').textContent = 'não consegui ler a lista do ClickUp: '+e.message; }
+}
+function atualizaCuNome(){
+  const el = $('#eCuNome'); if(!el) return;
+  const conta = $('#eConta').value, fmt = $('#eFormato').value, tit = $('#eTitulo').value.trim();
+  el.textContent = [fmt?'['+fmt.toUpperCase()+']':null, conta?nomeConta(conta):null, tit||null].filter(Boolean).join(' - ') || 'Novo post (sem nome)';
+  const d = $('#eDate').value;
+  $('#eDueInfo').textContent = d ? brData(entregaPara(d))+' (2 dias úteis antes do post)' : 'sem data (post vai pro banco)';
+}
+/** Mesma regra do servidor: entrega = 2 dias úteis antes do dia do post. */
+function entregaPara(dateStr){
+  const [y,m,d]=dateStr.split('-').map(Number); let dt=new Date(Date.UTC(y,m-1,d,12)); let faltam=2;
+  while(faltam>0){ dt=new Date(dt.getTime()-86400000); const dow=dt.getUTCDay(); if(dow!==0&&dow!==6) faltam--; }
+  return dt.toISOString().slice(0,10);
+}
+$('#eCu').addEventListener('change', ()=>{ $('#eCuCampos').hidden = !$('#eCu').checked; $('#eSave').textContent = $('#eCu').checked ? 'Criar no ClickUp e salvar' : 'Salvar'; if($('#eCu').checked){ atualizaCuNome(); setTimeout(()=>$('#eBrief').focus(),50); } });
+['#eConta','#eFormato','#eTitulo','#eDate'].forEach(k=>{ const el=document.querySelector(k); el.addEventListener('input', atualizaCuNome); el.addEventListener('change', atualizaCuNome); });
+
 $('#eSave').onclick = async ()=>{
   if(!$('#eConta').value){
     $('#eMsg').textContent = 'Escolha a conta antes de salvar.';
@@ -3043,13 +3099,26 @@ $('#eSave').onclick = async ()=>{
     gm: gmOverride({conta:$('#eConta').value, date:$('#eDate').value||null}, $('#eConta').value==='seubone' && $('#eGm').checked),
     collab: [...eCollabSel],
   };
+  const criarCu = !S.editing && $('#eCu').checked && $('#eCuWrap').style.display !== 'none';
+  if(criarCu && body.taskUrl){ $('#eMsg').textContent = 'Você colou um link de task E marcou criar no ClickUp. Escolha um dos dois.'; return; }
+  $('#eSave').disabled = true; $('#eMsg').textContent = criarCu ? 'criando a task no ClickUp…' : '';
   try{
-    const r = S.editing
-      ? await api('/api/slots/'+S.editing, {method:'PATCH', body:JSON.stringify(body)})
-      : await api('/api/slots', {method:'POST', body:JSON.stringify(body)});
-    closeOv('ovEdit'); await loadState();
-    toast('Salvo'+(r.entrega? ' · entrega no ClickUp: '+r.entrega.split('-').reverse().slice(0,2).join('/') : ''));
+    let r;
+    if(criarCu){
+      r = await api('/api/clickup/criar', {method:'POST', body:JSON.stringify(Object.assign({}, body, { briefing: $('#eBrief').value.trim(), responsavel: $('#eResp').value || null }))});
+      closeOv('ovEdit'); await loadState();
+      const el = document.createElement('div');
+      el.innerHTML = 'Task criada no ClickUp: <b>'+esc(r.nome)+'</b>'+(r.responsavel?' · '+esc(r.responsavel):'')+(r.entrega?' · entrega '+brData(r.entrega):'')+' <a href="'+esc(r.url)+'" target="_blank" rel="noopener" style="color:inherit; font-weight:800; text-decoration:underline">abrir no ClickUp ↗</a>';
+      toast(el, false, 9000);
+    } else {
+      r = S.editing
+        ? await api('/api/slots/'+S.editing, {method:'PATCH', body:JSON.stringify(body)})
+        : await api('/api/slots', {method:'POST', body:JSON.stringify(body)});
+      closeOv('ovEdit'); await loadState();
+      toast('Salvo'+(r.entrega? ' · entrega no ClickUp: '+r.entrega.split('-').reverse().slice(0,2).join('/') : ''));
+    }
   }catch(e){ $('#eMsg').textContent = 'Erro: '+e.message; }
+  finally{ $('#eSave').disabled = false; }
 };
 $('#eDelete').onclick = async ()=>{
   if(!S.editing) return;

@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.58'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.59'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -252,6 +252,74 @@ async function cuWrite(pathname, method, body) {
     }
     return await res.json().catch(() => ({}));
   } finally { clearTimeout(to); }
+}
+
+// ---------------- criar task no ClickUp a partir do painel ----------------
+// Lista onde os posts vivem no ClickUp (House Quatro5). Pode ser trocada por CU_LISTA no ambiente.
+const CU_LISTA = process.env.CU_LISTA || config.listaClickUp || '901321051391';
+const CU_STATUS_NOVA = process.env.CU_STATUS_NOVA || 'pendente'; // status em que a task nasce
+function semAcento(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+let cuOpcoesCache = { t: 0, dados: null };
+/** Membros da lista + campos "Empresa Tag" e "Formato SKILL" (com as opções), pro formulário do painel.
+    Lido do ClickUp e guardado 10 min: se alguém criar uma empresa nova lá, aparece aqui sozinha. */
+async function cuOpcoes(fresh) {
+  if (!fresh && cuOpcoesCache.dados && Date.now() - cuOpcoesCache.t < 10 * 60e3) return cuOpcoesCache.dados;
+  if (!config.token) throw Object.assign(new Error('sem token'), { code: 'NO_TOKEN' });
+  const [mem, fld, lst] = await Promise.all([
+    cuWrite(`/list/${CU_LISTA}/member`, 'GET'),
+    cuWrite(`/list/${CU_LISTA}/field`, 'GET'),
+    cuWrite(`/list/${CU_LISTA}`, 'GET').catch(() => ({})),
+  ]);
+  // nome EXATO do status inicial na lista (lá ele é "pendente " com espaço no fim; mandar diferente dá erro)
+  const stNova = ((lst && lst.statuses) || []).find(x => semAcento(x.status) === semAcento(CU_STATUS_NOVA));
+  const campo = nome => (fld.fields || []).find(f => semAcento(f.name) === semAcento(nome)) || null;
+  const opcoes = f => f ? ((f.type_config && f.type_config.options) || []).map(o => ({ id: o.id, nome: String(o.label || o.name || '').trim() })).filter(o => o.nome) : [];
+  const fe = campo('Empresa Tag'), ff = campo('Formato SKILL');
+  const dados = {
+    lista: CU_LISTA, nomeLista: (lst && lst.name) || '', statusNova: stNova ? stNova.status : null,
+    membros: (mem.members || []).map(m => ({ id: m.id, nome: m.username || m.email || String(m.id), email: m.email || '', cor: m.color || '' })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
+    empresa: fe ? { id: fe.id, opcoes: opcoes(fe) } : null,
+    formato: ff ? { id: ff.id, opcoes: opcoes(ff) } : null,
+  };
+  cuOpcoesCache = { t: Date.now(), dados };
+  return dados;
+}
+/** Opção do "Empresa Tag" que corresponde a uma conta do painel (pelo nome, sem acento/espaço). */
+function opcaoEmpresa(op, conta) {
+  if (!op) return null;
+  const nome = semAcento((db.contas[conta] && db.contas[conta].nome) || conta);
+  return op.opcoes.find(o => semAcento(o.nome) === nome) || op.opcoes.find(o => semAcento(o.nome).replace(/\s/g, '') === nome.replace(/\s/g, '')) || null;
+}
+/** Opção do "Formato SKILL" pro formato do painel (reels -> Vídeo, story -> Stories, etc.). */
+function opcaoFormato(op, formato) {
+  if (!op || !formato) return null;
+  const alvo = { reels: 'video', video: 'video', carrossel: 'carrossel', 'estatico': 'estatico', story: 'stories', stories: 'stories', capa: 'capa de reels' }[semAcento(formato)] || semAcento(formato);
+  return op.opcoes.find(o => semAcento(o.nome) === alvo) || null;
+}
+/** Cria a task na lista do ClickUp com os mesmos campos que o time usa lá. Nada é obrigatório. */
+async function criarTaskClickUp(b) {
+  const op = await cuOpcoes(false);
+  const contaNome = (db.contas[b.conta] && db.contas[b.conta].nome) || b.conta || '';
+  const fmt = String(b.formato || '').trim();
+  const titulo = String(b.titulo || '').trim();
+  // nome no padrão da lista: "[FORMATO] - Empresa - Título"
+  const name = [fmt ? '[' + fmt.toUpperCase() + ']' : null, contaNome || null, titulo || null].filter(Boolean).join(' - ') || 'Novo post (sem nome)';
+  const custom_fields = [];
+  const oe = opcaoEmpresa(op.empresa, b.conta); if (oe) custom_fields.push({ id: op.empresa.id, value: [oe.id] });
+  const of = opcaoFormato(op.formato, fmt); if (of) custom_fields.push({ id: op.formato.id, value: [of.id] });
+  const body = { name, markdown_description: String(b.briefing || '').trim() || undefined, custom_fields };
+  const resp = b.responsavel ? Number(b.responsavel) : null;
+  if (resp && op.membros.some(m => m.id === resp)) body.assignees = [resp];
+  if (b.date && /^\d{4}-\d{2}-\d{2}$/.test(b.date)) { body.due_date = dueMsFor(b.date); body.due_date_time = false; }
+  if (op.statusNova) body.status = op.statusNova;
+  let task;
+  try { task = await cuWrite(`/list/${CU_LISTA}/task`, 'POST', body); }
+  catch (e) {
+    // status com nome diferente na lista? cria sem status (fica no padrão da lista) em vez de falhar
+    if (body.status && /status/i.test(e.message)) { delete body.status; task = await cuWrite(`/list/${CU_LISTA}/task`, 'POST', body); }
+    else throw e;
+  }
+  return { task, name, empresaTag: oe ? oe.nome : null, formatoSkill: of ? of.nome : null, responsavel: body.assignees ? op.membros.find(m => m.id === resp).nome : null };
 }
 
 // ---------------- app instalável (PWA) ----------------
@@ -935,6 +1003,36 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---------- criar post (calendário, banco ou criativo) ----------
+    // opções pro formulário "criar task no ClickUp": membros da lista e as etiquetas de empresa/formato
+    if (p === '/api/clickup/opcoes' && req.method === 'GET') {
+      try { return json(res, 200, await cuOpcoes(u.searchParams.get('fresh') === '1')); }
+      catch (e) { return json(res, e.code === 'NO_TOKEN' ? 400 : 502, { erro: e.code === 'NO_TOKEN' ? 'painel sem token do ClickUp' : e.message }); }
+    }
+    // cria a task no ClickUp E o post no painel, de uma vez. Se o ClickUp falhar, nada é criado aqui.
+    if (p === '/api/clickup/criar' && req.method === 'POST') {
+      const b = await readBody(req);
+      if (!b.conta || !db.contas[b.conta]) return json(res, 400, { erro: 'escolha a conta (é ela que vira o Empresa Tag)' });
+      let cu;
+      try { cu = await criarTaskClickUp(b); }
+      catch (e) { return json(res, e.code === 'NO_TOKEN' ? 400 : 502, { erro: e.code === 'NO_TOKEN' ? 'painel sem token do ClickUp' : ('ClickUp não criou a task: ' + e.message) }); }
+      const slot = {
+        id: 's' + crypto.randomBytes(4).toString('hex'),
+        conta: b.conta, date: b.date || null, taskId: cu.task.id,
+        titulo: b.titulo || null, formato: b.formato || '', angulo: b.angulo || '', obs: b.obs || '',
+        notas: '', gm: (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '',
+        collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
+        drive: b.drive || '', linkRef: '', aprovado: false, postado: false, fixo: false,
+        responsavelManual: '', origem: 'painel', cat: '', fonteId: '',
+        tituloCache: cu.task.name || cu.name, statusCache: cu.task.status ? { status: normStatus(cu.task.status.status), color: statusColor(cu.task) } : null,
+        assigneeCache: cu.responsavel || null, dueCache: cu.task.due_date ? Number(cu.task.due_date) : null, atualizadoEm: new Date().toISOString(),
+      };
+      db.avisos[slot.taskId] = slot.statusCache ? slot.statusCache.status : 'novo'; // criada por aqui: sem aviso
+      undoSlots('criar task no ClickUp', [], [slot.id]);
+      db.slots.push(slot); saveDb();
+      cuCache.delete(`/task/${slot.taskId}`);
+      return json(res, 200, { ok: true, slot, taskId: slot.taskId, url: cu.task.url || ('https://app.clickup.com/t/' + slot.taskId), nome: cu.task.name || cu.name, empresaTag: cu.empresaTag, formatoSkill: cu.formatoSkill, responsavel: cu.responsavel, entrega: slot.date ? dueStrFor(slot.date) : null });
+    }
+
     if (p === '/api/slots' && req.method === 'POST') {
       const b = await readBody(req);
       if (!b.conta || !db.contas[b.conta]) return json(res, 400, { erro: 'conta inválida' });
