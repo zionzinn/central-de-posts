@@ -755,6 +755,33 @@
   .f .modos .modo.on{border-color:var(--sb); box-shadow:3px 3px 0 var(--sb); background:var(--surface)}
   .f .modos .modo.on b{color:var(--sb)}
   @media (max-width:640px){ .modos{grid-template-columns:1fr} }
+  /* ---- documento da copy (v3.66): pop-up em tela cheia com o editor, e a lista de documentos ---- */
+  #ovDoc{position:fixed; inset:0; z-index:9500; background:#F9FBFD; animation:docEntra .16s ease-out both}
+  #ovDoc iframe{width:100%; height:100%; border:0; display:block; background:#F9FBFD}
+  @keyframes docEntra{from{opacity:0; transform:scale(.985)} to{opacity:1; transform:none}}
+  body.comdoc{overflow:hidden}
+  .mbtn.mzcopy{background:#FCC100; color:#000; border-color:#000; display:inline-flex; align-items:center; gap:6px}
+  .mbtn.mzcopy svg{width:15px; height:15px}
+  .mzhead{position:relative}
+  .mbtn.mzcopytop{position:absolute; right:52px; top:18px; box-shadow:3px 3px 0 #000}
+  .dcfil{display:flex; gap:10px; align-items:center}
+  .dcfil input#dcBusca{flex:1; border:1.5px solid var(--hair); border-radius:6px; background:var(--surface-2); padding:9px 11px; font-size:13.5px; color:var(--ink)}
+  .dcfil input#dcBusca:focus{outline:none; border-color:var(--sb)}
+  .dcexc{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-3); white-space:nowrap; cursor:pointer}
+  .dclista{display:flex; flex-direction:column; gap:6px; margin-top:8px; max-height:58vh; overflow:auto}
+  .dcl{display:grid; grid-template-columns:auto 1fr auto; gap:3px 12px; align-items:center; padding:10px 12px; border:1.5px solid var(--hair); border-radius:8px; background:var(--surface-2); cursor:pointer; transition:all var(--t)}
+  .dcl:hover{border-color:var(--ink-3); transform:translate(-2px,-2px); box-shadow:3px 3px 0 #000}
+  .dcl .dci{grid-row:1 / span 2; width:34px; height:40px; border-radius:4px; background:#FCC100; display:flex; align-items:center; justify-content:center; color:#000}
+  .dcl .dci svg{width:20px; height:20px}
+  .dcl b{font-size:14px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .dcl small{font-size:11.5px; color:var(--ink-3); display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .dcl .dcr{grid-row:1 / span 2; grid-column:3; text-align:right; font-size:11.5px; color:var(--ink-3); line-height:1.5}
+  .dcl .dcr .mbtn{padding:5px 10px; font-size:11.5px}
+  .dcl .tg{font-size:9.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:1px 6px; border-radius:4px; border:1px solid var(--hair); color:var(--ink-2)}
+  .dcl .tg.ok{border-color:var(--ok); color:var(--ok)}
+  .dcvazio{padding:30px 10px; text-align:center; color:var(--ink-3); font-size:13px}
+  .mk.t-doc{color:var(--ink-2); cursor:pointer}
+  .mk.t-doc:hover{color:var(--sb)}
   /* ---- Novo post v3.65: passo 1 = escolha grande; passo 2 = só os campos do caminho ---- */
   #ovEdit .emodal{width:min(600px,100%)}
   .etopo{display:flex; align-items:center; gap:10px; min-width:0}
@@ -1024,6 +1051,7 @@
     <div class="legend" id="legend"></div>
     <div class="spacer"></div>
     <button class="act" id="btnDrawer" data-tip="sem data, criativos, reutilizáveis e referências"></button>
+    <button class="act" id="btnDocs" data-tip="todos os documentos de copy escritos no painel"></button>
     <button class="act" id="btnRelatorio" data-tip="relatório da semana pra copiar: precisa sair (por dia até domingo), esperando a Maria e prontos"></button>
     <div class="maiswrap" id="maiswrap">
       <button class="act act-mais" id="btnMais" data-tip="mais ações"></button>
@@ -1252,6 +1280,7 @@
     <div class="mtit"><span id="mzTit">Case</span><span class="mzobjpill" id="mzObj"></span></div>
     <div class="mzsub" id="mzSub"></div>
     <div class="mzgm" id="mzGm" hidden>☆ este dia pede GRANDE MARCA na capa</div>
+    <button class="mbtn mzcopy mzcopytop" id="mzCopyTop" data-tip="salva a matriz e abre o documento da copy deste post (editor estilo Docs)"></button>
   </div>
   <div class="mbody">
     <div class="f">
@@ -1283,9 +1312,24 @@
   </div>
   <div class="mfoot">
     <button class="mbtn primary" id="mzSalvar">Salvar</button>
+    <button class="mbtn mzcopy" id="mzCopy" data-tip="salva a matriz e abre o documento da copy deste post (editor estilo Docs)"></button>
     <button class="mbtn" id="mzEditar" data-tip="abre o editor de post: mudar a data, colar o link da task do ClickUp (aí vira card normal)">Editar post / colar task</button>
     <button class="mbtn critbtn" id="mzExcluir">Excluir card</button>
     <span class="note" id="mzMsg"></span>
+  </div>
+</div></div>
+<!-- COPY: o editor estilo Docs (public/doc.html) abre aqui dentro, em tela cheia. Só carrega quando alguém abre. -->
+<div id="ovDoc" hidden><iframe id="docFrame" title="documento da copy"></iframe></div>
+<div class="ov" id="ovDocs"><div class="modal" style="position:relative; width:min(900px,100%)">
+  <button class="mclose" data-close="ovDocs">✕</button>
+  <div class="mhead"><div class="mtit">Documentos</div><div class="ectx">as copys escritas no painel, da mais recente pra mais antiga</div></div>
+  <div class="mbody">
+    <div class="dcfil">
+      <input id="dcBusca" placeholder="procurar pelo nome, conta ou post" autocomplete="off">
+      <label class="dcexc"><input type="checkbox" id="dcExc"> ver excluídos</label>
+    </div>
+    <div class="echips" id="dcContas" style="margin:10px 0 4px"></div>
+    <div class="dclista" id="dcLista"></div>
   </div>
 </div></div>
 <div class="ov" id="ovRelatorio"><div class="modal" style="max-width:580px; position:relative">
@@ -1392,7 +1436,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.65'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.66'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1412,6 +1456,7 @@ const ICONS = {
   pencil:'<path d="M4 20l1-4L16.5 4.5a2.12 2.12 0 0 1 3 3L8 19l-4 1z"/>',
   msg:'<path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4V6z"/>',
   box:'<path d="M4 8l8-4.5L20 8v8l-8 4.5L4 16V8z"/><path d="M4 8l8 4.5L20 8M12 12.5V21"/>',
+  doc:'<path d="M6.5 3.5h8l4 4v12a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z"/><path d="M14.5 3.5v4h4M8.5 12h7M8.5 15.5h7M8.5 8.5h3"/>',
   sparkle:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/><path d="M19 16l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z"/>',
   bookmark:'<path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4-6 4V4.5a1 1 0 0 1 1-1z"/>',
   target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>',
@@ -1991,7 +2036,7 @@ function renderLegend(){
     const gm = document.createElement('span');
     gm.className='chip gmchip';
     const gcAtivo = S.gmCadencia && S.gmCadencia.ativo;
-    gm.innerHTML = icon('star') + ' GM = grande marca na capa' + (gcAtivo? ' · automático' : '');
+    gm.innerHTML = icon('star') + (gcAtivo ? ' GM automático' : ' GM = grande marca');
     gm.title = gcAtivo
       ? ('GM automático: a cada '+(S.gmCadencia.periodo||3)+' dias a partir da ÚLTIMA grande marca que você marcou. Marque um post como GM e as próximas se recalculam sozinhas. Configura na engrenagem.')
       : 'Rotina: 2 dias sem GM, 1 dia com GM. Pra marcar sozinho, ligue o GM automático na engrenagem.';
@@ -2028,7 +2073,8 @@ function cardEl(s){
       [s.conta].concat(clb).map(c=>'<span class="cdot" style="background:'+contaCor(c)+'"></span>').join('')+'</span>':'')+
     (div?'<span class="mk t-due" title="entrega ajustada manualmente no ClickUp: '+brData(div.real)+' (padrão seria '+brData(div.esperado)+'). Vale a do ClickUp.">'+icon('clock')+'</span>':'')+
     (cdiv?'<span class="tagic t-cdiv" title="o nome da task no ClickUp diz '+esc(nomeConta(cdiv.sugerida))+', mas este post está em '+esc(nomeConta(s.conta))+'. Clique pra mover pra '+esc(nomeConta(cdiv.sugerida))+' (Ctrl+Z desfaz).">'+icon('alerta')+'</span>':'')+
-    (!mz && s.matrizSB?'<span class="mk t-mz" title="este post veio da matriz: clique pra ver tema, tese, gancho...">M</span>':'');
+    (!mz && s.matrizSB?'<span class="mk t-mz" title="este post veio da matriz: clique pra ver tema, tese, gancho...">M</span>':'')+
+    (s.docId?'<span class="mk t-doc" title="tem documento de copy: clique pra abrir">'+icon('doc')+'</span>':'');
   const parecer = (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'alt')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Alteração pedida')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:'')+(s.parecer.veredito!=='aprovado'?(s.parecer.clickup?' · foi pra ALTERAR no ClickUp':''):''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'pencil')+(s.parecer.veredito==='aprovado'?'APROVADO':'ALTERAR')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '');
   // selo da conta: nome por extenso na cor da marca. Só em aba com mais de uma conta.
   const contatag = multi?'<div class="contatag" style="background:'+cor+'; color:'+corTexto(cor)+'">'+esc(contaCurta(s.conta))+'</div>':'';
@@ -2090,6 +2136,8 @@ function cardEl(s){
     if(mz){ openMatriz(s.id); return; }
     openTask(s.id);
   });
+  const tdoc = d.querySelector('.t-doc');
+  if(tdoc) tdoc.onclick = ev=>{ ev.stopPropagation(); abrirCopy(s.id); };
   const tmz = d.querySelector('.t-mz');
   if(tmz) tmz.onclick = ev=>{ ev.stopPropagation(); openMatriz(s.id); };
   const cd = d.querySelector('.t-cdiv');
@@ -2795,6 +2843,7 @@ function pintaMute(){
 const POLL_MS = 20_000;
 function podeAtualizarSozinho(){
   if(document.hidden) return false;
+  if(!document.getElementById('ovDoc').hidden) return false;   // documento aberto: nada de redesenhar por trás
   if(S.dragging || S.clip) return false;
   if(document.querySelector('.ov.open')) return false;      // qualquer modal aberto
   if(document.getElementById('vagapop')) return false;       // menu de sinalizar aberto
@@ -3023,6 +3072,7 @@ function tRowDraw(s){
     };
   }
 
+  mk(icon('doc')+(s.docId?'Copy':'Escrever a copy'), '', s.docId ? 'abrir o documento da copy deste post' : 'criar o documento da copy deste post (editor estilo Docs)').onclick = ()=>{ closeOv('ovTask'); abrirCopy(s.id); };
   mk(icon('pencil'), 'iconb', 'editar post (conta, data, links, collab)').onclick = ()=>{ closeOv('ovTask'); openEdit(s.id); };
 }
 
@@ -3580,6 +3630,83 @@ $('#eSave').onclick = async ()=>{
   finally{ $('#eSave').disabled = false; }
 };
 
+// ================= COPY: documento estilo editor de texto (v3.66) =================
+// O editor mora em public/doc.html (arquivo separado, carregado só quando abre). Aqui só: criar o
+// documento do post, abrir num pop-up em tela cheia, a lista de todos e o link direto (#doc=ID).
+async function abrirCopy(slotId){
+  const s = S.slots.find(x=>x.id===slotId); if(!s) return;
+  let id = s.docId;
+  if(!id){
+    try{ const r = await api('/api/docs', {method:'POST', body:JSON.stringify({ slotId, por:(PERFIL.get()||{}).nome||'' })}); id = r.id; s.docId = id; }
+    catch(e){ toast(e.message, true); return; }
+  }
+  abrirDoc(id);
+}
+function abrirDoc(id){
+  closeOv('ovDocs');
+  $('#docFrame').src = '/doc.html?id='+encodeURIComponent(id);
+  $('#ovDoc').hidden = false; document.body.classList.add('comdoc');
+  try{ history.replaceState(null, '', location.pathname+location.search+'#doc='+id); }catch(e){}
+}
+function fecharDoc(){
+  $('#ovDoc').hidden = true; document.body.classList.remove('comdoc');
+  setTimeout(()=>{ $('#docFrame').src = 'about:blank'; }, 50);
+  try{ if(location.hash.startsWith('#doc=')) history.replaceState(null, '', location.pathname+location.search); }catch(e){}
+  // recarrega e redesenha (o modo silencioso não redesenha se só mudou o documento, e a marca do card precisa aparecer)
+  loadState(false, true).then(()=>render()).catch(()=>{});
+}
+window.addEventListener('message', ev=>{
+  if(ev.origin !== location.origin || !ev.data || ev.data.bone !== 'doc') return;
+  if(ev.data.tipo === 'fechar') fecharDoc();
+  if(ev.data.tipo === 'excluido'){ const s = S.slots.find(x=>x.docId===ev.data.docId); if(s) delete s.docId; }
+});
+let DOCS_LISTA = [], DOCS_CONTA = '';
+async function abrirListaDocs(){
+  $('#ovDocs').classList.add('open');
+  $('#dcLista').innerHTML = '<div class="dcvazio">carregando…</div>';
+  try{ DOCS_LISTA = (await api('/api/docs'+($('#dcExc').checked?'?excluidos=1':''))).docs; }
+  catch(e){ $('#dcLista').innerHTML = '<div class="dcvazio">Não consegui carregar: '+esc(e.message)+'</div>'; return; }
+  desenhaListaDocs();
+  setTimeout(()=>$('#dcBusca').focus(), 50);
+}
+function desenhaListaDocs(){
+  const contas = [...new Set(DOCS_LISTA.map(d=>d.conta).filter(Boolean))];
+  $('#dcContas').innerHTML = '';
+  [['', 'todas']].concat(contas.map(c=>[c, nomeConta(c)])).forEach(([k, r])=>{
+    const b = document.createElement('button'); b.type='button'; b.className='echip'+(DOCS_CONTA===k?' on':'');
+    b.innerHTML = (k?'<span class="dot" style="background:'+contaCor(k)+'"></span>':'')+esc(r)+' <span style="opacity:.6">'+DOCS_LISTA.filter(d=>!k||d.conta===k).length+'</span>';
+    b.onclick = ()=>{ DOCS_CONTA = k; desenhaListaDocs(); };
+    $('#dcContas').appendChild(b);
+  });
+  const q = $('#dcBusca').value.trim().toLowerCase();
+  const l = DOCS_LISTA.filter(d=>(!DOCS_CONTA || d.conta===DOCS_CONTA) && (!q || (d.titulo+' '+d.contaNome+' '+d.post).toLowerCase().includes(q)));
+  const quando = iso => { if(!iso) return ''; const d = new Date(iso); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+  $('#dcLista').innerHTML = l.length ? '' : '<div class="dcvazio">'+(DOCS_LISTA.length ? 'Nada com esse filtro.' : ($('#dcExc').checked ? 'Nenhum documento excluído.' : 'Nenhum documento ainda. Abra um card da matriz ou um post e clique em "Escrever a copy".'))+'</div>';
+  l.forEach(d=>{
+    const row = document.createElement('div'); row.className = 'dcl';
+    row.innerHTML = '<span class="dci">'+icon('doc')+'</span><b>'+esc(d.titulo)+'</b>'+
+      '<small><span class="cdot" style="background:'+contaCor(d.conta)+'"></span>'+esc(d.contaNome||'')+(d.date?' · post de '+brData(d.date).slice(0,5):' · sem dia')+' · '+d.palavras+' palavra'+(d.palavras===1?'':'s')+
+        (d.temMatriz?' <span class="tg">matriz</span>':'')+(d.taskId?' <span class="tg ok">tem task</span>':'')+(!d.postExiste?' <span class="tg">post excluído</span>':'')+'</small>'+
+      '<span class="dcr">'+(d.excluido?'<button class="mbtn">Restaurar</button>':esc(quando(d.atualizadoEm))+(d.por?'<br>'+esc(d.por):''))+'</span>';
+    if(d.excluido) row.querySelector('.mbtn').onclick = async ev=>{ ev.stopPropagation(); try{ await api('/api/docs/'+d.id+'/restaurar', {method:'POST'}); toast('Documento restaurado'); await loadState(false, true); abrirListaDocs(); }catch(e){ toast(e.message, true); } };
+    row.onclick = ()=> abrirDoc(d.id);
+    $('#dcLista').appendChild(row);
+  });
+}
+$('#dcBusca').addEventListener('input', desenhaListaDocs);
+$('#dcExc').addEventListener('change', abrirListaDocs);
+$('#btnDocs').onclick = abrirListaDocs;
+$('#mzCopy').onclick = $('#mzCopyTop').onclick = async ()=>{
+  const id = MZ_ATUAL; if(!id) return;
+  await salvarMatriz();
+  if($('#ovMz').classList.contains('open')) return;   // não salvou (erro na tela): fica na matriz
+  abrirCopy(id);
+};
+// link direto pro documento: painel/#doc=ID
+function docDoLink(){ const id = location.hash.startsWith('#doc=') ? location.hash.slice(5) : ''; if(/^d[0-9a-f]{6,}$/.test(id) && $('#ovDoc').hidden) abrirDoc(id); }
+setTimeout(docDoLink, 300);
+window.addEventListener('hashchange', docDoLink);
+
 // ================= MATRIZ DA SEUBONÉ: o card amarelo =================
 // Todo dia vazio da SeuBoné nasce (no servidor) com um card da matriz: o tipo do dia vem da rotação
 // A/B, e a copywriter preenche formato, ângulo, pauta, tema, tese, gancho, descrição, refs.
@@ -3661,6 +3788,7 @@ function openMatriz(id){
   $('#mzExcluir').hidden = !isMatriz(s);                 // card que já virou post normal se apaga pelo editor
   $('#mzMsg').textContent = s.taskId ? 'Este post já tem task no ClickUp. Aqui fica o planejamento da matriz.' : '';
   mzDesenhaTipo(s, tipo);
+  $('#mzCopy').innerHTML = $('#mzCopyTop').innerHTML = icon('doc') + (s.docId ? 'Abrir a copy' : 'Escrever a copy');
   // dia de tipo fixo: link discreto pra trocar o tipo mesmo assim
   if(s.date && mzTipoDoDia(s.date).tipo && !$('#mzTrocar')){
     const a = document.createElement('button'); a.type='button'; a.id='mzTrocar'; a.className='mbtn'; a.style.cssText='padding:3px 9px; font-size:11px';
@@ -4852,6 +4980,7 @@ function initIcons(){
   $('#btnPauta').onclick = ()=> linkPauta(S.aba);
   $('#btnPautaTodas').onclick = ()=> linkPauta(null);
   $('#btnDrawer').innerHTML = icon('box') + 'Bancos <span class="n" id="drawerN">0</span>';
+  $('#btnDocs').innerHTML = icon('doc') + 'Docs';
   $('#btnMais').innerHTML = icon('dots') + 'mais';
   $('#btnAjuda').innerHTML = icon('help');
   $('#btnConfig').innerHTML = icon('gear');

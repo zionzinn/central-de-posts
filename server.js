@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.65'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.66'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -918,9 +918,10 @@ function json(res, code, obj) {
 }
 function readBody(req) {
   return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', c => { data += c; if (data.length > 2e6) reject(new Error('body grande demais')); });
-    req.on('end', () => { try { resolve(data ? JSON.parse(data) : {}); } catch (e) { reject(e); } });
+    // junta os pedaços como Buffer e só decodifica no fim: acento cortado no meio de dois pedaços não corrompe o texto
+    const partes = []; let tam = 0;
+    req.on('data', c => { partes.push(c); tam += c.length; if (tam > 2e6) reject(new Error('body grande demais')); });
+    req.on('end', () => { try { const data = Buffer.concat(partes).toString('utf8'); resolve(data ? JSON.parse(data) : {}); } catch (e) { reject(e); } });
     req.on('error', reject);
   });
 }
@@ -953,6 +954,9 @@ function sseEnvia(res, evt, obj) { try { res.write('event: ' + evt + '\ndata: ' 
 function aovivoBroadcast(evt, obj, exceto) { for (const [id, r] of aovivoSSE) { if (id === exceto) continue; sseEnvia(r, evt, obj); } }
 setInterval(() => { const t = Date.now(); for (const [id, p] of aovivo) { if (t - p.visto > 40000 && !aovivoSSE.has(id)) { aovivo.delete(id); aovivoBroadcast('saiu', { id }); } } }, 20000);
 
+// Documentos (a copy do post, editor estilo Docs em public/doc.html). Rotas em lib/docs.js.
+const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, cuFetch, cuWrite, cuCache, pushUndo, MZ });
+
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
   const p = u.pathname;
@@ -977,6 +981,9 @@ const server = http.createServer(async (req, res) => {
     if (config.senha && p.startsWith('/api/') && !rotaPublica) {
       if (!validAuthToken(parseCookies(req.headers.cookie).sb_auth)) return json(res, 401, { erro: 'login', precisaLogin: true });
     }
+
+    // ---------- documentos (copy) ----------
+    if (p.startsWith('/api/docs') && await rotaDocs(req, res, p, u)) return;
 
     // ---------- pauta do mês: página só-leitura pra compartilhar por link (sem login, com token) ----------
     if (p === '/api/pauta' && req.method === 'GET') {

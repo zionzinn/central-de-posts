@@ -112,6 +112,8 @@ Disparado por: pedido de alteração (painel ou pauta, prefixo `ALTERAÇÃO SOLI
 
 Disparado por: edição do briefing dentro do card (aba Descrição). Ctrl+Z devolve o texto anterior.
 
+Também disparado (desde a v3.66) pelo botão "Mandar pro ClickUp" do documento da copy: o painel LÊ a descrição atual (`GET /task/{id}`, sem cache), tira a seção `## COPY (escrita no B.O.N.E)` que ele mesmo mandou antes (se houver) e grava a descrição de novo com a copy em markdown no fim, depois de uma linha `---`. O briefing que já estava lá não muda. Na API nova isso pede um campo de descrição em markdown (ou um campo próprio de "copy" no post, que seria até melhor: aí não precisa costurar texto).
+
 ### 4.4 Criar task: `POST /list/{list_id}/task`
 
 Corpo enviado:

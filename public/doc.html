@@ -1,0 +1,1895 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documento · B.O.N.E</title>
+<!-- Editor da COPY do B.O.N.E, com a cara de um editor de texto de escritório (folha branca, menus e atalhos
+     no mesmo lugar do Google Docs). Página isolada: o painel abre ela num pop-up (iframe) só quando alguém
+     clica em "Escrever a copy", então não pesa no calendário. Zero dependência: contenteditable + JS puro. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Montserrat:wght@400;700&family=Poppins:wght@400;600&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@400;700&family=Inter:wght@400;600&display=swap">
+<style>
+  :root{
+    --bg:#F9FBFD; --tb:#EDF2FA; --ink:#1F1F1F; --ink2:#444746; --ink3:#5F6368; --line:#C4C7C5; --line2:#E1E3E1;
+    --hover:rgba(68,71,70,.08); --press:rgba(68,71,70,.14); --on:#D3E3FD; --blue:#0B57D0; --share:#C2E7FF; --share-h:#B3DDF7;
+    --yel:#FCC100; --red:#B3261E; --ok:#146C2E;
+    --ui:'Roboto', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+    --page-w:794px; --page-pad:96px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%; margin:0}
+  body{background:var(--bg); color:var(--ink); font-family:var(--ui); font-size:14px; overflow:hidden; display:flex; flex-direction:column}
+  button{font-family:inherit; color:inherit}
+  [hidden]{display:none !important}
+  .ic{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:none}
+  .icf{fill:currentColor; stroke:none}
+
+  /* ---------- topo: ícone, título, menus, ações ---------- */
+  .gd-top{display:flex; align-items:center; gap:10px; padding:8px 14px 0 12px; min-height:64px}
+  .gd-logo{width:40px; height:40px; flex:none; display:flex; align-items:center; justify-content:center; border-radius:50%}
+  .gd-logo svg{width:30px; height:38px}
+  .gd-tbox{flex:1; min-width:0}
+  .gd-row1{display:flex; align-items:center; gap:6px; min-width:0}
+  .gd-title{font:400 18px var(--ui); color:var(--ink); border:1px solid transparent; border-radius:4px; padding:2px 7px; min-width:60px; max-width:100%; background:transparent; outline:none; text-overflow:ellipsis}
+  .gd-title:hover{border-color:var(--line)} .gd-title:focus{border-color:var(--blue); border-width:2px; padding:1px 6px}
+  .gd-titlew{position:relative; display:inline-block}
+  .gd-titlew .medida{position:absolute; visibility:hidden; white-space:pre; font:400 18px var(--ui); padding:0 8px}
+  .gd-status{flex:none; display:inline-flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink3); white-space:nowrap; padding:4px 6px; border-radius:6px}
+  .gd-status .ic{width:18px; height:18px}
+  .gd-status.erro{color:var(--red)}
+  .gd-menubar{display:flex; gap:0; margin-left:-2px; flex-wrap:wrap}
+  .gd-menubar button{background:none; border:0; font-size:14px; padding:3px 8px 4px; border-radius:4px; cursor:pointer; color:var(--ink)}
+  .gd-menubar button:hover,.gd-menubar button.aberto{background:var(--hover)}
+  .gd-right{display:flex; align-items:center; gap:8px; flex:none}
+  .gd-pres{display:flex; gap:0}
+  .gd-av{width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:500; color:#fff; border:2px solid #fff; margin-left:-6px; box-shadow:0 0 0 1px var(--line2)}
+  .gd-btn{display:inline-flex; align-items:center; gap:7px; height:40px; padding:0 16px; border-radius:20px; border:0; background:transparent; font-size:14px; font-weight:500; cursor:pointer; color:var(--ink2); white-space:nowrap}
+  .gd-btn:hover{background:var(--hover)}
+  .gd-btn.cinza{background:var(--tb)} .gd-btn.cinza:hover{background:#E1E8F4}
+  .gd-btn.on{background:var(--on); color:#041E49}
+  .gd-btn.share{background:var(--share); color:#001D35} .gd-btn.share:hover{background:var(--share-h); box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .gd-btn[disabled]{opacity:.45; cursor:not-allowed}
+  .gd-btn .ic{width:19px; height:19px}
+  .gd-x{width:40px; height:40px; border-radius:50%; border:0; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--ink2)}
+  .gd-x:hover{background:var(--hover)}
+
+  /* ---------- barra de ferramentas ---------- */
+  .gd-toolbar{display:flex; align-items:center; gap:1px; margin:6px 10px 0; padding:3px 8px; background:var(--tb); border-radius:24px; min-height:40px; overflow-x:auto; scrollbar-width:none}
+  .gd-toolbar::-webkit-scrollbar{display:none}
+  .tb{height:28px; min-width:28px; border:0; background:transparent; border-radius:4px; display:inline-flex; align-items:center; justify-content:center; gap:3px; padding:0 4px; cursor:pointer; color:var(--ink2); flex:none; font-size:14px}
+  .tb:hover{background:var(--hover)} .tb:active{background:var(--press)}
+  .tb.on{background:var(--on); color:#041E49}
+  .tb .ic{width:19px; height:19px}
+  .tb.dd{padding:0 4px 0 7px; font-size:14px; color:var(--ink)}
+  .tb.dd .seta{width:14px; height:14px; margin-left:1px}
+  .tb.letra{font-weight:700; font-size:15px; width:28px; font-family:Arial, sans-serif}
+  .tb.letra.i{font-style:italic; font-family:Georgia, serif; font-weight:400; font-size:17px}
+  .tb.letra.u{text-decoration:underline; font-weight:400}
+  .tbsep{width:1px; height:20px; background:var(--line); margin:0 5px; flex:none}
+  .tbcor{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; width:28px}
+  .tbcor b{font:700 15px Arial, sans-serif; line-height:15px}
+  .tbcor i{display:block; width:18px; height:4px; border-radius:1px; margin-top:1px; background:#000}
+  .tbtam{display:flex; align-items:center; gap:1px}
+  .tbtam input{width:36px; height:26px; border:1px solid #747775; border-radius:4px; text-align:center; font:14px var(--ui); background:transparent; color:var(--ink); padding:0}
+  .tbtam input:focus{outline:2px solid var(--blue); border-color:transparent}
+  #tbEstilo{width:124px; justify-content:space-between} #tbFonte{width:118px; justify-content:space-between} #tbZoom{width:68px; justify-content:space-between}
+  #tbEstilo span,#tbFonte span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+  /* ---------- área de trabalho: régua + folha + painel lateral ---------- */
+  .gd-work{flex:1; min-height:0; display:flex; margin-top:6px; border-top:1px solid var(--line2)}
+  .gd-col{flex:1; min-width:0; display:flex; flex-direction:column}
+  .gd-ruler{height:22px; flex:none; display:flex; justify-content:center; background:var(--bg); border-bottom:1px solid var(--line2); overflow:hidden}
+  .gd-ruler svg{display:block}
+  .gd-canvas{flex:1; overflow:auto; position:relative}
+  .gd-pagewrap{width:var(--page-w); margin:14px auto 60px}
+  .gd-page{background:#fff; width:var(--page-w); min-height:1123px; padding:var(--page-pad); box-shadow:0 1px 3px 1px rgba(60,64,67,.15), 0 1px 2px rgba(60,64,67,.3);
+    outline:none; font-family:Arial, sans-serif; font-size:11pt; line-height:1.15; color:#000; word-wrap:break-word; overflow-wrap:break-word; caret-color:#000; cursor:text}
+  .gd-page.pincel{cursor:copy}
+  .gd-page.leitura{cursor:default}
+  /* estilos de parágrafo (os mesmos nomes e tamanhos de um editor de escritório) */
+  .gd-page p{margin:0}
+  .gd-page .title{font-size:26pt; margin:0 0 3pt; line-height:1.15}
+  .gd-page .subtitle{font-size:15pt; color:#666; margin:0 0 16pt}
+  .gd-page h1{font-size:20pt; font-weight:400; margin:20pt 0 6pt}
+  .gd-page h2{font-size:16pt; font-weight:400; margin:18pt 0 6pt}
+  .gd-page h3{font-size:14pt; font-weight:400; color:#434343; margin:16pt 0 4pt}
+  .gd-page > :first-child{margin-top:0}
+  .gd-page ul,.gd-page ol{margin:0; padding-left:36px}
+  .gd-page li{padding-left:4px}
+  .gd-page ul.chk{list-style:none; padding-left:36px}
+  .gd-page ul.chk > li{position:relative}
+  .gd-page ul.chk > li::before{content:""; position:absolute; left:-24px; top:.2em; width:13px; height:13px; border:1.5px solid #5F6368; border-radius:2px; cursor:pointer; background:#fff}
+  .gd-page ul.chk > li[data-checked="1"]{text-decoration:line-through; color:#777}
+  .gd-page ul.chk > li[data-checked="1"]::before{background:#0B57D0 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/11px no-repeat; border-color:#0B57D0}
+  .gd-page a{color:#1155CC; text-decoration:underline; cursor:text}
+  .gd-page hr{border:0; border-top:1px solid #9AA0A6; margin:8pt 0}
+  .gd-page blockquote{margin:0 0 0 40px; padding:0; border:0}
+  .gd-page table{border-collapse:collapse; width:100%; margin:4pt 0; table-layout:fixed}
+  .gd-page td,.gd-page th{border:1px solid #000; padding:5pt; vertical-align:top; min-width:30px; word-break:break-word}
+  .gd-page th{font-weight:700; text-align:left}
+  .gd-page img{max-width:100%; height:auto; display:inline-block; vertical-align:bottom}
+  .gd-page img.sel{outline:2px solid var(--blue)}
+  .gd-page img.quebrada{min-width:120px; min-height:60px; outline:1.5px dashed #9AA0A6; background:#F1F3F4}
+  ::highlight(gdBusca){background:#FDE293; color:inherit}
+  ::highlight(gdBuscaAtual){background:#F9AB00; color:#000}
+
+  /* painel lateral: a matriz do card (revisitar o que foi preenchido) */
+  .gd-side{width:360px; flex:none; background:#fff; border-left:1px solid var(--line2); display:flex; flex-direction:column; min-height:0}
+  .gd-sidehead{display:flex; align-items:center; justify-content:space-between; padding:12px 12px 10px 18px; border-bottom:1px solid var(--line2)}
+  .gd-sidehead b{font-size:15px; font-weight:500}
+  .gd-sidebody{overflow:auto; padding:0 0 30px}
+  .sb-band{display:flex; align-items:center; gap:7px; margin:14px 18px 4px; padding:6px 10px; background:var(--yel); color:#000; border-radius:6px; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase}
+  .sb-band i{width:10px; height:10px; border-radius:50%; border:1.5px solid #000; flex:none}
+  .sb-sub{font-size:12.5px; color:var(--ink3); margin:4px 18px 0; line-height:1.4}
+  .sb-sec{font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink3); margin:18px 18px 4px}
+  .sb-row{padding:7px 18px; display:grid; grid-template-columns:1fr auto; gap:2px 8px; border-bottom:1px solid #F1F3F4}
+  .sb-row:hover{background:#F8F9FA}
+  .sb-row .l{font-size:11.5px; color:var(--ink3); grid-column:1}
+  .sb-row .v{font-size:13.5px; color:var(--ink); grid-column:1; white-space:pre-wrap; line-height:1.4; word-break:break-word}
+  .sb-row .v.vazio{color:#9AA0A6; font-style:italic}
+  .sb-row .v a{color:var(--blue)}
+  .sb-row .cp{grid-column:2; grid-row:1 / span 2; align-self:center; width:30px; height:30px; border-radius:50%; border:0; background:transparent; color:var(--ink3); cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:0}
+  .sb-row:hover .cp{opacity:1} .sb-row .cp:hover{background:var(--hover)}
+  .sb-row .cp .ic{width:17px; height:17px}
+  .sb-list{margin:4px 18px 0; padding-left:18px; font-size:13px; line-height:1.45; color:var(--ink2)}
+  .sb-list li{margin-bottom:5px}
+  .sb-chk{display:flex; gap:9px; align-items:flex-start; padding:6px 18px; font-size:13.5px; cursor:pointer; line-height:1.35}
+  .sb-chk input{width:17px; height:17px; margin:1px 0 0; accent-color:var(--blue); flex:none}
+  .sb-chk.ok span{color:#80868B; text-decoration:line-through}
+
+  /* contagem de palavras flutuante (canto de baixo) */
+  .gd-count{position:fixed; left:18px; bottom:18px; background:#fff; border-radius:8px; box-shadow:0 1px 3px rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15); padding:8px 12px; font-size:13px; color:var(--ink2); cursor:pointer; z-index:20; min-width:120px}
+  .gd-count b{color:var(--ink); font-weight:500}
+  .gd-count .ig{display:block; font-size:12px; margin-top:2px; color:var(--ink3)}
+  .gd-count .ig.passou{color:var(--red); font-weight:500}
+
+  /* faixas de aviso (conflito, rascunho recuperável, alguém editando, lixeira) */
+  .gd-faixa{display:flex; align-items:center; gap:12px; padding:8px 16px; font-size:13.5px; background:#FEF7E0; color:#3C2F00; border-bottom:1px solid #F5E1A4; flex-wrap:wrap}
+  .gd-faixa.azul{background:#E8F0FE; color:#062E6F; border-color:#D2E3FC}
+  .gd-faixa.verm{background:#FCE8E6; color:#5F2120; border-color:#F6C7C3}
+  .gd-faixa .acoes{margin-left:auto; display:flex; gap:6px}
+  .gd-faixa button{border:0; border-radius:16px; padding:6px 14px; font-size:13px; font-weight:500; cursor:pointer; background:rgba(0,0,0,.06)}
+  .gd-faixa button.forte{background:var(--blue); color:#fff}
+
+  /* menus (barra de menus e listas da barra de ferramentas) */
+  .gd-menu{position:fixed; z-index:100; background:#fff; border-radius:4px; box-shadow:0 2px 6px 2px rgba(60,64,67,.15), 0 1px 2px rgba(60,64,67,.3); padding:6px 0; min-width:220px; max-height:calc(100vh - 20px); overflow:auto; font-size:14px}
+  .gd-mi{display:flex; align-items:center; gap:12px; padding:0 14px 0 12px; height:32px; cursor:pointer; white-space:nowrap; color:var(--ink); user-select:none}
+  .gd-mi:hover,.gd-mi.foco{background:#F1F3F4}
+  .gd-mi.dis{color:#9AA0A6; cursor:default; background:transparent}
+  .gd-mi .mic{width:20px; display:flex; justify-content:center; color:var(--ink2); flex:none}
+  .gd-mi .mic .ic{width:18px; height:18px}
+  .gd-mi .mr{flex:1}
+  .gd-mi .mk{color:var(--ink3); font-size:13px; margin-left:24px}
+  .gd-mi .ms{color:var(--ink3)}
+  .gd-msep{height:1px; background:var(--line2); margin:6px 0}
+  .gd-mtit{font-size:11.5px; color:var(--ink3); padding:6px 14px 4px; font-weight:500}
+  .paleta{padding:6px 12px 8px; display:grid; grid-template-columns:repeat(10,20px); gap:3px}
+  .paleta button{width:20px; height:20px; border-radius:50%; border:1px solid rgba(0,0,0,.08); cursor:pointer; padding:0}
+  .paleta button:hover{box-shadow:0 0 0 2px #fff, 0 0 0 3px #5F6368}
+  .paleta button.on{box-shadow:0 0 0 2px #fff, 0 0 0 3px var(--blue)}
+  .grade{padding:8px 12px 10px}
+  .grade .gg{display:grid; grid-template-columns:repeat(10,18px); gap:2px}
+  .grade .gg i{width:18px; height:18px; border:1px solid #DADCE0; border-radius:2px; display:block; cursor:pointer}
+  .grade .gg i.on{background:#D3E3FD; border-color:#4285F4}
+  .grade .gn{text-align:center; font-size:13px; color:var(--ink2); margin-top:6px}
+
+  /* caixas de diálogo */
+  .gd-ov{position:fixed; inset:0; background:rgba(32,33,36,.45); z-index:200; display:flex; align-items:flex-start; justify-content:center; padding-top:12vh}
+  .gd-dlg{background:#fff; border-radius:8px; box-shadow:0 4px 8px 3px rgba(60,64,67,.15), 0 1px 3px rgba(60,64,67,.3); width:min(520px,94vw); max-height:78vh; display:flex; flex-direction:column}
+  .gd-dlg.largo{width:min(760px,94vw)}
+  .gd-dlg h3{margin:0; padding:22px 24px 8px; font-size:22px; font-weight:400; color:var(--ink)}
+  .gd-dlg .corpo{padding:8px 24px 8px; overflow:auto; font-size:14px; color:var(--ink2); line-height:1.5}
+  .gd-dlg .pe{display:flex; justify-content:flex-end; gap:8px; padding:14px 20px 18px}
+  .gd-dlg .pe button{height:36px; padding:0 18px; border-radius:18px; border:0; font-size:14px; font-weight:500; cursor:pointer; background:transparent; color:var(--blue)}
+  .gd-dlg .pe button:hover{background:#F0F4FC}
+  .gd-dlg .pe button.forte{background:var(--blue); color:#fff} .gd-dlg .pe button.forte:hover{box-shadow:0 1px 3px rgba(0,0,0,.3); background:#0A4DB8}
+  .gd-dlg label{display:block; font-size:12px; color:var(--ink3); margin:12px 0 4px}
+  .gd-dlg input[type=text],.gd-dlg input[type=url],.gd-dlg input[type=search]{width:100%; height:40px; border:1px solid #747775; border-radius:4px; padding:0 12px; font:15px var(--ui); color:var(--ink)}
+  .gd-dlg input:focus{outline:2px solid var(--blue); border-color:transparent}
+  .gd-dlg table.cont{width:100%; border-collapse:collapse; margin:4px 0}
+  .gd-dlg table.cont td{padding:9px 0; border-bottom:1px solid var(--line2); font-size:14px}
+  .gd-dlg table.cont td:last-child{text-align:right; font-variant-numeric:tabular-nums; color:var(--ink)}
+  .gd-dlg .chkl{display:flex; align-items:center; gap:9px; margin-top:14px; font-size:14px; cursor:pointer}
+  .gd-dlg .chkl input{width:17px; height:17px; accent-color:var(--blue)}
+  .emo{display:grid; grid-template-columns:repeat(auto-fill, 38px); gap:2px}
+  .emo button{height:38px; border:0; background:transparent; border-radius:6px; font-size:22px; cursor:pointer; font-family:'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif}
+  .emo button:hover{background:#F1F3F4}
+  .emo.simb button{font-size:18px; font-family:Arial, sans-serif}
+  .emotit{font-size:12px; font-weight:500; color:var(--ink3); margin:12px 0 4px}
+  .docs-lista{display:flex; flex-direction:column}
+  .docs-lista .dl{display:grid; grid-template-columns:1fr auto; gap:2px 12px; padding:10px 8px; border-bottom:1px solid var(--line2); cursor:pointer; border-radius:6px}
+  .docs-lista .dl:hover{background:#F1F3F4}
+  .docs-lista .dl b{font-weight:500; color:var(--ink); font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .docs-lista .dl small{font-size:12.5px; color:var(--ink3)}
+  .docs-lista .dl .dd{grid-column:2; grid-row:1 / span 2; align-self:center; font-size:12.5px; color:var(--ink3); text-align:right}
+  .docs-lista .dl.atual{background:#E8F0FE}
+  .vers{display:grid; grid-template-columns:240px 1fr; gap:0; height:60vh; border-top:1px solid var(--line2)}
+  .vers .vl{overflow:auto; border-right:1px solid var(--line2)}
+  .vers .vi{padding:10px 16px; cursor:pointer; border-bottom:1px solid #F1F3F4}
+  .vers .vi:hover{background:#F8F9FA} .vers .vi.on{background:#E8F0FE}
+  .vers .vi b{display:block; font-weight:500; font-size:14px; color:var(--ink)} .vers .vi small{font-size:12.5px; color:var(--ink3)}
+  .vers .vp{overflow:auto; background:var(--bg); padding:16px}
+  .vers .vp .gd-page{zoom:.62; min-height:600px; margin:0 auto}
+
+  /* localizar e substituir (caixa no canto, igual editor de escritório) */
+  .gd-busca{position:fixed; top:118px; right:24px; z-index:90; background:#fff; border-radius:8px; box-shadow:0 2px 6px 2px rgba(60,64,67,.15), 0 1px 2px rgba(60,64,67,.3); padding:10px 12px; width:380px}
+  .gd-busca .lin{display:flex; align-items:center; gap:4px}
+  .gd-busca input[type=text]{flex:1; height:34px; border:1px solid #DADCE0; border-radius:4px; padding:0 10px; font:14px var(--ui)}
+  .gd-busca input:focus{outline:2px solid var(--blue); border-color:transparent}
+  .gd-busca .n{font-size:12.5px; color:var(--ink3); min-width:54px; text-align:right}
+  .gd-busca .sb{width:32px; height:32px; border-radius:50%; border:0; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--ink2)}
+  .gd-busca .sb:hover{background:var(--hover)}
+  .gd-busca .rep{margin-top:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+  .gd-busca .rep button.t{height:32px; border-radius:16px; border:1px solid #747775; background:#fff; padding:0 12px; font-size:13px; font-weight:500; color:var(--blue); cursor:pointer}
+  .gd-busca .rep button.t:hover{background:#F0F4FC}
+  .gd-busca .opt{font-size:12.5px; color:var(--ink2); display:flex; align-items:center; gap:6px; margin-top:8px}
+
+  /* bolha do link (aparece quando o cursor está num link) */
+  .gd-bolha{position:fixed; z-index:80; background:#fff; border-radius:8px; box-shadow:0 1px 3px rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15); padding:6px 8px 6px 14px; display:flex; align-items:center; gap:6px; font-size:13.5px; max-width:460px}
+  .gd-bolha a{color:var(--blue); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px}
+  .gd-bolha button{width:32px; height:32px; border-radius:50%; border:0; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--ink2)}
+  .gd-bolha button:hover{background:var(--hover)}
+
+  .gd-toast{position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:#1F1F1F; color:#F2F2F2; border-radius:4px; padding:13px 18px; font-size:14px; z-index:300; box-shadow:0 3px 5px rgba(0,0,0,.2); max-width:min(640px,92vw); display:flex; gap:16px; align-items:center}
+  .gd-toast a,.gd-toast button{color:#A8C7FA; font-weight:500; background:none; border:0; cursor:pointer; font-size:14px; text-decoration:none}
+  .gd-erro{margin:18vh auto; max-width:460px; text-align:center; color:var(--ink2); font-size:16px; line-height:1.5}
+  .gd-erro b{display:block; font-size:22px; font-weight:400; color:var(--ink); margin-bottom:8px}
+  .gd-carregando{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:var(--bg); z-index:400; color:var(--ink3); font-size:14px; gap:12px}
+  .gd-carregando i{width:22px; height:22px; border:3px solid #D3E3FD; border-top-color:var(--blue); border-radius:50%; animation:gira .8s linear infinite}
+  @keyframes gira{to{transform:rotate(360deg)}}
+
+  @media (max-width:900px){
+    :root{--page-w:100%; --page-pad:28px}
+    .gd-pagewrap{width:auto; margin:10px}
+    .gd-ruler,.gd-status span,.gd-btn .rot{display:none}
+    .gd-side{position:fixed; right:0; top:0; bottom:0; z-index:60; box-shadow:-4px 0 16px rgba(0,0,0,.15); width:min(360px,92vw)}
+  }
+  /* impressão / "Baixar PDF": só a folha, no tamanho A4 com margens de 2,54 cm */
+  @media print{
+    @page{size:A4; margin:2.54cm}
+    html,body{height:auto; overflow:visible; background:#fff}
+    .gd-top,.gd-toolbar,.gd-ruler,.gd-side,.gd-count,.gd-faixa,.gd-menu,.gd-bolha,.gd-busca,.gd-toast,#faixas{display:none !important}
+    .gd-work{display:block; border:0; margin:0}
+    .gd-canvas{overflow:visible}
+    .gd-pagewrap{width:auto; margin:0; zoom:1 !important}
+    .gd-page{box-shadow:none; padding:0; width:auto; min-height:0}
+  }
+</style>
+</head>
+<body>
+<div class="gd-carregando" id="carregando"><i></i>Abrindo o documento…</div>
+
+<header class="gd-top">
+  <div class="gd-logo" title="B.O.N.E · documento">
+    <svg viewBox="0 0 30 38" aria-hidden="true"><path d="M3 1h17l9 9v25a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2z" fill="#FCC100"/><path d="M20 1v7a2 2 0 0 0 2 2h7z" fill="#C99A00"/><path d="M7 17h16M7 21.5h16M7 26h11" stroke="#1F1F1F" stroke-width="2" stroke-linecap="round"/></svg>
+  </div>
+  <div class="gd-tbox">
+    <div class="gd-row1">
+      <span class="gd-titlew"><span class="medida" id="tituloMedida"></span><input class="gd-title" id="titulo" spellcheck="false" aria-label="nome do documento"></span>
+      <span class="gd-status" id="status" title=""></span>
+    </div>
+    <nav class="gd-menubar" id="menubar">
+      <button data-menu="arquivo">Arquivo</button>
+      <button data-menu="editar">Editar</button>
+      <button data-menu="ver">Ver</button>
+      <button data-menu="inserir">Inserir</button>
+      <button data-menu="formatar">Formatar</button>
+      <button data-menu="ferramentas">Ferramentas</button>
+    </nav>
+  </div>
+  <div class="gd-right">
+    <div class="gd-pres" id="pres"></div>
+    <button class="gd-btn cinza" id="bMatriz" title="rever o que foi preenchido na matriz deste post (Ctrl+Alt+M)"></button>
+    <button class="gd-btn" id="bLegenda" title="copia o texto limpo, com as quebras de linha certas, pronto pra colar no Instagram (Ctrl+Alt+C). Se tiver um trecho selecionado, copia só ele."></button>
+    <button class="gd-btn share" id="bClickup"></button>
+    <button class="gd-x" id="bFechar" title="fechar e voltar pro painel (salva antes)"></button>
+  </div>
+</header>
+
+<div class="gd-toolbar" id="toolbar" role="toolbar" aria-label="formatação"></div>
+<div id="faixas"></div>
+
+<div class="gd-work">
+  <div class="gd-col">
+    <div class="gd-ruler" id="ruler"></div>
+    <div class="gd-canvas" id="canvas">
+      <div class="gd-pagewrap" id="pagewrap">
+        <div class="gd-page" id="page" contenteditable="true" spellcheck="true" lang="pt-BR" role="textbox" aria-multiline="true"></div>
+      </div>
+    </div>
+  </div>
+  <aside class="gd-side" id="side" hidden>
+    <div class="gd-sidehead"><b id="sideTit">Matriz</b><button class="gd-x" id="sideFechar" title="fechar o painel"></button></div>
+    <div class="gd-sidebody" id="sideBody"></div>
+  </aside>
+</div>
+
+<div class="gd-count" id="count" hidden title="clique pra ver a contagem completa (Ctrl+Shift+C)"></div>
+<script>
+'use strict';
+// ======================================================================
+// B.O.N.E · editor da copy. Tudo aqui é JS puro, sem biblioteca.
+// Guardado em /api/docs/:id (lib/docs.js). O painel abre esta página num pop-up.
+// ======================================================================
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const page = $('#page');
+const PARAMS = new URLSearchParams(location.search);
+const DOC_ID = PARAMS.get('id') || '';
+const EMBUTIDO = window.parent !== window;
+const SESSAO = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const EU = (() => { try { const p = JSON.parse(localStorage.getItem('sb.perfil') || 'null'); return (p && p.nome) || ''; } catch (e) { return ''; } })() || 'alguém';
+const LIMITE_IG = 2200;   // limite de caracteres da legenda do Instagram
+
+// ---------------- ícones (traço simples, 24x24) ----------------
+const IC = {
+  undo:'<path d="M9 7L4.5 11.5 9 16"/><path d="M4.5 11.5H15a4.5 4.5 0 0 1 0 9h-3"/>',
+  redo:'<path d="M15 7l4.5 4.5L15 16"/><path d="M19.5 11.5H9a4.5 4.5 0 0 0 0 9h3"/>',
+  print:'<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="1.5"/><path d="M7 14h10v6H7z"/>',
+  pincel:'<path d="M5 4h11v5H5z"/><path d="M16 6.5h2.5V11h-7v3"/><path d="M11.5 14v6"/>',
+  seta:'<path d="M7 10l5 5 5-5"/>',
+  link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  img:'<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="M20.5 16l-5-5-8.5 8.5"/>',
+  alL:'<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>', alC:'<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',
+  alR:'<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>', alJ:'<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>',
+  esp:'<path d="M11 6h9M11 12h9M11 18h9"/><path d="M5.5 4.5v15M3.5 7l2-2.5 2 2.5M3.5 17l2 2.5 2-2.5"/>',
+  chk:'<rect x="3.5" y="4" width="6" height="6" rx="1"/><path d="M4.8 7l1.3 1.3 2.3-2.5"/><rect x="3.5" y="14" width="6" height="6" rx="1"/><path d="M13 7h8M13 17h8"/>',
+  ul:'<circle cx="5" cy="7" r="1.3" class="icf"/><circle cx="5" cy="12" r="1.3" class="icf"/><circle cx="5" cy="17" r="1.3" class="icf"/><path d="M9.5 7H20M9.5 12H20M9.5 17H20"/>',
+  ol:'<path d="M4 5.5h1.5V10M3.8 10h3.2M3.8 14.5c0-1 .8-1.5 1.6-1.5s1.6.5 1.6 1.4c0 1.3-3.2 2.1-3.2 3.6h3.3"/><path d="M10 7h10M10 12h10M10 17h10"/>',
+  outd:'<path d="M11 6h9M11 10h9M11 14h9M4 18h16M4 6v8M8 8l-3 2 3 2"/>', ind:'<path d="M11 6h9M11 10h9M11 14h9M4 18h16M4 8l3 2-3 2"/>',
+  limpa:'<path d="M6 5h12M12 5l-3 14"/><path d="M15 14l5 5M20 14l-5 5"/>',
+  mais:'<circle cx="12" cy="5.5" r="1.4" class="icf"/><circle cx="12" cy="12" r="1.4" class="icf"/><circle cx="12" cy="18.5" r="1.4" class="icf"/>',
+  x:'<path d="M6 6l12 12M18 6L6 18"/>', check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  nuvem:'<path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.7 4.7 0 0 0 7 18.5z"/><path d="M9.5 13.8l1.8 1.8 3.4-3.6"/>',
+  nuvemx:'<path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.7 4.7 0 0 0 7 18.5z"/><path d="M12 11v3.2M12 16.3v.2"/>',
+  sync:'<path d="M19 12a7 7 0 0 1-12 5M5 12a7 7 0 0 1 12-5"/><path d="M17 3.5V7h-3.5M7 20.5V17h3.5"/>',
+  copiar:'<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/>',
+  enviar:'<path d="M4 12l16-7-6 16-2.5-6.5z"/><path d="M11.5 14.5L20 5"/>',
+  matriz:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9.5h16M9.5 9.5V20"/>',
+  pasta:'<path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  nova:'<path d="M14 4h6v6M20 4l-8.5 8.5"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>',
+  baixar:'<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5"/><path d="M5 19.5h14"/>',
+  lapis:'<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/>',
+  hist:'<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9"/><path d="M4.5 4.5V9H9"/><path d="M12 8v4.5l3 2"/>',
+  lixo:'<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/>',
+  busca:'<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
+  tabela:'<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.3 9.5v10M14.7 9.5v10"/>',
+  emoji:'<circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><circle cx="9.3" cy="10" r=".9" class="icf"/><circle cx="14.7" cy="10" r=".9" class="icf"/>',
+  hr:'<path d="M4 12h16"/>', data:'<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>',
+  texto:'<path d="M5 6.5V5h14v1.5M12 5v14M9 19h6"/>', par:'<path d="M9.5 20V4H17M13.5 4v16M9.5 4a4 4 0 0 0 0 8"/>',
+  contagem:'<path d="M5 19V9M10 19V5M15 19v-7M20 19v-4"/>', orto:'<path d="M4 16l3.5-9L11 16M5.3 13h4.4"/><path d="M13 15.5l2.5 2.5L21 12"/>',
+  regua:'<rect x="3" y="8" width="18" height="8" rx="1"/><path d="M7 8v3M11 8v4M15 8v3M19 8v2"/>',
+  tela:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  sobe:'<path d="M17 11l-5-5-5 5M12 6v13"/>',
+  cima:'<path d="M7 14l5-5 5 5"/>', baixo:'<path d="M7 10l5 5 5-5"/>', dir:'<path d="M10 7l5 5-5 5"/>',
+  abc:'<path d="M3 16l3-8 3 8M4 13.5h4M11 8v8h2.5a2 2 0 0 0 0-4H11h2a2 2 0 0 0 0-4zM21 9a3 3 0 1 0 0 6"/>',
+};
+function ic(n, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true">'+(IC[n]||'')+'</svg>'; }
+function esc(t){ return String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg, acao){
+  $$('.gd-toast').forEach(t => t.remove());
+  const d = document.createElement('div'); d.className = 'gd-toast';
+  d.innerHTML = '<span>'+msg+'</span>';
+  if(acao){ const b = document.createElement(acao.href?'a':'button'); b.textContent = acao.r; if(acao.href){ b.href=acao.href; b.target='_blank'; b.rel='noopener'; } else b.onclick = ()=>{ d.remove(); acao.f(); }; d.appendChild(b); }
+  document.body.appendChild(d); setTimeout(()=>d.remove(), acao ? 8000 : 4200);
+}
+async function api(url, opt){
+  const r = await fetch(url, Object.assign({ headers:{'Content-Type':'application/json'}, credentials:'same-origin' }, opt||{}));
+  let j = {}; try { j = await r.json(); } catch(e){}
+  if(!r.ok){ const e = new Error(j.erro || ('erro '+r.status)); e.status = r.status; e.j = j; throw e; }
+  return j;
+}
+const fmtHora = iso => { if(!iso) return ''; const d = new Date(iso); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+function fmtQuando(iso){
+  if(!iso) return '';
+  const d = new Date(iso), hoje = new Date();
+  const mesmoDia = d.toDateString() === hoje.toDateString();
+  const ontem = new Date(hoje.getTime()-86400000).toDateString() === d.toDateString();
+  if(mesmoDia) return 'hoje às '+fmtHora(iso);
+  if(ontem) return 'ontem às '+fmtHora(iso);
+  return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' às '+fmtHora(iso);
+}
+const corDoNome = nome => { let h=0; for(const c of String(nome)) h=(h*31+c.charCodeAt(0))%360; return 'hsl('+h+',55%,42%)'; };
+
+// ---------------- limpeza de HTML (colar e carregar) ----------------
+// Só entra o que um documento de texto precisa. Nada de script, estilo solto, imagem colada em base64.
+const TAGS_OK = new Set(['P','H1','H2','H3','SPAN','B','STRONG','I','EM','U','S','STRIKE','DEL','SUB','SUP','A','UL','OL','LI','BR','HR','TABLE','THEAD','TBODY','TR','TD','TH','IMG','BLOCKQUOTE']);
+const TROCA = { DIV:'P', H4:'H3', H5:'H3', H6:'H3', FONT:'SPAN', INS:'U', PRE:'P', CODE:'SPAN', SECTION:'P', ARTICLE:'P', HEADER:'P', FOOTER:'P', MARK:'SPAN', LABEL:'SPAN', CAPTION:'P', DT:'P', DD:'P', FIGURE:'P', FIGCAPTION:'P', TFOOT:'TBODY' };
+const LIXO = new Set(['SCRIPT','STYLE','META','LINK','TITLE','IFRAME','OBJECT','EMBED','SVG','MATH','TEMPLATE','NOSCRIPT','BUTTON','INPUT','SELECT','TEXTAREA','FORM','HEAD','VIDEO','AUDIO','CANVAS','COLGROUP','COL']);
+const CSS_OK = ['font-weight','font-style','text-decoration-line','color','background-color','font-size','font-family','text-align','line-height','margin-left','margin-top','margin-bottom','vertical-align','text-transform'];
+const CLASSES_OK = ['title','subtitle','chk'];
+const BLOCOS = new Set(['P','H1','H2','H3','UL','OL','LI','TABLE','BLOCKQUOTE','HR','TR','TD','TH','TBODY','THEAD']);
+function filtraEstilo(el){
+  const st = el.style; if(!st) return '';
+  const out = [];
+  for(const prop of CSS_OK){
+    let v = st.getPropertyValue(prop); if(!v) continue; v = v.trim();
+    if(prop==='text-decoration-line'){ if(v==='none') continue; out.push('text-decoration:'+v); continue; }
+    if(prop==='background-color' && /transparent|rgba\(\s*0,\s*0,\s*0,\s*0\s*\)/.test(v)) continue;
+    if(prop==='vertical-align' && !/^(super|sub)$/.test(v)) continue;
+    if(prop==='font-weight' && /^(normal|400)$/.test(v)) continue;
+    if(prop==='font-style' && v==='normal') continue;
+    if(prop==='margin-top' || prop==='margin-bottom'){ if(/^0(px|pt)?$/.test(v)) continue; }
+    if(prop==='margin-left' && /^-/.test(v)) continue;
+    if(prop==='text-transform' && v==='none') continue;
+    if(/url\(|expression|javascript:/i.test(v)) continue;
+    out.push(prop+':'+v);
+  }
+  return out.join(';');
+}
+function desembrulha(el){ const p = el.parentNode; if(!p) return; while(el.firstChild) p.insertBefore(el.firstChild, el); p.removeChild(el); }
+function limpaNo(el){
+  for(const n of [...el.childNodes]){
+    if(n.nodeType === 3) continue;
+    if(n.nodeType !== 1){ n.remove(); continue; }
+    let tag = n.tagName;
+    if(LIXO.has(tag)){ n.remove(); continue; }
+    limpaNo(n);
+    // o Google Docs embrulha o que você copia num <b style="font-weight:normal">
+    if(tag==='B' && /font-weight:\s*(normal|400)/i.test(n.getAttribute('style')||'')){ desembrulha(n); continue; }
+    if(tag==='P' && n.parentNode && n.parentNode.nodeType===1 && /^(LI|TD|TH)$/.test(n.parentNode.tagName) && n.parentNode.childElementCount===1){ desembrulha(n); continue; }
+    if(!TAGS_OK.has(tag) && !TROCA[tag]){ desembrulha(n); continue; }
+    let alvo = n;
+    if(TROCA[tag]){
+      alvo = document.createElement(TROCA[tag]);
+      if(tag==='FONT'){ const c=n.getAttribute('color'), f=n.getAttribute('face'); if(c) alvo.style.color=c; if(f) alvo.style.fontFamily=f; }
+      if(n.getAttribute('style')) alvo.setAttribute('style', n.getAttribute('style'));
+      while(n.firstChild) alvo.appendChild(n.firstChild);
+      n.replaceWith(alvo); tag = alvo.tagName;
+    }
+    const estilo = filtraEstilo(alvo);
+    const guarda = {};
+    if(tag==='A'){ const h = alvo.getAttribute('href')||''; if(/^(https?:|mailto:|tel:|#)/i.test(h.trim())) guarda.href = h.trim(); }
+    if(tag==='IMG'){ const s = alvo.getAttribute('src')||''; if(!/^https?:\/\//i.test(s)){ alvo.remove(); continue; } guarda.src = s; guarda.alt = alvo.getAttribute('alt')||''; }
+    if(tag==='LI' && alvo.getAttribute('data-checked')==='1') guarda['data-checked'] = '1';
+    if(/^(TD|TH)$/.test(tag)){ ['colspan','rowspan'].forEach(a=>{ const v=alvo.getAttribute(a); if(v && /^\d+$/.test(v)) guarda[a]=v; }); }
+    const classes = [...alvo.classList].filter(c=>CLASSES_OK.includes(c));
+    for(const a of [...alvo.attributes]) alvo.removeAttribute(a.name);
+    for(const [k,v] of Object.entries(guarda)) alvo.setAttribute(k, v);
+    if(classes.length) alvo.className = classes.join(' ');
+    if(estilo) alvo.setAttribute('style', estilo);
+    if(tag==='SPAN' && !alvo.attributes.length){ desembrulha(alvo); continue; }
+    if(tag==='A' && !alvo.getAttribute('href')){ desembrulha(alvo); continue; }
+  }
+}
+/** Texto solto na raiz vira parágrafo, e parágrafo vazio ganha <br> pra dar pra clicar nele. */
+function normalizaRaiz(root){
+  let grupo = null;
+  for(const n of [...root.childNodes]){
+    const bloco = n.nodeType===1 && BLOCOS.has(n.tagName);
+    if(bloco){ grupo = null; continue; }
+    if(n.nodeType===3 && !n.data.trim() && !grupo){ n.remove(); continue; }
+    if(n.nodeType===1 && n.tagName==='BR' && !grupo){ const p=document.createElement('p'); p.innerHTML='<br>'; n.replaceWith(p); continue; }
+    if(!grupo){ grupo = document.createElement('p'); root.insertBefore(grupo, n); }
+    grupo.appendChild(n);
+  }
+  root.querySelectorAll('p,h1,h2,h3,li,td,th').forEach(b=>{ if(!b.textContent.length && !b.querySelector('br,img,ul,ol,table')) b.appendChild(document.createElement('br')); });
+  if(!root.firstChild){ root.innerHTML = '<p><br></p>'; }
+}
+function limpa(html){
+  const d = new DOMParser().parseFromString('<!doctype html><body>'+String(html||'')+'</body>', 'text/html');
+  limpaNo(d.body); normalizaRaiz(d.body);
+  return d.body.innerHTML;
+}
+
+// ---------------- desfazer / refazer (histórico próprio, pega TUDO: tabela, checklist, substituir) ----------------
+const H = { pilha:[], i:-1, t:null };
+function caminho(n){ const p=[]; while(n && n!==page){ if(!n.parentNode) return null; p.unshift([...n.parentNode.childNodes].indexOf(n)); n=n.parentNode; } return n===page ? p : null; }
+function noDe(p){ let n=page; for(const i of p){ if(!n.childNodes[i]) return null; n=n.childNodes[i]; } return n; }
+const tamNo = n => n.nodeType===3 ? n.data.length : n.childNodes.length;
+function salvaSel(){ const s=getSelection(); if(!s.rangeCount || !page.contains(s.anchorNode)) return null; const a=caminho(s.anchorNode), f=caminho(s.focusNode); if(!a||!f) return null; return {a, ao:s.anchorOffset, f, fo:s.focusOffset}; }
+function restauraSel(x){ if(!x) return; const a=noDe(x.a), f=noDe(x.f); if(!a||!f) return; try{ getSelection().setBaseAndExtent(a, Math.min(x.ao, tamNo(a)), f, Math.min(x.fo, tamNo(f))); }catch(e){} }
+function registra(){
+  clearTimeout(H.t); H.t = null;
+  const html = page.innerHTML, sel = salvaSel();
+  if(H.i>=0 && H.pilha[H.i].html===html){ H.pilha[H.i].sel = sel; return false; }
+  H.pilha.length = H.i+1; H.pilha.push({html, sel});
+  if(H.pilha.length > 400) H.pilha.shift();
+  H.i = H.pilha.length-1; return true;
+}
+function registraDepois(){ clearTimeout(H.t); H.t = setTimeout(registra, 450); }
+function aplicaHist(){ const e=H.pilha[H.i]; page.innerHTML=e.html; page.focus({preventScroll:true}); restauraSel(e.sel); mudou(); atualizaToolbar(); }
+function desfazer(){ if(LEITURA) return; if(H.t || (H.i>=0 && page.innerHTML!==H.pilha[H.i].html)) registra(); if(H.i<=0) return; H.i--; aplicaHist(); }
+function refazer(){ if(LEITURA) return; if(H.t) registra(); if(H.i>=H.pilha.length-1) return; H.i++; aplicaHist(); }
+
+// ---------------- seleção e comandos ----------------
+let RANGE = null;             // última seleção dentro da folha (pra quando o foco vai pra uma caixa de texto)
+function guardaRange(){ const s=getSelection(); if(s.rangeCount && page.contains(s.getRangeAt(0).commonAncestorContainer)) RANGE = s.getRangeAt(0).cloneRange(); }
+/** Devolve o foco pra folha. Só restaura a seleção guardada se o foco tinha saído dela
+    (menu, caixa de texto); se o cursor já está na folha, vale o cursor de agora. */
+function voltaRange(){
+  const s = getSelection();
+  const naFolha = document.activeElement===page && s.rangeCount && page.contains(s.getRangeAt(0).commonAncestorContainer);
+  if(naFolha) return;
+  page.focus({preventScroll:true});
+  if(RANGE && page.contains(RANGE.commonAncestorContainer)){ s.removeAllRanges(); s.addRange(RANGE); }
+}
+document.addEventListener('selectionchange', ()=>{ guardaRange(); agendaToolbar(); bolhaLink(); });
+function ex(cmd, val, css){ document.execCommand('styleWithCSS', false, !!css); return document.execCommand(cmd, false, val==null?null:val); }
+/** Toda ação de formatação passa aqui: volta a seleção, registra no histórico antes e depois, marca pra salvar. */
+function cmd(fn){
+  if(LEITURA) return;
+  if(H.t) registra();
+  voltaRange();
+  fn();
+  consertaFont();
+  arrumaEstrutura();
+  registra(); mudou(); atualizaToolbar();
+}
+/** O Chrome às vezes põe lista ou tabela DENTRO de um <p> (HTML inválido, some na hora de salvar/exportar).
+    Aqui desembrulha esses <p>. Os nós de texto continuam os mesmos, então o cursor não se perde. */
+/** Mover um nó que tem o cursor dentro faz o navegador jogar o cursor pra fora. Guarda os nós e devolve depois. */
+function preservaSel(fn){
+  const s = getSelection(); const x = s.rangeCount ? [s.anchorNode, s.anchorOffset, s.focusNode, s.focusOffset] : null;
+  fn();
+  if(x && x[0] && page.contains(x[0]) && page.contains(x[2])) try{ s.setBaseAndExtent(x[0], Math.min(x[1], tamNo(x[0])), x[2], Math.min(x[3], tamNo(x[2]))); }catch(e){}
+}
+function arrumaEstrutura(){
+  if(!page.querySelector('p > ul, p > ol, p > table, p > p, p > blockquote, h1 > ul, h2 > ul, h3 > ul, p > h1, p > h2, p > h3')) return;
+  preservaSel(arrumaEstrutura_);
+}
+function arrumaEstrutura_(){
+  page.querySelectorAll('p, h1, h2, h3').forEach(p=>{
+    if(!p.querySelector(':scope > ul, :scope > ol, :scope > table, :scope > p, :scope > h1, :scope > h2, :scope > h3, :scope > blockquote')) return;
+    // o que é texto solto dentro dele vira parágrafo próprio; o que é bloco sobe um nível
+    const pai = p.parentNode; let solto = null;
+    [...p.childNodes].forEach(n=>{
+      const bloco = n.nodeType===1 && /^(UL|OL|TABLE|P|H1|H2|H3|BLOCKQUOTE)$/.test(n.tagName);
+      if(bloco){ solto = null; pai.insertBefore(n, p); return; }
+      if(n.nodeType===3 && !n.data.trim() && !solto) { n.remove(); return; }
+      if(!solto){ solto = document.createElement(p.tagName); if(p.className) solto.className = p.className; pai.insertBefore(solto, p); }
+      solto.appendChild(n);
+    });
+    p.remove();
+  });
+}
+/** Lista nova grudada numa lista vizinha de outro tipo (marcador x checklist): o Chrome junta as duas.
+    Separa de novo, deixando só os itens novos no tipo pedido. */
+function separaLista(antes, querChk){ preservaSel(()=>separaLista_(antes, querChk)); }
+function separaLista_(antes, querChk){
+  const ul = dentro('ul'); if(!ul) return;
+  const novos = [...ul.children].filter(li=>!antes.has(li));
+  if(!novos.length){ ul.classList.toggle('chk', querChk); if(!ul.className) ul.removeAttribute('class'); return; }
+  if(novos.length === ul.children.length){ ul.classList.toggle('chk', querChk); if(!ul.className) ul.removeAttribute('class'); return; }
+  const primeiro = novos[0], ultimo = novos[novos.length-1];
+  const depois = []; for(let n=ultimo.nextElementSibling; n; n=n.nextElementSibling) depois.push(n);
+  const antesDeles = [...ul.children].indexOf(primeiro) > 0;
+  const nova = document.createElement('ul'); if(querChk) nova.className = 'chk';
+  if(antesDeles) ul.after(nova); else ul.before(nova);
+  novos.forEach(li=> nova.appendChild(li));
+  if(depois.length && antesDeles){ const resto = ul.cloneNode(false); depois.forEach(li=>resto.appendChild(li)); nova.after(resto); }
+  if(!ul.children.length) ul.remove();
+}
+function blocoDe(n){ while(n && n!==page){ if(n.nodeType===1 && /^(P|H1|H2|H3|LI|BLOCKQUOTE|TD|TH)$/.test(n.tagName)) return n; n=n.parentNode; } return null; }
+function blocosDaSelecao(){
+  const s = getSelection(); if(!s.rangeCount) return [];
+  const r = s.getRangeAt(0);
+  let bl = [...page.querySelectorAll('p,h1,h2,h3,li')].filter(b=> r.intersectsNode(b) && !b.querySelector('p,h1,h2,h3,li'));
+  if(!bl.length){ const b = blocoDe(r.startContainer); if(b) bl=[b]; }
+  return bl;
+}
+function elDaSelecao(){ const s=getSelection(); if(!s.rangeCount) return null; let n=s.focusNode; if(!n || !page.contains(n)) return null; return n.nodeType===1 ? n : n.parentElement; }
+const dentro = (sel) => { const e=elDaSelecao(); return e ? e.closest(sel) : null; };
+
+// tamanho da fonte: o execCommand só sabe 1 a 7. Aplica o 7 (vira "xxx-large") e troca pelo tamanho em pt.
+// Só muda o valor do estilo (não troca elemento), então o cursor não pula enquanto você digita.
+let PT_ALVO = null;
+function consertaFont(digitando){
+  if(PT_ALVO) page.querySelectorAll('[style*="xxx-large"]').forEach(el=>{ el.style.fontSize = PT_ALVO+'pt'; });
+  const fonts = page.querySelectorAll('font'); if(!fonts.length) return;
+  const sel = digitando ? salvaSel() : null; const novos = [];
+  fonts.forEach(f=>{
+    const sp = document.createElement('span');
+    if(f.getAttribute('size')==='7' && PT_ALVO) sp.style.fontSize = PT_ALVO+'pt';
+    const c=f.getAttribute('color'), fa=f.getAttribute('face'); if(c) sp.style.color=c; if(fa) sp.style.fontFamily=fa;
+    while(f.firstChild) sp.appendChild(f.firstChild);
+    f.replaceWith(sp);
+    if(!sp.getAttribute('style')) desembrulha(sp); else novos.push(sp);
+  });
+  if(digitando){ restauraSel(sel); return; }
+  if(novos.length){ try{ const r=document.createRange(); r.setStartBefore(novos[0]); r.setEndAfter(novos[novos.length-1]); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }catch(e){} }
+}
+function aplicaTamanho(pt){
+  pt = Math.max(1, Math.min(400, Math.round(Number(pt)*2)/2)); if(!pt) return;
+  cmd(()=>{ PT_ALVO = pt; ex('fontSize', '7', true); });
+}
+function tamanhoAtual(){ const e=elDaSelecao()||page; const px=parseFloat(getComputedStyle(e).fontSize)||14.667; return Math.round(px*0.75*2)/2; }
+function fonteAtual(){ const e=elDaSelecao()||page; return (getComputedStyle(e).fontFamily||'Arial').split(',')[0].replace(/["']/g,'').trim(); }
+function estiloAtual(){ const b=blocoDe((getSelection().focusNode)||page); if(!b) return 'p'; if(b.classList.contains('title')) return 'title'; if(b.classList.contains('subtitle')) return 'subtitle'; return /^H[123]$/.test(b.tagName) ? b.tagName.toLowerCase() : 'p'; }
+const ESTILOS = [['p','Texto normal'],['title','Título'],['subtitle','Subtítulo'],['h1','Título 1'],['h2','Título 2'],['h3','Título 3']];
+function aplicaEstilo(v){
+  cmd(()=>{
+    const tag = (v==='title'||v==='subtitle') ? 'p' : v;
+    ex('formatBlock', '<'+tag+'>');
+    blocosDaSelecao().forEach(b=>{ b.classList.remove('title','subtitle'); if(v==='title'||v==='subtitle') b.classList.add(v); if(!b.className) b.removeAttribute('class'); });
+  });
+}
+function aplicaEspaco(lh){ cmd(()=> blocosDaSelecao().forEach(b=> b.style.lineHeight = lh)); }
+function espacoParagrafo(lado){ cmd(()=> blocosDaSelecao().forEach(b=>{ const p='margin'+(lado==='antes'?'Top':'Bottom'); b.style[p] = b.style[p] ? '' : '10pt'; if(!b.getAttribute('style')) b.removeAttribute('style'); })); }
+function listaChecklist(){
+  cmd(()=>{
+    const ul = dentro('ul,ol');
+    if(ul && ul.classList.contains('chk')){ ex('insertUnorderedList'); return; }
+    if(ul && ul.tagName==='UL'){ ul.classList.add('chk'); return; }
+    const antes = new Set(page.querySelectorAll('li'));
+    if(ul) ex('insertOrderedList');       // sai da numerada
+    ex('insertUnorderedList');
+    separaLista(antes, true);
+  });
+}
+function listaNormal(tipo){
+  cmd(()=>{
+    const ul = dentro('ul,ol');
+    if(tipo==='ul' && ul && ul.classList.contains('chk')){ ul.classList.remove('chk'); if(!ul.className) ul.removeAttribute('class'); return; }
+    const antes = new Set(page.querySelectorAll('li'));
+    ex(tipo==='ol' ? 'insertOrderedList' : 'insertUnorderedList');
+    if(tipo==='ul' && (!ul || ul.tagName!=='UL')) separaLista(antes, false);
+  });
+}
+function trocaCaixa(modo){
+  cmd(()=>{
+    const s=getSelection(); if(!s.rangeCount || s.isCollapsed) return;
+    const r=s.getRangeAt(0);
+    const w=document.createTreeWalker(page, NodeFilter.SHOW_TEXT); const nos=[]; let n;
+    while((n=w.nextNode())) if(r.intersectsNode(n)) nos.push(n);
+    let inicioPalavra = true;
+    nos.forEach(t=>{
+      const a = t===r.startContainer ? r.startOffset : 0, b = t===r.endContainer ? r.endOffset : t.data.length;
+      let meio = t.data.slice(a,b);
+      if(modo==='min') meio = meio.toLocaleLowerCase('pt-BR');
+      else if(modo==='mai') meio = meio.toLocaleUpperCase('pt-BR');
+      else meio = [...meio].map(ch=>{ const out = inicioPalavra ? ch.toLocaleUpperCase('pt-BR') : ch.toLocaleLowerCase('pt-BR'); inicioPalavra = /\s/.test(ch); return out; }).join('');
+      t.data = t.data.slice(0,a)+meio+t.data.slice(b);
+    });
+    try{ s.setBaseAndExtent(r.startContainer, r.startOffset, r.endContainer, r.endOffset); }catch(e){}
+  });
+}
+function inserirHtml(h){ cmd(()=> ex('insertHTML', h)); }
+function inserirTexto(t){ cmd(()=> ex('insertText', t)); }
+
+// ---------------- estado geral ----------------
+let D = null;                 // o que veio do servidor: doc, post, matriz, tipo, regras…
+let VERSAO = 0, SUJO = false, SALVANDO = false, DE_NOVO = false, T_SALVAR = null, LEITURA = false, CONFLITO = false;
+let CHK = [];                 // checklist da matriz marcado neste documento
+const V = (()=>{ try{ return Object.assign({regua:true, contagem:true, zoom:1, orto:true}, JSON.parse(localStorage.getItem('bone.doc.ver')||'{}')); }catch(e){ return {regua:true, contagem:true, zoom:1, orto:true}; } })();
+function guardaVer(){ try{ localStorage.setItem('bone.doc.ver', JSON.stringify(V)); }catch(e){} }
+</script>
+<script>
+'use strict';
+// ======================================================================
+// Salvar sozinho, conflito, rascunho local, presença
+// ======================================================================
+function status(txt, tipo){
+  const s = $('#status');
+  s.className = 'gd-status'+(tipo==='erro'?' erro':'');
+  s.innerHTML = ic(tipo==='erro'?'nuvemx':(tipo==='salvando'?'sync':'nuvem'))+'<span>'+esc(txt)+'</span>';
+}
+function statusSalvo(iso, por){
+  status('Salvo no B.O.N.E', 'ok');
+  $('#status').title = 'Última alteração '+fmtQuando(iso)+(por?' por '+por:'')+'. Tudo é salvo sozinho enquanto você escreve.';
+}
+function mudou(){
+  if(LEITURA) return;
+  SUJO = true;
+  status('Salvando…', 'salvando');
+  clearTimeout(T_SALVAR); T_SALVAR = setTimeout(salvar, 1100);
+  agendaContagem(); guardaRascunho();
+}
+let T_RASC = null;
+function guardaRascunho(){ clearTimeout(T_RASC); T_RASC = setTimeout(()=>{ try{ localStorage.setItem('bone.doc.'+DOC_ID, JSON.stringify({html:page.innerHTML, titulo:$('#titulo').value, ts:Date.now(), versao:VERSAO})); }catch(e){} }, 400); }
+function limpaRascunho(){ try{ localStorage.removeItem('bone.doc.'+DOC_ID); }catch(e){} }
+function corpoSalvar(forcar){
+  const c = { html: page.innerHTML, titulo: $('#titulo').value, checklist: CHK, baseVersao: VERSAO, sessao: SESSAO, por: EU };
+  if(forcar) c.forcar = true;
+  return c;
+}
+async function salvar(forcar){
+  clearTimeout(T_SALVAR); T_SALVAR = null;
+  if(LEITURA || (CONFLITO && !forcar)) return;
+  if(SALVANDO){ DE_NOVO = true; return; }
+  if(!SUJO && !forcar) return;
+  SALVANDO = true; SUJO = false; status('Salvando…', 'salvando');
+  const corpo = corpoSalvar(forcar);
+  try{
+    const r = await api('/api/docs/'+DOC_ID, { method:'PUT', body: JSON.stringify(corpo) });
+    VERSAO = r.versao; CONFLITO = false; tiraFaixa('conflito');
+    if(!SUJO){ statusSalvo(r.atualizadoEm, EU); limpaRascunho(); }
+    avisaPai('salvo', { palavras: r.palavras, titulo: corpo.titulo });
+  }catch(e){
+    SUJO = true;
+    if(e.status===409){ CONFLITO = true; mostraConflito(e.j.atual); status('Não salvo: conflito', 'erro'); }
+    else if(e.status===413 || e.status===410){ status('Não salvo', 'erro'); toast(esc(e.message)); }
+    else if(e.status===401){ status('Sessão expirou: entre no painel de novo', 'erro'); }
+    else { status('Sem conexão. Tentando de novo…', 'erro'); T_SALVAR = setTimeout(salvar, 5000); }
+  }finally{
+    SALVANDO = false;
+    if(DE_NOVO){ DE_NOVO = false; salvar(); }
+  }
+}
+async function salvarAgora(){ if(H.t) registra(); if(SUJO || T_SALVAR){ await salvar(); } while(SALVANDO) await new Promise(r=>setTimeout(r,80)); }
+// fechou a aba no meio: manda o que falta pelo sendBeacon (o servidor aceita POST como salvar)
+window.addEventListener('pagehide', ()=>{
+  if(DOC_ID && (SUJO || T_SALVAR) && !LEITURA && !CONFLITO){ try{ navigator.sendBeacon('/api/docs/'+DOC_ID, new Blob([JSON.stringify(corpoSalvar())], {type:'application/json'})); }catch(e){} }
+  if(DOC_ID) try{ navigator.sendBeacon('/api/docs/'+DOC_ID+'/presenca', new Blob([JSON.stringify({sessao:SESSAO, sair:true})], {type:'application/json'})); }catch(e){}
+});
+
+// ---------------- faixas de aviso ----------------
+function faixa(id, html, botoes, cor){
+  tiraFaixa(id);
+  const d = document.createElement('div'); d.className = 'gd-faixa'+(cor?' '+cor:''); d.dataset.id = id;
+  d.innerHTML = '<span>'+html+'</span><span class="acoes"></span>';
+  (botoes||[]).forEach(b=>{ const x=document.createElement('button'); x.textContent=b.r; if(b.forte) x.className='forte'; x.onclick=b.f; d.querySelector('.acoes').appendChild(x); });
+  $('#faixas').appendChild(d);
+}
+function tiraFaixa(id){ $$('#faixas .gd-faixa').forEach(f=>{ if(f.dataset.id===id) f.remove(); }); }
+function mostraConflito(atual){
+  faixa('conflito', '<b>'+esc(atual.por||'Outra pessoa')+'</b> salvou este documento '+fmtQuando(atual.atualizadoEm)+' enquanto você escrevia. O que fazer com o seu texto?', [
+    { r:'Ficar com o meu', forte:true, f: async ()=>{ CONFLITO=false; SUJO=true; await salvar(true); toast('Seu texto foi salvo. O de '+esc(atual.por||'outra pessoa')+' ficou no histórico de versões.'); } },
+    { r:'Ficar com o de '+(atual.por||'outra pessoa'), f: async ()=>{
+        try{ await api('/api/docs/'+DOC_ID, {method:'PUT', body:JSON.stringify({soVersao:true, html:page.innerHTML, sessao:SESSAO, por:EU})}); }catch(e){}
+        if(H.t) registra(); page.innerHTML = limpa(atual.html); $('#titulo').value = atual.titulo || $('#titulo').value; ajustaTitulo();
+        VERSAO = atual.versao; SUJO=false; CONFLITO=false; registra(); tiraFaixa('conflito'); limpaRascunho(); statusSalvo(atual.atualizadoEm, atual.por); agendaContagem();
+        toast('Carregado o texto de '+esc(atual.por||'outra pessoa')+'. O seu ficou no histórico de versões.');
+    } },
+  ], 'verm');
+}
+
+// ---------------- quem mais está com o documento aberto ----------------
+let OUTROS = [], AVISOU_OUTROS = false, T_PRES = null;
+async function presenca(){
+  clearTimeout(T_PRES);
+  try{
+    const r = await api('/api/docs/'+DOC_ID+'/presenca', { method:'POST', body: JSON.stringify({ sessao:SESSAO, por:EU }) });
+    OUTROS = r.editando || [];
+    desenhaPresenca();
+    // outra pessoa salvou e eu não estou mexendo: puxa o texto dela (quase ao vivo)
+    if(r.versao > VERSAO && !SUJO && !SALVANDO && !CONFLITO && Date.now() - ULTIMA_TECLA > 4000){
+      const n = await api('/api/docs/'+DOC_ID+'?sessao='+SESSAO);
+      if(n.doc.versao > VERSAO && !SUJO){
+        const sel = salvaSel(); page.innerHTML = limpa(n.doc.html); restauraSel(sel);
+        VERSAO = n.doc.versao; $('#titulo').value = n.doc.titulo; ajustaTitulo(); registra(); agendaContagem(); statusSalvo(n.doc.atualizadoEm, n.doc.por);
+        toast('Atualizado com o que '+esc(n.doc.por||'outra pessoa')+' escreveu.');
+      }
+    }
+  }catch(e){}
+  T_PRES = setTimeout(presenca, OUTROS.length ? 5000 : 20000);
+}
+function desenhaPresenca(){
+  const el = $('#pres'); el.innerHTML = '';
+  // uma bolinha por pessoa (a mesma pessoa em duas abas conta uma vez)
+  const vistos = new Set(); OUTROS = OUTROS.map(o=>({por: o.por===EU ? EU+' (em outra aba)' : o.por})).filter(o=>{ if(vistos.has(o.por)) return false; vistos.add(o.por); return true; });
+  OUTROS.forEach(o=>{ const d=document.createElement('div'); d.className='gd-av'; d.style.background=corDoNome(o.por); d.textContent=(o.por||'?').slice(0,1).toUpperCase(); d.title=o.por+' está com este documento aberto'; el.appendChild(d); });
+  if(OUTROS.length && !AVISOU_OUTROS){
+    AVISOU_OUTROS = true;
+    faixa('outros', '<b>'+esc(OUTROS.map(o=>o.por).join(', '))+'</b> também '+(OUTROS.length>1?'estão':'está')+' com este documento aberto. Quando um para de digitar, o texto do outro aparece aqui sozinho; se os dois escreverem juntos, o painel pergunta antes de sobrescrever.', [{r:'Entendi', f:()=>tiraFaixa('outros')}], 'azul');
+  }
+  if(!OUTROS.length) tiraFaixa('outros');
+}
+let ULTIMA_TECLA = 0;
+
+// ======================================================================
+// Carregar
+// ======================================================================
+async function carregar(){
+  if(!DOC_ID) return erroTela('Documento não informado', 'Abra a copy pelo card no painel.');
+  try{ D = await api('/api/docs/'+DOC_ID+'?sessao='+SESSAO); }
+  catch(e){
+    if(e.status===401) return erroTela('Entre no painel primeiro', 'A sessão expirou. Abra o painel, faça login e abra a copy de novo.');
+    return erroTela('Não consegui abrir o documento', esc(e.message));
+  }
+  VERSAO = D.doc.versao; CHK = (D.doc.checklist||[]).slice();
+  $('#titulo').value = D.doc.titulo || 'Documento sem título'; ajustaTitulo();
+  page.innerHTML = limpa(D.doc.html);
+  document.execCommand('defaultParagraphSeparator', false, 'p');
+  registra();
+  statusSalvo(D.doc.atualizadoEm, D.doc.por);
+  checaRascunho();
+  montaLateral();
+  aplicaVer();
+  agendaContagem();
+  if(D.doc.excluido){
+    LEITURA = true; page.contentEditable = 'false'; page.classList.add('leitura');
+    faixa('lixeira', 'Este documento está na lixeira. Pra editar, restaure.', [{r:'Restaurar', forte:true, f: async ()=>{ await api('/api/docs/'+DOC_ID+'/restaurar',{method:'POST'}); location.reload(); }}], 'verm');
+  }
+  $('#bClickup').disabled = !(D.post && D.post.taskId);
+  $('#bClickup').title = D.post && D.post.taskId ? 'manda a copy pra descrição da task no ClickUp (seção COPY no fim; o briefing que já está lá continua)' : 'este post ainda não tem task no ClickUp: cole ou crie a task no painel e volte aqui';
+  $('#carregando').remove();
+  presenca();
+  // abre com o cursor no começo, igual abrir um documento
+  if(!LEITURA){ page.focus({preventScroll:true}); try{ const r=document.createRange(); r.setStart(page.firstChild||page,0); r.collapse(true); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }catch(e){} }
+  atualizaToolbar();
+  if(PARAMS.get('matriz')==='1' || (D.matriz && !(D.doc.html||'').replace(/<[^>]+>/g,'').trim())) abreLateral(true);
+}
+function erroTela(t, m){
+  const c = $('#carregando'); if(c) c.remove();
+  document.body.innerHTML = '<div class="gd-erro"><b>'+esc(t)+'</b>'+m+(EMBUTIDO?'<p><button class="gd-btn share" id="xErro">Voltar pro painel</button></p>':'')+'</div>';
+  const b = document.getElementById('xErro'); if(b) b.onclick = ()=> avisaPai('fechar');
+}
+function checaRascunho(){
+  let r = null; try{ r = JSON.parse(localStorage.getItem('bone.doc.'+DOC_ID)||'null'); }catch(e){}
+  if(!r || !r.html) return;
+  const servidor = Date.parse(D.doc.atualizadoEm||0) || 0;
+  if(r.ts <= servidor || limpa(r.html) === page.innerHTML){ limpaRascunho(); return; }
+  faixa('rascunho', 'Tem um texto deste documento que não chegou a ser salvo neste computador ('+fmtQuando(new Date(r.ts).toISOString())+').', [
+    { r:'Recuperar', forte:true, f:()=>{ page.innerHTML = limpa(r.html); if(r.titulo){ $('#titulo').value=r.titulo; ajustaTitulo(); } registra(); mudou(); tiraFaixa('rascunho'); toast('Texto recuperado.'); } },
+    { r:'Descartar', f:()=>{ limpaRascunho(); tiraFaixa('rascunho'); } },
+  ]);
+}
+function avisaPai(tipo, extra){ if(EMBUTIDO) try{ parent.postMessage(Object.assign({ bone:'doc', tipo, docId:DOC_ID, slotId: D && D.post ? D.post.id : null }, extra||{}), location.origin); }catch(e){} }
+async function fechar(){
+  status('Salvando…', 'salvando');
+  await salvarAgora();
+  try{ await api('/api/docs/'+DOC_ID+'/presenca', {method:'POST', body:JSON.stringify({sessao:SESSAO, sair:true})}); }catch(e){}
+  if(EMBUTIDO) avisaPai('fechar');
+  else if(history.length > 1) history.back(); else location.href = '/';
+}
+
+// ---------------- título do documento (cresce com o texto, igual editor de escritório) ----------------
+function ajustaTitulo(){ const m=$('#tituloMedida'); m.textContent = $('#titulo').value || 'Documento sem título'; $('#titulo').style.width = Math.max(160, Math.min(m.offsetWidth+4, window.innerWidth - 820))+'px'; document.title = ($('#titulo').value||'Documento')+' · B.O.N.E'; }
+$('#titulo').addEventListener('input', ()=>{ ajustaTitulo(); mudou(); });
+$('#titulo').addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key==='Escape'){ e.preventDefault(); voltaRange(); } });
+$('#titulo').addEventListener('blur', ()=>{ if(!$('#titulo').value.trim()){ $('#titulo').value='Documento sem título'; ajustaTitulo(); mudou(); } });
+
+// ======================================================================
+// Texto limpo (legenda), contagem, markdown (ClickUp)
+// ======================================================================
+/** Texto puro com as quebras de linha certas: parágrafo = linha, lista vira "• " ou "1. ". */
+function textoPlano(root){
+  let out = '';
+  const nl = () => { if(out && !out.endsWith('\n')) out += '\n'; };
+  function anda(n, prof){
+    if(n.nodeType===3){ out += n.data.replace(/\n/g,' '); return; }
+    if(n.nodeType!==1) return;
+    const t = n.tagName;
+    if(t==='BR'){ out += '\n'; return; }
+    if(t==='IMG'){ return; }
+    if(t==='HR'){ nl(); out += '\n'; return; }
+    if(t==='UL' || t==='OL'){
+      nl(); let i = 1;
+      for(const li of n.children){
+        if(li.tagName!=='LI'){ anda(li, prof); continue; }
+        const pre = '   '.repeat(prof) + (t==='OL' ? (i++)+'. ' : (n.classList.contains('chk') ? (li.getAttribute('data-checked')==='1'?'☑ ':'☐ ') : '• '));
+        out += pre;
+        for(const c of li.childNodes){ if(c.nodeType===1 && (c.tagName==='UL'||c.tagName==='OL')){ nl(); anda(c, prof+1); } else anda(c, prof); }
+        nl();
+      }
+      return;
+    }
+    if(t==='TR'){ nl(); const cels=[...n.children].map(td=>textoPlano(td).replace(/\n+/g,' ').trim()); out += cels.join(' | '); nl(); return; }
+    const bloco = /^(P|H1|H2|H3|BLOCKQUOTE|TABLE|TBODY|THEAD|LI|DIV)$/.test(t);
+    if(bloco) nl();
+    for(const c of n.childNodes) anda(c, prof);
+    if(bloco && /^(P|H1|H2|H3|LI|DIV)$/.test(t)){ if(!n.textContent.length && !out.endsWith('\n\n') && !/BR/.test(n.innerHTML)) out += '\n'; nl(); }
+  }
+  for(const c of root.childNodes) anda(c, 0);
+  return out.split('\n').map(l=>l.replace(/[ \t ]+$/,'')).join('\n').replace(/^\n+/,'').replace(/\n+$/,'');
+}
+function textoSelecionado(){
+  const s = getSelection(); if(!s.rangeCount || s.isCollapsed || !page.contains(s.getRangeAt(0).commonAncestorContainer)) return null;
+  const d = document.createElement('div'); d.appendChild(s.getRangeAt(0).cloneContents());
+  return textoPlano(d);
+}
+function contar(txt){
+  const palavras = (txt.match(/[\p{L}\p{N}][\p{L}\p{N}'’\-]*/gu)||[]).length;
+  return { palavras, caracteres: txt.replace(/\n/g,'').length, semEspaco: txt.replace(/\s/g,'').length, legenda: [...txt].length, hashtags: (txt.match(/(^|\s)#[\p{L}\p{N}_]+/gu)||[]).length };
+}
+let T_CONT = null;
+function agendaContagem(){ clearTimeout(T_CONT); T_CONT = setTimeout(desenhaContagem, 250); }
+function desenhaContagem(){
+  const el = $('#count'); el.hidden = !V.contagem; if(!V.contagem) return;
+  const tudo = contar(textoPlano(page));
+  const sel = textoSelecionado(); const cs = sel ? contar(sel) : null;
+  const base = cs || tudo;
+  el.innerHTML = (cs ? '<b>'+cs.palavras+'</b> de '+tudo.palavras+' palavras' : '<b>'+tudo.palavras+'</b> '+(tudo.palavras===1?'palavra':'palavras'))+
+    '<span class="ig'+(base.legenda>LIMITE_IG?' passou':'')+'">legenda: '+base.legenda.toLocaleString('pt-BR')+' / '+LIMITE_IG.toLocaleString('pt-BR')+' caracteres'+(base.hashtags?' · '+base.hashtags+' #':'')+'</span>';
+}
+$('#count').onclick = ()=> dialogoContagem();
+
+/** HTML da folha -> markdown (o ClickUp lê markdown na descrição). */
+function markdown(root){
+  const ehNegrito = el => /^(B|STRONG)$/.test(el.tagName) || /^(bold|[6-9]00)$/.test(el.style.fontWeight);
+  const ehItalico = el => /^(I|EM)$/.test(el.tagName) || el.style.fontStyle==='italic';
+  const ehRiscado = el => /^(S|STRIKE|DEL)$/.test(el.tagName) || /line-through/.test(el.style.textDecoration||el.style.textDecorationLine||'');
+  function envolve(txt, m){ const a=txt.match(/^\s*/)[0], z=txt.match(/\s*$/)[0], meio=txt.trim(); return meio ? a+m+meio+m+z : txt; }
+  function inline(n){
+    if(n.nodeType===3) return n.data.replace(/\n/g,' ').replace(/([*_~`\\])/g,'\\$1');
+    if(n.nodeType!==1) return '';
+    const t = n.tagName;
+    if(t==='BR') return '\n';
+    if(t==='IMG') return '![]('+n.getAttribute('src')+')';
+    let s = [...n.childNodes].map(inline).join('');
+    if(t==='A'){ const h=n.getAttribute('href')||''; return h && h!=='#' ? '['+s+']('+h+')' : s; }
+    if(ehNegrito(n)) s = envolve(s, '**');
+    if(ehItalico(n)) s = envolve(s, '*');
+    if(ehRiscado(n)) s = envolve(s, '~~');
+    return s;
+  }
+  const out = [];
+  function lista(el, prof){
+    let i = 1;
+    for(const li of el.children){
+      if(li.tagName!=='LI') continue;
+      const pre = '    '.repeat(prof) + (el.tagName==='OL' ? (i++)+'. ' : (el.classList.contains('chk') ? '- ['+(li.getAttribute('data-checked')==='1'?'x':' ')+'] ' : '- '));
+      const sub = [...li.childNodes].filter(c=>c.nodeType===1 && /^(UL|OL)$/.test(c.tagName));
+      const txt = [...li.childNodes].filter(c=>!sub.includes(c)).map(inline).join('').trim();
+      out.push(pre + txt);
+      sub.forEach(s=>lista(s, prof+1));
+    }
+  }
+  function bloco(n){
+    if(n.nodeType===3){ if(n.data.trim()) out.push(inline(n)); return; }
+    if(n.nodeType!==1) return;
+    const t = n.tagName;
+    if(t==='UL' || t==='OL'){ lista(n, 0); out.push(''); return; }
+    if(t==='HR'){ out.push('---', ''); return; }
+    if(t==='BLOCKQUOTE'){ const antes=out.length; [...n.childNodes].forEach(bloco); for(let k=antes;k<out.length;k++) if(out[k]) out[k]='> '+out[k]; return; }
+    if(t==='TABLE'){
+      const linhas = [...n.querySelectorAll('tr')].map(tr=>[...tr.children].map(td=>[...td.childNodes].map(inline).join(' ').replace(/\|/g,'\\|').replace(/\n/g,' ').trim()));
+      if(!linhas.length) return;
+      const nc = Math.max(...linhas.map(l=>l.length));
+      linhas.forEach((l,k)=>{ while(l.length<nc) l.push(''); out.push('| '+l.join(' | ')+' |'); if(k===0) out.push('|'+' --- |'.repeat(nc)); });
+      out.push(''); return;
+    }
+    const txt = [...n.childNodes].map(inline).join('');
+    if(!txt.trim()){ out.push(''); return; }
+    let pre = '';
+    if(n.classList.contains('title') || t==='H1') pre = '# ';
+    else if(n.classList.contains('subtitle') || t==='H2') pre = '## ';
+    else if(t==='H3') pre = '### ';
+    out.push(pre + txt.trim(), '');
+  }
+  [...root.childNodes].forEach(bloco);
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+</script>
+<script>
+'use strict';
+// ======================================================================
+// Menus (barra de menus e listas da barra de ferramentas)
+// ======================================================================
+let MENU_ABERTO = null;   // {el, dono, sub}
+function fechaMenus(){ $$('.gd-menu').forEach(m=>m.remove()); $$('#menubar button').forEach(b=>b.classList.remove('aberto')); MENU_ABERTO = null; }
+/** itens: [{r, k, ic, f, sub, check, dis, html}] ou '-' pra separador ou {tit:'...'} */
+function abreMenu(ancora, itens, opt){
+  opt = opt || {};
+  if(!opt.sub) fechaMenus();
+  const m = document.createElement('div'); m.className = 'gd-menu'; if(opt.largura) m.style.minWidth = opt.largura+'px';
+  m.addEventListener('mousedown', e=>{ if(!e.target.closest('input')) e.preventDefault(); });
+  let subAberto = null;
+  itens.forEach(it=>{
+    if(it==='-'){ const s=document.createElement('div'); s.className='gd-msep'; m.appendChild(s); return; }
+    if(it.tit){ const s=document.createElement('div'); s.className='gd-mtit'; s.textContent=it.tit; m.appendChild(s); return; }
+    if(it.html){ const w=document.createElement('div'); w.innerHTML=it.html; m.appendChild(w); if(it.monta) it.monta(w); return; }
+    const d = document.createElement('div');
+    const dis = it.dis && it.dis();
+    d.className = 'gd-mi'+(dis?' dis':'');
+    const marcado = it.check && it.check();
+    d.innerHTML = '<span class="mic">'+(it.check ? (marcado?ic('check'):'') : (it.ic?ic(it.ic):''))+'</span><span class="mr"'+(it.estilo?' style="'+it.estilo+'"':'')+'>'+esc(it.r)+'</span>'+(it.k?'<span class="mk">'+esc(it.k)+'</span>':'')+(it.sub?'<span class="ms">'+ic('dir')+'</span>':'');
+    if(it.sub){
+      d.addEventListener('mouseenter', ()=>{ if(subAberto) subAberto.remove(); subAberto = abreMenu(d, typeof it.sub==='function'?it.sub():it.sub, {sub:true, lado:true}); });
+    } else {
+      d.addEventListener('mouseenter', ()=>{ if(subAberto){ subAberto.remove(); subAberto=null; } });
+      if(!dis) d.addEventListener('click', ()=>{ fechaMenus(); it.f && it.f(); });
+    }
+    m.appendChild(d);
+  });
+  document.body.appendChild(m);
+  const r = ancora.getBoundingClientRect();
+  let x = opt.lado ? r.right - 2 : r.left, y = opt.lado ? r.top - 6 : r.bottom + 2;
+  const w = m.offsetWidth, h = m.offsetHeight;
+  if(x + w > innerWidth - 8) x = opt.lado ? r.left - w + 2 : innerWidth - w - 8;
+  if(y + h > innerHeight - 8) y = Math.max(8, innerHeight - h - 8);
+  m.style.left = Math.max(8,x)+'px'; m.style.top = y+'px';
+  if(!opt.sub) MENU_ABERTO = { el:m, dono:ancora };
+  return m;
+}
+document.addEventListener('mousedown', e=>{ if(MENU_ABERTO && !e.target.closest('.gd-menu') && !e.target.closest('#menubar button') && e.target!==MENU_ABERTO.dono && !MENU_ABERTO.dono.contains(e.target)) fechaMenus(); });
+
+// ---------------- paleta de cores ----------------
+const CORES_BASE = ['#980000','#FF0000','#FF9900','#FFFF00','#00FF00','#00FFFF','#4A86E8','#0000FF','#9900FF','#FF00FF'];
+const CINZAS = ['#000000','#434343','#666666','#999999','#B7B7B7','#CCCCCC','#D9D9D9','#EFEFEF','#F3F3F3','#FFFFFF'];
+function mistura(hex, alvo, t){ const a=parseInt(hex.slice(1),16), b=parseInt(alvo.slice(1),16); const c=k=>Math.round(((a>>k)&255)*(1-t)+((b>>k)&255)*t); return '#'+((1<<24)+(c(16)<<16)+(c(8)<<8)+c(0)).toString(16).slice(1).toUpperCase(); }
+const PALETA = [CINZAS, CORES_BASE, ...[.8,.6,.4].map(t=>CORES_BASE.map(c=>mistura(c,'#FFFFFF',t))), ...[.25,.5,.7].map(t=>CORES_BASE.map(c=>mistura(c,'#000000',t)))];
+const CORES_GRUPO = ['#FCC100','#1F1F1F','#3987E5','#C98500','#0F9D58','#E0457B'];
+function menuCor(ancora, tipo){
+  const nenhuma = tipo==='fundo' ? '<div class="gd-mi" data-cor="transparent"><span class="mic">'+ic('x')+'</span><span class="mr">Nenhuma</span></div>' : '<div class="gd-mi" data-cor="#000000"><span class="mic">'+ic('x')+'</span><span class="mr">Automática (preto)</span></div>';
+  const grade = cores => '<div class="paleta">'+cores.flat().map(c=>'<button data-cor="'+c+'" style="background:'+c+'" title="'+c+'"></button>').join('')+'</div>';
+  abreMenu(ancora, [{ html: nenhuma + grade(PALETA) + '<div class="gd-mtit">CORES DO GRUPO</div>' + grade([CORES_GRUPO]), monta: w=>{
+    w.querySelectorAll('[data-cor]').forEach(b=> b.addEventListener('click', ()=>{ const c=b.dataset.cor; fechaMenus(); cmd(()=> ex(tipo==='fundo'?'hiliteColor':'foreColor', c, true)); if(tipo==='fundo'){ ULT_FUNDO=c; } else ULT_COR=c; desenhaIndicadoresCor(); }));
+  }}], {largura:270});
+}
+let ULT_COR = '#000000', ULT_FUNDO = '#FFFF00';
+
+// ---------------- grade de tabela ----------------
+function menuTabela(ancora){ abreMenu(ancora, [itemGradeTabela()]); }
+function itemGradeTabela(){
+  return { html:'<div class="grade"><div class="gg">'+Array.from({length:80},(_,k)=>'<i data-c="'+(k%10+1)+'" data-l="'+(Math.floor(k/10)+1)+'"></i>').join('')+'</div><div class="gn">1 x 1</div></div>', monta: w=>{
+    const cel = w.querySelectorAll('i'), gn = w.querySelector('.gn');
+    cel.forEach(i=>{
+      i.addEventListener('mouseenter', ()=>{ const c=+i.dataset.c, l=+i.dataset.l; cel.forEach(j=> j.classList.toggle('on', +j.dataset.c<=c && +j.dataset.l<=l)); gn.textContent = c+' x '+l; });
+      i.addEventListener('click', ()=>{ fechaMenus(); inserirTabela(+i.dataset.c, +i.dataset.l); });
+    });
+  }};
+}
+function inserirTabela(c, l){
+  const linha = '<tr>'+'<td><br></td>'.repeat(c)+'</tr>';
+  cmd(()=>{
+    ex('insertHTML', '<table data-nova="1"><tbody>'+linha.repeat(l)+'</tbody></table><p><br></p>');
+    // cursor na primeira célula, igual editor de escritório
+    const t = page.querySelector('table[data-nova]'); if(!t) return;
+    t.removeAttribute('data-nova');
+    const r = document.createRange(); r.setStart(t.querySelector('td'), 0); r.collapse(true); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  });
+}
+function opTabela(op){
+  const td = dentro('td,th'); if(!td) return;
+  cmd(()=>{
+    const tr = td.parentNode, tabela = td.closest('table'), idx = [...tr.children].indexOf(td);
+    const linhas = [...tabela.querySelectorAll('tr')];
+    if(op==='linhaAcima' || op==='linhaAbaixo'){ const n=tr.cloneNode(true); n.querySelectorAll('td,th').forEach(x=>x.innerHTML='<br>'); tr.parentNode.insertBefore(n, op==='linhaAcima'?tr:tr.nextSibling); }
+    if(op==='colEsq' || op==='colDir'){ linhas.forEach(r=>{ const ref=r.children[idx]; const n=document.createElement(ref?ref.tagName:'td'); n.innerHTML='<br>'; if(ref) r.insertBefore(n, op==='colEsq'?ref:ref.nextSibling); else r.appendChild(n); }); }
+    if(op==='delLinha'){ if(linhas.length<=1) tabela.remove(); else tr.remove(); }
+    if(op==='delCol'){ if(tr.children.length<=1) tabela.remove(); else linhas.forEach(r=>{ if(r.children[idx]) r.children[idx].remove(); }); }
+    if(op==='delTabela'){ const p=document.createElement('p'); p.innerHTML='<br>'; tabela.replaceWith(p); }
+  });
+}
+const ITENS_TABELA = () => { const dis = ()=>!dentro('td,th'); return [
+  {r:'Inserir linha acima', ic:'cima', f:()=>opTabela('linhaAcima'), dis}, {r:'Inserir linha abaixo', ic:'baixo', f:()=>opTabela('linhaAbaixo'), dis},
+  {r:'Inserir coluna à esquerda', f:()=>opTabela('colEsq'), dis}, {r:'Inserir coluna à direita', f:()=>opTabela('colDir'), dis}, '-',
+  {r:'Excluir linha', ic:'lixo', f:()=>opTabela('delLinha'), dis}, {r:'Excluir coluna', f:()=>opTabela('delCol'), dis}, {r:'Excluir tabela', f:()=>opTabela('delTabela'), dis},
+]; };
+// clique com o botão direito dentro de uma tabela: o menu da tabela
+page.addEventListener('contextmenu', e=>{ if(!e.target.closest('td,th') || LEITURA) return; e.preventDefault(); const a=document.createElement('div'); a.style.cssText='position:fixed;left:'+e.clientX+'px;top:'+e.clientY+'px;width:1px;height:1px'; document.body.appendChild(a); abreMenu(a, ITENS_TABELA()); a.remove(); });
+
+// ======================================================================
+// Barra de ferramentas
+// ======================================================================
+const FONTES = ['Arial','Roboto','Inter','Montserrat','Poppins','Lora','Merriweather','Georgia','Times New Roman','Courier New','Verdana','Trebuchet MS','Comic Sans MS'];
+const TAMANHOS = [8,9,10,11,12,14,18,24,30,36,48,60,72,96];
+const ZOOMS = [[.5,'50%'],[.75,'75%'],[.9,'90%'],[1,'100%'],[1.25,'125%'],[1.5,'150%'],[2,'200%']];
+function montaToolbar(){
+  const tb = $('#toolbar');
+  const b = (id, html, tip, f, cls) => { const x=document.createElement('button'); x.className='tb'+(cls?' '+cls:''); if(id) x.id=id; x.innerHTML=html; x.title=tip; x.addEventListener('mousedown', e=>e.preventDefault()); x.addEventListener('click', ()=>f(x)); tb.appendChild(x); return x; };
+  const sep = () => { const s=document.createElement('span'); s.className='tbsep'; tb.appendChild(s); };
+  b('tbDesfazer', ic('undo'), 'Desfazer (Ctrl+Z)', desfazer);
+  b('tbRefazer', ic('redo'), 'Refazer (Ctrl+Y)', refazer);
+  b(null, ic('print'), 'Imprimir (Ctrl+P)', ()=>window.print());
+  b('tbPincel', ic('pincel'), 'Pintar formatação: copia a formatação do texto onde está o cursor e aplica no próximo trecho que você selecionar', pincel);
+  b('tbZoom', '<span>100%</span>'+ic('seta','seta'), 'Zoom', x=> abreMenu(x, ZOOMS.map(([z,r])=>({r, check:()=>V.zoom===z, f:()=>{ V.zoom=z; aplicaVer(); guardaVer(); }}))), 'dd');
+  sep();
+  b('tbEstilo', '<span>Texto normal</span>'+ic('seta','seta'), 'Estilos', x=> abreMenu(x, ESTILOS.map(([v,r])=>({r, check:()=>estiloAtual()===v, f:()=>aplicaEstilo(v), estilo: ({title:'font-size:20px',subtitle:'font-size:15px;color:#666',h1:'font-size:18px',h2:'font-size:16px',h3:'font-size:14.5px;color:#434343'})[v]||''})), {largura:260}), 'dd');
+  sep();
+  b('tbFonte', '<span>Arial</span>'+ic('seta','seta'), 'Fonte', x=> abreMenu(x, FONTES.map(f=>({r:f, estilo:'font-family:\''+f+'\'', check:()=>fonteAtual()===f, f:()=>cmd(()=>ex('fontName', f, true))}))), 'dd');
+  sep();
+  // tamanho: - [11] +
+  const tam = document.createElement('span'); tam.className='tbtam';
+  tam.innerHTML = '<button class="tb" id="tbMenos" title="Diminuir o tamanho da fonte (Ctrl+Shift+,)">'+'<svg class="ic" viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button><input id="tbTam" value="11" title="Tamanho da fonte" inputmode="decimal"><button class="tb" id="tbMais" title="Aumentar o tamanho da fonte (Ctrl+Shift+.)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>';
+  tb.appendChild(tam);
+  tam.querySelectorAll('button').forEach(x=> x.addEventListener('mousedown', e=>e.preventDefault()));
+  $('#tbMenos').onclick = ()=> passoTamanho(-1);
+  $('#tbMais').onclick = ()=> passoTamanho(1);
+  const ti = $('#tbTam');
+  ti.addEventListener('mousedown', ()=> guardaRange());
+  ti.addEventListener('focus', ()=>{ ti.select(); abreMenu(ti, TAMANHOS.map(t=>({r:String(t), f:()=>aplicaTamanho(t)})), {largura:70}); });
+  ti.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); fechaMenus(); aplicaTamanho(ti.value.replace(',','.')); } if(e.key==='Escape'){ fechaMenus(); voltaRange(); } });
+  sep();
+  b('tbB', 'B', 'Negrito (Ctrl+B)', ()=>cmd(()=>ex('bold')), 'letra');
+  b('tbI', 'I', 'Itálico (Ctrl+I)', ()=>cmd(()=>ex('italic')), 'letra i');
+  b('tbU', 'U', 'Sublinhado (Ctrl+U)', ()=>cmd(()=>ex('underline')), 'letra u');
+  b('tbCor', '<span class="tbcor"><b>A</b><i id="indCor"></i></span>', 'Cor do texto', x=>menuCor(x,'texto'));
+  b('tbFundo', '<span class="tbcor"><svg class="ic" viewBox="0 0 24 24" style="width:17px;height:15px"><path d="M8 13l7-9 4 3-7 9z"/><path d="M8 13l-2 3h5"/></svg><i id="indFundo"></i></span>', 'Cor de destaque', x=>menuCor(x,'fundo'));
+  sep();
+  b('tbLink', ic('link'), 'Inserir link (Ctrl+K)', dialogoLink);
+  b(null, ic('img'), 'Inserir imagem por link (só link: a imagem não fica guardada aqui)', dialogoImagem);
+  b(null, ic('tabela'), 'Inserir tabela', x=>menuTabela(x));
+  b(null, ic('emoji'), 'Emoji e símbolos', dialogoEmoji);
+  sep();
+  b('tbAlinha', ic('alL')+ic('seta','seta'), 'Alinhar', x=> abreMenu(x, [
+    {r:'Alinhar à esquerda', ic:'alL', k:'Ctrl+Shift+L', f:()=>cmd(()=>ex('justifyLeft',null,true))},
+    {r:'Centralizar', ic:'alC', k:'Ctrl+Shift+E', f:()=>cmd(()=>ex('justifyCenter',null,true))},
+    {r:'Alinhar à direita', ic:'alR', k:'Ctrl+Shift+R', f:()=>cmd(()=>ex('justifyRight',null,true))},
+    {r:'Justificar', ic:'alJ', k:'Ctrl+Shift+J', f:()=>cmd(()=>ex('justifyFull',null,true))},
+  ]), 'dd');
+  b(null, ic('esp'), 'Espaçamento entre linhas e parágrafos', x=> abreMenu(x, itensEspaco()));
+  b('tbChk', ic('chk'), 'Checklist (Ctrl+Shift+9)', listaChecklist);
+  b('tbUl', ic('ul'), 'Lista com marcadores (Ctrl+Shift+8)', ()=>listaNormal('ul'));
+  b('tbOl', ic('ol'), 'Lista numerada (Ctrl+Shift+7)', ()=>listaNormal('ol'));
+  b(null, ic('outd'), 'Diminuir recuo (Ctrl+[)', ()=>cmd(()=>ex('outdent')));
+  b(null, ic('ind'), 'Aumentar recuo (Ctrl+])', ()=>cmd(()=>ex('indent')));
+  b(null, ic('limpa'), 'Limpar formatação (Ctrl+\\)', limparFormatacao);
+  sep();
+  b(null, ic('busca'), 'Localizar e substituir (Ctrl+H)', ()=>abreBusca(true));
+}
+function itensEspaco(){
+  const lh = ()=>{ const b=blocosDaSelecao()[0]; return b && b.style.lineHeight ? parseFloat(b.style.lineHeight) : 1.15; };
+  return [ ...[[1,'Simples'],[1.15,'1,15'],[1.5,'1,5'],[2,'Duplo']].map(([v,r])=>({r, check:()=>Math.abs(lh()-v)<.01, f:()=>aplicaEspaco(String(v))})), '-',
+    {r:'Adicionar espaço antes do parágrafo', f:()=>espacoParagrafo('antes')}, {r:'Adicionar espaço depois do parágrafo', f:()=>espacoParagrafo('depois')} ];
+}
+function passoTamanho(d){ const t=tamanhoAtual(); const i = d>0 ? TAMANHOS.find(x=>x>t) : [...TAMANHOS].reverse().find(x=>x<t); aplicaTamanho(i || (t+d)); }
+function limparFormatacao(){ cmd(()=>{ ex('removeFormat'); ex('unlink'); blocosDaSelecao().forEach(b=>{ b.removeAttribute('style'); if(/^H[123]$/.test(b.tagName) || b.classList.contains('title') || b.classList.contains('subtitle')){ b.classList.remove('title','subtitle'); } }); ex('formatBlock','<p>'); }); }
+let T_TB = null;
+function agendaToolbar(){ if(T_TB) return; T_TB = requestAnimationFrame(()=>{ T_TB=null; atualizaToolbar(); }); }
+function atualizaToolbar(){
+  if(!$('#tbB')) return;
+  const noDoc = !!elDaSelecao();
+  const st = c => { try{ return noDoc && document.queryCommandState(c); }catch(e){ return false; } };
+  $('#tbB').classList.toggle('on', st('bold')); $('#tbI').classList.toggle('on', st('italic')); $('#tbU').classList.toggle('on', st('underline'));
+  const ul = dentro('ul,ol');
+  $('#tbChk').classList.toggle('on', !!(ul && ul.classList.contains('chk')));
+  $('#tbUl').classList.toggle('on', !!(ul && ul.tagName==='UL' && !ul.classList.contains('chk')));
+  $('#tbOl').classList.toggle('on', !!(ul && ul.tagName==='OL'));
+  if(noDoc){
+    $('#tbEstilo span').textContent = (ESTILOS.find(e=>e[0]===estiloAtual())||ESTILOS[0])[1];
+    $('#tbFonte span').textContent = fonteAtual();
+    if(document.activeElement !== $('#tbTam')) $('#tbTam').value = String(tamanhoAtual()).replace('.',',');
+    const al = st('justifyCenter')?'alC':st('justifyRight')?'alR':st('justifyFull')?'alJ':'alL';
+    $('#tbAlinha').innerHTML = ic(al)+ic('seta','seta');
+  }
+  $('#tbDesfazer').disabled = H.i<=0 && !H.t; $('#tbRefazer').disabled = H.i>=H.pilha.length-1;
+  $('#tbDesfazer').style.opacity = $('#tbDesfazer').disabled ? .4 : 1; $('#tbRefazer').style.opacity = $('#tbRefazer').disabled ? .4 : 1;
+}
+function desenhaIndicadoresCor(){ $('#indCor').style.background = ULT_COR; $('#indFundo').style.background = ULT_FUNDO==='transparent' ? '#fff' : ULT_FUNDO; }
+
+// ---------------- pintar formatação (pincel) ----------------
+let PINCEL = null;
+function pincel(){
+  if(PINCEL){ PINCEL=null; page.classList.remove('pincel'); $('#tbPincel').classList.remove('on'); return; }
+  const e = elDaSelecao(); if(!e) return toast('Coloque o cursor no texto que tem a formatação que você quer copiar.');
+  const cs = getComputedStyle(e);
+  PINCEL = { b: document.queryCommandState('bold'), i: document.queryCommandState('italic'), u: document.queryCommandState('underline'), s: document.queryCommandState('strikeThrough'),
+    cor: cs.color, fundo: (()=>{ let x=e; while(x && x!==page){ const bg=getComputedStyle(x).backgroundColor; if(bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) return bg; x=x.parentElement; } return 'transparent'; })(),
+    pt: tamanhoAtual(), fonte: fonteAtual() };
+  page.classList.add('pincel'); $('#tbPincel').classList.add('on');
+}
+page.addEventListener('mouseup', ()=>{
+  if(!PINCEL) return;
+  const s = getSelection(); if(!s.rangeCount || s.isCollapsed) return;
+  const P = PINCEL; PINCEL = null; page.classList.remove('pincel'); $('#tbPincel').classList.remove('on');
+  cmd(()=>{
+    ex('removeFormat');
+    if(P.b) ex('bold'); if(P.i) ex('italic'); if(P.u) ex('underline'); if(P.s) ex('strikeThrough');
+    ex('foreColor', P.cor, true); if(P.fundo!=='transparent') ex('hiliteColor', P.fundo, true);
+    ex('fontName', P.fonte, true); PT_ALVO = P.pt; ex('fontSize','7',false);
+  });
+});
+
+// ======================================================================
+// Menus da barra: Arquivo, Editar, Ver, Inserir, Formatar, Ferramentas
+// ======================================================================
+const MENUS = {
+  arquivo: () => [
+    {r:'Abrir documento', ic:'pasta', k:'Ctrl+O', f:dialogoAbrir},
+    {r:'Abrir em nova aba do navegador', ic:'nova', f:()=>window.open(location.pathname+'?id='+DOC_ID, '_blank')},
+    '-',
+    {r:'Baixar', ic:'baixar', sub:[
+      {r:'Microsoft Word (.docx)', f:baixarDocx}, {r:'Documento PDF (.pdf)', f:baixarPdf},
+      {r:'Texto simples (.txt)', f:baixarTxt}, {r:'Página da web (.html)', f:baixarHtml}]},
+    {r:'Copiar legenda pro Instagram', ic:'copiar', k:'Ctrl+Alt+C', f:copiarLegenda},
+    {r:'Mandar pro ClickUp', ic:'enviar', f:mandarClickup, dis:()=>!(D && D.post && D.post.taskId)},
+    '-',
+    {r:'Renomear', ic:'lapis', f:()=>{ $('#titulo').focus(); $('#titulo').select(); }},
+    {r:'Histórico de versões', ic:'hist', k:'Ctrl+Alt+Shift+H', f:dialogoVersoes},
+    '-',
+    {r:'Imprimir', ic:'print', k:'Ctrl+P', f:()=>window.print()},
+    {r:'Mover pra lixeira', ic:'lixo', f:excluirDoc, dis:()=>LEITURA},
+  ],
+  editar: () => [
+    {r:'Desfazer', ic:'undo', k:'Ctrl+Z', f:desfazer, dis:()=>H.i<=0 && !H.t}, {r:'Refazer', ic:'redo', k:'Ctrl+Y', f:refazer, dis:()=>H.i>=H.pilha.length-1}, '-',
+    {r:'Recortar', k:'Ctrl+X', f:()=>{ voltaRange(); document.execCommand('cut'); registra(); mudou(); }},
+    {r:'Copiar', ic:'copiar', k:'Ctrl+C', f:()=>{ voltaRange(); document.execCommand('copy'); }},
+    {r:'Colar', k:'Ctrl+V', f:()=>toast('Pra colar, use Ctrl+V (o navegador não deixa o menu ler a área de transferência).')},
+    {r:'Colar sem formatação', k:'Ctrl+Shift+V', f:()=>toast('Use Ctrl+Shift+V pra colar só o texto, sem formatação.')}, '-',
+    {r:'Selecionar tudo', k:'Ctrl+A', f:()=>{ page.focus(); const r=document.createRange(); r.selectNodeContents(page); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }},
+    {r:'Excluir', f:()=>cmd(()=>ex('delete'))}, '-',
+    {r:'Localizar e substituir', ic:'busca', k:'Ctrl+H', f:()=>abreBusca(true)},
+  ],
+  ver: () => [
+    {r:'Mostrar régua', check:()=>V.regua, f:()=>{ V.regua=!V.regua; aplicaVer(); guardaVer(); }},
+    {r:'Mostrar contagem de palavras', check:()=>V.contagem, f:()=>{ V.contagem=!V.contagem; aplicaVer(); guardaVer(); }},
+    {r:D && D.matriz ? 'Painel da matriz' : 'Painel do post', check:()=>!$('#side').hidden, k:'Ctrl+Alt+M', f:()=>abreLateral()}, '-',
+    {r:'Zoom', sub: ZOOMS.map(([z,r])=>({r, check:()=>V.zoom===z, f:()=>{ V.zoom=z; aplicaVer(); guardaVer(); }}))},
+    {r:'Tela cheia', ic:'tela', f:()=>{ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(()=>toast('O navegador não deixou entrar em tela cheia.')); }},
+  ],
+  inserir: () => [
+    {r:'Imagem (por link)', ic:'img', f:dialogoImagem},
+    {r:'Tabela', ic:'tabela', sub:()=>[itemGradeTabela()]},
+    '-',
+    {r:'Link', ic:'link', k:'Ctrl+K', f:dialogoLink},
+    {r:'Emoji e símbolos', ic:'emoji', f:dialogoEmoji},
+    {r:'Linha horizontal', ic:'hr', f:()=>cmd(()=>ex('insertHorizontalRule'))},
+    {r:'Data de hoje', ic:'data', f:()=>{ const d=new Date(); inserirTexto(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()); }},
+    '-',
+    {r:'Checklist', ic:'chk', k:'Ctrl+Shift+9', f:listaChecklist},
+  ],
+  formatar: () => [
+    {r:'Texto', ic:'texto', sub:[
+      {r:'Negrito', k:'Ctrl+B', f:()=>cmd(()=>ex('bold'))}, {r:'Itálico', k:'Ctrl+I', f:()=>cmd(()=>ex('italic'))},
+      {r:'Sublinhado', k:'Ctrl+U', f:()=>cmd(()=>ex('underline'))}, {r:'Tachado', k:'Alt+Shift+5', f:()=>cmd(()=>ex('strikeThrough'))},
+      {r:'Sobrescrito', k:'Ctrl+.', f:()=>cmd(()=>ex('superscript'))}, {r:'Subscrito', k:'Ctrl+,', f:()=>cmd(()=>ex('subscript'))}, '-',
+      {r:'Aumentar tamanho', k:'Ctrl+Shift+.', f:()=>passoTamanho(1)}, {r:'Diminuir tamanho', k:'Ctrl+Shift+,', f:()=>passoTamanho(-1)}, '-',
+      {r:'minúsculas', f:()=>trocaCaixa('min')}, {r:'MAIÚSCULAS', f:()=>trocaCaixa('mai')}, {r:'Primeira Letra Maiúscula', f:()=>trocaCaixa('tit')},
+    ]},
+    {r:'Estilos de parágrafo', ic:'par', sub: ESTILOS.map(([v,r],i)=>({r, k: i===0?'Ctrl+Alt+0':(v.startsWith('h')?'Ctrl+Alt+'+v[1]:''), check:()=>estiloAtual()===v, f:()=>aplicaEstilo(v)}))},
+    {r:'Alinhar e recuar', ic:'alL', sub:[
+      {r:'Esquerda', k:'Ctrl+Shift+L', f:()=>cmd(()=>ex('justifyLeft',null,true))}, {r:'Centro', k:'Ctrl+Shift+E', f:()=>cmd(()=>ex('justifyCenter',null,true))},
+      {r:'Direita', k:'Ctrl+Shift+R', f:()=>cmd(()=>ex('justifyRight',null,true))}, {r:'Justificado', k:'Ctrl+Shift+J', f:()=>cmd(()=>ex('justifyFull',null,true))}, '-',
+      {r:'Aumentar recuo', k:'Ctrl+]', f:()=>cmd(()=>ex('indent'))}, {r:'Diminuir recuo', k:'Ctrl+[', f:()=>cmd(()=>ex('outdent'))},
+    ]},
+    {r:'Espaçamento entre linhas e parágrafos', ic:'esp', sub: itensEspaco},
+    {r:'Marcadores e numeração', ic:'ul', sub:[
+      {r:'Lista com marcadores', k:'Ctrl+Shift+8', f:()=>listaNormal('ul')}, {r:'Lista numerada', k:'Ctrl+Shift+7', f:()=>listaNormal('ol')}, {r:'Checklist', k:'Ctrl+Shift+9', f:listaChecklist}]},
+    {r:'Tabela', ic:'tabela', sub: ITENS_TABELA},
+    '-',
+    {r:'Limpar formatação', ic:'limpa', k:'Ctrl+\\', f:limparFormatacao},
+  ],
+  ferramentas: () => [
+    {r:'Contagem de palavras', ic:'contagem', k:'Ctrl+Shift+C', f:dialogoContagem},
+    {r:'Verificação ortográfica', ic:'orto', check:()=>V.orto, f:()=>{ V.orto=!V.orto; aplicaVer(); guardaVer(); toast(V.orto?'Correção ortográfica ligada (a do navegador, em português).':'Correção ortográfica desligada.'); }},
+    '-',
+    {r:D && D.matriz ? 'Matriz e checklist de entrega' : 'Informações do post', ic:'matriz', f:()=>abreLateral(true)},
+    {r:'Copiar legenda pro Instagram', ic:'copiar', f:copiarLegenda},
+  ],
+};
+$$('#menubar button').forEach(b=>{
+  b.addEventListener('mousedown', e=>{ e.preventDefault(); });
+  b.addEventListener('click', ()=>{ if(MENU_ABERTO && MENU_ABERTO.dono===b){ fechaMenus(); return; } abreMenu(b, MENUS[b.dataset.menu]()); b.classList.add('aberto'); MENU_ABERTO.dono = b; });
+  b.addEventListener('mouseenter', ()=>{ if(MENU_ABERTO && MENU_ABERTO.dono.closest && MENU_ABERTO.dono.closest('#menubar') && MENU_ABERTO.dono!==b){ abreMenu(b, MENUS[b.dataset.menu]()); b.classList.add('aberto'); MENU_ABERTO.dono = b; } });
+});
+
+// ======================================================================
+// Caixas de diálogo
+// ======================================================================
+function dialogo(tit, corpoHtml, botoes, opt){
+  opt = opt || {};
+  fechaMenus();
+  const ov = document.createElement('div'); ov.className = 'gd-ov';
+  ov.innerHTML = '<div class="gd-dlg'+(opt.largo?' largo':'')+'" role="dialog"><h3>'+esc(tit)+'</h3><div class="corpo">'+corpoHtml+'</div><div class="pe"></div></div>';
+  const fecha = (volta) => { ov.remove(); document.removeEventListener('keydown', tecla, true); if(volta!==false) voltaRange(); };
+  (botoes||[{r:'Fechar'}]).forEach(bt=>{ const x=document.createElement('button'); x.textContent=bt.r; if(bt.forte) x.className='forte'; x.onclick = async ()=>{ if(bt.f){ const r = await bt.f(ov); if(r===false) return; } fecha(bt.volta); }; ov.querySelector('.pe').appendChild(x); });
+  const tecla = e=>{ if(e.key==='Escape'){ e.stopPropagation(); fecha(); } if(e.key==='Enter' && opt.enter && e.target.tagName==='INPUT'){ e.preventDefault(); const forte = ov.querySelector('.pe .forte'); if(forte) forte.click(); } };
+  document.addEventListener('keydown', tecla, true);
+  ov.addEventListener('mousedown', e=>{ if(e.target===ov) fecha(); });
+  document.body.appendChild(ov);
+  const inp = ov.querySelector('input'); if(inp) setTimeout(()=>{ inp.focus(); inp.select && inp.select(); }, 30);
+  return ov;
+}
+function pergunta(tit, texto, sim, nao){
+  return new Promise(res=>{ dialogo(tit, texto, [{r:nao||'Cancelar', f:()=>res(false)}, {r:sim||'OK', forte:true, f:()=>res(true)}]); });
+}
+
+// ---------------- link ----------------
+function dialogoLink(){
+  if(LEITURA) return;
+  guardaRange();
+  const a = dentro('a');
+  const s = getSelection();
+  const txtSel = a ? a.textContent : (s.rangeCount ? s.toString() : '');
+  dialogo(a ? 'Editar link' : 'Inserir link',
+    '<label>Texto</label><input type="text" id="dlTexto" value="'+esc(txtSel)+'" placeholder="texto que aparece">'+
+    '<label>Link</label><input type="url" id="dlUrl" value="'+esc(a?a.getAttribute('href'):'')+'" placeholder="cole ou digite o link (https://…)">',
+    [{r:'Cancelar'}, {r:'Aplicar', forte:true, f:ov=>{
+      let url = ov.querySelector('#dlUrl').value.trim(); const txt = ov.querySelector('#dlTexto').value;
+      if(!url) return false;
+      if(!/^(https?:|mailto:|tel:)/i.test(url)) url = 'https://'+url;
+      cmd(()=>{
+        if(a){ a.setAttribute('href', url); if(txt && txt!==a.textContent) a.textContent = txt; return; }
+        const sel = getSelection();
+        if(sel.rangeCount && !sel.isCollapsed && (!txt || txt===sel.toString())) ex('createLink', url);
+        else ex('insertHTML', '<a href="'+esc(url)+'">'+esc(txt||url)+'</a>');
+      });
+    }}], {enter:true});
+  if(txtSel) setTimeout(()=>{ const u=document.getElementById('dlUrl'); if(u) u.focus(); }, 40);
+}
+// bolha que aparece quando o cursor está em cima de um link
+function bolhaLink(){
+  $$('.gd-bolha').forEach(b=>b.remove());
+  const a = dentro('a'); if(!a || document.activeElement!==page) return;
+  const r = a.getBoundingClientRect();
+  const d = document.createElement('div'); d.className = 'gd-bolha';
+  d.innerHTML = ic('link')+'<a href="'+esc(a.getAttribute('href'))+'" target="_blank" rel="noopener">'+esc(a.getAttribute('href'))+'</a><button title="copiar o link">'+ic('copiar')+'</button><button title="editar o link">'+ic('lapis')+'</button><button title="remover o link">'+ic('x')+'</button>';
+  d.addEventListener('mousedown', e=>{ if(e.target.tagName!=='A') e.preventDefault(); });
+  const [bc, be, bx] = d.querySelectorAll('button');
+  bc.onclick = ()=>{ copiaTexto(a.getAttribute('href')); toast('Link copiado.'); };
+  be.onclick = ()=>{ d.remove(); dialogoLink(); };
+  bx.onclick = ()=>{ d.remove(); cmd(()=>{ const r2=document.createRange(); r2.selectNodeContents(a); const s=getSelection(); s.removeAllRanges(); s.addRange(r2); ex('unlink'); }); };
+  document.body.appendChild(d);
+  d.style.left = Math.min(Math.max(8, r.left), innerWidth - d.offsetWidth - 8)+'px';
+  d.style.top = (r.bottom + 6 + d.offsetHeight > innerHeight ? r.top - d.offsetHeight - 6 : r.bottom + 6)+'px';
+}
+
+// ---------------- imagem (só por link) ----------------
+function dialogoImagem(){
+  if(LEITURA) return;
+  guardaRange();
+  dialogo('Inserir imagem por link',
+    '<p style="margin:0 0 4px">A imagem não fica guardada no B.O.N.E: entra o link. Se for link direto de imagem (termina em .jpg, .png…) ou de um arquivo do Drive compartilhado, ela aparece na folha; se não, entra como link clicável.</p>'+
+    '<label>Link da imagem</label><input type="url" id="diUrl" placeholder="https://…">',
+    [{r:'Cancelar'}, {r:'Inserir', forte:true, f:ov=>{
+      let url = ov.querySelector('#diUrl').value.trim(); if(!url) return false;
+      if(!/^https?:\/\//i.test(url)) url = 'https://'+url;
+      const drive = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([\w-]{10,})/);
+      const direta = /\.(png|jpe?g|gif|webp|avif|bmp)(\?|#|$)/i.test(url) || /(googleusercontent\.com|i\.imgur\.com|images\.unsplash\.com|cdninstagram\.com|fbcdn\.net)/i.test(url);
+      if(drive) inserirHtml('<a href="'+esc(url)+'"><img src="https://drive.google.com/thumbnail?id='+drive[1]+'&amp;sz=w1200" alt="imagem do Drive"></a>');
+      else if(direta) inserirHtml('<img src="'+esc(url)+'" alt="">');
+      else inserirHtml('<a href="'+esc(url)+'">imagem: '+esc(url)+'</a>');
+    }}], {enter:true});
+}
+// imagem que não abre (link quebrado ou sem permissão) vira link, pra não sumir
+// (não troca nada no texto: só marca, porque pode ser só a internet que caiu)
+page.addEventListener('error', e=>{ const im = e.target; if(im.tagName!=='IMG') return; im.classList.add('quebrada'); im.title = 'a imagem não abriu aqui (link quebrado, sem permissão ou sem internet): '+im.getAttribute('src'); }, true);
+
+// ---------------- emoji e símbolos ----------------
+const EMOJIS = {
+  'Mais usados em legenda': '🔥 ✨ 👉 👇 👆 ✅ 📌 💛 🧢 🎯 📈 💬 📲 🚀 ⭐ ❤️ 😍 👀 🙌 💪 👏 🤝 🏆 📦 🎁 ⏰ 📍 📣 💡 🛒 💰 ⚡ 🔝 ☀️ 🌱',
+  'Rostos': '😀 😃 😄 😁 😅 😂 🤣 😊 😉 😎 🤩 🥳 😏 🤔 🤯 😱 😬 🙃 😇 🥹 😢 😭 😤 😡 🤫 🤗 😴 🤑',
+  'Mãos e pessoas': '👍 👎 👌 ✌️ 🤞 🤟 🤙 👋 ✋ 🙏 💅 🫶 👊 ✊ 🧠 👤 👥 🧑‍💼 👷 🧑‍🎨 🧑‍💻',
+  'Objetos e negócios': '🧢 👕 🧵 🪡 🏭 🚚 📦 🏷️ 💼 📊 📉 🧾 💳 🏦 🔑 🔒 📷 🎥 🎬 🎙️ 📝 ✏️ 📅 🗓️ ⚙️ 🔧 ☎️ 📧 🌐 ☀️ 🔋 🏠',
+  'Setas e marcas': '➡️ ⬅️ ⬆️ ⬇️ ↗️ ↘️ 🔄 🔁 ➕ ➖ ✖️ ❗ ❓ ‼️ ⚠️ 🚫 ⛔ ✔️ ☑️ 🔴 🟠 🟡 🟢 🔵 🟣 ⚫ ⚪ 🟨 🟩',
+};
+const SIMBOLOS = '• ◦ ▪ ▫ ● ○ ■ □ ► ▸ ◆ ◇ → ← ↑ ↓ ↔ ⇒ ✓ ✔ ✗ ★ ☆ © ® ™ … – ° ª º § ¶ ± × ÷ ≠ ≤ ≥ ≈ ∞ € £ ¥ ¢ ½ ¼ ¾ ¹ ² ³ « » “ ” ‘ ’ ¡ ¿';
+function dialogoEmoji(){
+  if(LEITURA) return;
+  guardaRange();
+  const ov = dialogo('Emoji e símbolos',
+    Object.entries(EMOJIS).map(([t,l])=>'<div class="emotit">'+esc(t)+'</div><div class="emo">'+l.split(' ').map(e=>'<button title="'+e+'">'+e+'</button>').join('')+'</div>').join('')+
+    '<div class="emotit">Símbolos</div><div class="emo simb">'+SIMBOLOS.split(' ').map(e=>'<button title="'+e+'">'+e+'</button>').join('')+'</div>',
+    [{r:'Fechar'}], {largo:true});
+  ov.querySelectorAll('.emo button').forEach(b=>{ b.addEventListener('mousedown', e=>e.preventDefault()); b.onclick = ()=>{ voltaRange(); inserirTexto(b.textContent); guardaRange(); }; });
+}
+
+// ---------------- contagem de palavras ----------------
+function dialogoContagem(){
+  const tudo = contar(textoPlano(page)); const sel = textoSelecionado(); const cs = sel ? contar(sel) : null;
+  const lin = (r, k) => '<tr><td>'+r+'</td><td>'+(cs ? cs[k].toLocaleString('pt-BR')+' de ' : '')+tudo[k].toLocaleString('pt-BR')+'</td></tr>';
+  const paginas = Math.max(1, Math.ceil((page.scrollHeight - 2*96) / (1123 - 2*96)));
+  dialogo('Contagem de palavras',
+    '<table class="cont"><tr><td>Páginas (estimado)</td><td>'+paginas+'</td></tr>'+lin('Palavras','palavras')+lin('Caracteres','caracteres')+lin('Caracteres sem espaços','semEspaco')+
+    '<tr><td>Legenda do Instagram (limite '+LIMITE_IG.toLocaleString('pt-BR')+')</td><td style="'+((cs||tudo).legenda>LIMITE_IG?'color:#B3261E;font-weight:500':'')+'">'+(cs||tudo).legenda.toLocaleString('pt-BR')+'</td></tr>'+
+    '<tr><td>Hashtags</td><td>'+(cs||tudo).hashtags+'</td></tr></table>'+
+    '<label class="chkl"><input type="checkbox" id="dcMostra"'+(V.contagem?' checked':'')+'> Mostrar a contagem enquanto digito</label>',
+    [{r:'OK', forte:true, f:ov=>{ V.contagem = ov.querySelector('#dcMostra').checked; aplicaVer(); guardaVer(); }}]);
+}
+
+// ---------------- abrir outro documento ----------------
+async function dialogoAbrir(){
+  const ov = dialogo('Abrir documento', '<input type="search" id="daBusca" placeholder="procurar pelo nome, conta ou post"><div class="docs-lista" id="daLista" style="margin-top:10px">carregando…</div>', [{r:'Fechar'}], {largo:true});
+  let docs = [];
+  try{ docs = (await api('/api/docs')).docs; }catch(e){ ov.querySelector('#daLista').textContent = 'Não consegui carregar: '+e.message; return; }
+  const desenha = () => {
+    const q = ov.querySelector('#daBusca').value.trim().toLowerCase();
+    const l = docs.filter(d => !q || (d.titulo+' '+d.contaNome+' '+d.post).toLowerCase().includes(q));
+    ov.querySelector('#daLista').innerHTML = l.length ? l.map(d=>'<div class="dl'+(d.id===DOC_ID?' atual':'')+'" data-id="'+d.id+'"><b>'+esc(d.titulo)+'</b><small>'+esc(d.contaNome)+(d.date?' · post de '+d.date.split('-').reverse().join('/'):' · sem dia')+' · '+d.palavras+' palavras</small><span class="dd">'+esc(fmtQuando(d.atualizadoEm))+(d.por?'<br>'+esc(d.por):'')+'</span></div>').join('') : '<p>Nenhum documento.</p>';
+    ov.querySelectorAll('.dl').forEach(x=> x.onclick = async ()=>{ if(x.dataset.id===DOC_ID){ ov.remove(); return; } await salvarAgora(); location.href = location.pathname+'?id='+x.dataset.id; });
+  };
+  ov.querySelector('#daBusca').addEventListener('input', desenha); desenha();
+}
+
+// ---------------- histórico de versões ----------------
+async function dialogoVersoes(){
+  await salvarAgora();
+  const ov = dialogo('Histórico de versões', '<div class="vers"><div class="vl" id="hvL">carregando…</div><div class="vp" id="hvP"><p style="color:#5F6368">Escolha uma versão à esquerda pra ver como estava.</p></div></div>', [{r:'Fechar'}, {r:'Restaurar esta versão', forte:true, f:()=>{ if(!ESCOLHIDA){ toast('Escolha uma versão primeiro.'); return false; } restaurarVersao(ESCOLHIDA); }}], {largo:true});
+  ov.querySelector('.corpo').style.padding = '0';
+  let ESCOLHIDA = null;
+  let r; try{ r = await api('/api/docs/'+DOC_ID+'/versoes'); }catch(e){ ov.querySelector('#hvL').textContent = e.message; return; }
+  const L = ov.querySelector('#hvL');
+  L.innerHTML = '<div class="vi on"><b>Versão atual</b><small>'+esc(fmtQuando(r.atual.em))+(r.atual.por?' · '+esc(r.atual.por):'')+'</small></div>' +
+    (r.versoes.length ? r.versoes.map(v=>'<div class="vi" data-i="'+v.i+'"><b>'+esc(fmtQuando(v.em))+'</b><small>'+esc(v.por||'')+(v.nota?' · '+esc(v.nota):'')+'</small></div>').join('') : '<p style="padding:10px 16px;color:#5F6368;font-size:13px">Ainda não há versões antigas. O B.O.N.E guarda uma a cada 15 minutos de edição e sempre que outra pessoa começa a editar.</p>');
+  L.querySelectorAll('.vi[data-i]').forEach(x=> x.onclick = async ()=>{
+    L.querySelectorAll('.vi').forEach(y=>y.classList.remove('on')); x.classList.add('on');
+    const v = await api('/api/docs/'+DOC_ID+'/versoes/'+x.dataset.i);
+    ESCOLHIDA = v;
+    ov.querySelector('#hvP').innerHTML = '<div class="gd-page">'+limpa(v.html)+'</div>';
+  });
+}
+function restaurarVersao(v){
+  if(H.t) registra();
+  page.innerHTML = limpa(v.html); registra(); mudou(); agendaContagem();
+  toast('Versão de '+esc(fmtQuando(v.em))+' restaurada. A que estava antes continua no histórico.');
+}
+
+// ======================================================================
+// Localizar e substituir
+// ======================================================================
+let BUSCA = { el:null, achados:[], i:-1 };
+function abreBusca(substituir){
+  if(BUSCA.el){ BUSCA.el.querySelector('#bsQ').focus(); BUSCA.el.querySelector('#bsQ').select(); if(substituir) BUSCA.el.querySelector('.rep').hidden=false; return; }
+  const s = getSelection(); const pre = s.rangeCount && !s.isCollapsed && s.toString().length < 80 ? s.toString() : '';
+  const d = document.createElement('div'); d.className = 'gd-busca';
+  d.innerHTML = '<div class="lin"><input type="text" id="bsQ" placeholder="Localizar no documento" value="'+esc(pre)+'"><span class="n" id="bsN"></span><button class="sb" id="bsAnt" title="anterior (Shift+Enter)">'+ic('cima')+'</button><button class="sb" id="bsProx" title="próximo (Enter)">'+ic('baixo')+'</button><button class="sb" id="bsX" title="fechar (Esc)">'+ic('x')+'</button></div>'+
+    '<div class="rep"'+(substituir?'':' hidden')+'><input type="text" id="bsR" placeholder="Substituir por" style="flex:1;height:34px;border:1px solid #DADCE0;border-radius:4px;padding:0 10px;font:14px var(--ui)"><button class="t" id="bsUm">Substituir</button><button class="t" id="bsTodos">Substituir tudo</button></div>'+
+    '<label class="opt"><input type="checkbox" id="bsMm"> Diferenciar maiúsculas e minúsculas</label>';
+  document.body.appendChild(d); BUSCA.el = d;
+  const q = d.querySelector('#bsQ');
+  const roda = () => { buscar(q.value, d.querySelector('#bsMm').checked); };
+  q.addEventListener('input', roda); d.querySelector('#bsMm').addEventListener('change', roda);
+  q.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); passoBusca(e.shiftKey?-1:1); } if(e.key==='Escape') fechaBusca(); });
+  d.querySelector('#bsR').addEventListener('keydown', e=>{ if(e.key==='Escape') fechaBusca(); if(e.key==='Enter'){ e.preventDefault(); substituirUm(); } });
+  d.querySelector('#bsProx').onclick = ()=>passoBusca(1); d.querySelector('#bsAnt').onclick = ()=>passoBusca(-1);
+  d.querySelector('#bsX').onclick = fechaBusca;
+  d.querySelector('#bsUm').onclick = substituirUm; d.querySelector('#bsTodos').onclick = substituirTodos;
+  setTimeout(()=>{ (substituir && pre ? d.querySelector('#bsR') : q).focus(); q.select(); }, 20);
+  roda();
+}
+function fechaBusca(){ if(BUSCA.el) BUSCA.el.remove(); BUSCA = {el:null, achados:[], i:-1}; if(window.CSS && CSS.highlights){ CSS.highlights.delete('gdBusca'); CSS.highlights.delete('gdBuscaAtual'); } voltaRange(); }
+function buscar(termo, mm){
+  const res = [];
+  if(termo){
+    const t = mm ? termo : termo.toLocaleLowerCase('pt-BR');
+    const w = document.createTreeWalker(page, NodeFilter.SHOW_TEXT); let n;
+    while((n = w.nextNode())){ const s = mm ? n.data : n.data.toLocaleLowerCase('pt-BR'); let i = 0; while((i = s.indexOf(t, i)) >= 0){ const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+termo.length); res.push(r); i += Math.max(1, termo.length); } }
+  }
+  BUSCA.achados = res; BUSCA.i = res.length ? 0 : -1;
+  marcaBusca();
+}
+function marcaBusca(){
+  const n = BUSCA.el && BUSCA.el.querySelector('#bsN');
+  if(n) n.textContent = BUSCA.achados.length ? (BUSCA.i+1)+' de '+BUSCA.achados.length : (BUSCA.el.querySelector('#bsQ').value ? '0 de 0' : '');
+  if(window.CSS && CSS.highlights && window.Highlight){
+    CSS.highlights.set('gdBusca', new Highlight(...BUSCA.achados));
+    if(BUSCA.i>=0) CSS.highlights.set('gdBuscaAtual', new Highlight(BUSCA.achados[BUSCA.i])); else CSS.highlights.delete('gdBuscaAtual');
+  }
+  if(BUSCA.i>=0){ const r = BUSCA.achados[BUSCA.i]; const el = r.startContainer.parentElement; if(el){ const b=r.getBoundingClientRect(), c=$('#canvas').getBoundingClientRect(); if(b.top < c.top+40 || b.bottom > c.bottom-40) $('#canvas').scrollTop += b.top - c.top - c.height/3; } }
+}
+function passoBusca(d){ if(!BUSCA.achados.length) return; BUSCA.i = (BUSCA.i + d + BUSCA.achados.length) % BUSCA.achados.length; marcaBusca(); }
+function substituirUm(){
+  if(BUSCA.i<0 || LEITURA) return;
+  const novo = BUSCA.el.querySelector('#bsR').value; const r = BUSCA.achados[BUSCA.i];
+  if(H.t) registra();
+  const t = r.startContainer; t.data = t.data.slice(0, r.startOffset) + novo + t.data.slice(r.endOffset);
+  registra(); mudou();
+  const i = BUSCA.i; buscar(BUSCA.el.querySelector('#bsQ').value, BUSCA.el.querySelector('#bsMm').checked); if(BUSCA.achados.length){ BUSCA.i = Math.min(i, BUSCA.achados.length-1); marcaBusca(); }
+}
+function substituirTodos(){
+  if(!BUSCA.achados.length || LEITURA) return;
+  const novo = BUSCA.el.querySelector('#bsR').value; const n = BUSCA.achados.length;
+  if(H.t) registra();
+  [...BUSCA.achados].reverse().forEach(r=>{ const t=r.startContainer; t.data = t.data.slice(0, r.startOffset) + novo + t.data.slice(r.endOffset); });
+  registra(); mudou();
+  buscar(BUSCA.el.querySelector('#bsQ').value, BUSCA.el.querySelector('#bsMm').checked);
+  toast(n===1 ? '1 ocorrência substituída.' : n+' ocorrências substituídas.');
+}
+</script>
+<script>
+'use strict';
+// ======================================================================
+// Painel lateral: a matriz do post (pra revisitar o que foi preenchido)
+// ======================================================================
+const COR_OBJ = { Atrair:'#3FD1B8', Provar:'#A78BFA', Converter:'#F4874B' };
+const DIAS = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+function dataBr(iso){ const [y,m,d]=iso.split('-').map(Number); const dt=new Date(Date.UTC(y,m-1,d,12)); return DIAS[dt.getUTCDay()]+', '+String(d).padStart(2,'0')+'/'+String(m).padStart(2,'0')+'/'+y; }
+function linkify(t){ return esc(t).replace(/(https?:\/\/[^\s<]+)/g, u=>'<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>'); }
+function montaLateral(){
+  const m = D.matriz, t = D.tipo, p = D.post;
+  $('#bMatriz').innerHTML = ic('matriz')+'<span class="rot">'+(m?'Matriz':'Post')+'</span>';
+  $('#sideTit').textContent = m ? 'Matriz do post' : 'Informações do post';
+  const row = (l, v, ln) => '<div class="sb-row"><span class="l">'+esc(l)+'</span><span class="v'+(v?'':' vazio')+'">'+(v ? (ln?linkify(v):esc(v)) : 'não preenchido')+'</span>'+(v?'<button class="cp" title="copiar" data-v="'+esc(v)+'">'+ic('copiar')+'</button>':'')+'</div>';
+  let h = '';
+  if(m){
+    h += '<div class="sb-band"><i style="background:'+((t && COR_OBJ[t.objetivo])||'#FCC100')+'"></i>MATRIZ · '+esc(m.tipo||'em aberto')+'</div>';
+    if(t) h += '<div class="sb-sub">'+esc(t.oQueE||'')+(t.objetivo?' Objetivo: '+esc(t.objetivo)+'.':'')+'</div>';
+    h += '<div class="sb-sec">Preenchido na matriz</div>';
+    [['Formato','formato'],['Pauta quente','pautaQuente'],['Ângulo','angulo'],['Tema','tema'],['Tese em uma frase','tese'],['Gancho','gancho'],['Descrição (o que fazer)','descricao'],['Refs visuais / inserts','refs',1],['Responsável','responsavel'],['Status','status'],['Observações','obs']]
+      .forEach(([l,k,ln])=> h += row(l, m[k]||'', ln));
+    if(t){ h += '<div class="sb-sec">Vem do tipo (não muda)</div>'; [['Etapa do funil','funil'],['Nível de consciência','consciencia'],['Emoção','emocao'],['CTA','cta'],['Métrica principal','metrica1'],['Métrica secundária','metrica2']].forEach(([l,k])=> h += row(l, t[k]||'')); }
+    if(D.checklistMatriz && D.checklistMatriz.length){ h += '<div class="sb-sec">Checklist antes de entregar</div>'; D.checklistMatriz.forEach((c,i)=> h += '<label class="sb-chk'+(CHK[i]?' ok':'')+'"><input type="checkbox" data-i="'+i+'"'+(CHK[i]?' checked':'')+(LEITURA?' disabled':'')+'><span>'+esc(c)+'</span></label>'); }
+    if(D.regras && D.regras.length) h += '<div class="sb-sec">Regras da matriz</div><ol class="sb-list">'+D.regras.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ol>';
+  } else if(p){
+    h += '<div class="sb-sub" style="margin-top:14px">Este post não veio da matriz.</div>';
+  }
+  if(p){
+    h += '<div class="sb-sec">Post no painel</div>'+row('Conta', p.contaNome)+row('Dia', p.date ? dataBr(p.date) : 'sem dia (banco)')+row('Título no painel', p.titulo)+row('Formato', p.formato)+row('Status no ClickUp', p.status)+row('Responsável', p.responsavel)+row('Observação', p.obs)+
+      (p.taskId ? '<div class="sb-row"><span class="l">Task</span><span class="v"><a href="https://app.clickup.com/t/'+esc(p.taskId)+'" target="_blank" rel="noopener">abrir no ClickUp</a></span></div>' : row('Task no ClickUp', ''));
+  } else h += '<div class="sb-sub" style="margin-top:14px">O post deste documento foi excluído do painel. O texto continua aqui.</div>';
+  $('#sideBody').innerHTML = h;
+  $$('#sideBody .cp').forEach(x=> x.onclick = async ()=>{ await copiaTexto(x.dataset.v); toast('Copiado.'); });
+  $$('#sideBody .sb-chk input').forEach(x=> x.onchange = ()=>{ CHK[+x.dataset.i] = x.checked; x.closest('.sb-chk').classList.toggle('ok', x.checked); mudou(); });
+}
+function abreLateral(forcar){
+  const abrir = forcar ? true : $('#side').hidden;
+  $('#side').hidden = !abrir; $('#bMatriz').classList.toggle('on', abrir);
+}
+$('#sideFechar').onclick = ()=> abreLateral();
+$('#bMatriz').onclick = ()=> abreLateral();
+
+// ======================================================================
+// Copiar legenda, mandar pro ClickUp, baixar, lixeira
+// ======================================================================
+async function copiaTexto(t){
+  try{ await navigator.clipboard.writeText(t); return true; }
+  catch(e){ const ta=document.createElement('textarea'); ta.value=t; ta.style.cssText='position:fixed;opacity:0;top:0'; document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(e2){} ta.remove(); voltaRange(); return ok; }
+}
+async function copiarLegenda(){
+  const sel = textoSelecionado(); const txt = (sel || textoPlano(page)).replace(/​/g,'');
+  if(!txt.trim()) return toast('O documento está vazio.');
+  const ok = await copiaTexto(txt); const n = [...txt].length;
+  toast((ok ? 'Legenda copiada' : 'Não consegui copiar')+(sel?' (só o trecho selecionado)':'')+' · '+n.toLocaleString('pt-BR')+' caracteres'+(n>LIMITE_IG?' · passou do limite de 2.200 do Instagram':''));
+}
+async function mandarClickup(){
+  if(!(D.post && D.post.taskId)) return toast('Este post ainda não tem task no ClickUp. Cole ou crie a task no painel e volte aqui.');
+  const md = markdown(page).replace(/​/g,'');
+  if(!md.trim()) return toast('O documento está vazio.');
+  const ok = await pergunta('Mandar a copy pro ClickUp?',
+    '<p style="margin-top:0">O texto vai pra <b>descrição da task</b> <i>'+esc(D.post.titulo||D.post.taskId)+'</i>, numa seção <b>COPY (escrita no B.O.N.E)</b> no fim. O briefing que já está lá continua igual.</p>'+
+    '<p>Se você já tinha mandado antes, a seção antiga é trocada por esta. Negrito, itálico, listas, links e tabelas vão junto; cor e fonte não (o ClickUp não guarda isso). No painel, Ctrl+Z desfaz.</p>', 'Mandar', 'Cancelar');
+  if(!ok) return;
+  await salvarAgora();
+  try{
+    const r = await api('/api/docs/'+DOC_ID+'/clickup', { method:'POST', body: JSON.stringify({ markdown: md, por: EU }) });
+    toast('Copy enviada pra descrição da task.', { r:'Abrir no ClickUp', href:r.url });
+    avisaPai('clickup');
+  }catch(e){ toast('Não foi: '+esc(e.message)); }
+}
+async function excluirDoc(){
+  const ok = await pergunta('Mover pra lixeira?', 'O documento sai do card e da lista. Nada é apagado de verdade: dá pra restaurar pela lista de documentos (Excluídos).', 'Mover pra lixeira', 'Cancelar');
+  if(!ok) return;
+  await salvarAgora();
+  try{ await api('/api/docs/'+DOC_ID, {method:'DELETE'}); }catch(e){ return toast(esc(e.message)); }
+  avisaPai('excluido'); LEITURA = true; SUJO = false;
+  if(EMBUTIDO) avisaPai('fechar'); else location.reload();
+}
+// nome do arquivo sem acento: alguns navegadores trocam nome com acento por "download" sem extensão
+function nomeArquivo(ext){ return (($('#titulo').value||'documento').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7E]/g,'').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim().slice(0,90) || 'documento')+'.'+ext; }
+/** Baixa um arquivo. Dentro do pop-up, o clique acontece na janela do painel (o Chrome ignora o nome do arquivo em download que sai de iframe). */
+function baixa(blob, nome){
+  let doc = document; if(EMBUTIDO){ try{ doc = parent.document; }catch(e){} }
+  const u = URL.createObjectURL(blob); const a = doc.createElement('a'); a.href = u; a.download = nome; a.style.display = 'none';
+  doc.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(u); }, 4000);
+}
+function baixarTxt(){ baixa(new Blob(['﻿'+textoPlano(page).replace(/​/g,'').replace(/\n/g,'\r\n')], {type:'text/plain;charset=utf-8'}), nomeArquivo('txt')); }
+function baixarHtml(){
+  const css = 'body{font-family:Arial,sans-serif;font-size:11pt;line-height:1.15;max-width:794px;margin:40px auto;padding:0 24px;color:#000}p{margin:0}.title{font-size:26pt}.subtitle{font-size:15pt;color:#666}h1{font-size:20pt;font-weight:400}h2{font-size:16pt;font-weight:400}h3{font-size:14pt;font-weight:400;color:#434343}table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:5pt;vertical-align:top}ul.chk{list-style:none}ul.chk li[data-checked="1"]{text-decoration:line-through}img{max-width:100%}';
+  baixa(new Blob(['<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+esc($('#titulo').value)+'</title><style>'+css+'</style></head><body>'+page.innerHTML+'</body></html>'], {type:'text/html;charset=utf-8'}), nomeArquivo('html'));
+}
+function baixarPdf(){ toast('Na janela que abrir, escolha "Salvar como PDF" no destino.'); setTimeout(()=>window.print(), 350); }
+
+// ---------------- .docx de verdade, montado aqui mesmo (sem biblioteca) ----------------
+const CRC_T = (()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320^(c>>>1) : c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(u8){ let c=0xFFFFFFFF; for(let i=0;i<u8.length;i++) c = CRC_T[(c^u8[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function zipar(arquivos, tipo){
+  const enc = new TextEncoder(); const partes=[], central=[]; let off=0;
+  const dt = new Date(); const dosT=(dt.getHours()<<11)|(dt.getMinutes()<<5)|(dt.getSeconds()>>1); const dosD=((dt.getFullYear()-1980)<<9)|((dt.getMonth()+1)<<5)|dt.getDate();
+  for(const a of arquivos){
+    const nome = enc.encode(a.nome), dados = enc.encode(a.texto), crc = crc32(dados);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint16(8,0,true); h.setUint16(10,dosT,true); h.setUint16(12,dosD,true);
+    h.setUint32(14,crc,true); h.setUint32(18,dados.length,true); h.setUint32(22,dados.length,true); h.setUint16(26,nome.length,true); h.setUint16(28,0,true);
+    partes.push(new Uint8Array(h.buffer), nome, dados);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true); c.setUint16(4,20,true); c.setUint16(6,20,true); c.setUint16(8,0x0800,true); c.setUint16(10,0,true); c.setUint16(12,dosT,true); c.setUint16(14,dosD,true);
+    c.setUint32(16,crc,true); c.setUint32(20,dados.length,true); c.setUint32(24,dados.length,true); c.setUint16(28,nome.length,true);
+    c.setUint16(30,0,true); c.setUint16(32,0,true); c.setUint16(34,0,true); c.setUint16(36,0,true); c.setUint32(38,0,true); c.setUint32(42,off,true);
+    central.push(new Uint8Array(c.buffer), nome);
+    off += 30 + nome.length + dados.length;
+  }
+  const tamC = central.reduce((a,b)=>a+b.length,0);
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true); e.setUint16(4,0,true); e.setUint16(6,0,true); e.setUint16(8,arquivos.length,true); e.setUint16(10,arquivos.length,true); e.setUint32(12,tamC,true); e.setUint32(16,off,true); e.setUint16(20,0,true);
+  return new Blob([...partes, ...central, new Uint8Array(e.buffer)], {type:tipo});
+}
+const X = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F​]/g,'');
+const PT_PALAVRA = { 'xx-small':7, 'x-small':7.5, small:10, medium:12, large:13.5, 'x-large':18, 'xx-large':24, 'xxx-large':36 };
+function ptDe(v){ if(!v) return 0; v=String(v).trim(); if(PT_PALAVRA[v]) return PT_PALAVRA[v]; const n=parseFloat(v); if(!n) return 0; if(/pt$/.test(v)) return n; if(/px$/.test(v)) return n*0.75; if(/em$/.test(v)) return n*11; return 0; }
+function hexDe(c){
+  if(!c) return null; c=String(c).trim();
+  const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/);
+  if(m){ if(m[4]!==undefined && +m[4]===0) return null; return [m[1],m[2],m[3]].map(x=>(+x).toString(16).padStart(2,'0')).join('').toUpperCase(); }
+  if(/^#[0-9a-f]{6}$/i.test(c)) return c.slice(1).toUpperCase();
+  if(/^#[0-9a-f]{3}$/i.test(c)) return c.slice(1).split('').map(x=>x+x).join('').toUpperCase();
+  return null;
+}
+function montaDocx(){
+  const rels = []; let prox = 10; const nums = []; let numId = 1;
+  function run(t, f){
+    let p = '';
+    if(f.link) p += '<w:rStyle w:val="Hyperlink"/>';
+    if(f.fonte) p += '<w:rFonts w:ascii="'+X(f.fonte)+'" w:hAnsi="'+X(f.fonte)+'" w:cs="'+X(f.fonte)+'"/>';
+    if(f.b) p += '<w:b/>'; if(f.i) p += '<w:i/>'; if(f.s) p += '<w:strike/>';
+    if(f.cor) p += '<w:color w:val="'+f.cor+'"/>';
+    if(f.pt) p += '<w:sz w:val="'+Math.round(f.pt*2)+'"/><w:szCs w:val="'+Math.round(f.pt*2)+'"/>';
+    if(f.u) p += '<w:u w:val="single"/>';
+    if(f.fundo) p += '<w:shd w:val="clear" w:color="auto" w:fill="'+f.fundo+'"/>';
+    if(f.va) p += '<w:vertAlign w:val="'+f.va+'"/>';
+    const rpr = p ? '<w:rPr>'+p+'</w:rPr>' : '';
+    return t.split('\t').map((pedaco,i)=> (i?'<w:r>'+rpr+'<w:tab/></w:r>':'') + (pedaco ? '<w:r>'+rpr+'<w:t xml:space="preserve">'+X(pedaco)+'</w:t></w:r>' : '')).join('');
+  }
+  function runs(n, f){
+    if(n.nodeType===3) return n.data ? run(n.data.replace(/\n/g,' '), f) : '';
+    if(n.nodeType!==1) return '';
+    const tg = n.tagName;
+    if(tg==='BR') return '<w:r><w:br/></w:r>';
+    if(/^(UL|OL|TABLE|P|H1|H2|H3|LI|BLOCKQUOTE|HR)$/.test(tg)) return '';
+    const g = Object.assign({}, f);
+    if(/^(B|STRONG)$/.test(tg)) g.b = true; if(/^(I|EM)$/.test(tg)) g.i = true; if(tg==='U') g.u = true; if(/^(S|STRIKE|DEL)$/.test(tg)) g.s = true;
+    if(tg==='SUP') g.va = 'superscript'; if(tg==='SUB') g.va = 'subscript';
+    const st = n.style;
+    if(st){
+      if(st.fontWeight) g.b = /bold|[6-9]00/.test(st.fontWeight);
+      if(st.fontStyle) g.i = st.fontStyle==='italic';
+      const td = st.textDecorationLine || st.textDecoration || '';
+      if(/underline/.test(td)) g.u = true; if(/line-through/.test(td)) g.s = true;
+      if(st.color){ const h = hexDe(st.color); if(h) g.cor = h; }
+      if(st.backgroundColor){ g.fundo = hexDe(st.backgroundColor); }
+      if(st.fontSize){ const pt = ptDe(st.fontSize); if(pt) g.pt = pt; }
+      if(st.fontFamily) g.fonte = st.fontFamily.split(',')[0].replace(/["']/g,'').trim();
+      if(st.verticalAlign==='super') g.va = 'superscript'; if(st.verticalAlign==='sub') g.va = 'subscript';
+    }
+    if(tg==='IMG'){ const src = n.getAttribute('src')||''; const id = 'rId'+(prox++); rels.push({id, href:src}); return '<w:hyperlink r:id="'+id+'" w:history="1">'+run('[imagem: '+src+']', Object.assign({}, g, {link:true}))+'</w:hyperlink>'; }
+    if(tg==='A'){
+      const href = n.getAttribute('href')||'';
+      if(href && href!=='#'){ const id = 'rId'+(prox++); rels.push({id, href}); g.link = true; return '<w:hyperlink r:id="'+id+'" w:history="1">'+[...n.childNodes].map(c=>runs(c,g)).join('')+'</w:hyperlink>'; }
+    }
+    return [...n.childNodes].map(c=>runs(c,g)).join('');
+  }
+  function par(el, o){
+    const st = (el && el.style) || {};
+    let p = '';
+    if(o.estilo) p += '<w:pStyle w:val="'+o.estilo+'"/>';
+    if(o.num) p += '<w:numPr><w:ilvl w:val="'+o.num.lvl+'"/><w:numId w:val="'+o.num.id+'"/></w:numPr>';
+    if(o.borda) p += '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="9AA0A6"/></w:pBdr>';
+    const lh = parseFloat(st.lineHeight)||0, mt = ptDe(st.marginTop), mb = ptDe(st.marginBottom);
+    if(lh || mt || mb) p += '<w:spacing'+(mt?' w:before="'+Math.round(mt*20)+'"':'')+(mb?' w:after="'+Math.round(mb*20)+'"':'')+(lh?' w:line="'+Math.round(lh*240)+'" w:lineRule="auto"':'')+'/>';
+    const recuo = (o.recuo||0) + Math.round(ptDe(st.marginLeft)*20);
+    if(recuo && !o.num) p += '<w:ind w:left="'+recuo+'"/>';
+    const jc = ({center:'center', right:'right', justify:'both'})[st.textAlign];
+    if(jc) p += '<w:jc w:val="'+jc+'"/>';
+    return '<w:p>'+(p?'<w:pPr>'+p+'</w:pPr>':'')+(o.xml||'')+'</w:p>';
+  }
+  function lista(el, lvl, recuo){
+    let id = null;
+    if(el.tagName==='OL'){ id = ++numId; nums.push({id, abs:1}); }
+    else if(!el.classList.contains('chk')) id = 1;
+    let x = '';
+    for(const li of el.children){
+      if(li.tagName!=='LI') continue;
+      const subs = [...li.childNodes].filter(c=>c.nodeType===1 && /^(UL|OL)$/.test(c.tagName));
+      let conteudo = [...li.childNodes].filter(c=>!subs.includes(c)).map(c=>runs(c,{})).join('');
+      if(id===null){ conteudo = run(li.getAttribute('data-checked')==='1' ? '☑ ' : '☐ ', {}) + conteudo; x += par(li, {xml:conteudo, recuo: recuo + 360 + lvl*360}); }
+      else x += par(li, {xml:conteudo, num:{id, lvl:Math.min(lvl,8)}});
+      subs.forEach(s=> x += lista(s, lvl+1, recuo));
+    }
+    return x;
+  }
+  function tabela(t){
+    const linhas = [...t.querySelectorAll('tr')].filter(tr=>tr.closest('table')===t);
+    const nc = Math.max(1, ...linhas.map(r=>[...r.children].reduce((a,c)=>a+(+c.getAttribute('colspan')||1),0)));
+    const w = Math.floor(9026/nc);
+    let x = '<w:tbl><w:tblPr><w:tblW w:w="'+(w*nc)+'" w:type="dxa"/><w:tblBorders>'+['top','left','bottom','right','insideH','insideV'].map(b=>'<w:'+b+' w:val="single" w:sz="4" w:space="0" w:color="000000"/>').join('')+'</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>'+('<w:gridCol w:w="'+w+'"/>').repeat(nc)+'</w:tblGrid>';
+    linhas.forEach(tr=>{
+      x += '<w:tr>';
+      [...tr.children].forEach(td=>{ const sp = +td.getAttribute('colspan')||1; let dentro = blocos(td, 0); if(!dentro) dentro = '<w:p/>'; x += '<w:tc><w:tcPr><w:tcW w:w="'+(w*sp)+'" w:type="dxa"/>'+(sp>1?'<w:gridSpan w:val="'+sp+'"/>':'')+'</w:tcPr>'+dentro+'</w:tc>'; });
+      x += '</w:tr>';
+    });
+    return x + '</w:tbl>';
+  }
+  function blocos(box, recuo){
+    let x = '', inl = [];
+    const solta = () => { if(inl.length){ x += par(null, {xml: inl.map(c=>runs(c,{})).join(''), recuo}); inl = []; } };
+    const filhos = [...box.childNodes];
+    filhos.forEach((n, k)=>{
+      const tg = n.nodeType===1 ? n.tagName : '';
+      if(n.nodeType===3 || (n.nodeType===1 && !/^(P|H1|H2|H3|UL|OL|TABLE|BLOCKQUOTE|HR|DIV)$/.test(tg))){ if(n.nodeType===3 && !n.data.trim() && !inl.length) return; inl.push(n); return; }
+      solta();
+      if(/^(P|DIV|H1|H2|H3)$/.test(tg)){
+        const estilo = n.classList.contains('title') ? 'Title' : n.classList.contains('subtitle') ? 'Subtitle' : ({H1:'Heading1',H2:'Heading2',H3:'Heading3'})[tg] || null;
+        x += par(n, {estilo, recuo, xml:[...n.childNodes].map(c=>runs(c,{})).join('')});
+      } else if(tg==='BLOCKQUOTE'){ x += blocos(n, recuo + 720); }
+      else if(tg==='HR'){ x += par(null, {borda:true}); }
+      else if(tg==='UL' || tg==='OL'){ x += lista(n, 0, recuo); }
+      else if(tg==='TABLE'){ x += tabela(n); if(k===filhos.length-1) x += '<w:p/>'; }
+    });
+    solta();
+    return x;
+  }
+  const corpo = blocos(page, 0) || '<w:p/>';
+  const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  const cab = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  const documento = cab+'<w:document '+NS+'><w:body>'+corpo+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>';
+  const est = (id, nome, ppr, rpr) => '<w:style w:type="paragraph" w:styleId="'+id+'"><w:name w:val="'+nome+'"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>'+(ppr?'<w:pPr>'+ppr+'</w:pPr>':'')+'<w:rPr>'+rpr+'</w:rPr></w:style>';
+  const estilos = cab+'<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'+
+    '<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Arial"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="pt-BR"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>'+
+    '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>'+
+    est('Title','Title','<w:keepNext/><w:spacing w:after="60"/>','<w:sz w:val="52"/><w:szCs w:val="52"/>')+
+    est('Subtitle','Subtitle','<w:keepNext/><w:spacing w:after="320"/>','<w:color w:val="666666"/><w:sz w:val="30"/><w:szCs w:val="30"/>')+
+    est('Heading1','heading 1','<w:keepNext/><w:spacing w:before="400" w:after="120"/><w:outlineLvl w:val="0"/>','<w:sz w:val="40"/><w:szCs w:val="40"/>')+
+    est('Heading2','heading 2','<w:keepNext/><w:spacing w:before="360" w:after="120"/><w:outlineLvl w:val="1"/>','<w:sz w:val="32"/><w:szCs w:val="32"/>')+
+    est('Heading3','heading 3','<w:keepNext/><w:spacing w:before="320" w:after="80"/><w:outlineLvl w:val="2"/>','<w:color w:val="434343"/><w:sz w:val="28"/><w:szCs w:val="28"/>')+
+    '<w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="1155CC"/><w:u w:val="single"/></w:rPr></w:style>'+
+    '</w:styles>';
+  const lvlB = i => '<w:lvl w:ilvl="'+i+'"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="'+['●','○','■'][i%3]+'"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="'+(720*(i+1))+'" w:hanging="360"/></w:pPr></w:lvl>';
+  const lvlN = i => '<w:lvl w:ilvl="'+i+'"><w:start w:val="1"/><w:numFmt w:val="'+['decimal','lowerLetter','lowerRoman'][i%3]+'"/><w:lvlText w:val="%'+(i+1)+'."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="'+(720*(i+1))+'" w:hanging="360"/></w:pPr></w:lvl>';
+  const niveis = f => Array.from({length:9}, (_,i)=>f(i)).join('');
+  const numeracao = cab+'<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'+
+    '<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="hybridMultilevel"/>'+niveis(lvlB)+'</w:abstractNum>'+
+    '<w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="hybridMultilevel"/>'+niveis(lvlN)+'</w:abstractNum>'+
+    '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>'+
+    nums.map(n=>'<w:num w:numId="'+n.id+'"><w:abstractNumId w:val="1"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>').join('')+
+    '</w:numbering>';
+  const relsDoc = cab+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'+
+    '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>'+
+    rels.map(r=>'<Relationship Id="'+r.id+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="'+X(r.href)+'" TargetMode="External"/>').join('')+
+    '</Relationships>';
+  const agora = new Date().toISOString().replace(/\.\d+Z$/,'Z');
+  const core = cab+'<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>'+X($('#titulo').value)+'</dc:title><dc:creator>'+X(EU)+' (B.O.N.E)</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">'+agora+'</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">'+agora+'</dcterms:modified></cp:coreProperties>';
+  const tipos = cab+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'+
+    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'+
+    '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'+
+    '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>'+
+    '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>';
+  const raiz = cab+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>';
+  return zipar([
+    {nome:'[Content_Types].xml', texto:tipos}, {nome:'_rels/.rels', texto:raiz}, {nome:'docProps/core.xml', texto:core},
+    {nome:'word/document.xml', texto:documento}, {nome:'word/styles.xml', texto:estilos}, {nome:'word/numbering.xml', texto:numeracao},
+    {nome:'word/_rels/document.xml.rels', texto:relsDoc},
+  ], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+}
+function baixarDocx(){ try{ baixa(montaDocx(), nomeArquivo('docx')); }catch(e){ toast('Não consegui gerar o .docx: '+esc(e.message)); } }
+
+// ======================================================================
+// Régua e zoom
+// ======================================================================
+function desenhaRegua(){
+  const z = V.zoom, w = Math.round(794*z), cm = 37.795*z, mg = 96*z;
+  let s = '<svg width="'+w+'" height="22" viewBox="0 0 '+w+' 22" aria-hidden="true"><rect x="0" y="3.5" width="'+w+'" height="15" fill="#fff" stroke="#DADCE0"/><rect x="0.5" y="4" width="'+mg+'" height="14" fill="#E8EAED"/><rect x="'+(w-mg)+'" y="4" width="'+(mg-0.5)+'" height="14" fill="#E8EAED"/>';
+  for(let q=1; q*cm/4 < w; q++){
+    const x = (q*cm/4).toFixed(1);
+    if(q%4===0) s += '<text x="'+x+'" y="15" font-size="'+(10*Math.min(1,z+.1)).toFixed(1)+'" fill="#5F6368" text-anchor="middle" font-family="Roboto,Arial">'+(q/4)+'</text>';
+    else s += '<line x1="'+x+'" x2="'+x+'" y1="'+(q%2?12:10)+'" y2="'+(q%2?14:16)+'" stroke="#9AA0A6"/>';
+  }
+  s += '<path d="M'+(mg-5)+' 4h10l-5 6z" fill="#4285F4"/><path d="M'+(w-mg-5)+' 4h10l-5 6z" fill="#4285F4"/></svg>';
+  $('#ruler').innerHTML = s;
+}
+function aplicaVer(){
+  $('#pagewrap').style.zoom = V.zoom;
+  $('#ruler').hidden = !V.regua; desenhaRegua();
+  const z = $('#tbZoom span'); if(z) z.textContent = Math.round(V.zoom*100)+'%';
+  page.spellcheck = !!V.orto;
+  desenhaContagem();
+}
+
+// ======================================================================
+// Teclado, colar, checklist, digitação
+// ======================================================================
+let SEM_FORMATO = false;
+document.addEventListener('keydown', e=>{
+  SEM_FORMATO = (e.ctrlKey||e.metaKey) && e.shiftKey && e.key.toLowerCase()==='v';
+  if(e.key==='Escape'){
+    if(MENU_ABERTO){ fechaMenus(); e.preventDefault(); return; }
+    if(PINCEL){ pincel(); return; }
+    if(BUSCA.el){ fechaBusca(); return; }
+    return;
+  }
+  const c = e.ctrlKey || e.metaKey;
+  if(!c && !e.altKey) return;
+  if(e.target.closest && e.target.closest('.gd-dlg,#titulo,.tbtam,.gd-busca')){
+    if(c && (e.key.toLowerCase()==='f' || e.key.toLowerCase()==='h') && e.target.closest('.gd-busca')) e.preventDefault();
+    return;
+  }
+  const k = e.key.toLowerCase(), cd = e.code, sh = e.shiftKey, alt = e.altKey;
+  const A = [
+    [c && !sh && !alt && k==='z', desfazer],
+    [c && (k==='y' || (sh && k==='z')), refazer],
+    [c && !sh && !alt && k==='b', ()=>cmd(()=>ex('bold'))],
+    [c && !sh && !alt && k==='i', ()=>cmd(()=>ex('italic'))],
+    [c && !sh && !alt && k==='u', ()=>cmd(()=>ex('underline'))],
+    [c && !alt && k==='k', dialogoLink],
+    [c && alt && !sh && cd==='Digit0', ()=>aplicaEstilo('p')],
+    [c && alt && !sh && cd==='Digit1', ()=>aplicaEstilo('h1')],
+    [c && alt && !sh && cd==='Digit2', ()=>aplicaEstilo('h2')],
+    [c && alt && !sh && cd==='Digit3', ()=>aplicaEstilo('h3')],
+    [c && sh && !alt && cd==='Digit7', ()=>listaNormal('ol')],
+    [c && sh && !alt && cd==='Digit8', ()=>listaNormal('ul')],
+    [c && sh && !alt && cd==='Digit9', listaChecklist],
+    [c && sh && !alt && k==='l', ()=>cmd(()=>ex('justifyLeft',null,true))],
+    [c && sh && !alt && k==='e', ()=>cmd(()=>ex('justifyCenter',null,true))],
+    [c && sh && !alt && k==='r', ()=>cmd(()=>ex('justifyRight',null,true))],
+    [c && sh && !alt && k==='j', ()=>cmd(()=>ex('justifyFull',null,true))],
+    [c && !sh && (e.key===']' || cd==='BracketRight'), ()=>cmd(()=>ex('indent'))],
+    [c && !sh && (e.key==='[' || cd==='BracketLeft'), ()=>cmd(()=>ex('outdent'))],
+    [c && (e.key==='\\' || cd==='Backslash' || cd==='IntlBackslash'), limparFormatacao],
+    [alt && sh && !c && cd==='Digit5', ()=>cmd(()=>ex('strikeThrough'))],
+    [c && !sh && !alt && cd==='Period', ()=>cmd(()=>ex('superscript'))],
+    [c && !sh && !alt && cd==='Comma', ()=>cmd(()=>ex('subscript'))],
+    [c && sh && cd==='Period', ()=>passoTamanho(1)],
+    [c && sh && cd==='Comma', ()=>passoTamanho(-1)],
+    [c && sh && !alt && k==='c', dialogoContagem],
+    [c && !alt && k==='f', ()=>abreBusca(false)],
+    [c && !alt && k==='h', ()=>abreBusca(true)],
+    [c && !alt && k==='s', async ()=>{ await salvarAgora(); toast('Tudo salvo. O B.O.N.E salva sozinho enquanto você escreve.'); }],
+    [c && !alt && k==='o', dialogoAbrir],
+    [c && alt && !sh && k==='m', ()=>abreLateral()],
+    [c && alt && !sh && k==='c', copiarLegenda],
+    [c && alt && sh && k==='h', dialogoVersoes],
+  ];
+  for(const [cond, f] of A){ if(cond){ e.preventDefault(); e.stopPropagation(); fechaMenus(); f(); return; } }
+}, true);
+page.addEventListener('keydown', e=>{
+  if(e.key!=='Tab' || LEITURA) return;
+  e.preventDefault();
+  const td = dentro('td,th');
+  if(td){
+    const cels = [...td.closest('table').querySelectorAll('td,th')]; let i = cels.indexOf(td) + (e.shiftKey?-1:1);
+    if(i >= cels.length){ opTabela('linhaAbaixo'); const c2=[...td.closest('table').querySelectorAll('td,th')]; i = cels.length; if(c2[i]) vaiPara(c2[i]); return; }
+    if(i >= 0) vaiPara(cels[i]); return;
+  }
+  if(dentro('li')) return cmd(()=>ex(e.shiftKey?'outdent':'indent'));
+  if(!e.shiftKey) inserirTexto('  ');
+});
+function vaiPara(el){ const r=document.createRange(); r.selectNodeContents(el); r.collapse(false); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }
+page.addEventListener('beforeinput', e=>{
+  if(e.inputType==='historyUndo'){ e.preventDefault(); desfazer(); }
+  else if(e.inputType==='historyRedo'){ e.preventDefault(); refazer(); }
+});
+page.addEventListener('input', e=>{
+  ULTIMA_TECLA = Date.now();
+  consertaFont(true);
+  if(e.inputType==='insertParagraph'){ const li = dentro('ul.chk > li'); if(li && !li.textContent.trim()) li.removeAttribute('data-checked'); arrumaEstrutura(); }
+  // apagou tudo (Ctrl+A e Delete): volta a ser uma folha limpa, sem sobrar lista, título ou tamanho do texto que estava antes
+  if(!page.firstElementChild || (/^delete/.test(e.inputType) && !page.textContent.replace(/[\u200B\s]/g,'') && !page.querySelector('img,table,hr'))){ page.innerHTML = '<p><br></p>'; const r=document.createRange(); r.setStart(page.firstChild,0); r.collapse(true); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }
+  // palavra fechada (espaço, pontuação, Enter) vira um passo do desfazer, igual editor de escritório
+  if(/^(insertParagraph|insertLineBreak)$/.test(e.inputType) || (e.data && /[\s.,;:!?]/.test(e.data))) registra(); else registraDepois();
+  mudou();
+});
+page.addEventListener('mousedown', e=>{
+  const li = e.target.closest && e.target.closest('ul.chk > li'); if(!li || LEITURA) return;
+  if(e.clientX >= li.getBoundingClientRect().left) return;   // a caixinha fica à esquerda do texto
+  e.preventDefault();
+  if(H.t) registra();
+  if(li.getAttribute('data-checked')==='1') li.removeAttribute('data-checked'); else li.setAttribute('data-checked','1');
+  registra(); mudou();
+});
+function htmlParaColar(html){
+  let h = limpa(String(html).replace(/<!--[\s\S]*?-->/g,''));
+  const d = document.createElement('div'); d.innerHTML = h;
+  // um parágrafo só (uma frase copiada de um site): entra no meio da linha, sem quebrar o parágrafo
+  if(d.children.length===1 && d.firstElementChild.tagName==='P' && !d.firstElementChild.className && !d.firstElementChild.getAttribute('style')) h = d.firstElementChild.innerHTML;
+  return h;
+}
+page.addEventListener('paste', e=>{
+  if(LEITURA) return;
+  const cd = e.clipboardData; if(!cd) return;
+  e.preventDefault();
+  const html = cd.getData('text/html'), txt = cd.getData('text/plain');
+  const temImg = [...(cd.items||[])].some(i=>i.kind==='file' && /^image\//.test(i.type));
+  const semFmt = SEM_FORMATO; SEM_FORMATO = false;
+  if(!html && !txt){ if(temImg) toast('Imagem colada não entra: aqui a imagem vai por link. Use Inserir > Imagem (por link).'); return; }
+  cmd(()=>{
+    if(html && !semFmt){ const h = htmlParaColar(html); if(/<img/i.test(html) && !/<img/i.test(h)) setTimeout(()=>toast('As imagens coladas ficaram de fora (só entra imagem por link).'), 60); ex('insertHTML', h); }
+    else { const linhas = String(txt).replace(/\r\n?/g,'\n').split('\n'); if(linhas.length===1) ex('insertText', txt); else ex('insertHTML', linhas.map(l=>'<p>'+(esc(l)||'<br>')+'</p>').join('')); }
+  });
+});
+// arrastar coisa de fora pra dentro da folha: passa pela mesma limpeza do colar
+let ARRASTO_INTERNO = false;
+page.addEventListener('dragstart', ()=>{ ARRASTO_INTERNO = true; });
+page.addEventListener('dragend', ()=>{ ARRASTO_INTERNO = false; });
+page.addEventListener('drop', e=>{
+  if(ARRASTO_INTERNO || LEITURA) return;
+  e.preventDefault();
+  const dt = e.dataTransfer; const html = dt.getData('text/html'), txt = dt.getData('text/plain');
+  if(!html && !txt){ if(dt.files && dt.files.length) toast('Arquivo e imagem não entram arrastados: use Inserir > Imagem (por link).'); return; }
+  const r = document.caretRangeFromPoint ? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
+  if(r){ const s=getSelection(); s.removeAllRanges(); s.addRange(r); guardaRange(); }
+  cmd(()=>{ if(html) ex('insertHTML', htmlParaColar(html)); else ex('insertText', txt); });
+});
+page.addEventListener('click', e=>{ $$('.gd-page img.sel').forEach(i=>i.classList.remove('sel')); if(e.target.tagName==='IMG') e.target.classList.add('sel'); });
+window.addEventListener('resize', ajustaTitulo);
+
+// ======================================================================
+// Início
+// ======================================================================
+montaToolbar(); desenhaIndicadoresCor();
+$('#bLegenda').innerHTML = ic('copiar')+'<span class="rot">Copiar legenda</span>';
+$('#bLegenda').onclick = copiarLegenda;
+$('#bClickup').innerHTML = ic('enviar')+'<span class="rot">Mandar pro ClickUp</span>';
+$('#bClickup').onclick = mandarClickup;
+$('#bFechar').innerHTML = ic('x'); $('#bFechar').title = EMBUTIDO ? 'fechar e voltar pro painel (salva antes)' : 'fechar';
+$('#bFechar').onclick = fechar;
+$('#sideFechar').innerHTML = ic('x');
+$('#bMatriz').innerHTML = ic('matriz')+'<span class="rot">Matriz</span>';
+status('Abrindo…', 'salvando');
+carregar();
+</script>
+</body>
+</html>
