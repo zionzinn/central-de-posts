@@ -351,6 +351,18 @@
   .mescabtop b{font-size:17px; font-weight:800; letter-spacing:-.01em; color:var(--sb); text-transform:uppercase}
   .mesbloco.atual .mescabtop b{background:var(--sb); color:#000; border-radius:6px; padding:1px 9px}
   .mescabtop .mesn{font-size:11px; font-weight:700; color:var(--ink-3); letter-spacing:.04em}
+  /* legenda das 6 cores com contagem do mês (clique filtra) */
+  .mesleg{margin-left:auto; display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; align-self:center}
+  .lgb{display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; color:var(--ink-2); padding:3px 8px; border-radius:20px;
+    border:1px solid transparent; background:transparent; cursor:pointer; font-family:inherit; white-space:nowrap; transition:all var(--t)}
+  .lgb i{width:7px; height:7px; border-radius:50%; background:var(--stc); flex:none}
+  .mescabtop .lgb b, .mesbloco.atual .mescabtop .lgb b{font-size:11px; font-weight:800; color:var(--ink); background:none; padding:0; border-radius:0;
+    text-transform:none; letter-spacing:0; font-variant-numeric:tabular-nums}
+  .lgb:hover{border-color:var(--hair); background:var(--surface)}
+  .lgb.zero{opacity:.4}
+  .lgb.on{border-color:var(--stc); background:color-mix(in srgb, var(--stc) 16%, transparent); color:var(--ink)}
+  .lgb.lgmz{--stc:#FCC100} .lgb.lgmz i{border-radius:2px; background:repeating-linear-gradient(135deg,#FCC100 0 2px, transparent 2px 4px); border:1px solid #FCC100}
+  @media (max-width:900px){ .mesleg{display:none} }
   .mesdows{display:grid; grid-template-columns:50px repeat(7,1fr); gap:9px;
     padding:0 0 8px; border-bottom:var(--bw) solid var(--stroke)}
   .mesdows div{font-size:10px; font-weight:800; letter-spacing:.14em; color:var(--ink-3); padding:0 4px}
@@ -409,13 +421,27 @@
   .day:hover .mzbtn{opacity:1}
   .mzbtn:hover{background:#FCC100; color:#000}
   .dleft{display:inline-flex; align-items:center; gap:4px; min-width:0}
-  .mzdia{font-size:8.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:1px 5px; border-radius:4px;
-    border:1px solid currentColor; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:92px; opacity:.9}
-  .card.mz{
-    border:2px dashed #FCC100 !important; border-left:5px solid var(--mzc,#FCC100) !important;
-    background:repeating-linear-gradient(135deg, rgba(252,193,0,.14) 0 9px, rgba(252,193,0,.04) 9px 18px)}
-  .card.mz .tit{color:#FFE27A; font-weight:800; -webkit-line-clamp:3}
-  .card.mz .tit.vazio{color:rgba(255,226,122,.6); font-style:italic; font-weight:700}
+  .mzdia{font-size:9px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; max-width:96px; opacity:.85}
+  .card.mz{border:1.5px dashed rgba(252,193,0,.8) !important; background:rgba(252,193,0,.075); padding:0 9px 7px}
+  .card.mz:hover{border-style:solid !important; border-color:#FCC100 !important; box-shadow:4px 4px 0 rgba(252,193,0,.35)}
+  .card.mz .mzband{display:flex; align-items:center; gap:5px; margin:0 -9px 7px; padding:3px 8px 3px 9px; background:#FCC100; color:#000;
+    border-radius:4px 4px 0 0; font-size:9.5px; font-weight:900; letter-spacing:.07em; text-transform:uppercase; line-height:1.3; min-width:0}
+  .card.mz .mzlbl{flex:none}
+  .card.mz .mztipo{font-weight:700; letter-spacing:.04em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; opacity:.8}
+  .card.mz .mztipo::before{content:"·"; margin-right:5px; font-weight:900}
+  .card.mz .mzobj{width:8px; height:8px; border-radius:50%; border:1.5px solid #000; flex:none}
+  .card.mz .mzstar{margin-left:auto; display:inline-flex; flex:none}
+  .card.mz .mzstar .ic{width:11px; height:11px; fill:#000; stroke:#000; stroke-width:1}
+  .card.mz .tit{color:#FFE8A3; font-weight:700; -webkit-line-clamp:3}
+  .card.mz .tit.vazio{color:rgba(255,226,122,.55); font-style:italic; font-weight:600}
+  .card.mz .meta{margin-top:7px}
+  .mzbar{flex:1; min-width:30px; height:4px; border-radius:3px; background:rgba(252,193,0,.18); overflow:hidden}
+  .mzbar i{display:block; height:100%; background:#FCC100; border-radius:3px}
+  .mzn{font-size:9.5px; font-weight:800; color:#FFE27A; font-variant-numeric:tabular-nums}
+  .card.mz .qdel{top:22px}
+  .card.mz.postado{background:rgba(47,208,106,.07); border-color:rgba(47,208,106,.45) !important}
+  .card.mz.postado .mzband{background:var(--ok)}
   .card .mztag{display:inline-flex; align-items:center; gap:5px; background:#FCC100; color:#000; font-size:9.5px; font-weight:800;
     letter-spacing:.04em; padding:2px 6px; border-radius:5px; margin-bottom:5px; text-transform:uppercase; max-width:100%}
   .card .mztag .mzobj{width:7px; height:7px; border-radius:50%; background:var(--mzc,#000); border:1.5px solid #000; flex:none}
@@ -457,8 +483,8 @@
 
   /* ---------- card ---------- */
   .card{
-    background:var(--surface); border:1.5px solid var(--hair); border-left:5px solid var(--hair); border-radius:var(--radius-s);
-    padding:8px 9px 7px; cursor:grab; user-select:none; position:relative;
+    background:var(--surface); border:1px solid var(--hair); border-left:4px solid var(--hair); border-radius:var(--radius-s);
+    padding:7px 9px 6px; cursor:grab; user-select:none; position:relative;
     transition:transform var(--t), box-shadow var(--t), border-color var(--t);
   }
   .card:hover{transform:translate(-2px,-2px); box-shadow:var(--hard); border-color:#4A493F; z-index:3}
@@ -470,11 +496,22 @@
   .colar-aqui{width:100%; margin-bottom:7px; padding:7px 8px; border:1.5px dashed var(--sb); background:rgba(252,193,0,.1); color:var(--sb); border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px}
   .colar-aqui:hover{background:var(--sb); color:#000}
   .colar-aqui svg{width:12px; height:12px}
-  .card.gm{border-top:1.5px solid rgba(252,193,0,.5); border-right:1.5px solid rgba(252,193,0,.5); border-bottom:1.5px solid rgba(252,193,0,.5)}
+  .card.gm{border-top-color:rgba(252,193,0,.45); border-right-color:rgba(252,193,0,.45); border-bottom-color:rgba(252,193,0,.45)}
   .card.sel{outline:3px solid var(--info); outline-offset:1px}
-  .card .tit{font-size:12.3px; font-weight:600; line-height:1.3; color:var(--ink);
+  .card .tit{font-size:12px; font-weight:600; line-height:1.3; color:var(--ink);
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
-  .card .meta{display:flex; align-items:center; gap:5px; margin-top:7px; flex-wrap:wrap}
+  .card .meta{display:flex; align-items:center; gap:6px; margin-top:5px; flex-wrap:wrap; min-height:18px}
+  /* status do card: bolinha + palavra (6 cores). O status exato do ClickUp fica no modal. */
+  .stx{display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:700; color:var(--ink-2); letter-spacing:.02em; white-space:nowrap}
+  .stx i{width:7px; height:7px; border-radius:50%; background:var(--stc); flex:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--stc) 22%, transparent)}
+  /* marcas pequenas, sem caixa: só o que pede atenção */
+  .mk{display:inline-flex; align-items:center; gap:2px; flex:none; line-height:1}
+  .mk .ic{width:12px; height:12px; stroke-width:2.6}
+  .mk.t-pin{color:#FF8A3D}
+  .mk.t-gm .ic{fill:var(--sb); stroke:var(--sb); stroke-width:1}
+  .mk.t-due{color:var(--warn)}
+  .mk.t-clb .cdot{width:8px; height:8px; margin:0; border-radius:50%; transform:none}
+  .mk.t-mz{color:#FCC100; font-size:9px; font-weight:900; border:1.5px solid #FCC100; border-radius:4px; padding:0 3px; line-height:12px; cursor:pointer}
   .tagic{width:19px; height:19px; border-radius:5px; border:1.5px solid var(--stroke); display:inline-flex; align-items:center; justify-content:center; flex:none}
   .tagic .ic{width:11px; height:11px; stroke-width:3}
   .tagic.t-pin{background:#FF8A3D; color:#000}
@@ -491,7 +528,7 @@
     border:1.5px solid var(--stroke); border-radius:5px; padding:2px 7px; text-transform:uppercase; line-height:1.25}
   .fmtic{color:var(--ink-3); display:inline-flex}
   .fmtic .ic{width:13px; height:13px}
-  .avatar{margin-left:auto; width:20px; height:20px; border-radius:5px; border:1.5px solid var(--hair); background:var(--hair-2); color:var(--ink-2);
+  .avatar{margin-left:auto; width:19px; height:19px; border-radius:50%; border:1px solid var(--hair); background:var(--hair-2); color:var(--ink-3);
     font-size:8.5px; font-weight:800; display:flex; align-items:center; justify-content:center; letter-spacing:.02em}
   .cdot{width:9px; height:9px; border-radius:2px; border:1.5px solid rgba(0,0,0,.55); display:inline-block; margin-right:5px; transform:translateY(-1px)}
   /* selo da conta: diz a empresa por extenso, porque cor parecida não se distingue */
@@ -718,6 +755,52 @@
   .f .modos .modo.on{border-color:var(--sb); box-shadow:3px 3px 0 var(--sb); background:var(--surface)}
   .f .modos .modo.on b{color:var(--sb)}
   @media (max-width:640px){ .modos{grid-template-columns:1fr} }
+  /* ---- Novo post v3.65: passo 1 = escolha grande; passo 2 = só os campos do caminho ---- */
+  #ovEdit .emodal{width:min(600px,100%)}
+  .etopo{display:flex; align-items:center; gap:10px; min-width:0}
+  .evoltar{width:30px; height:30px; border-radius:8px; border:1.5px solid var(--hair); background:var(--surface-2); color:var(--ink-2);
+    font-size:20px; line-height:1; cursor:pointer; flex:none; display:flex; align-items:center; justify-content:center; padding:0 0 3px}
+  .evoltar:hover{border-color:var(--sb); color:var(--sb)}
+  .ectx{font-size:12px; color:var(--ink-3); font-weight:600; margin-top:2px}
+  .eopcs{display:grid; gap:10px}
+  .eopc{display:flex; align-items:center; gap:14px; text-align:left; padding:14px 16px; border:2px solid var(--hair); border-radius:10px;
+    background:var(--surface-2); color:var(--ink); cursor:pointer; font-family:inherit; transition:all var(--t); width:100%}
+  .eopc:hover,.eopc:focus-visible{border-color:var(--ink-2); transform:translate(-2px,-2px); box-shadow:4px 4px 0 rgba(0,0,0,.85); outline:none}
+  .eopc .eic{width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--hair-2);
+    border:1.5px solid var(--hair); color:var(--ink); flex:none}
+  .eopc .eic .ic{width:20px; height:20px; stroke-width:2.4}
+  .eopc .etx{flex:1; min-width:0}
+  .eopc b{display:block; font-size:14.5px; font-weight:800}
+  .eopc small{display:block; font-size:12px; color:var(--ink-3); margin-top:3px; line-height:1.35}
+  .eopc .ekey{font-size:10.5px; font-weight:800; color:var(--ink-3); border:1.5px solid var(--hair); border-radius:5px; padding:1px 6px; flex:none}
+  .eopc.mz{border-color:rgba(252,193,0,.5); background:rgba(252,193,0,.06)}
+  .eopc.mz .eic{background:#FCC100; border-color:#000; color:#000}
+  .eopc.mz b{color:#FFE27A}
+  .eopc.mz:hover{border-color:#FCC100; box-shadow:4px 4px 0 rgba(252,193,0,.4)}
+  .echips{display:flex; gap:6px; flex-wrap:wrap}
+  .echip{display:inline-flex; align-items:center; gap:6px; border:1.5px solid var(--hair); border-radius:7px; padding:6px 11px; font-size:12.5px;
+    font-weight:700; background:var(--surface-2); color:var(--ink-2); cursor:pointer; font-family:inherit; transition:all var(--t)}
+  .echip:hover{border-color:var(--ink-3); color:var(--ink)}
+  .echip.on{background:var(--sb); color:#000; border-color:#000; box-shadow:2px 2px 0 #000}
+  .echip.nada:not(.on){border-style:dashed}
+  .echip .dot{width:8px; height:8px; border-radius:50%; display:inline-block}
+  .echips.faltando .echip{border-color:var(--crit)}
+  .edata{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  #ovEdit .edata input{width:auto; flex:none}
+  .edtxt{font-size:12.5px; color:var(--ink-2); font-weight:600}
+  .elink{background:none; border:0; color:var(--ink-3); font-size:11.5px; text-decoration:underline; cursor:pointer; font-family:inherit; padding:0; margin-left:auto}
+  .elink:hover{color:var(--ink)}
+  .ehint{margin:6px 0 0}
+  .f label .elbl2{text-transform:none; letter-spacing:0; font-weight:500; color:var(--ink-3); font-size:11px; margin-left:4px}
+  .f label.echk{display:flex; align-items:center; gap:9px; font-size:13px; font-weight:500; cursor:pointer; border:1.5px solid var(--hair); border-radius:6px;
+    padding:10px 12px; background:var(--surface-2); text-transform:none; letter-spacing:0; color:var(--ink); margin:0}
+  .f label.echk input{width:16px; height:16px; accent-color:#FCC100; margin:0; flex:none}
+  .emais{display:flex; align-items:center; gap:8px; background:none; border:0; border-top:1.5px dashed var(--hair); padding:12px 0 2px; color:var(--ink-2);
+    font-size:12.5px; font-weight:800; cursor:pointer; font-family:inherit; text-align:left; width:100%}
+  .emais small{font-weight:500; color:var(--ink-3); font-size:11.5px}
+  .emais:hover{color:var(--ink)}
+  .emais .emseta{display:inline-block; transition:transform var(--t)}
+  .emais.aberto .emseta{transform:rotate(90deg)}
   /* modal do card da matriz */
   #ovMz .modal{width:min(860px,100%)}
   .mzhead{border-left:6px solid var(--mzc,#FCC100); background:linear-gradient(90deg, rgba(252,193,0,.10), transparent 60%)}
@@ -1012,52 +1095,68 @@
 </div></div>
 
 <!-- modal edit/create -->
-<div class="ov" id="ovEdit"><div class="modal" style="position:relative">
+<div class="ov" id="ovEdit"><div class="modal emodal" style="position:relative">
   <button class="mclose" data-close="ovEdit">✕</button>
-  <div class="mhead"><div class="mtit" id="eTit">Novo post</div></div>
-  <div class="mbody">
-    <div class="f">
-      <div class="modos" id="eModos">
-        <button type="button" class="modo on" data-modo="link"><b>1 · Colar link</b><small>já existe no ClickUp</small></button>
-        <button type="button" class="modo" data-modo="clickup"><b>2 · Criar no ClickUp</b><small>nasce lá em PENDENTE</small></button>
-      </div>
-      <div class="f2">
-        <div><label>Conta</label><select id="eConta"></select></div>
-        <div><label>Data (vazio = banco)</label><input type="date" id="eDate"></div>
-      </div>
-      <div data-modos="link clickup edit"><label id="eTituloLbl">Título (se vazio, usa o nome da task do ClickUp)</label><input id="eTitulo" placeholder="ex.: Reels case cliente X"></div>
-      <div class="f2" id="eFmtRow">
-        <div><label>Formato</label><select id="eFormato">
-          <option value="">definir depois</option><option>reels</option><option>carrossel</option><option>estático</option><option>story</option><option>corte de podcast</option><option>vídeo médio</option><option>vídeo de anúncio</option>
-        </select></div>
-        <div id="eLinkWrap" data-modos="link edit"><label>Link da task no ClickUp</label><input id="eTask" placeholder="https://app.clickup.com/t/..."></div>
-      </div>
-      <div data-modos="link edit"><label>Ângulo</label><input id="eAngulo" list="angulosLista" placeholder="educacional, institucional… ou escreva um novo"></div>
-      <div data-modos="link edit"><label>Drive / referência</label><input id="eDrive" placeholder="https://drive.google.com/... ou link do Instagram"></div>
-      <div id="eGmWrap" data-modos="link edit" style="display:none">
-        <label>Grande Marca (GM)</label>
-        <label style="display:flex; align-items:center; gap:9px; font-size:13px; font-weight:500; cursor:pointer; border:1.5px solid var(--hair); border-radius:6px; padding:10px 12px; background:var(--surface-2); text-transform:none; letter-spacing:0">
-          <input type="checkbox" id="eGm" style="width:16px; height:16px; accent-color:#FCC100">
-          <span>Este post tem <b>grande marca na capa</b></span>
-        </label>
-      </div>
-      <div data-modos="link edit">
-        <label>Collab (o post aparece também na aba da conta parceira)</label>
-        <div id="eCollab" style="display:flex; gap:6px; flex-wrap:wrap"></div>
-      </div>
-      <div data-modos="link edit"><label>Observação</label><textarea id="eObs"></textarea></div>
-      <div id="eCuWrap" class="cuwrap" data-modos="clickup">
-        <div class="cutit"><b>Task no ClickUp</b><small id="eCuSub">lista House Quatro5 · a conta vira o Empresa Tag, o formato vira o Formato SKILL</small></div>
-        <input type="checkbox" id="eCu" hidden>
-        <div id="eCuCampos">
-          <div><label>Responsável</label><select id="eResp"><option value="">sem responsável</option></select></div>
-          <div><label>Briefing (descrição da task)</label><textarea id="eBrief" rows="5" placeholder="o que é o post, gancho, referências, o que não pode faltar… (vira a descrição da task)"></textarea></div>
-          <p class="note" id="eCuNota">Nome da task: <b id="eCuNome">…</b>. Nada é obrigatório; a task nasce em <b>PENDENTE</b>.</p>
-        </div>
-      </div>
+  <div class="mhead">
+    <div class="etopo">
+      <button type="button" class="evoltar" id="eVoltar" title="voltar e escolher outro jeito">‹</button>
+      <div><div class="mtit" id="eTit">Novo post</div><div class="ectx" id="eCtx"></div></div>
     </div>
   </div>
-  <div class="mfoot">
+  <div class="mbody">
+    <!-- PASSO 1 (só post novo): como esse post vai nascer? -->
+    <div class="escolha" id="eEscolha">
+      <div class="eopcs">
+        <button type="button" class="eopc" data-modo="link">
+          <span class="eic" data-ic="link"></span>
+          <span class="etx"><b>Já tenho a task no ClickUp</b><small>Cole o link. Nome, status e responsável vêm sozinhos.</small></span>
+          <span class="ekey">1</span>
+        </button>
+        <button type="button" class="eopc" data-modo="clickup">
+          <span class="eic" data-ic="plus"></span>
+          <span class="etx"><b>Criar a task agora</b><small>O painel cria a task no ClickUp em PENDENTE, com responsável e briefing.</small></span>
+          <span class="ekey">2</span>
+        </button>
+        <button type="button" class="eopc mz" data-modo="matriz" id="eOpcMz">
+          <span class="eic" data-ic="sparkle"></span>
+          <span class="etx"><b>Planejar na matriz</b><small id="eOpcMzSub">Card amarelo pra copywriter preencher. A task vem depois.</small></span>
+          <span class="ekey">3</span>
+        </button>
+      </div>
+    </div>
+    <!-- PASSO 2: só os campos do caminho escolhido. O JS monta a ordem (E_LAYOUT). -->
+    <div class="f" id="eForm">
+      <div id="eBasico" class="f"></div>
+      <button type="button" class="emais" id="eMaisBtn"><span class="emseta">▸</span> Mais opções <small id="eMaisResumo"></small></button>
+      <div id="eMaisCorpo" class="f" hidden></div>
+    </div>
+    <!-- guarda: campos que o caminho atual não usa ficam aqui, escondidos -->
+    <div id="eGuarda" hidden>
+      <div id="eLinkWrap"><label>Link da task no ClickUp</label><input id="eTask" placeholder="https://app.clickup.com/t/..." autocomplete="off">
+        <p class="note ehint" id="eLinkHint">Sem o link ainda? Pode salvar assim e colar depois.</p></div>
+      <div id="eContaWrap"><label>Conta</label><div class="echips" id="eContaChips"></div><select id="eConta" hidden></select></div>
+      <div id="eDataWrap"><label>Dia do post</label>
+        <div class="edata"><input type="date" id="eDate"><span class="edtxt" id="eDataTxt"></span><button type="button" class="elink" id="eSemDia">sem dia (banco)</button></div></div>
+      <div id="eFmtWrap"><label>Formato</label><div class="echips" id="eFmtChips"></div>
+        <select id="eFormato" hidden>
+          <option value="">definir depois</option><option>reels</option><option>carrossel</option><option>estático</option><option>story</option><option>corte de podcast</option><option>vídeo médio</option><option>vídeo de anúncio</option>
+        </select></div>
+      <div id="eTituloWrap"><label id="eTituloLbl">Título</label><input id="eTitulo" placeholder="ex.: Reels case cliente X" autocomplete="off">
+        <p class="note ehint" id="eCuNota">Nome no ClickUp: <b id="eCuNome">…</b></p></div>
+      <div id="eRespWrap"><label>Quem faz</label><div class="echips" id="eRespChips"></div><select id="eResp" hidden><option value="">sem responsável</option></select>
+        <p class="note ehint" id="eCuSub"></p></div>
+      <div id="eBriefWrap"><label>Briefing <span class="elbl2">vira a descrição da task</span></label><textarea id="eBrief" rows="4" placeholder="o que é o post, gancho, referências, o que não pode faltar…"></textarea></div>
+      <div id="eGmWrap">
+        <label class="echk"><input type="checkbox" id="eGm"><span>Este post tem <b>grande marca na capa</b> (GM)</span></label>
+      </div>
+      <div id="eAnguloWrap"><label>Ângulo</label><input id="eAngulo" list="angulosLista" placeholder="educacional, institucional… ou escreva um novo"></div>
+      <div id="eDriveWrap"><label>Drive / referência</label><input id="eDrive" placeholder="https://drive.google.com/... ou link do Instagram"></div>
+      <div id="eCollabWrap"><label>Collab <span class="elbl2">aparece também na aba da conta parceira</span></label><div id="eCollab" style="display:flex; gap:6px; flex-wrap:wrap"></div></div>
+      <div id="eObsWrap"><label>Observação</label><textarea id="eObs" rows="2"></textarea></div>
+      <input type="checkbox" id="eCu" hidden>
+    </div>
+  </div>
+  <div class="mfoot" id="eFoot">
     <button class="mbtn primary" id="eSave">Salvar</button>
     <button class="mbtn critbtn" id="eDelete" style="display:none">Excluir</button>
     <span class="note" id="eMsg"></span>
@@ -1293,7 +1392,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.64'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.65'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1503,6 +1602,27 @@ function stInfo(s){
   if(s.taskId) return {label:'sincronizando', color:'#8C897C'};
   return {label:'sem task', color:'#8C897C'};
 }
+// ---- v3.65 card essencial: 6 cores de status ----
+// O card mostra só EM QUE PÉ o post está. O status exato do ClickUp continua no modal do post.
+const BUCKETS = {
+  afazer:   {rot:'a fazer',  cor:'#8C897C', dica:'sem task, pendente ou backlog'},
+  producao: {rot:'produção', cor:'#3B82F6', dica:'em progresso, pré revisão ou revisão IA'},
+  alterar:  {rot:'alterar',  cor:'#FF4D4D', dica:'pediram alteração'},
+  aprovar:  {rot:'aprovar',  cor:'#FFB020', dica:'aprovar, aprovação líder ou revisão solicitada'},
+  pronto:   {rot:'pronto',   cor:'#EE5E99', dica:'publicar ou completo: é só postar'},
+  postado:  {rot:'postado',  cor:'#2FD06A', dica:'já foi ao ar'},
+};
+const BUCKET_ORDEM = ['afazer','producao','alterar','aprovar','pronto','postado'];
+function stBucket(s){
+  if(s.postado) return 'postado';
+  if(!s.taskId) return 'afazer';
+  const st = ((s.statusCache && s.statusCache.status) || '').trim();
+  if(['publicar','completo','banco de criativos'].includes(st)) return 'pronto';
+  if(['aprovar','aprovação líder','revisão solicitada'].includes(st)) return 'aprovar';
+  if(st==='alterar') return 'alterar';
+  if(['em progresso','pré revisão','revisão ia'].includes(st)) return 'producao';
+  return 'afazer';
+}
 function initials(name){
   return (name||'').split(/[\s,]+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase() || '·';
 }
@@ -1711,8 +1831,12 @@ function passaFiltro(s){
     }
     return false;
   }
+  const fb = FILTRO_ALIAS[f] || f;
+  if(BUCKETS[fb]) return !isMatriz(s) && !isVaga(s) && !isSugestao(s) && stBucket(s)===fb;
   return !s.postado && (FILTRO_GRUPOS[f]||[]).includes(st);
 }
+// filtros antigos que viraram os grupos do card (v3.65)
+const FILTRO_ALIAS = { publicar:'pronto', pendentes:'afazer' };
 
 function slotsVisiveis(){
   const contas = contasDaAba(S.aba).filter(k=>!S.filtroConta.has(k));
@@ -1856,8 +1980,8 @@ function renderLegend(){
   }
   const fs = document.createElement('select');
   fs.className = 'filtro' + (S.filtro!=='todos' ? ' on' : '');
-  [['todos','todos os posts'],['atrasados','atrasados'],['pendentes','pendentes'],
-   ['producao','em produção'],['aprovar','pra aprovar'],['publicar','prontos (publicar)'],
+  [['todos','todos os posts'],['atrasados','atrasados'],['afazer','a fazer'],
+   ['producao','em produção'],['alterar','alterar'],['aprovar','pra aprovar'],['pronto','prontos (publicar)'],
    ['postados','postados'],['semtask','sem task'],['contadiv','conta divergente'],['vagas','falta criar'],['matriz','matriz (amarelos)'],['sugestoes','sugestões da pauta']]
     .forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; fs.appendChild(o); });
   fs.value = S.filtro;
@@ -1877,7 +2001,8 @@ function renderLegend(){
 
 // ================= card =================
 function cardEl(s){
-  const st = stInfo(s);
+  // v3.65 card essencial: título + 1 bolinha de status (6 cores) + só os alertas que pedem ação.
+  // O resto (formato, ângulo, observação, aprovado da planilha) fica dentro do post.
   const cor = contaCor(s.conta);
   const multi = contasDaAba(S.aba).length>1;
   const d = document.createElement('div');
@@ -1885,51 +2010,69 @@ function cardEl(s){
   const sug = isSugestao(s);
   const fonte = isFonteBanco(s);
   const mz = isMatriz(s);
-  const mzp = mz ? mzProgresso(s.matrizSB) : null;
+  const bk = BUCKETS[stBucket(s)];
   d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(vaga?' vaga':'')+(sug?' sugestao':'')+(fonte?' fonte':'')+(mz?' mz':'')+(multi?' temconta':'');
-  if(mz) d.style.setProperty('--mzc', mzObjCor(s.matrizSB.tipo));
   if(multi) d.style.setProperty('--corconta', cor);
-  d.style.borderLeftColor = st.color;
+  if(!mz && !vaga && !sug) d.style.borderLeftColor = bk.cor;
   d.draggable = true; d.dataset.id = s.id;
-  const resp = s.assigneeCache || s.responsavelManual;
+  const resp = s.assigneeCache || s.responsavelManual || (s.matrizSB && s.matrizSB.responsavel) || '';
   const div = dueDivergente(s);
   const cdiv = contaDivergente(s);
   const clb = (s.collab||[]);
   if(S.selecao.has(s.id)) d.classList.add('sel');
-  d.innerHTML =
-    (vaga?'<div class="vagatag">'+icon('alerta')+'FALTA CRIAR</div>':'')+
-    (mz?'<div class="mztag" title="card da matriz: clique pra preencher"><span class="mzobj"></span>MATRIZ · '+esc(s.matrizSB.tipo||'em aberto')+'</div>':'')+
-    (sug?'<div class="vagatag sugtag" title="ideia enviada pela pauta: cole a task pra virar post, ou apague">'+icon('sparkle')+'SUGESTÃO'+(s.sugeridoPor?' · '+esc(s.sugeridoPor):'')+'</div>':'')+
-    (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'alt')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Alteração pedida')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:'')+(s.parecer.veredito!=='aprovado'?(s.parecer.clickup?' · foi pra ALTERAR no ClickUp':''):''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'pencil')+(s.parecer.veredito==='aprovado'?'APROVADO':'ALTERAR')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '')+
-    // selo da conta: nome por extenso na cor da marca. Só em aba com mais de uma conta,
-    // porque na SeuBoné e na Weevo seria repetir o que a aba já diz.
-    (multi?'<div class="contatag" style="background:'+cor+'; color:'+corTexto(cor)+'">'+esc(contaCurta(s.conta))+'</div>':'')+
-    (mz ? '<div class="tit'+(s.matrizSB.tema?'':' vazio')+'">'+esc(s.matrizSB.tema || (s.matrizSB.tipo ? 'a preencher' : 'escolher o tipo'))+'</div>' :
-    '<div class="tit">'+esc(vaga? (s.formato||'post').toUpperCase() : (sug? String(slotTitulo(s)).replace(/^SUGESTÃO:\s*/i,'') : slotTitulo(s)))+'</div>')+
-    // a obs da vaga aparece SEMPRE (é o "precisa ser sobre isso"); nos posts normais, só na visão Semana
-    ((vaga || S.view==='semana') && s.obs ? '<div class="obsline">'+esc(s.obs)+'</div>' : '')+
-    '<div class="meta">'+
-      (s.fixo?'<span class="tagic t-pin" title="data fixa: não se move no empurrar">'+icon('pin')+'</span>':'')+
-      (isGm(s)?'<span class="tagic t-gm" title="grande marca na capa">'+icon('star')+'</span>':'')+
-      (s.aprovado?'<span class="tagic t-apr" title="arte aprovada pela diretoria">'+icon('check')+'</span>':'')+
-      (clb.length?'<span class="tagic t-clb" title="collab: '+esc([s.conta].concat(clb).map(c=>S.contas[c]?S.contas[c].nome:c).join(' + '))+'">'+icon('users','s')+
-        [s.conta].concat(clb).map(c=>'<span class="cdot" style="background:'+contaCor(c)+'; margin:0"></span>').join('')+'</span>':'')+
-      (div?'<span class="tagic t-due" title="entrega ajustada manualmente no ClickUp: '+brData(div.real)+' (padrão seria '+brData(div.esperado)+'). Vale a do ClickUp.">'+icon('clock')+'</span>':'')+
-      (cdiv?'<span class="tagic t-cdiv" title="o nome da task no ClickUp diz '+esc(nomeConta(cdiv.sugerida))+', mas este post está em '+esc(nomeConta(s.conta))+'. Clique pra mover pra '+esc(nomeConta(cdiv.sugerida))+' (Ctrl+Z desfaz).">'+icon('alerta')+'</span>':'')+
-      (vaga?'':'<span class="stpill" style="background:'+st.color+'; color:'+corTexto(st.color)+'">'+esc(st.label)+'</span>')+
-      (mz?'<span class="mzprog'+(mzp.cheio?' cheio':'')+'" title="campos preenchidos da matriz">'+mzp.n+'/'+mzp.total+'</span>':'')+
-      (!mz && s.matrizSB?'<span class="tagic t-mz" title="este post veio da matriz: clique pra ver tema, tese, gancho...">M</span>':'')+
-      (s.formato?'<span class="fmtic" title="'+esc(s.formato)+'">'+fmtIconSvg(s.formato)+'</span>':'')+
-      (s.notas?'<span class="tagic t-obs" title="tem observação escrita: '+esc(String(s.notas).slice(0,180))+'">'+icon('pencil')+'</span>':'')+
-      (s.angulo?'<span class="angchip" title="ângulo: '+esc(s.angulo)+'">'+esc(s.angulo)+'</span>':'')+
-      (fonte&&usosDaFonte(s)?'<span class="usochip" title="posts já gerados a partir desta fonte">'+usosDaFonte(s)+'x usada</span>':'')+
-      ((resp || (s.matrizSB && s.matrizSB.responsavel))?'<span class="avatar" title="'+esc(resp || s.matrizSB.responsavel)+'">'+esc(initials(resp || s.matrizSB.responsavel))+'</span>':'')+
-    '</div>'+
-    // na vaga, o botão de check dá BAIXA (já criei) em vez de marcar postado
-    (vaga? '<button class="qvaga" title="já criei este post: dar baixa na sinalização">'+icon('check')+'</button>'
-     : fonte? '<button class="qfonte" title="concluído: tirar esta task do banco">'+icon('check')+'</button>'
-         : (s.postado?'<div class="pcheck" title="clique pra desmarcar postado">'+icon('check')+'</div>':'<button class="qpost" title="marcar postado">'+icon('check')+'</button>'))+
-    (fonte?'':'<button class="qdel" title="excluir este post do painel">'+icon('x')+'</button>');
+  const avatar = resp ? '<span class="avatar" title="'+esc(resp)+'">'+esc(initials(resp))+'</span>' : '';
+  const alertas =
+    (s.fixo?'<span class="mk t-pin" title="data fixa: não se move no empurrar">'+icon('pin')+'</span>':'')+
+    (isGm(s) && !mz?'<span class="mk t-gm" title="grande marca na capa">'+icon('star')+'</span>':'')+
+    (clb.length?'<span class="mk t-clb" title="collab: '+esc([s.conta].concat(clb).map(c=>S.contas[c]?S.contas[c].nome:c).join(' + '))+'">'+
+      [s.conta].concat(clb).map(c=>'<span class="cdot" style="background:'+contaCor(c)+'"></span>').join('')+'</span>':'')+
+    (div?'<span class="mk t-due" title="entrega ajustada manualmente no ClickUp: '+brData(div.real)+' (padrão seria '+brData(div.esperado)+'). Vale a do ClickUp.">'+icon('clock')+'</span>':'')+
+    (cdiv?'<span class="tagic t-cdiv" title="o nome da task no ClickUp diz '+esc(nomeConta(cdiv.sugerida))+', mas este post está em '+esc(nomeConta(s.conta))+'. Clique pra mover pra '+esc(nomeConta(cdiv.sugerida))+' (Ctrl+Z desfaz).">'+icon('alerta')+'</span>':'')+
+    (!mz && s.matrizSB?'<span class="mk t-mz" title="este post veio da matriz: clique pra ver tema, tese, gancho...">M</span>':'');
+  const parecer = (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'alt')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Alteração pedida')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:'')+(s.parecer.veredito!=='aprovado'?(s.parecer.clickup?' · foi pra ALTERAR no ClickUp':''):''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'pencil')+(s.parecer.veredito==='aprovado'?'APROVADO':'ALTERAR')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '');
+  // selo da conta: nome por extenso na cor da marca. Só em aba com mais de uma conta.
+  const contatag = multi?'<div class="contatag" style="background:'+cor+'; color:'+corTexto(cor)+'">'+esc(contaCurta(s.conta))+'</div>':'';
+  if(mz){
+    // MATRIZ: faixa amarela sólida no topo dizendo MATRIZ + o tipo do dia. Não tem como confundir com post.
+    const m = s.matrizSB; const mzp = mzProgresso(m); const st = mzStatus(s);
+    const tipoCfg = mzCfg().tipos[m.tipo];
+    const gmPede = s.date && S.aba==='SEUBONÉ' && gmCadenciaDia(s.date);
+    d.innerHTML =
+      '<div class="mzband" title="card da matriz: clique pra preencher">'+
+        '<span class="mzobj" style="background:'+mzObjCor(m.tipo)+'" title="'+esc(tipoCfg? 'objetivo: '+tipoCfg.objetivo : 'tipo em aberto')+'"></span>'+
+        '<span class="mzlbl">MATRIZ</span><span class="mztipo">'+esc(m.tipo||'em aberto')+'</span>'+
+        (gmPede||isGm(s)?'<span class="mzstar" title="dia de grande marca na capa">'+icon('star')+'</span>':'')+
+      '</div>'+
+      contatag+
+      '<div class="tit'+(m.tema?'':' vazio')+'">'+esc(m.tema || (m.tipo ? 'a preencher' : 'escolher o tipo'))+'</div>'+
+      '<div class="meta">'+
+        (st==='Não iniciado'
+          ? '<span class="mzbar" title="'+mzp.n+' de '+mzp.total+' campos preenchidos"><i style="width:'+Math.round(100*mzp.n/mzp.total)+'%"></i></span><span class="mzn">'+mzp.n+'/'+mzp.total+'</span>'
+          : '<span class="stx" style="--stc:'+(MZ_ST_COR[st]||'#8C897C')+'"><i></i>'+esc(st.toLowerCase())+'</span>')+
+        alertas+ avatar+
+      '</div>'+
+      (s.postado?'<div class="pcheck" title="clique pra desmarcar postado">'+icon('check')+'</div>':'')+
+      '<button class="qdel" title="excluir este card da matriz">'+icon('x')+'</button>';
+  } else {
+    d.innerHTML =
+      (vaga?'<div class="vagatag">'+icon('alerta')+'FALTA CRIAR</div>':'')+
+      (sug?'<div class="vagatag sugtag" title="ideia enviada pela pauta: cole a task pra virar post, ou apague">'+icon('sparkle')+'SUGESTÃO'+(s.sugeridoPor?' · '+esc(s.sugeridoPor):'')+'</div>':'')+
+      parecer+ contatag+
+      '<div class="tit">'+esc(vaga? (s.formato||'post').toUpperCase() : (sug? String(slotTitulo(s)).replace(/^SUGESTÃO:\s*/i,'') : slotTitulo(s)))+'</div>'+
+      // a obs da vaga aparece SEMPRE (é o "precisa ser sobre isso"); nos posts normais, só na visão Semana
+      ((vaga || S.view==='semana') && s.obs ? '<div class="obsline">'+esc(s.obs)+'</div>' : '')+
+      '<div class="meta">'+
+        (vaga||sug?'':'<span class="stx" style="--stc:'+bk.cor+'" title="'+esc(s.statusCache&&s.statusCache.status ? 'ClickUp: '+s.statusCache.status : (s.taskId?'sincronizando com o ClickUp':'sem task no ClickUp ainda'))+'"><i></i>'+esc(s.taskId||s.postado? bk.rot : 'sem task')+'</span>')+
+        alertas+
+        (fonte&&usosDaFonte(s)?'<span class="usochip" title="posts já gerados a partir desta fonte">'+usosDaFonte(s)+'x usada</span>':'')+
+        avatar+
+      '</div>'+
+      // na vaga, o botão de check dá BAIXA (já criei) em vez de marcar postado
+      (vaga? '<button class="qvaga" title="já criei este post: dar baixa na sinalização">'+icon('check')+'</button>'
+       : fonte? '<button class="qfonte" title="concluído: tirar esta task do banco">'+icon('check')+'</button>'
+           : (s.postado?'<div class="pcheck" title="clique pra desmarcar postado">'+icon('check')+'</div>':'<button class="qpost" title="marcar postado">'+icon('check')+'</button>'))+
+      (fonte?'':'<button class="qdel" title="excluir este post do painel">'+icon('x')+'</button>');
+  }
   d.addEventListener('dragstart', ev=>{
     S.dragging=true; d.classList.add('dragging');
     const grupo = S.selecao.has(s.id) && S.selecao.size>1 && s.date;
@@ -2383,6 +2526,21 @@ function celulaDia(c, di, porDia, semana){
   dropZone(cell, ()=>dateStr);
   return cell;
 }
+/** Legenda das 6 cores no cabeçalho do mês, já com a contagem. Clique = filtra por aquele grupo (clique de novo tira). */
+function legendaMes(mes){
+  const doMes = slotsVisiveis().filter(s=>s.date && s.date.startsWith(mes));
+  const cont = {}; let nmz = 0;
+  doMes.forEach(s=>{
+    if(isMatriz(s) && !s.postado){ nmz++; return; }
+    if(isVaga(s) || isSugestao(s)) return;
+    const b = stBucket(s); cont[b] = (cont[b]||0)+1;
+  });
+  const f = FILTRO_ALIAS[S.filtro] || S.filtro;
+  return '<span class="mesleg">'+
+    BUCKET_ORDEM.map(k=>'<button class="lgb'+(cont[k]?'':' zero')+(f===k?' on':'')+'" data-f="'+k+'" style="--stc:'+BUCKETS[k].cor+'" title="'+esc(BUCKETS[k].rot+': '+BUCKETS[k].dica+' · clique pra ver só estes')+'"><i></i>'+BUCKETS[k].rot+' <b>'+(cont[k]||0)+'</b></button>').join('')+
+    (S.aba==='SEUBONÉ' && nmz ? '<button class="lgb lgmz'+(f==='matriz'?' on':'')+'" data-f="matriz" title="cards da matriz ainda sem task · clique pra ver só eles"><i></i>matriz <b>'+nmz+'</b></button>' : '')+
+  '</span>';
+}
 /** Bloco de um mês inteiro no fluxo: título grudento + grade de semanas. */
 function blocoMes(mes){
   const [y,m] = mes.split('-').map(Number);
@@ -2395,9 +2553,10 @@ function blocoMes(mes){
   cab.className = 'mescab';
   cab.innerHTML =
     '<div class="mescabtop"><b>'+MESES[m-1]+' '+y+'</b>'+
-      '<span class="mesn">'+n+' post'+(n===1?'':'s')+' · '+esc(S.aba)+'</span></div>'+
+      '<span class="mesn">'+n+' post'+(n===1?'':'s')+' · '+esc(S.aba)+'</span>'+legendaMes(mes)+'</div>'+
     '<div class="mesdows"><div></div>'+DOWS.map(d=>'<div>'+d+'</div>').join('')+'</div>';
   bloco.appendChild(cab);
+  cab.querySelectorAll('.lgb').forEach(b=> b.onclick = ()=>{ S.filtro = (S.filtro===b.dataset.f ? 'todos' : b.dataset.f); render(); });
   const g = document.createElement('div');
   g.className = 'mesgrid';
   rowsDoMes(mes).forEach((week, wi)=>{
@@ -3158,7 +3317,7 @@ function drawTab(){
 
 // ================= modal edit =================
 function syncGmVisibility(){
-  $('#eGmWrap').style.display = ($('#eConta').value==='seubone' && (E_MODO==='link'||E_MODO==='edit')) ? '' : 'none';
+  $('#eGmWrap').style.display = $('#eConta').value==='seubone' ? '' : 'none';
 }
 let eCollabSel = new Set();
 function drawCollabChips(){
@@ -3171,27 +3330,149 @@ function drawCollabChips(){
     b.type = 'button';
     b.className = 'chip'+(eCollabSel.has(k)?'':' off');
     b.innerHTML = '<span class="dot" style="background:'+contaCor(k)+'"></span>'+esc(c.nome);
-    b.onclick = ()=>{ eCollabSel.has(k)? eCollabSel.delete(k) : eCollabSel.add(k); drawCollabChips(); };
+    b.onclick = ()=>{ eCollabSel.has(k)? eCollabSel.delete(k) : eCollabSel.add(k); drawCollabChips(); resumoMais(); };
     wrap.appendChild(b);
   });
 }
+// ================= NOVO POST (v3.65: mais simples) =================
+// Passo 1: 3 botões grandes dizendo COMO o post nasce. Passo 2: só os campos daquele caminho,
+// o resto fica em "Mais opções". Os <select> continuam existindo (escondidos) e os chips só mexem neles.
+let E_MODO = 'link';
+const E_LAYOUT = {
+  link:    { basico:['eLinkWrap','eContaWrap','eDataWrap'],                                   mais:['eTituloWrap','eFmtWrap','eGmWrap','eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
+  clickup: { basico:['eContaWrap','eFmtWrap','eTituloWrap','eRespWrap','eBriefWrap','eDataWrap'], mais:['eGmWrap','eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
+  edit:    { basico:['eContaWrap','eDataWrap','eLinkWrap','eTituloWrap','eFmtWrap','eGmWrap'],    mais:['eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
+};
+const E_NOMES = { eTituloWrap:'título', eFmtWrap:'formato', eGmWrap:'GM', eAnguloWrap:'ângulo', eDriveWrap:'drive', eCollabWrap:'collab', eObsWrap:'observação' };
+const DIAS_EXT = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+const MESES_EXT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+function dataExtenso(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-').map(Number); const dt = new Date(Date.UTC(y,m-1,d,12));
+  return DIAS_EXT[dt.getUTCDay()]+', '+d+' de '+MESES_EXT[m-1];
+}
+/** Linha de contexto embaixo do título: conta/aba + dia por extenso. */
+function eContexto(){
+  const conta = $('#eConta').value;
+  const quem = conta ? nomeConta(conta) : S.aba;
+  const dia = $('#eDate').value;
+  $('#eCtx').textContent = quem+' · '+(dia ? dataExtenso(dia) : 'sem dia (vai pro banco)');
+  $('#eDataTxt').textContent = dia ? dataExtenso(dia) : 'vazio = vai pro banco';
+  $('#eSemDia').hidden = !dia;
+}
+/** Chips que escrevem num <select> escondido. vazio = o chip "nenhum" (se houver). */
+function chipsDoSelect(wrapSel, selSel, opcoes, aoMudar){
+  const wrap = $(wrapSel), sel = $(selSel);
+  wrap.innerHTML = '';
+  opcoes.forEach(o=>{
+    const b = document.createElement('button'); b.type='button';
+    b.className = 'echip'+(sel.value===o.v?' on':'')+(o.v===''?' nada':'');
+    b.innerHTML = (o.cor?'<span class="dot" style="background:'+o.cor+'"></span>':'')+esc(o.rot);
+    b.onclick = ()=>{ sel.value = o.v; sel.dispatchEvent(new Event('change')); chipsDoSelect(wrapSel, selSel, opcoes, aoMudar); if(aoMudar) aoMudar(o.v); };
+    wrap.appendChild(b);
+  });
+}
+function desenhaChipsConta(){
+  const ops = [...$('#eConta').options].filter(o=>o.value).map(o=>({v:o.value, rot:o.textContent, cor:contaCor(o.value)}));
+  chipsDoSelect('#eContaChips', '#eConta', ops, ()=>{ $('#eMsg').textContent=''; $('#eContaChips').classList.remove('faltando'); });
+}
+function desenhaChipsFormato(){
+  const ops = [...$('#eFormato').options].map(o=>({v:o.value, rot:o.value ? o.textContent : 'depois'}));
+  chipsDoSelect('#eFmtChips', '#eFormato', ops);
+}
+function desenhaChipsResp(){
+  const ops = [...$('#eResp').options].map(o=>({v:o.value, rot:o.value ? o.textContent : 'ninguém'}));
+  chipsDoSelect('#eRespChips', '#eResp', ops);
+}
+/** Mostra os campos do caminho escolhido, na ordem certa. O que não é do caminho vai pra guarda. */
+function aplicaModo(m){
+  const L = E_LAYOUT[m];
+  const guarda = $('#eGuarda'), bas = $('#eBasico'), mais = $('#eMaisCorpo');
+  [...bas.children, ...mais.children].forEach(el=> guarda.appendChild(el));
+  L.basico.forEach(id=> bas.appendChild(document.getElementById(id)));
+  L.mais.forEach(id=> mais.appendChild(document.getElementById(id)));
+  // aba com uma conta só (SeuBoné, Weevo): não pergunta a conta
+  $('#eContaWrap').style.display = [...$('#eConta').options].filter(o=>o.value).length > 1 ? '' : 'none';
+  syncGmVisibility();
+  $('#eCuNota').hidden = m!=='clickup';
+  $('#eLinkHint').hidden = m!=='link';
+  $('#eTituloLbl').innerHTML = m==='clickup' ? 'Sobre o que é <span class="elbl2">vira o nome da task</span>' : 'Título no painel <span class="elbl2">vazio = usa o nome da task</span>';
+  $('#eTitulo').placeholder = m==='clickup' ? 'ex.: Case Porto 70 mil bonés' : 'ex.: Reels case cliente X';
+  resumoMais();
+}
+/** "Mais opções": diz o que tem dentro e abre sozinho se algum campo de lá já tem valor. */
+function resumoMais(){
+  const ids = E_LAYOUT[E_MODO] ? E_LAYOUT[E_MODO].mais : [];
+  const vis = ids.filter(id=> document.getElementById(id).style.display!=='none');
+  $('#eMaisResumo').textContent = vis.map(id=>E_NOMES[id]).join(', ');
+  $('#eMaisBtn').hidden = !vis.length;
+}
+function temValorNoMais(){
+  const ids = E_LAYOUT[E_MODO].mais;
+  const v = { eTituloWrap: $('#eTitulo').value, eFmtWrap: E_MODO==='link' && $('#eFormato').value, eGmWrap: $('#eGm').checked,
+    eAnguloWrap: $('#eAngulo').value, eDriveWrap: $('#eDrive').value, eCollabWrap: eCollabSel.size, eObsWrap: $('#eObs').value };
+  return ids.some(id=> !!v[id]);
+}
+function abreMais(abrir){
+  $('#eMaisCorpo').hidden = !abrir;
+  $('#eMaisBtn').classList.toggle('aberto', !!abrir);
+}
+$('#eMaisBtn').onclick = ()=> abreMais($('#eMaisCorpo').hidden);
+/** Passo 1 (escolha) ou passo 2 (campos). */
+function ePasso(n){
+  const novo = !S.editing;
+  $('#eEscolha').hidden = n!==1;
+  $('#eForm').hidden = n!==2;
+  $('#eFoot').hidden = n!==2;
+  $('#eVoltar').hidden = !(novo && n===2);
+}
+const E_TITULOS = { link:'Colar a task do ClickUp', clickup:'Criar a task no ClickUp', edit:'Editar post' };
+function setModo(m){
+  if(m==='matriz'){ const dia = $('#eDate').value || null; closeOv('ovEdit'); criarCardMatriz(dia); return; }
+  E_MODO = m;
+  aplicaModo(m);
+  ePasso(2);
+  $('#eTit').textContent = E_TITULOS[m] || 'Novo post';
+  $('#eCu').checked = m==='clickup';
+  $('#eSave').textContent = m==='clickup' ? 'Criar no ClickUp' : 'Salvar post';
+  $('#eMsg').textContent = (m==='clickup' && !S.hasToken) ? 'Sem token do ClickUp configurado: esse caminho não funciona ainda.' : '';
+  abreMais(temValorNoMais());
+  if(m==='clickup'){ atualizaCuNome(); desenhaChipsResp(); if(S.hasToken && !CU_OPCOES) carregarOpcoesCu(); }
+  const foco = m==='link' ? '#eTask' : ($('#eContaWrap').style.display!=='none' && !$('#eConta').value ? null : '#eTitulo');
+  if(foco) setTimeout(()=>{ const el=$(foco); if(el) el.focus(); }, 60);
+}
+document.querySelectorAll('#eEscolha .eopc').forEach(b=> b.onclick = ()=> setModo(b.dataset.modo));
+document.querySelectorAll('#eEscolha .eic').forEach(el=> el.innerHTML = icon(el.dataset.ic));
+$('#eVoltar').onclick = ()=>{ $('#eTit').textContent='Novo post'; ePasso(1); };
+$('#eSemDia').onclick = ()=>{ $('#eDate').value=''; eContexto(); atualizaCuNome(); };
+$('#eDate').addEventListener('change', eContexto);
+$('#eConta').addEventListener('change', ()=>{ $('#eConta').classList.toggle('faltando', !$('#eConta').value); syncGmVisibility(); drawCollabChips(); eContexto(); resumoMais(); });
+// atalho: no passo 1, teclas 1/2/3 escolhem o caminho
+document.addEventListener('keydown', ev=>{
+  if(!$('#ovEdit').classList.contains('open') || $('#eEscolha').hidden) return;
+  if(ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  const mapa = {'1':'link','2':'clickup','3':'matriz'};
+  const m = mapa[ev.key]; if(!m) return;
+  if(m==='matriz' && $('#eOpcMz').hidden) return;
+  ev.preventDefault(); setModo(m);
+});
+// Enter no link salva direto (colar + Enter = pronto)
+$('#eTask').addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); $('#eSave').click(); } });
+
 function openEdit(id, dateStr, pre){
   S.editing = id;
   const s = id? S.slots.find(x=>x.id===id) : null;
-  $('#eTit').textContent = s? 'Editar post' : 'Novo post';
   const sel = $('#eConta'); sel.innerHTML='';
   const contasDoModal = contasDaAba(S.aba);
   // aba com mais de uma conta: NADA de default silencioso. Quem escolhe a conta é você.
-  // (era daqui que vinha o bug: sem placeholder, o navegador escolhia a 1ª da aba sozinho)
   if(!s && contasDoModal.length > 1){
     const ph = document.createElement('option');
-    ph.value=''; ph.textContent='— escolha a conta —'; ph.disabled = true;
+    ph.value=''; ph.textContent='escolha a conta'; ph.disabled = true;
     sel.appendChild(ph);
   }
   contasDoModal.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=S.contas[k].nome; sel.appendChild(o); });
   sel.value = s ? s.conta : (contasDoModal.length > 1 ? '' : (contasDoModal[0] || ''));
   sel.classList.toggle('faltando', !sel.value);
-  sel.onchange = ()=>{ sel.classList.toggle('faltando', !sel.value); syncGmVisibility(); drawCollabChips(); };
   eCollabSel = new Set(s? (s.collab||[]) : []);
   drawCollabChips();
   $('#eDate').value = s? (s.date||'') : (dateStr||'');
@@ -3203,45 +3484,38 @@ function openEdit(id, dateStr, pre){
   $('#eDrive').value = s? (s.drive||'') : (pre && pre.drive || '');
   $('#eObs').value = s? (s.obs||'') : (pre && pre.obs || '');
   $('#eGm').checked = s? isGm(s) : false;
-  syncGmVisibility();
   $('#eDelete').style.display = s? '' : 'none';
-  // modos de criação (só pra post novo): 1 colar link · 2 criar no ClickUp
-  $('#eModos').style.display = s ? 'none' : '';
-  $('#eBrief').value=''; $('#eResp').value='';
+  $('#eBrief').value='';
+  $('#eContaChips').classList.remove('faltando');
+  desenhaChipsConta(); desenhaChipsFormato(); desenhaChipsResp();
+  // o caminho "matriz" só existe na SeuBoné
+  const temMz = !s && S.aba==='SEUBONÉ' && !!S.matrizSB;
+  $('#eOpcMz').hidden = !temMz;
+  if(temMz){
+    const d = dateStr ? mzTipoDoDia(dateStr) : null;
+    $('#eOpcMzSub').textContent = 'Card amarelo'+(d ? ' de '+(d.tipo || d.opcoes.join(' / ')) : '')+' pra copywriter preencher. A task vem depois.';
+  }
+  eContexto();
+  $('#eMsg').textContent = '';
   if(s){
     E_MODO = 'edit';
-    aplicaModo('edit');
+    aplicaModo('edit'); ePasso(2);
+    $('#eTit').textContent = 'Editar post';
     $('#eSave').textContent = 'Salvar';
+    abreMais(temValorNoMais());
+    $('#eMsg').textContent = s.tituloCache ? 'Task vinculada: '+s.tituloCache : '';
+  } else if(pre){
+    setModo(pre.modo || 'link');                         // veio de uma referência: já sabe o caminho
+    $('#eMsg').textContent = 'Criando post a partir de uma referência';
   } else {
-    setModo(pre && pre.modo ? pre.modo : 'link');
+    E_MODO = 'link';
+    $('#eTit').textContent = 'Novo post';
+    ePasso(1);
   }
   if(!s && S.hasToken) carregarOpcoesCu();
   atualizaCuNome();
-  $('#eMsg').textContent = pre? 'Criando post a partir de uma referência' : (s && s.tituloCache ? 'Task vinculada: '+s.tituloCache : '');
   $('#ovEdit').classList.add('open');
 }
-// ---- os 3 modos do "Novo post" ----
-let E_MODO = 'link';
-/** Cada aba mostra SÓ os campos dela: 1 link = o formulário de sempre; 2 ClickUp = o que a task tem. */
-function aplicaModo(m){
-  document.querySelectorAll('#ovEdit [data-modos]').forEach(el=>{
-    const ok = el.dataset.modos.split(' ').includes(m);
-    if(el.id==='eGmWrap'){ el.style.display = ok && $('#eConta').value==='seubone' ? '' : 'none'; return; }
-    el.style.display = ok ? '' : 'none';
-  });
-  $('#eFmtRow').style.gridTemplateColumns = (m==='link'||m==='edit') ? '' : '1fr';
-  $('#eTituloLbl').textContent = m==='clickup' ? 'Nome da task (se vazio, monta com formato + empresa)' : 'Título (se vazio, usa o nome da task do ClickUp)';
-}
-function setModo(m){
-  E_MODO = m;
-  document.querySelectorAll('#eModos .modo').forEach(b=> b.classList.toggle('on', b.dataset.modo===m));
-  aplicaModo(m);
-  $('#eCu').checked = m==='clickup';
-  $('#eSave').textContent = m==='clickup' ? 'Criar no ClickUp e salvar' : 'Salvar';
-  $('#eMsg').textContent = (m==='clickup' && !S.hasToken) ? 'Sem token do ClickUp configurado: esse modo não funciona ainda.' : '';
-  if(m==='clickup') atualizaCuNome();
-}
-document.querySelectorAll('#eModos .modo').forEach(b=> b.onclick = ()=> setModo(b.dataset.modo));
 
 // ---- criar a task no ClickUp a partir do "Novo post" ----
 let CU_OPCOES = null;
@@ -3254,14 +3528,14 @@ async function carregarOpcoesCu(fresh){
     sel.value = atual;
     const perfil = PERFIL.get();  // se o seu username bate com alguém da lista, já sugere você
     if(!sel.value && perfil && perfil.nome){ const eu = CU_OPCOES.membros.find(m=>m.nome.toLowerCase().startsWith(perfil.nome.toLowerCase())); if(eu) sel.value = String(eu.id); }
-    $('#eCuSub').textContent = 'lista House Quatro5 · '+CU_OPCOES.membros.length+' pessoas · a conta vira o Empresa Tag, o formato vira o Formato SKILL';
+    $('#eCuSub').textContent = '';
+    desenhaChipsResp();
   }catch(e){ $('#eCuSub').textContent = 'não consegui ler a lista do ClickUp: '+e.message; }
 }
 function atualizaCuNome(){
   const el = $('#eCuNome'); if(!el) return;
   const conta = $('#eConta').value, fmt = $('#eFormato').value, tit = $('#eTitulo').value.trim();
   el.textContent = [fmt?'['+fmt.toUpperCase()+']':null, conta?nomeConta(conta):null, tit||null].filter(Boolean).join(' - ') || 'Novo post (sem nome)';
-
 }
 /** Mesma regra do servidor: entrega = 2 dias úteis antes do dia do post. */
 function entregaPara(dateStr){
@@ -3275,7 +3549,7 @@ $('#eCu').addEventListener('change', ()=>{ if($('#eCu').checked){ atualizaCuNome
 $('#eSave').onclick = async ()=>{
   if(!$('#eConta').value){
     $('#eMsg').textContent = 'Escolha a conta antes de salvar.';
-    $('#eConta').classList.add('faltando'); $('#eConta').focus();
+    $('#eContaChips').classList.add('faltando');
     return;
   }
   const body = {

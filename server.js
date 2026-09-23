@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.64'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.65'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -36,6 +36,8 @@ let db = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 // migrações leves (nunca destrutivas)
 if (!Array.isArray(db.referencias)) db.referencias = [];
 if (!db.dueSync || typeof db.dueSync !== 'object' || Array.isArray(db.dueSync)) db.dueSync = {};
+/** A task ainda tem um post com dia no painel? (se o post foi excluído, a data pendente dele não vale mais) */
+function temSlotComData(taskId) { return db.slots.some(s => s.taskId === taskId && s.date); }
 // último status já avisado por task, pra não repetir aviso quando o status oscila ou o servidor reinicia
 if (!db.avisos || typeof db.avisos !== 'object' || Array.isArray(db.avisos)) db.avisos = {};
 // matriz da SeuBoné: dias em que o card amarelo já foi gerado (pra não recriar o que você apagou ou arrastou)
@@ -1145,7 +1147,7 @@ const server = http.createServer(async (req, res) => {
         temSenha: !!config.senha,
         zapiPronto: zapiPronto() && zapiCfg().ligado,
         gmCadencia: db.gmCadencia,
-        duePendentes: Object.keys(db.dueSync),
+        duePendentes: Object.keys(db.dueSync).filter(temSlotComData), // post excluído não deixa data fantasma pra aplicar
         matrizSB: { conta: MZ_CONTA, tipos: MZ.TIPOS, semanas: MZ.SEMANAS, ancora: MZ.ANCORA, status: MZ.STATUS, obrigatorios: MZ.OBRIGATORIOS, regras: MZ.REGRAS, checklist: MZ.CHECKLIST, responsaveis: RESPONSAVEIS },
       });
     }
@@ -1336,7 +1338,7 @@ const server = http.createServer(async (req, res) => {
       const b = await readBody(req);
       // lista escolhida no painel; sem lista = aplica tudo que está na fila (compat)
       const pedidos = Array.isArray(b.taskIds) ? b.taskIds : Object.keys(db.dueSync);
-      const alvos = pedidos.filter(id => db.dueSync[id] != null).map(id => [id, db.dueSync[id]]);
+      const alvos = pedidos.filter(id => db.dueSync[id] != null && temSlotComData(id)).map(id => [id, db.dueSync[id]]);
       const resultados = await mapLimit(alvos, 6, async ([taskId, ms]) => {
         try {
           await cuWrite(`/task/${taskId}`, 'PUT', { due_date: ms, due_date_time: false });
