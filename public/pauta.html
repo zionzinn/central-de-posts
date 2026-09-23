@@ -129,6 +129,11 @@
   .kpi.pronto{--k:var(--pub)} .kpi.pronto b{color:var(--pub)}
   .kpi.aprovar{--k:#0f9d9f} .kpi.producao{--k:#f9d900} .kpi.diasSem{--k:var(--warn)} .kpi.diasSem b{color:var(--warn)}
   .kpi.semtask{--k:var(--ink-2)} .kpi.vagas{--k:var(--crit)} .kpi.vagas b{color:var(--crit)}
+  .kpi.matriz{--k:#FCC100} .kpi.matriz b{color:#FCC100}
+  /* card da matriz da SeuBoné (ainda sem task): amarelo tracejado, igual no painel */
+  .post.matriz{border-style:dashed; border-color:rgba(252,193,0,.55); background:repeating-linear-gradient(135deg, rgba(252,193,0,.08) 0 9px, transparent 9px 18px)}
+  .post.matriz .tit.vazio{color:rgba(255,226,122,.7); font-style:italic}
+  .chip.tipo{background:#FCC100; color:#000; border-color:#000; font-weight:800}
   .kpi.todos.on{--k:var(--sb)}
   .kpi.todos.on::after{content:""}
   .filtro-aviso{font-size:12px; font-weight:700; color:var(--ink-2); margin:-4px 0 12px; display:flex; align-items:center; gap:8px}
@@ -299,7 +304,8 @@ const FILTROS = {
   pronto:  { rotulo:'prontos / postados', ok:s=>ehPronto(s), vazio:'Nada pronto ainda neste mês.' },
   producao:{ rotulo:'em produção', ok:s=>{const st=(s.statusCache&&s.statusCache.status)||''; return st&&!ehPronto(s)&&st!=='aprovar';}, vazio:'Nada em produção neste mês.' },
   aprovar: { rotulo:'pra aprovar', ok:s=>(s.statusCache&&s.statusCache.status)==='aprovar', vazio:'Nada esperando aprovação neste mês.' },
-  semtask: { rotulo:'sem task', ok:s=>!s.taskId&&!s.vaga, vazio:'Todos os posts do mês já têm task.' },
+  semtask: { rotulo:'sem task', ok:s=>!s.taskId&&!s.vaga&&!ehMatriz(s), vazio:'Todos os posts do mês já têm task.' },
+  matriz:  { rotulo:'matriz (ainda sem task)', ok:s=>ehMatriz(s), vazio:'Nenhum card da matriz neste mês.' },
   vagas:   { rotulo:'falta criar', ok:s=>s.vaga&&!s.taskId, vazio:'Nenhum post marcado como falta criar.' },
   diasSem: { rotulo:'dias sem post', dias:true, vazio:'Todos os dias do mês têm post.' },
 };
@@ -322,8 +328,22 @@ function isGm(s){ if(s.conta!=='seubone') return s.gm==='sim'; if(s.gm==='sim') 
 // ---- status (igual ao painel: completo = publicar) ----
 function ehPublicar(s){ const st=(s.statusCache&&s.statusCache.status)||''; return st==='publicar'||st==='completo'; }
 function ehSugestao(s){ return !!s.sugestao && !s.taskId; }
+// card da matriz da SeuBoné: o planejamento (tipo, tema, tese, gancho...) antes de virar task
+function ehMatriz(s){ return !!s.matrizSB && !s.taskId; }
+function mzStatus(s){ return s.postado ? 'Postado' : ((s.matrizSB && s.matrizSB.status) || 'Não iniciado'); }
+/** O planejamento da matriz em texto, no mesmo formato de descrição (rótulo em destaque). */
+function matrizTexto(s){
+  const m=s.matrizSB||{}, t=(ST.dados.matrizTipos||{})[m.tipo]||null;
+  const l=[];
+  l.push('# '+(m.tipo||'Slot em aberto')+(t?' · '+t.objetivo:''));
+  if(t){ l.push('CTA: '+t.cta); l.push('Etapa de funil: '+t.funil+' · '+t.consciencia); }
+  [['Formato','formato'],['Pauta quente','pautaQuente'],['Ângulo','angulo'],['Tema','tema'],['Tese','tese'],['Gancho','gancho'],['Descrição','descricao'],['Refs','refs'],['Responsável','responsavel'],['Status','status'],['Obs','obs']]
+    .forEach(([r,k])=>{ if(k==='status') l.push('Status: '+mzStatus(s)); else if(m[k]) l.push(r+': '+String(m[k]).replace(/\n+/g,' ')); });
+  return l.join('\n\n');
+}
 function stInfo(s){
   if(s.vaga && !s.taskId) return {label:'falta criar', color:'#FF4D4D'};
+  if(ehMatriz(s)) return {label:'matriz · '+mzStatus(s).toLowerCase(), color:'#FCC100'};
   if(ehSugestao(s)) return {label:'sugestão', color:'#C77DFF'};
   if(s.postado) return {label:'postado', color:'#2FD06A'};
   if(s.statusCache){ if(ehPublicar(s)) return {label:'publicar', color:'#ee5e99'}; return {label:s.statusCache.status, color:s.statusCache.color||'#8C897C'}; }
@@ -333,6 +353,7 @@ function stInfo(s){
 function ehPronto(s){ return !!s.postado || ehPublicar(s); }
 function titulo(s){
   if(s.vaga && !s.taskId) return 'FALTA CRIAR: '+((s.formato||'post').toUpperCase());
+  if(ehMatriz(s)) return s.matrizSB.tema || ((s.matrizSB.tipo||'Slot em aberto')+' (a preencher)');
   if(ehSugestao(s)) return String(s.titulo||'Sugestão').replace(/^SUGESTÃO:\s*/i,'');
   if(s.titulo) return s.titulo;
   if(s.origem==='banco') return s.taskId ? (s.obs||'Task do ClickUp') : ('Reutilizar: '+(s.obs||'vídeo'));
@@ -389,7 +410,7 @@ function render(){
   const contas=contasDaAba(ST.aba), multi=contas.length>1, hoje=hojeStr();
   let posts=D.slots.filter(s=>contas.includes(s.conta)).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   const tot=posts.length, prontos=posts.filter(FILTROS.pronto.ok).length, aprovar=posts.filter(FILTROS.aprovar.ok).length,
-        producao=posts.filter(FILTROS.producao.ok).length, semtask=posts.filter(FILTROS.semtask.ok).length, vagas=posts.filter(FILTROS.vagas.ok).length;
+        producao=posts.filter(FILTROS.producao.ok).length, semtask=posts.filter(FILTROS.semtask.ok).length, vagas=posts.filter(FILTROS.vagas.ok).length, nmatriz=posts.filter(FILTROS.matriz.ok).length;
   // todos os dias do mês (os sem post também aparecem, pra os buracos ficarem visíveis)
   const ultimo=new Date(y,m,0).getDate();
   const diasMes=[]; for(let d=1; d<=ultimo; d++) diasMes.push(ST.mes+'-'+String(d).padStart(2,'0'));
@@ -405,7 +426,8 @@ function render(){
     kpi('aprovar',aprovar,'pra aprovar','aprovar')+
     (diasSem||ST.filtro==='diasSem'?kpi('diasSem',diasSem,'dias sem post','diasSem'):'')+
     (semtask||ST.filtro==='semtask'?kpi('semtask',semtask,'sem task','semtask'):'')+
-    (vagas||ST.filtro==='vagas'?kpi('vagas',vagas,'falta criar','vagas'):'');
+    (vagas||ST.filtro==='vagas'?kpi('vagas',vagas,'falta criar','vagas'):'')+
+    (nmatriz||ST.filtro==='matriz'?kpi('matriz',nmatriz,'matriz','matriz'):'');
   document.querySelectorAll('#resumo .kpi').forEach(b=>{ b.onclick=()=>{ const f=b.dataset.f; ST.filtro = (f==='todos'||ST.filtro===f) ? null : f; render(); }; });
   const F = ST.filtro ? FILTROS[ST.filtro] : null;
   const aviso=$('#filtroAviso');
@@ -441,14 +463,15 @@ function render(){
         }
         arr.forEach(s=>{
           const st=stInfo(s), cc=corConta(s.conta), pronto=ehPronto(s), sug=ehSugestao(s);
-          const b=document.createElement('button'); b.className='post'+(s.postado?' postado':(pronto?' pronto':''))+((s.vaga&&!s.taskId)?' vaga':'')+(sug?' sugestao':''); b.style.setProperty('--cc',cc); b.title='abrir detalhes';
+          const mz=ehMatriz(s); const b=document.createElement('button'); b.className='post'+(s.postado?' postado':(pronto?' pronto':''))+((s.vaga&&!s.taskId)?' vaga':'')+(sug?' sugestao':'')+(mz?' matriz':''); b.style.setProperty('--cc',cc); b.title='abrir detalhes';
           const pr = s.parecer && s.parecer.veredito ? s.parecer : null;
           b.innerHTML=(s.capa
               ? '<div class="capa"><img loading="lazy" src="'+esc(img(s.capa))+'" alt="">'+(s.nArtes>1?'<span class="capan">'+s.nArtes+'</span>':'')+'</div>'
               : '<div class="fmt">'+(sug?'💡':(ICO[s.formato]||ICO.post))+'</div>')+
-            '<div class="body"><div class="tit">'+esc(titulo(s))+(isGm(s)?'<span class="gm" title="grande marca na capa">★</span>':'')+(sug&&s.sugeridoPor?' <span class="quem">por '+esc(s.sugeridoPor)+'</span>':'')+'</div>'+
+            '<div class="body"><div class="tit'+(mz&&!s.matrizSB.tema?' vazio':'')+'">'+esc(titulo(s))+(isGm(s)?'<span class="gm" title="grande marca na capa">★</span>':'')+(sug&&s.sugeridoPor?' <span class="quem">por '+esc(s.sugeridoPor)+'</span>':'')+'</div>'+
             '<div class="chips">'+(pr?'<span class="pill parecer '+(pr.veredito==='aprovado'?'ok':'alt')+'" title="'+esc(pr.motivo||'')+'">'+(pr.veredito==='aprovado'?'✓ aprovado':'✎ alterar')+(pr.por?' · '+esc(pr.por):'')+'</span>':'')+
             '<span class="pill" style="background:'+esc(st.color)+'">'+esc(st.label)+'</span>'+
+            (s.matrizSB&&s.matrizSB.tipo?'<span class="chip tipo">'+esc(s.matrizSB.tipo)+'</span>':'')+
             (multi?'<span class="chip conta">'+esc(CONTA_CURTA[s.conta]||s.conta)+'</span>':'')+
             (s.formato?'<span class="chip">'+esc(s.formato)+'</span>':'')+(s.angulo?'<span class="chip">'+esc(s.angulo)+'</span>':'')+
             (s.notas?'<span class="chip obs" title="tem observação">obs</span>':'')+'</div></div>'+
@@ -484,7 +507,8 @@ function abrirPost(id){
     '<div class="meta"><div><span>dia do post</span><b>'+brData(s.date)+' · '+DOWS[dow(s.date)]+'</b></div>'+
       (isGm(s)?'<div><span>capa</span><b style="color:var(--sb)">★ grande marca</b></div>':'')+
       '<div id="mresp"><span>responsável</span><b class="carreg">…</b></div><div id="mdue"><span>entrega</span><b class="carreg">…</b></div></div>'+
-    '<div class="sec"><div class="stit">descrição</div><div class="desc" id="mdesc"><span class="carreg">'+(s.taskId?'lendo a task…':'este post ainda não tem task no ClickUp')+'</span></div></div>'+
+    (ehMatriz(s) ? '' : '<div class="sec"><div class="stit">descrição</div><div class="desc" id="mdesc"><span class="carreg">'+(s.taskId?'lendo a task…':'este post ainda não tem task no ClickUp')+'</span></div></div>')+
+    (s.matrizSB ? '<div class="sec"><div class="stit">planejamento da matriz</div><div class="desc">'+mdLeve(matrizTexto(s))+'</div></div>' : '')+
     // parecer: aprova (-> PUBLICAR) ou pede alteração (-> ALTERAR), pronto ou não. Fica no card do painel e nas observações.
     '<div class="sec parecer-sec"><div class="stit">seu parecer</div>'+
       '<div id="parecerAtual" class="parecer-atual'+(pr?(' '+(pr.veredito==='aprovado'?'ok':'alt')):' vazio')+'">'+(pr
@@ -511,6 +535,7 @@ function abrirPost(id){
   const mudar=$('#prMudar'); if(mudar) mudar.onclick=()=>{ $('#prform').hidden=false; $('#parecerAtual').classList.add('mudando'); };
   $('#ovPost').classList.add('open');
   if(s.taskId) carregarTask(s);
+  else { const r=$('#mresp b'), d=$('#mdue b'); if(r){ r.textContent=(s.matrizSB&&s.matrizSB.responsavel)||'sem responsável'; r.className=''; } if(d){ d.textContent='sem task ainda'; d.className=''; } }
 }
 function atualizaNotas(s){
   const el=$('#mnotas'), n=$('#mnotasN'); if(!el) return;

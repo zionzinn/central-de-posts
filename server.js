@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.62'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.64'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -38,6 +38,8 @@ if (!Array.isArray(db.referencias)) db.referencias = [];
 if (!db.dueSync || typeof db.dueSync !== 'object' || Array.isArray(db.dueSync)) db.dueSync = {};
 // último status já avisado por task, pra não repetir aviso quando o status oscila ou o servidor reinicia
 if (!db.avisos || typeof db.avisos !== 'object' || Array.isArray(db.avisos)) db.avisos = {};
+// matriz da SeuBoné: dias em que o card amarelo já foi gerado (pra não recriar o que você apagou ou arrastou)
+if (!db.matrizSBGeradas || typeof db.matrizSBGeradas !== 'object' || Array.isArray(db.matrizSBGeradas)) db.matrizSBGeradas = {};
 // cadência automática de GM (grande marca na capa) — só SeuBoné. ancora null = desligado até configurar.
 if (!db.gmCadencia || typeof db.gmCadencia !== 'object' || Array.isArray(db.gmCadencia))
   db.gmCadencia = { ativo: false, ancora: null, periodo: 3 };
@@ -330,63 +332,63 @@ async function criarTaskClickUp(b) {
   return { task, name, empresaTag: oe ? oe.nome : null, formatoSkill: of ? of.nome : null, responsavel: body.assignees ? op.membros.find(m => m.id === resp).nome : null };
 }
 
-// ---------------- MATRIZ DE CONTEÚDO ----------------
-// Mesmas colunas da planilha da Weevo. As listas valem pras 4 empresas por enquanto; as regras
-// de CTA/métrica são derivadas do Objetivo (como na planilha) e podem ganhar versão por aba.
-const MATRIZ = {
-  campos: ['objetivo', 'funil', 'consciencia', 'tipo', 'tipoConteudo', 'emocao', 'pautaQuente', 'tema', 'tese', 'gancho'],
-  livres: ['objetivo', 'tipo', 'tipoConteudo'],   // texto livre (as opções abaixo viram só sugestão)
-  responsaveis: RESPONSAVEIS,
-  opcoes: {
-    objetivo: ['Crescimento', 'Conversão'],
-    funil: ['Topo', 'Meio', 'Fundo'],
-    consciencia: ['Inconsciente', 'Consciente do problema', 'Consciente da solução', 'Consciente do produto', 'Totalmente consciente'],
-    tipo: ['Posicionamento', 'Técnico', 'Storytelling', 'Indicação'],
-    tipoConteudo: ['Infotainment', 'Depoimento / autoridade', 'Chamada direta'],
-    emocao: ['Dor', 'Desejo'],
-  },
-  regras: {
-    'Crescimento': { cta: 'Siga o perfil', metrica1: 'Seguidores | Custo por seguidor | Taxa de seguidores', metrica2: 'Compartilhamentos | Tempo de tela | Visualizações por slide | Alcance | Comentários' },
-    'Conversão':   { cta: 'ManyChat: telefone e email', metrica1: 'Leads | Custo por lead | Vendas | Custo por venda', metrica2: 'Comentários | Tempo de tela | Visualizações por slide | Seguidores' },
-  },
-  status: ['Não iniciado', 'Briefing criado', 'Em aprovação', 'Postado'],
-};
-function matrizLimpa(m) {
-  if (!m || typeof m !== 'object') return null;
-  const out = {};
-  for (const k of MATRIZ.campos) {
-    const v = String(m[k] || '').replace(/[<>]/g, '').trim().slice(0, 1200);
-    if (MATRIZ.opcoes[k] && !MATRIZ.livres.includes(k) && v && !MATRIZ.opcoes[k].includes(v)) continue; // lista fechada: fora dela, ignora
-    if (v) out[k] = v;
-  }
-  return Object.keys(out).length ? out : null;
+// ---------------- MATRIZ DE CONTEÚDO DA SEUBONÉ ----------------
+// Cada dia do mês da SeuBoné nasce com um card AMARELO da matriz: o tipo do dia (Case, Educação...)
+// vem da rotação A/B e a copywriter preenche formato, ângulo, tese, gancho... As regras moram em
+// lib/matriz-seubone.js. O card só vira "post normal" quando alguém cola a task do ClickUp nele.
+const MZ = require('./lib/matriz-seubone.js');
+const MZ_CONTA = 'seubone';
+/** Dia já tem post da SeuBoné (próprio ou collab)? Então a matriz não põe card ali. */
+function temPostSeubone(iso) {
+  return db.slots.some(s => s.date === iso && (s.conta === MZ_CONTA || (s.collab || []).includes(MZ_CONTA)));
 }
-/** Status da linha na matriz, derivado do que o painel já sabe (nada de marcar na mão). */
-function matrizStatus(s) {
-  if (s.postado) return 'Postado';
-  const st = s.statusCache && s.statusCache.status;
-  if (st === 'aprovar' || st === 'aprovação líder' || st === 'publicar' || st === 'revisão solicitada') return 'Em aprovação';
-  if (s.taskId || (s.matriz && s.matriz.tese && s.matriz.gancho)) return 'Briefing criado';
-  return 'Não iniciado';
-}
-/** Regras de CTA/métrica pelo objetivo escrito (aceita "crescimento", "Conversao", etc.). */
-function regraObjetivo(obj) {
-  const k = Object.keys(MATRIZ.regras).find(x => semAcento(x) === semAcento(obj) || (obj && semAcento(obj).startsWith(semAcento(x).slice(0, 5))));
-  return k ? MATRIZ.regras[k] : {};
-}
-function semanaDoMes(dateStr) { if (!dateStr) return ''; const d = Number(dateStr.slice(8, 10)); return Math.ceil(d / 7); }
-/** Linha da matriz de um post (o que vai pra tabela e pra planilha). */
-function matrizLinha(s, i) {
-  const m = s.matriz || {};
-  const r = regraObjetivo(m.objetivo);
+function novoSlotMatriz(iso, matrizSB) {
   return {
-    n: i + 1, semana: semanaDoMes(s.date), objetivo: m.objetivo || '', funil: m.funil || '', consciencia: m.consciencia || '',
-    tipo: m.tipo || '', tipoConteudo: m.tipoConteudo || '', formato: s.formato || '', emocao: m.emocao || '',
-    cta: r.cta || '', metrica1: r.metrica1 || '', metrica2: r.metrica2 || '',
-    pautaQuente: m.pautaQuente || '', tema: m.tema || '', tese: m.tese || '', gancho: m.gancho || '',
-    responsavel: s.responsavelManual || s.assigneeCache || '', data: s.date || '', status: matrizStatus(s),
-    titulo: s.titulo || s.tituloCache || '', conta: (db.contas[s.conta] && db.contas[s.conta].nome) || s.conta, id: s.id, taskId: s.taskId || null,
+    id: 's' + crypto.randomBytes(4).toString('hex'),
+    conta: MZ_CONTA, date: iso || null, taskId: null, titulo: null, formato: '', angulo: '', obs: '', notas: '',
+    gm: '', collab: [], drive: '', linkRef: '', aprovado: false, postado: false, fixo: false,
+    responsavelManual: '', origem: 'matriz', cat: '', fonteId: '', matrizSB,
+    tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: new Date().toISOString(),
   };
+}
+/** Cria os cards da matriz nos dias VAZIOS de um mês.
+    automático (forcar=false): cada dia só é gerado uma vez na vida; se você apagou ou arrastou o card,
+    ele não volta. Manual (forcar=true, botão "gerar o mês"): preenche todo dia vazio de novo. */
+function gerarMatrizSB(mes, { forcar = false, desde = null } = {}) {
+  if (!db.contas[MZ_CONTA] || !/^\d{4}-\d{2}$/.test(String(mes || ''))) return [];
+  const [y, m] = mes.split('-').map(Number);
+  const ultimo = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const criados = [];
+  for (let d = 1; d <= ultimo; d++) {
+    const iso = mes + '-' + String(d).padStart(2, '0');
+    if (desde && iso < desde) continue;
+    if (!forcar && db.matrizSBGeradas[iso]) continue;
+    if (temPostSeubone(iso)) continue;
+    const slot = novoSlotMatriz(iso, MZ.novoParaDia(iso));
+    db.slots.push(slot);
+    db.matrizSBGeradas[iso] = true;
+    criados.push(slot.id);
+  }
+  if (criados.length) saveDb();
+  return criados;
+}
+function hojeRecife() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Recife' }); }
+function addMesIso(mes, n) { const [y, m] = mes.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return d.toISOString().slice(0, 7); }
+let mzUltimoDia = null;
+/** Uma vez por dia: garante a matriz de hoje até o fim do mês que vem depois do próximo (3 meses). */
+function autoMatrizSB() {
+  try {
+    const hoje = hojeRecife();
+    if (mzUltimoDia === hoje) return;
+    mzUltimoDia = hoje;
+    // backup único antes da primeira geração em massa (regra do projeto: nunca escrever em massa sem backup)
+    const dir = path.join(DATA_DIR, 'backups'); fs.mkdirSync(dir, { recursive: true });
+    const bk = path.join(dir, 'data-antes-matriz-seubone.json');
+    if (!fs.existsSync(bk) && fs.existsSync(DATA_FILE)) fs.copyFileSync(DATA_FILE, bk);
+    let n = 0;
+    for (let i = 0; i < 3; i++) n += gerarMatrizSB(addMesIso(hoje.slice(0, 7), i), { desde: hoje }).length;
+    if (n) console.log('[matriz SeuBoné] ' + n + ' card(s) criado(s) nos dias vazios');
+  } catch (e) { console.log('[matriz SeuBoné] falhou:', e.message); }
 }
 // --- .xlsx sem dependência: um ZIP (stored) com os XMLs mínimos que Excel e Google Sheets aceitam ---
 const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
@@ -441,76 +443,34 @@ function xlsxMontar(abas) { // [{nome, xml}]
   ];
   return zipStored(arquivos);
 }
-/** Planilha da matriz de uma aba/mês: aba Matriz (linhas + validações) e aba Dash (recontagens por fórmula, como o modelo). */
-function matrizXlsx(aba, mes) {
-  const contas = contasDaAbaSrv(aba);
-  const posts = db.slots.filter(s => contas.includes(s.conta) && s.date && s.date.startsWith(mes)).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-  const linhas = posts.map((s, i) => matrizLinha(s, i));
-  const cab = ['#', 'Semana', 'Objetivo', 'Etapa de funil', 'Nível de consciência', 'Tipo', 'Tipo de conteúdo', 'Formato', 'Emoção alvo', 'CTA', 'Métrica primária', 'Métrica secundária', 'Pauta quente', 'Tema', 'Tese em uma frase', 'Gancho escolhido', 'Responsável', 'Data de publicação', 'Status', 'Post', 'Conta', 'Task'];
-  const H = 1; // linha do cabeçalho
-  const mat = [cab.map(c => ({ v: c, s: 1 }))];
-  linhas.forEach(l => mat.push([
-    l.n, l.semana === '' ? '' : l.semana, l.objetivo, l.funil, l.consciencia, l.tipo, l.tipoConteudo, l.formato, l.emocao,
-    { v: l.cta, s: 5 }, { v: l.metrica1, s: 5 }, { v: l.metrica2, s: 5 },
-    { v: l.pautaQuente, s: 3 }, { v: l.tema, s: 3 }, { v: l.tese, s: 3 }, { v: l.gancho, s: 3 }, { v: l.responsavel, s: 3 },
-    l.data ? l.data.split('-').reverse().join('/') : '', l.status, l.titulo, l.conta, l.taskId ? 'https://app.clickup.com/t/' + l.taskId : '',
-  ]));
-  const N = Math.max(linhas.length, 1), fim = H + N;
-  const ref = col => `${col}${H + 1}:${col}${H + Math.max(N, 200)}`;
-  const validacoes = [
-    { ref: ref('D'), lista: MATRIZ.opcoes.funil }, { ref: ref('E'), lista: MATRIZ.opcoes.consciencia }, { ref: ref('I'), lista: MATRIZ.opcoes.emocao },
-    { ref: ref('Q'), lista: RESPONSAVEIS }, { ref: ref('S'), lista: MATRIZ.status },
-  ];
-  const matrizXml = xSheet(mat, [4, 8, 13, 13, 22, 15, 22, 14, 12, 26, 34, 40, 26, 34, 44, 44, 16, 16, 16, 34, 18, 30], validacoes, H);
-  // Dash: tudo fórmula em cima da aba Matriz, pra continuar recontando se alguém editar a planilha
-  const M = "Matriz";
-  const R = (col) => `${M}!$${col}$${H + 1}:$${col}$${H + Math.max(N, 200)}`;
-  const nomeAba = (db.abas || []).includes(aba) ? aba : aba;
-  const d = [];
-  const t = (v) => ({ v, s: 2 }), h = (v) => ({ v, s: 1 }), y = (v) => ({ v, s: 3 }), pc = (f) => ({ v: { f }, s: 4 });
-  d.push([t('Dash de conteúdo ' + nomeAba + ' · ' + mes.split('-').reverse().join('/'))]);
-  d.push(['Gerado pelo B.O.N.E. Se editar a aba Matriz, tudo aqui reconta sozinho.']);
-  d.push([]);
-  d.push([t('Progresso do ciclo')]);
-  d.push([h('Total'), h('Postados'), h('Em aprovação'), h('Briefing criado'), h('Não iniciado'), h('% concluído')]);
-  d.push([{ f: `COUNTA(${R('A')})` }, { f: `COUNTIF(${R('S')},"Postado")` }, { f: `COUNTIF(${R('S')},"Em aprovação")` }, { f: `COUNTIF(${R('S')},"Briefing criado")` }, { f: `COUNTIF(${R('S')},"Não iniciado")` }, pc('IF(A6=0,0,B6/A6)')]);
-  d.push([]);
-  d.push([t('Status por semana')]);
-  d.push([h('Status'), h('Semana 1'), h('Semana 2'), h('Semana 3'), h('Semana 4'), h('Semana 5'), h('Total')]);
-  MATRIZ.status.forEach((st, i) => {
-    const r = 10 + i;
-    d.push([st, ...[1, 2, 3, 4, 5].map(w => ({ f: `COUNTIFS(${R('S')},$A${r},${R('B')},${w})` })), { f: `SUM(B${r}:F${r})` }]);
+/** Planilha da matriz da SeuBoné de um mês, com as MESMAS colunas da planilha do time
+    (aba do mês) + a aba "Tipos de conteúdo" de referência. Card de post normal entra só com o tipo do dia. */
+function matrizSBXlsx(mes) {
+  const posts = db.slots.filter(s => s.conta === MZ_CONTA && s.date && s.date.startsWith(mes)).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const cab = ['#', 'Semana', 'Data', 'Dia', 'Objetivo', 'Etapa de funil', 'Nível de consciência', 'Tipo de conteúdo', 'Formato', 'Emoção alvo', 'CTA', 'Métrica primária', 'Métrica secundária', 'Pauta quente', 'Ângulo', 'Tema', 'Tese em uma frase', 'Gancho escolhido', 'Descrição (o que fazer)', 'Refs visuais / inserts', 'Responsável', 'Status', 'Observações', 'Task no ClickUp'];
+  const linhas = [[{ v: 'Matriz SeuBoné · ' + mes.split('-').reverse().join('/'), s: 2 }], ['Gerada pelo B.O.N.E. Amarelo = a copywriter preenche; o resto sai do tipo de conteúdo.'], [], cab.map(c => ({ v: c, s: 1 }))];
+  posts.forEach((s, i) => {
+    const mz = s.matrizSB || {};
+    const dia = MZ.tipoDoDia(s.date);
+    const tipo = mz.tipo || dia.tipo || '';
+    const t = MZ.TIPOS[tipo] || {};
+    const y = v => ({ v: v || '', s: 3 }), w = v => ({ v: v || '', s: 5 });
+    const status = s.postado ? 'Postado' : (mz.status || (s.taskId ? 'Em produção' : 'Não iniciado'));
+    linhas.push([i + 1, dia.semana, s.date.split('-').reverse().slice(0, 2).join('/'), DIAS[new Date(s.date + 'T12:00:00Z').getUTCDay()],
+      t.objetivo || '', t.funil || '', t.consciencia || '', dia.tipo ? tipo : y(tipo), y(mz.formato), t.emocao || '', t.cta || '', w(t.metrica1), w(t.metrica2),
+      y(mz.pautaQuente), y(mz.angulo), y(mz.tema || (s.taskId ? (s.titulo || s.tituloCache || '') : '')), y(mz.tese), y(mz.gancho), y(mz.descricao), y(mz.refs),
+      y(mz.responsavel || s.assigneeCache || ''), y(status), y(mz.obs || (dia.opcoes && !tipo ? 'Em aberto: ' + dia.opcoes.join(' / ') : '')), s.taskId ? 'https://app.clickup.com/t/' + s.taskId : '']);
   });
-  d.push([]);
-  d.push([t('Parâmetros (edite só as células amarelas)')]);
-  d.push(['Posts por semana', y(Math.max(1, Math.round(N / 4)))]);          // linha 16
-  d.push(['Semanas no ciclo', y(4)]);                                          // 17
-  d.push(['% Crescimento', pc('IF(A6=0,0,COUNTIF(' + R('C') + ',"Crescimento")/A6)')]); // 18 (calculado)
-  d.push(['Mix Posicionamento', { v: 0.3, s: 3 }]);                            // 19
-  d.push(['Mix Técnico', { v: 0.3, s: 3 }]);                                   // 20
-  d.push(['Mix Storytelling', { v: 0.25, s: 3 }]);                             // 21
-  d.push(['Mix Indicação', { v: 0.15, s: 3 }]);                                // 22
-  d.push(['Soma do mix (precisa dar 100%)', pc('SUM(B19:B22)')]);              // 23
-  d.push([]);
-  d.push([t('Metas por semana e no ciclo')]);                                  // 25
-  d.push([h('Categoria'), h('% do mix'), h('Meta / semana'), h('Meta no ciclo'), h('Planejado'), h('Diferença')]); // 26
-  [['Posicionamento', 19], ['Técnico', 20], ['Storytelling', 21], ['Indicação', 22]].forEach(([nome, lr], i) => {
-    const r = 27 + i;
-    d.push([nome, pc(`B${lr}`), { f: `ROUND(B16*B${r},1)` }, { f: `ROUND(C${r}*B17,1)` }, { f: `COUNTIF(${R('F')},A${r})` }, { f: `E${r}-D${r}` }]);
-  });
-  d.push([]);
-  d.push([t('Objetivo')]);                                                     // 32
-  d.push([h('Objetivo'), h('Planejado'), h('% do total')]);
-  d.push(['Crescimento', { f: `COUNTIF(${R('C')},A34)` }, pc('IF($A$6=0,0,B34/$A$6)')]);
-  d.push(['Conversão', { f: `COUNTIF(${R('C')},A35)` }, pc('IF($A$6=0,0,B35/$A$6)')]);
-  d.push([]);
-  d.push([t('Pendências de preenchimento')]);
-  d.push([h('Campo'), h('Faltando'), h('Preenchido'), h('Total')]);
-  [['Objetivo', 'C'], ['Funil', 'D'], ['Consciência', 'E'], ['Tipo', 'F'], ['Pauta quente', 'M'], ['Tema', 'N'], ['Tese', 'O'], ['Gancho', 'P'], ['Responsável', 'Q']].forEach(([nome, col]) => {
-    d.push([nome, { f: `$A$6-COUNTIFS(${R('A')},"<>",${R(col)},"<>")` }, { f: `COUNTIFS(${R('A')},"<>",${R(col)},"<>")` }, { f: '$A$6' }]);
-  });
-  const dashXml = xSheet(d, [34, 14, 14, 14, 14, 14, 12], [], 0);
-  return xlsxMontar([{ nome: 'Dash', xml: dashXml }, { nome: 'Matriz', xml: matrizXml }]);
+  const H = 4, N = Math.max(posts.length, 1);
+  const ref = col => `${col}${H + 1}:${col}${H + Math.max(N, 60)}`;
+  const validacoes = [{ ref: ref('H'), lista: Object.keys(MZ.TIPOS) }, { ref: ref('U'), lista: RESPONSAVEIS }, { ref: ref('V'), lista: MZ.STATUS }];
+  const matrizXml = xSheet(linhas, [4, 8, 7, 5, 11, 10, 20, 14, 30, 11, 26, 30, 34, 26, 30, 32, 44, 44, 60, 40, 14, 14, 32, 30], validacoes, H);
+  const tip = [[{ v: 'Tipos de conteúdo · SeuBoné', s: 2 }], [], ['Tipo', 'Objetivo', 'Etapa de funil', 'Nível de consciência', 'Emoção alvo', 'CTA', 'Métrica primária', 'Métrica secundária', 'Quando entra', 'O que é', 'Formatos', 'Ângulos'].map(c => ({ v: c, s: 1 }))];
+  for (const [nome, t] of Object.entries(MZ.TIPOS)) tip.push([nome, t.objetivo, t.funil, t.consciencia, t.emocao, t.cta, { v: t.metrica1, s: 5 }, { v: t.metrica2, s: 5 }, t.quando, { v: t.oQueE, s: 5 }, { v: t.formatos.join(' · '), s: 5 }, { v: t.angulos.join(' · '), s: 5 }]);
+  const tipXml = xSheet(tip, [14, 10, 10, 20, 11, 30, 30, 34, 26, 40, 60, 60], [], 3);
+  const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  return xlsxMontar([{ nome: MESES_PT[+mes.slice(5) - 1] + ' ' + mes.slice(0, 4), xml: matrizXml }, { nome: 'Tipos de conteúdo', xml: tipXml }]);
 }
 
 // ---------------- app instalável (PWA) ----------------
@@ -1032,6 +992,7 @@ const server = http.createServer(async (req, res) => {
         notas: s.notas || '',   // observações do post (as do painel + as que chegam pela pauta)
         sugestao: !!s.sugestao, sugeridoPor: s.sugeridoPor || '',
         parecer: s.parecer || null,                       // aprovado/reprovado pela pauta, com motivo
+        matrizSB: s.matrizSB || null,                     // card da matriz (SeuBoné): tipo, tema, tese, gancho...
         ...(() => { const c = capaDoSlot(s); return c ? { capa: c.capa, nArtes: c.n } : {}; })(),
         statusCache: s.statusCache ? { status: s.statusCache.status, color: s.statusCache.color } : null,
       }));
@@ -1041,7 +1002,7 @@ const server = http.createServer(async (req, res) => {
         ...db.slots.filter(s => s.conta === 'seubone' && s.gm === 'sim' && s.date).map(s => s.date),
       ])].sort();
       res.setHeader('Cache-Control', 'no-store');
-      return json(res, 200, { mes, escopo: aba, contas: db.contas, abas: aba ? [aba] : db.abas, gmCadencia: { ativo: !!gc.ativo, periodo: gc.periodo || 3 }, gmAncoras, slots, geradoEm: Date.now() });
+      return json(res, 200, { mes, escopo: aba, contas: db.contas, abas: aba ? [aba] : db.abas, gmCadencia: { ativo: !!gc.ativo, periodo: gc.periodo || 3 }, gmAncoras, slots, matrizTipos: MZ.TIPOS, geradoEm: Date.now() });
     }
     // detalhe de UMA task pra pauta: só se ela pertence a um post dentro do escopo do link
     if (p === '/api/pauta/task' && req.method === 'GET') {
@@ -1185,7 +1146,7 @@ const server = http.createServer(async (req, res) => {
         zapiPronto: zapiPronto() && zapiCfg().ligado,
         gmCadencia: db.gmCadencia,
         duePendentes: Object.keys(db.dueSync),
-        matriz: { opcoes: MATRIZ.opcoes, livres: MATRIZ.livres, regras: MATRIZ.regras, status: MATRIZ.status, responsaveis: RESPONSAVEIS },
+        matrizSB: { conta: MZ_CONTA, tipos: MZ.TIPOS, semanas: MZ.SEMANAS, ancora: MZ.ANCORA, status: MZ.STATUS, obrigatorios: MZ.OBRIGATORIOS, regras: MZ.REGRAS, checklist: MZ.CHECKLIST, responsaveis: RESPONSAVEIS },
       });
     }
 
@@ -1195,20 +1156,19 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---------- criar post (calendário, banco ou criativo) ----------
-    // matriz de conteúdo: linhas prontas (com CTA/métricas derivadas) e a planilha .xlsx
-    if (p === '/api/matriz' && req.method === 'GET') {
-      const aba = u.searchParams.get('aba') || '', mes = u.searchParams.get('mes') || '';
-      if (!(db.abas || []).includes(aba) || !/^\d{4}-\d{2}$/.test(mes)) return json(res, 400, { erro: 'aba ou mês inválido' });
-      const contas = contasDaAbaSrv(aba);
-      const posts = db.slots.filter(s => contas.includes(s.conta) && s.date && s.date.startsWith(mes)).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-      return json(res, 200, { aba, mes, linhas: posts.map((s, i) => matrizLinha(s, i)) });
+    // matriz da SeuBoné: preencher os dias vazios de um mês (botão) e baixar a planilha no formato do time
+    if (p === '/api/matriz-sb/gerar' && req.method === 'POST') {
+      const b = await readBody(req);
+      if (!/^\d{4}-\d{2}$/.test(String(b.mes || ''))) return json(res, 400, { erro: 'mês inválido' });
+      const criados = gerarMatrizSB(b.mes, { forcar: true });
+      if (criados.length) undoSlots('gerar matriz da SeuBoné (' + criados.length + ' card' + (criados.length === 1 ? '' : 's') + ')', [], criados);
+      return json(res, 200, { ok: true, criados: criados.length });
     }
-    if (p === '/api/matriz.xlsx' && req.method === 'GET') {
-      const aba = u.searchParams.get('aba') || '', mes = u.searchParams.get('mes') || '';
-      if (!(db.abas || []).includes(aba) || !/^\d{4}-\d{2}$/.test(mes)) return json(res, 400, { erro: 'aba ou mês inválido' });
-      const buf = matrizXlsx(aba, mes);
-      const nome = 'matriz-' + semAcento(aba).replace(/[^a-z0-9]+/g, '-') + '-' + mes + '.xlsx';
-      res.writeHead(200, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="${nome}"`, 'Content-Length': buf.length });
+    if (p === '/api/matriz-sb.xlsx' && req.method === 'GET') {
+      const mes = u.searchParams.get('mes') || '';
+      if (!/^\d{4}-\d{2}$/.test(mes)) return json(res, 400, { erro: 'mês inválido' });
+      const buf = matrizSBXlsx(mes);
+      res.writeHead(200, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="matriz-seubone-${mes}.xlsx"`, 'Content-Length': buf.length });
       return res.end(buf);
     }
     // opções pro formulário "criar task no ClickUp": membros da lista e as etiquetas de empresa/formato
@@ -1230,7 +1190,7 @@ const server = http.createServer(async (req, res) => {
         notas: '', gm: (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '',
         collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
         drive: b.drive || '', linkRef: '', aprovado: false, postado: false, fixo: false,
-        responsavelManual: '', origem: 'painel', cat: '', fonteId: '', matriz: matrizLimpa(b.matriz),
+        responsavelManual: '', origem: 'painel', cat: '', fonteId: '',
         tituloCache: cu.task.name || cu.name, statusCache: cu.task.status ? { status: normStatus(cu.task.status.status), color: statusColor(cu.task) } : null,
         assigneeCache: cu.responsavel || null, dueCache: cu.task.due_date ? Number(cu.task.due_date) : null, atualizadoEm: new Date().toISOString(),
       };
@@ -1254,14 +1214,15 @@ const server = http.createServer(async (req, res) => {
         collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
         drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: false, fixo: false,
         responsavelManual: String(b.responsavelManual || '').slice(0, 80), origem: ['criativo', 'banco'].includes(b.origem) ? b.origem : 'painel',
-        matriz: matrizLimpa(b.matriz),
+        ...(b.matrizSB ? { matrizSB: MZ.limpa(Object.assign({ tipo: b.date ? (MZ.tipoDoDia(b.date).tipo || '') : '' }, b.matrizSB)) } : {}),
         cat: typeof b.cat === 'string' ? b.cat : '', // categoria dentro do banco (ex.: conselho, corte-reels, outros)
         fonteId: typeof b.fonteId === 'string' ? b.fonteId : '', // id do item do banco que gerou este post
         tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: null,
       };
       // VAGA = "falta criar este post". Só faz sentido sem task: se já tem task, não falta criar.
       if (b.vaga && !slot.taskId) slot.vaga = true;
-      undoSlots(slot.vaga ? 'sinalizar falta criar' : 'novo post', [], [slot.id]);
+      if (slot.matrizSB) { slot.origem = 'matriz'; if (slot.date) db.matrizSBGeradas[slot.date] = true; }
+      undoSlots(slot.vaga ? 'sinalizar falta criar' : (slot.matrizSB ? 'novo card da matriz' : 'novo post'), [], [slot.id]);
       db.slots.push(slot); saveDb();
       // Se o post nasce com task, ESPERA o nome/status do ClickUp antes de responder (teto de
       // 4s). Antes isso era disparado e esquecido, então o card nascia como "sincronizando" e
@@ -1521,6 +1482,7 @@ const server = http.createServer(async (req, res) => {
         'vaga' in b ? (b.vaga ? 'sinalizar falta criar' : 'dar baixa na vaga') :
         'cat' in b ? 'mudar categoria no banco' :
         'notas' in b && Object.keys(b).length === 1 ? 'editar observação' :
+        'matrizSB' in b ? 'editar card da matriz' :
         'aprovado' in b ? 'mudar aprovação da arte' :
         'fixo' in b ? 'mudar pino de data fixa' :
         'collab' in b ? (Array.isArray(b.collab) && b.collab.length ? 'marcar collab' : 'tirar collab') :
@@ -1530,13 +1492,19 @@ const server = http.createServer(async (req, res) => {
       if (trocaConta) slot.conta = b.conta; // ANTES do collab: collab não pode conter a própria conta
       if ('date' in b) slot.date = b.date || null;
       for (const k of ['titulo', 'formato', 'obs', 'drive', 'linkRef', 'angulo', 'notas']) if (k in b) slot[k] = b[k] || '';
-      if ('matriz' in b) slot.matriz = matrizLimpa(b.matriz);           // campos da matriz de conteúdo
+      if ('matrizSB' in b) {                                               // campos da matriz da SeuBoné
+        slot.matrizSB = MZ.limpa(b.matrizSB, slot.matrizSB);
+        if (slot.matrizSB) slot.postado = slot.matrizSB.status === 'Postado'; // status da matriz e "postado" andam juntos
+      }
       if ('responsavelManual' in b) slot.responsavelManual = String(b.responsavelManual || '').slice(0, 80);
       // curadoria das artes pra pauta: quais ficam escondidas e em que ordem aparecem (chave = id ou nome do arquivo)
       const listaStr = v => Array.isArray(v) ? v.map(x => String(x).slice(0, 200)).filter(Boolean).slice(0, 200) : [];
       if ('artesOcultas' in b) slot.artesOcultas = listaStr(b.artesOcultas);
       if ('artesOrdem' in b) slot.artesOrdem = listaStr(b.artesOrdem);
-      if ('postado' in b) slot.postado = !!b.postado;
+      if ('postado' in b) {
+        slot.postado = !!b.postado;
+        if (slot.matrizSB) slot.matrizSB.status = slot.postado ? 'Postado' : (slot.matrizSB.status === 'Postado' ? 'Aprovado' : slot.matrizSB.status);
+      }
       if ('gm' in b) slot.gm = (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '';
       if ('vaga' in b) slot.vaga = !!b.vaga; // vaga = falta criar este post
       if ('cat' in b) slot.cat = typeof b.cat === 'string' ? b.cat : '';
@@ -1901,6 +1869,8 @@ function backupDiario() {
 }
 backupDiario();
 setInterval(backupDiario, 6 * 3600_000);
+autoMatrizSB();                                   // depois do backup do dia
+setInterval(autoMatrizSB, 3600_000);
 
 server.listen(PORT, () => {
   console.log('');

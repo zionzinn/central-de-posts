@@ -403,6 +403,25 @@
   .card.sugestao .tit{color:#E3C4FF; font-weight:700; -webkit-line-clamp:3}
   .card.sugestao .sugtag{background:#C77DFF; color:#000}
   .card.sugestao .sugtag svg{stroke:#000}
+  /* MATRIZ DA SEUBONÉ: o mesmo desenho do "falta criar", só que AMARELO. É o card que a copywriter preenche. */
+  .mzbtn{opacity:0; color:var(--ink-3); padding:2px 6px; border-radius:5px; transition:all var(--t); display:inline-flex}
+  .mzbtn svg{width:13px; height:13px}
+  .day:hover .mzbtn{opacity:1}
+  .mzbtn:hover{background:#FCC100; color:#000}
+  .dleft{display:inline-flex; align-items:center; gap:4px; min-width:0}
+  .mzdia{font-size:8.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:1px 5px; border-radius:4px;
+    border:1px solid currentColor; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:92px; opacity:.9}
+  .card.mz{
+    border:2px dashed #FCC100 !important; border-left:5px solid var(--mzc,#FCC100) !important;
+    background:repeating-linear-gradient(135deg, rgba(252,193,0,.14) 0 9px, rgba(252,193,0,.04) 9px 18px)}
+  .card.mz .tit{color:#FFE27A; font-weight:800; -webkit-line-clamp:3}
+  .card.mz .tit.vazio{color:rgba(255,226,122,.6); font-style:italic; font-weight:700}
+  .card .mztag{display:inline-flex; align-items:center; gap:5px; background:#FCC100; color:#000; font-size:9.5px; font-weight:800;
+    letter-spacing:.04em; padding:2px 6px; border-radius:5px; margin-bottom:5px; text-transform:uppercase; max-width:100%}
+  .card .mztag .mzobj{width:7px; height:7px; border-radius:50%; background:var(--mzc,#000); border:1.5px solid #000; flex:none}
+  .mzprog{font-size:9.5px; font-weight:800; color:#FFE27A; border:1.5px solid rgba(252,193,0,.55); border-radius:4px; padding:0 5px; line-height:15px}
+  .mzprog.cheio{background:#FCC100; color:#000; border-color:#000}
+  .tagic.t-mz{color:#FCC100; font-size:9px; font-weight:900; border:1.5px solid #FCC100; border-radius:4px; padding:0 3px; line-height:13px; cursor:pointer}
   /* parecer vindo pela pauta: aprovado (verde) ou reprovado (vermelho), aparece em qualquer card */
   .card .vagatag.parecer{display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:800; letter-spacing:.04em; padding:2px 6px; border-radius:5px; margin-bottom:5px; border:1.5px solid var(--stroke)}
   .card .vagatag.parecer svg{width:10px; height:10px; stroke-width:3}
@@ -691,34 +710,44 @@
   #alertaBar .ab-ver:hover{background:#fff; color:#000}
   #alertaBar .ab-x{padding:4px 8px; background:transparent; border-color:rgba(255,255,255,.5)}
   [hidden]{display:none !important}
-  .modos{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+  .modos{display:grid; grid-template-columns:repeat(2,1fr); gap:8px}
   .f .modos .modo{display:flex; flex-direction:column; gap:2px; align-items:flex-start; text-align:left; padding:9px 11px; border:2px solid var(--hair); border-radius:8px; background:var(--surface-2); color:var(--ink-2); cursor:pointer; font-family:inherit;
     transition:transform .2s cubic-bezier(.34,1.56,.64,1), border-color .15s, box-shadow .15s}
   .f .modos .modo b{font-size:12.5px; color:var(--ink)} .f .modos .modo small{font-size:10.5px; color:var(--ink-3); font-weight:500}
   .f .modos .modo:hover{transform:translateY(-2px); border-color:var(--ink-3)}
   .f .modos .modo.on{border-color:var(--sb); box-shadow:3px 3px 0 var(--sb); background:var(--surface)}
   .f .modos .modo.on b{color:var(--sb)}
-  .matwrap{border:2px solid var(--sb); border-radius:8px; padding:12px; background:var(--surface-2); display:flex; flex-direction:column; gap:10px; box-shadow:3px 3px 0 var(--sb)}
-  .mattit{font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--sb)}
-  .mattit small{display:block; font-size:10.5px; color:var(--ink-3); font-weight:500; text-transform:none; letter-spacing:0; margin-top:2px}
-  .f3{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
-  .matderiv{font-size:11.5px; color:var(--ink-2); border:1.5px dashed var(--hair); border-radius:6px; padding:8px 10px; line-height:1.5}
-  .matderiv b{color:var(--ink)}
-  .f .mattoggle{text-align:left; font-size:12px; font-weight:800; color:var(--ink-2); border:1.5px dashed var(--hair); border-radius:6px; padding:9px 12px; background:transparent; cursor:pointer; font-family:inherit}
-  .f .mattoggle:hover{color:var(--ink); border-color:var(--ink-3)}
-  @media (max-width:640px){ .modos,.f3{grid-template-columns:1fr} }
-  /* tabela da matriz */
-  .mattable{overflow:auto; max-height:62vh; border:1.5px solid var(--hair); border-radius:8px}
-  .mattable table{border-collapse:collapse; font-size:11.5px; min-width:1500px}
-  .mattable th{position:sticky; top:0; background:#000; color:var(--sb); font-size:10px; letter-spacing:.06em; text-transform:uppercase; text-align:left; padding:8px 9px; border-bottom:2px solid var(--stroke); white-space:nowrap; z-index:1}
-  .mattable td{padding:7px 9px; border-bottom:1px solid var(--hair-2); vertical-align:top; max-width:260px; white-space:nowrap}
-  .mattable td.longo{white-space:normal; min-width:200px}
-  .mattable tr{cursor:pointer} .mattable tbody tr:hover td{background:var(--hair-2)}
-  .mattable td.vazio{color:var(--ink-3); font-style:italic}
-  .mattable .st{display:inline-block; font-size:10px; font-weight:800; letter-spacing:.05em; padding:2px 7px; border-radius:5px; border:1.5px solid var(--stroke); color:#000; white-space:nowrap}
-  .matkpis{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px}
-  .matkpis .k{border:1.5px solid var(--hair); border-radius:7px; padding:6px 10px; font-size:11px; color:var(--ink-3); font-weight:800; letter-spacing:.05em; text-transform:uppercase}
-  .matkpis .k b{display:block; font-size:18px; color:var(--ink); letter-spacing:0}
+  @media (max-width:640px){ .modos{grid-template-columns:1fr} }
+  /* modal do card da matriz */
+  #ovMz .modal{width:min(860px,100%)}
+  .mzhead{border-left:6px solid var(--mzc,#FCC100); background:linear-gradient(90deg, rgba(252,193,0,.10), transparent 60%)}
+  .mzkicker{font-size:10.5px; font-weight:800; letter-spacing:.1em; color:#FCC100; text-transform:uppercase}
+  .mzhead .mtit{display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:22px}
+  .mzobjpill{font-size:10.5px; font-weight:800; letter-spacing:.05em; padding:3px 9px; border-radius:999px; color:#000; background:var(--mzc,#FCC100); text-transform:uppercase}
+  .mzsub{font-size:12.5px; color:var(--ink-2); margin-top:3px}
+  .mzgm{margin-top:8px; font-size:12px; font-weight:800; color:#000; background:#FCC100; border:1.5px solid #000; border-radius:6px; padding:5px 9px; display:inline-block}
+  .mzaberto{border:2px dashed #FCC100; border-radius:8px; padding:10px 12px; background:rgba(252,193,0,.06)}
+  .mzaberto .mzopc{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px}
+  .mzopc button,.mzchips button{font-family:inherit; cursor:pointer; border:1.5px solid var(--hair); background:var(--surface-2); color:var(--ink-2);
+    border-radius:6px; font-size:11.5px; font-weight:700; padding:5px 9px; text-align:left; transition:transform .18s cubic-bezier(.34,1.56,.64,1), border-color .15s}
+  .mzopc button:hover,.mzchips button:hover{border-color:#FCC100; color:var(--ink); transform:translateY(-1px)}
+  .mzopc button.on,.mzchips button.on{background:#FCC100; color:#000; border-color:#000; box-shadow:2px 2px 0 #000}
+  .mzopc button.on{font-weight:800}
+  .mzchips{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
+  .mzchips button.usado{text-decoration:line-through; opacity:.6}
+  .mztrava{display:grid; grid-template-columns:repeat(4,1fr); gap:6px}
+  .mztrava div{border:1.5px solid var(--hair-2); border-radius:6px; padding:6px 8px; background:var(--surface-2)}
+  .mztrava div.largo{grid-column:span 2}
+  .mztrava span{display:block; font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3)}
+  .mztrava b{font-size:12px; color:var(--ink-2); font-weight:700}
+  .mzsec{font-size:10.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#FCC100; margin:4px 0 -4px}
+  .mzaviso{font-size:11.5px; font-weight:700; color:var(--warn); margin-top:5px}
+  .mzaviso:empty{display:none}
+  #ovMz textarea{min-height:0}
+  .mzregras{border:1.5px dashed var(--hair); border-radius:8px; padding:8px 12px; font-size:12px; color:var(--ink-2)}
+  .mzregras summary{cursor:pointer; font-weight:800; color:var(--ink); font-size:12px}
+  .mzregras ol,.mzregras ul{margin:8px 0 4px 18px; padding:0; line-height:1.5}
+  @media (max-width:640px){ .mztrava{grid-template-columns:1fr 1fr} }
   .cuwrap{border:2px solid var(--hair); border-radius:8px; padding:10px 12px; background:var(--surface-2)}
   .cutit b{display:block; font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--sb)}
   .cutit small{display:block; font-size:10.5px; color:var(--ink-3); font-weight:500; margin-top:2px}
@@ -918,7 +947,8 @@
       <div class="maismenu" id="maismenu">
         <button id="btnPauta" data-tip="link ao vivo da pauta SÓ desta conta: quem abrir vê só ela, sem login, sempre atualizado, e pode deixar observação"></button>
         <button id="btnPautaTodas" data-tip="link ao vivo da pauta com TODAS as contas (pra quem é do time)"></button>
-        <button id="btnMatriz" data-tip="tabela da matriz de conteúdo desta conta no mês (objetivo, funil, tese, gancho…) e a planilha .xlsx no padrão da Weevo"></button>
+        <button id="btnMzGerar" data-tip="SeuBoné: cria o card amarelo da matriz em todo dia vazio deste mês, com o tipo do dia (Case, Educação...)"></button>
+        <button id="btnMzXlsx" data-tip="SeuBoné: baixa a matriz deste mês numa planilha com as mesmas colunas da planilha do time"></button>
         <button id="btnImportar" data-tip="colar vários links do ClickUp de uma vez e espalhar num dia da semana"></button>
         <button id="btnExportar" data-tip="gerar um arquivo HTML da semana pra enviar pra outras pessoas verem (só leitura)"></button>
       </div>
@@ -990,7 +1020,6 @@
       <div class="modos" id="eModos">
         <button type="button" class="modo on" data-modo="link"><b>1 · Colar link</b><small>já existe no ClickUp</small></button>
         <button type="button" class="modo" data-modo="clickup"><b>2 · Criar no ClickUp</b><small>nasce lá em PENDENTE</small></button>
-        <button type="button" class="modo" data-modo="matriz"><b>3 · Matriz de conteúdo</b><small>planejamento + planilha</small></button>
       </div>
       <div class="f2">
         <div><label>Conta</label><select id="eConta"></select></div>
@@ -1002,27 +1031,6 @@
           <option value="">definir depois</option><option>reels</option><option>carrossel</option><option>estático</option><option>story</option><option>corte de podcast</option><option>vídeo médio</option><option>vídeo de anúncio</option>
         </select></div>
         <div id="eLinkWrap" data-modos="link edit"><label>Link da task no ClickUp</label><input id="eTask" placeholder="https://app.clickup.com/t/..."></div>
-      </div>
-      <div id="eMatWrap" class="matwrap" data-modos="matriz edit" hidden>
-        <div class="mattit">Matriz de conteúdo <small>CTA e métricas saem do objetivo, como na planilha da Weevo</small></div>
-        <div class="f3">
-          <div><label>Objetivo</label><input id="mObjetivo" data-m="objetivo" list="lstObjetivo" placeholder="ex.: Crescimento, Conversão…" maxlength="80"><datalist id="lstObjetivo"></datalist></div>
-          <div><label>Etapa de funil</label><select id="mFunil" data-m="funil"></select></div>
-          <div><label>Nível de consciência</label><select id="mConsc" data-m="consciencia"></select></div>
-        </div>
-        <div class="f3">
-          <div><label>Tipo</label><input id="mTipo" data-m="tipo" list="lstTipo" placeholder="ex.: Posicionamento, Técnico…" maxlength="80"><datalist id="lstTipo"></datalist></div>
-          <div><label>Tipo de conteúdo</label><input id="mTipoC" data-m="tipoConteudo" list="lstTipoC" placeholder="ex.: Infotainment…" maxlength="80"><datalist id="lstTipoC"></datalist></div>
-          <div><label>Emoção alvo</label><select id="mEmocao" data-m="emocao"></select></div>
-        </div>
-        <div class="matderiv" id="mDeriv">escolha o objetivo pra ver CTA e métricas</div>
-        <div class="f2">
-          <div><label>Pauta quente</label><input id="mPauta" data-m="pautaQuente" placeholder="assunto do momento que ancora a peça (ou ATEMPORAL)" maxlength="300"></div>
-          <div><label>Tema</label><input id="mTema" data-m="tema" placeholder="o recorte específico dentro da pauta" maxlength="300"></div>
-        </div>
-        <div><label>Tese em uma frase</label><textarea id="mTese" data-m="tese" rows="2" placeholder="a opinião da marca. Sem tese não existe posicionamento."></textarea></div>
-        <div><label>Gancho escolhido</label><textarea id="mGancho" data-m="gancho" rows="2" placeholder="o gancho aprovado (rubrica das 4 perguntas + veto do genérico)"></textarea></div>
-        <div id="mRespWrap"><label>Responsável</label><select id="mResp"><option value="">sem responsável</option></select></div>
       </div>
       <div data-modos="link edit"><label>Ângulo</label><input id="eAngulo" list="angulosLista" placeholder="educacional, institucional… ou escreva um novo"></div>
       <div data-modos="link edit"><label>Drive / referência</label><input id="eDrive" placeholder="https://drive.google.com/... ou link do Instagram"></div>
@@ -1038,7 +1046,6 @@
         <div id="eCollab" style="display:flex; gap:6px; flex-wrap:wrap"></div>
       </div>
       <div data-modos="link edit"><label>Observação</label><textarea id="eObs"></textarea></div>
-      <button type="button" class="mattoggle" id="eMatToggle" hidden>▸ Matriz de conteúdo (objetivo, funil, tese, gancho…)</button>
       <div id="eCuWrap" class="cuwrap" data-modos="clickup">
         <div class="cutit"><b>Task no ClickUp</b><small id="eCuSub">lista House Quatro5 · a conta vira o Empresa Tag, o formato vira o Formato SKILL</small></div>
         <input type="checkbox" id="eCu" hidden>
@@ -1138,16 +1145,48 @@
 </div></div>
 
 <!-- relatório do dia (texto pra copiar) -->
-<div class="ov" id="ovMatriz"><div class="modal" style="width:min(1400px,96vw); position:relative">
-  <button class="mclose" data-close="ovMatriz">✕</button>
-  <div class="mhead"><div class="mtit" id="matTit">Matriz de conteúdo</div></div>
-  <div class="mbody">
-    <div class="matkpis" id="matKpis"></div>
-    <div class="mattable" id="matTable"></div>
+<!-- card da MATRIZ da SeuBoné: a copywriter preenche aqui -->
+<div class="ov" id="ovMz"><div class="modal" style="position:relative">
+  <button class="mclose" data-close="ovMz">✕</button>
+  <div class="mhead mzhead">
+    <div class="mzkicker" id="mzKicker"></div>
+    <div class="mtit"><span id="mzTit">Case</span><span class="mzobjpill" id="mzObj"></span></div>
+    <div class="mzsub" id="mzSub"></div>
+    <div class="mzgm" id="mzGm" hidden>☆ este dia pede GRANDE MARCA na capa</div>
   </div>
-  <div class="mfoot" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap">
-    <span class="note" id="matMsg">Clique numa linha pra editar o post. A planilha sai com as abas Dash e Matriz, no padrão da Weevo.</span>
-    <a class="mbtn primary" id="matBaixar" href="#" download>Baixar planilha .xlsx</a>
+  <div class="mbody">
+    <div class="f">
+      <div class="mzaberto" id="mzAberto" hidden>
+        <label id="mzAbertoLbl">Slot em aberto: escolha o tipo</label>
+        <div class="mzopc" id="mzOpc"></div>
+      </div>
+      <div class="mztrava" id="mzTrava"></div>
+      <div class="mzsec">A copywriter preenche</div>
+      <div><label>Formato</label><input id="mzFormato" data-mz="formato" placeholder="escolha abaixo ou escreva outro" maxlength="200">
+        <div class="mzchips" id="mzFormatos"></div><div class="mzaviso" id="mzAvisoFmt"></div></div>
+      <div><label>Ângulo</label><input id="mzAngulo" data-mz="angulo" placeholder="escolha abaixo ou escreva um novo" maxlength="300">
+        <div class="mzchips" id="mzAngulos"></div></div>
+      <div class="f2">
+        <div><label>Pauta quente</label><input id="mzPauta" data-mz="pautaQuente" placeholder="assunto do momento que ancora a peça, ou ATEMPORAL" maxlength="300"></div>
+        <div><label>Tema</label><input id="mzTema" data-mz="tema" placeholder="o recorte específico (vira o nome do card)" maxlength="300"></div>
+      </div>
+      <div><label>Tese em uma frase</label><textarea id="mzTese" data-mz="tese" rows="2" placeholder="a opinião da SeuBoné. Sem tese não tem posicionamento."></textarea></div>
+      <div><label>Gancho escolhido</label><textarea id="mzGancho" data-mz="gancho" rows="2" placeholder="bate em dor ou desejo concreto e é entendido em 1,5 s"></textarea></div>
+      <div><label>Descrição (o que fazer)</label><textarea id="mzDesc" data-mz="descricao" rows="4" placeholder="2 ou 3 linhas: cena, estrutura, quem aparece"></textarea></div>
+      <div><label>Refs visuais / inserts</label><textarea id="mzRefs" data-mz="refs" rows="2" placeholder="links pro Samuca e pra edição"></textarea></div>
+      <div class="f2">
+        <div><label>Responsável</label><select id="mzResp" data-mz="responsavel"></select></div>
+        <div><label>Status</label><select id="mzStatus" data-mz="status"></select></div>
+      </div>
+      <div><label>Observações</label><textarea id="mzObs" data-mz="obs" rows="2" placeholder="o que confirmar antes de gravar, autorização, número..."></textarea></div>
+      <details class="mzregras" id="mzRegras"><summary>Regras da rotação e checklist antes de aprovar</summary><div id="mzRegrasTxt"></div></details>
+    </div>
+  </div>
+  <div class="mfoot">
+    <button class="mbtn primary" id="mzSalvar">Salvar</button>
+    <button class="mbtn" id="mzEditar" data-tip="abre o editor de post: mudar a data, colar o link da task do ClickUp (aí vira card normal)">Editar post / colar task</button>
+    <button class="mbtn critbtn" id="mzExcluir">Excluir card</button>
+    <span class="note" id="mzMsg"></span>
   </div>
 </div></div>
 <div class="ov" id="ovRelatorio"><div class="modal" style="max-width:580px; position:relative">
@@ -1254,7 +1293,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.62'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.64'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1359,7 +1398,7 @@ async function loadState(fresh, silencioso){
     + '#' + (j.duePendentes||[]).length;
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], duePendentes:j.duePendentes||[], hasToken:j.hasToken, user:j.user, temSenha:j.temSenha, gmCadencia:j.gmCadencia||S.gmCadencia, matriz:j.matriz||S.matriz});
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], duePendentes:j.duePendentes||[], hasToken:j.hasToken, user:j.user, temSenha:j.temSenha, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   checarAprovacoes(S.slots);
@@ -1384,6 +1423,7 @@ async function loadState(fresh, silencioso){
 function contasDaAba(aba){ return Object.entries(S.contas).filter(([,c])=>c.aba===aba).map(([k])=>k); }
 function slotTitulo(s){
   if(s.vaga && !s.taskId) return 'FALTA CRIAR: ' + ((s.formato||'post').toUpperCase());
+  if(isMatriz(s)) return s.matrizSB.tema || ((s.matrizSB.tipo || 'Em aberto') + ' · a preencher');
   if(s.titulo) return s.titulo;
   if(s.tituloCache) return s.tituloCache;
   if(s.origem==='banco') return s.taskId ? (s.obs || 'Task do ClickUp') : ('Reutilizar: ' + (s.obs || 'vídeo'));
@@ -1428,9 +1468,33 @@ function ehPublicar(s){
 }
 /** Sugestão de post vinda pela pauta (dia vazio). Deixa de ser sugestão quando você cola a task. */
 function isSugestao(s){ return !!s.sugestao && !s.taskId; }
+// ---- MATRIZ DA SEUBONÉ ----
+// Card amarelo = post ainda na matriz (sem task). A regra (tipos, rotação A/B, CTA...) vem do servidor
+// (lib/matriz-seubone.js) no /api/state, pra existir num lugar só.
+function isMatriz(s){ return !!s.matrizSB && !s.taskId; }
+const MZ_OBJ_COR = { Atrair:'#3FD1B8', Provar:'#A78BFA', Converter:'#F4874B' };
+const MZ_ST_COR = { 'Não iniciado':'#8C897C', 'Briefing criado':'#3B82F6', 'Em produção':'#FFB020', 'Em aprovação':'#0f9d9f', 'Aprovado':'#2FD06A', 'Postado':'#16A34A' };
+function mzCfg(){ return S.matrizSB || { tipos:{}, semanas:{A:[],B:[]}, ancora:'2026-09-28', status:[], obrigatorios:[], regras:[], checklist:[], responsaveis:[] }; }
+function mzUtc(iso){ return Date.parse(iso+'T12:00:00Z'); }
+/** Semana A ou B (conta a partir da segunda-âncora da planilha, vale pra qualquer mês). */
+function mzSemana(iso){
+  const d = mzUtc(iso), dow = (new Date(d).getUTCDay()+6)%7;
+  const w = Math.round((d - dow*86400000 - mzUtc(mzCfg().ancora)) / 86400000 / 7);
+  return ((w%2)+2)%2===0 ? 'A' : 'B';
+}
+/** O que a matriz pede no dia: tipo fixo, ou slot em aberto com as opções. */
+function mzTipoDoDia(iso){
+  const sem = mzSemana(iso), dow = (new Date(mzUtc(iso)).getUTCDay()+6)%7;
+  const v = (mzCfg().semanas[sem]||[])[dow];
+  return Array.isArray(v) ? { semana:sem, tipo:null, opcoes:v } : { semana:sem, tipo:v||null, opcoes:null };
+}
+function mzStatus(s){ return s.postado ? 'Postado' : ((s.matrizSB && s.matrizSB.status) || 'Não iniciado'); }
+function mzProgresso(m){ const ob = mzCfg().obrigatorios; const n = ob.filter(k=>m && m[k]).length; return { n, total: ob.length, cheio: n===ob.length }; }
+function mzObjCor(tipo){ const t = mzCfg().tipos[tipo]; return t ? (MZ_OBJ_COR[t.objetivo]||'#FCC100') : '#FCC100'; }
 function stInfo(s){
   if(isVaga(s)) return {label:'falta criar', color:'#FF4D4D'};
   if(isSugestao(s)) return {label:'sugestão', color:'#C77DFF'};
+  if(isMatriz(s)){ const st = mzStatus(s); return {label:st.toLowerCase(), color:MZ_ST_COR[st]||'#8C897C'}; }
   if(s.postado) return {label:'postado', color:'#2FD06A'};
   if(s.statusCache){
     if(ehPublicar(s)) return {label:'publicar', color:COR_PUBLICAR};
@@ -1635,6 +1699,7 @@ function passaFiltro(s){
   if(f==='semtask') return !s.taskId;
   if(f==='contadiv') return !!contaDivergente(s);
   if(f==='vagas') return isVaga(s);
+  if(f==='matriz') return isMatriz(s);
   if(f==='sugestoes') return isSugestao(s);
   if(f==='atrasados'){
     if(s.postado) return false;
@@ -1731,7 +1796,9 @@ function render(){
   // no meio de um arrasto NUNCA redesenha: trocar o card que está na mão do mouse mata o dragend
   // e o painel ficaria preso em "arrastando" (clique não abre, atualização para, rolagem automática solta).
   if(S.dragging){ S._renderDepois = true; return; }
-  S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba); renderTabs(); renderLegend(); renderDrawer(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); renderPresenca(); }
+  S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba);
+  { const sb = S.aba==='SEUBONÉ'; const g=$('#btnMzGerar'), x=$('#btnMzXlsx'); if(g) g.hidden=!sb; if(x) x.hidden=!sb; }
+  renderTabs(); renderLegend(); renderDrawer(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); renderPresenca(); }
 
 function renderRefLabel(){
   const el = $('#refLabel');
@@ -1791,7 +1858,7 @@ function renderLegend(){
   fs.className = 'filtro' + (S.filtro!=='todos' ? ' on' : '');
   [['todos','todos os posts'],['atrasados','atrasados'],['pendentes','pendentes'],
    ['producao','em produção'],['aprovar','pra aprovar'],['publicar','prontos (publicar)'],
-   ['postados','postados'],['semtask','sem task'],['contadiv','conta divergente'],['vagas','falta criar'],['sugestoes','sugestões da pauta']]
+   ['postados','postados'],['semtask','sem task'],['contadiv','conta divergente'],['vagas','falta criar'],['matriz','matriz (amarelos)'],['sugestoes','sugestões da pauta']]
     .forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; fs.appendChild(o); });
   fs.value = S.filtro;
   fs.onchange = ()=>{ S.filtro = fs.value; render(); };
@@ -1817,7 +1884,10 @@ function cardEl(s){
   const vaga = isVaga(s);
   const sug = isSugestao(s);
   const fonte = isFonteBanco(s);
-  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(vaga?' vaga':'')+(sug?' sugestao':'')+(fonte?' fonte':'')+(multi?' temconta':'');
+  const mz = isMatriz(s);
+  const mzp = mz ? mzProgresso(s.matrizSB) : null;
+  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(vaga?' vaga':'')+(sug?' sugestao':'')+(fonte?' fonte':'')+(mz?' mz':'')+(multi?' temconta':'');
+  if(mz) d.style.setProperty('--mzc', mzObjCor(s.matrizSB.tipo));
   if(multi) d.style.setProperty('--corconta', cor);
   d.style.borderLeftColor = st.color;
   d.draggable = true; d.dataset.id = s.id;
@@ -1828,12 +1898,14 @@ function cardEl(s){
   if(S.selecao.has(s.id)) d.classList.add('sel');
   d.innerHTML =
     (vaga?'<div class="vagatag">'+icon('alerta')+'FALTA CRIAR</div>':'')+
+    (mz?'<div class="mztag" title="card da matriz: clique pra preencher"><span class="mzobj"></span>MATRIZ · '+esc(s.matrizSB.tipo||'em aberto')+'</div>':'')+
     (sug?'<div class="vagatag sugtag" title="ideia enviada pela pauta: cole a task pra virar post, ou apague">'+icon('sparkle')+'SUGESTÃO'+(s.sugeridoPor?' · '+esc(s.sugeridoPor):'')+'</div>':'')+
     (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'alt')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Alteração pedida')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:'')+(s.parecer.veredito!=='aprovado'?(s.parecer.clickup?' · foi pra ALTERAR no ClickUp':''):''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'pencil')+(s.parecer.veredito==='aprovado'?'APROVADO':'ALTERAR')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '')+
     // selo da conta: nome por extenso na cor da marca. Só em aba com mais de uma conta,
     // porque na SeuBoné e na Weevo seria repetir o que a aba já diz.
     (multi?'<div class="contatag" style="background:'+cor+'; color:'+corTexto(cor)+'">'+esc(contaCurta(s.conta))+'</div>':'')+
-    '<div class="tit">'+esc(vaga? (s.formato||'post').toUpperCase() : (sug? String(slotTitulo(s)).replace(/^SUGESTÃO:\s*/i,'') : slotTitulo(s)))+'</div>'+
+    (mz ? '<div class="tit'+(s.matrizSB.tema?'':' vazio')+'">'+esc(s.matrizSB.tema || (s.matrizSB.tipo ? 'a preencher' : 'escolher o tipo'))+'</div>' :
+    '<div class="tit">'+esc(vaga? (s.formato||'post').toUpperCase() : (sug? String(slotTitulo(s)).replace(/^SUGESTÃO:\s*/i,'') : slotTitulo(s)))+'</div>')+
     // a obs da vaga aparece SEMPRE (é o "precisa ser sobre isso"); nos posts normais, só na visão Semana
     ((vaga || S.view==='semana') && s.obs ? '<div class="obsline">'+esc(s.obs)+'</div>' : '')+
     '<div class="meta">'+
@@ -1845,11 +1917,13 @@ function cardEl(s){
       (div?'<span class="tagic t-due" title="entrega ajustada manualmente no ClickUp: '+brData(div.real)+' (padrão seria '+brData(div.esperado)+'). Vale a do ClickUp.">'+icon('clock')+'</span>':'')+
       (cdiv?'<span class="tagic t-cdiv" title="o nome da task no ClickUp diz '+esc(nomeConta(cdiv.sugerida))+', mas este post está em '+esc(nomeConta(s.conta))+'. Clique pra mover pra '+esc(nomeConta(cdiv.sugerida))+' (Ctrl+Z desfaz).">'+icon('alerta')+'</span>':'')+
       (vaga?'':'<span class="stpill" style="background:'+st.color+'; color:'+corTexto(st.color)+'">'+esc(st.label)+'</span>')+
+      (mz?'<span class="mzprog'+(mzp.cheio?' cheio':'')+'" title="campos preenchidos da matriz">'+mzp.n+'/'+mzp.total+'</span>':'')+
+      (!mz && s.matrizSB?'<span class="tagic t-mz" title="este post veio da matriz: clique pra ver tema, tese, gancho...">M</span>':'')+
       (s.formato?'<span class="fmtic" title="'+esc(s.formato)+'">'+fmtIconSvg(s.formato)+'</span>':'')+
       (s.notas?'<span class="tagic t-obs" title="tem observação escrita: '+esc(String(s.notas).slice(0,180))+'">'+icon('pencil')+'</span>':'')+
       (s.angulo?'<span class="angchip" title="ângulo: '+esc(s.angulo)+'">'+esc(s.angulo)+'</span>':'')+
       (fonte&&usosDaFonte(s)?'<span class="usochip" title="posts já gerados a partir desta fonte">'+usosDaFonte(s)+'x usada</span>':'')+
-      (resp?'<span class="avatar" title="'+esc(resp)+'">'+esc(initials(resp))+'</span>':'')+
+      ((resp || (s.matrizSB && s.matrizSB.responsavel))?'<span class="avatar" title="'+esc(resp || s.matrizSB.responsavel)+'">'+esc(initials(resp || s.matrizSB.responsavel))+'</span>':'')+
     '</div>'+
     // na vaga, o botão de check dá BAIXA (já criei) em vez de marcar postado
     (vaga? '<button class="qvaga" title="já criei este post: dar baixa na sinalização">'+icon('check')+'</button>'
@@ -1870,8 +1944,11 @@ function cardEl(s){
   d.addEventListener('click', ev=>{
     if(S.dragging) return;
     if(ev.ctrlKey || ev.metaKey){ toggleSelecao(s.id); return; }
+    if(mz){ openMatriz(s.id); return; }
     openTask(s.id);
   });
+  const tmz = d.querySelector('.t-mz');
+  if(tmz) tmz.onclick = ev=>{ ev.stopPropagation(); openMatriz(s.id); };
   const cd = d.querySelector('.t-cdiv');
   if(cd && cdiv) cd.onclick = ev=>{ ev.stopPropagation(); corrigirConta(s, cdiv.sugerida); };
   const qv = d.querySelector('.qvaga');
@@ -2279,9 +2356,14 @@ function celulaDia(c, di, porDia, semana){
   const estrela = temGmPost
     ? '<span class="gmday" title="dia de grande marca (GM)">'+icon('star')+'</span>'
     : (gmDia ? '<span class="gmday esperado" title="este dia precisa de um post de GRANDE MARCA (GM), mesmo sem post ainda">'+icon('star')+'</span>' : '');
-  cell.innerHTML = '<div class="day-top"><span class="dnum">'+c.dnum+ estrela +
+  const sb = S.aba==='SEUBONÉ' && S.matrizSB;
+  const mzd = sb ? mzTipoDoDia(c.date) : null;
+  const mzLabel = mzd ? (mzd.tipo || mzd.opcoes.join(' / ')) : '';
+  cell.innerHTML = '<div class="day-top"><span class="dleft"><span class="dnum">'+c.dnum+ estrela + '</span>'+
+    (mzd ? '<span class="mzdia" style="color:'+(mzd.tipo?mzObjCor(mzd.tipo):'#FCC100')+'" title="matriz: '+esc(mzLabel)+' · semana '+mzd.semana+'">'+esc(mzd.tipo || 'em aberto')+'</span>' : '')+
     '</span><span class="day-acts">'+
-      '<button class="vagabtn" title="sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>'+
+      (sb ? '<button class="mzbtn" title="novo card da matriz neste dia ('+esc(mzLabel)+')">'+icon('sparkle')+'</button>'
+          : '<button class="vagabtn" title="sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>')+
       '<button class="addbtn" title="novo post">'+icon('plus','s')+'</button>'+
     '</span></div><div class="day-cards"></div>';
   const cardsEl = cell.querySelector('.day-cards');
@@ -2289,7 +2371,10 @@ function celulaDia(c, di, porDia, semana){
   const dateStr = c.date;
   cell.addEventListener('mouseenter', ()=>{ S.hoverDay = dateStr; });
   cell.querySelector('.addbtn').onclick = ()=> openEdit(null, dateStr);
-  cell.querySelector('.vagabtn').onclick = ev=>{ ev.stopPropagation(); abrirPopVaga(dateStr, ev.currentTarget); };
+  const vb = cell.querySelector('.vagabtn');
+  if(vb) vb.onclick = ev=>{ ev.stopPropagation(); abrirPopVaga(dateStr, ev.currentTarget); };
+  const mb = cell.querySelector('.mzbtn');
+  if(mb) mb.onclick = ev=>{ ev.stopPropagation(); criarCardMatriz(dateStr); };
   if(S.clip){
     const cb = document.createElement('button'); cb.className='colar-aqui'; cb.innerHTML = icon('plus','s')+'Colar aqui';
     cb.onclick = (e)=>{ e.stopPropagation(); colarNoDia(dateStr); };
@@ -2621,6 +2706,8 @@ function tRowDraw(s){
     if(tip) b.dataset.tip = tip;
     row.appendChild(b); return b;
   };
+  // post que nasceu na matriz: tese, gancho e descrição continuam a um clique
+  if(s.matrizSB){ const bm = mk(icon('sparkle','s')+'Matriz', '', 'ver o que a copywriter planejou: tipo, tema, tese, gancho, descrição'); bm.onclick = ()=>{ closeOv('ovTask'); openMatriz(s.id); }; }
   // vaga: botão de baixa direto no cabeçalho
   if(isVaga(s)){
     const bv=document.createElement('button');
@@ -3118,20 +3205,14 @@ function openEdit(id, dateStr, pre){
   $('#eGm').checked = s? isGm(s) : false;
   syncGmVisibility();
   $('#eDelete').style.display = s? '' : 'none';
-  // modos de criação (só pra post novo): 1 colar link · 2 criar no ClickUp · 3 matriz de conteúdo
+  // modos de criação (só pra post novo): 1 colar link · 2 criar no ClickUp
   $('#eModos').style.display = s ? 'none' : '';
   $('#eBrief').value=''; $('#eResp').value='';
-  matPreencher(s ? (s.matriz||{}) : {}, s ? (s.responsavelManual||'') : '');
   if(s){
-    // editando: tudo aparece; a matriz fica dobrada (aberta se o post já tem algo preenchido)
     E_MODO = 'edit';
-    $('#eMatToggle').hidden = false;
-    $('#eMatWrap').dataset.fechado = (s.matriz && Object.keys(s.matriz).length) ? '0' : '1';
     aplicaModo('edit');
-    $('#eMatToggle').textContent = ($('#eMatWrap').hidden ? '▸' : '▾') + ' Matriz de conteúdo (objetivo, funil, tese, gancho…)';
     $('#eSave').textContent = 'Salvar';
   } else {
-    $('#eMatToggle').hidden = true;
     setModo(pre && pre.modo ? pre.modo : 'link');
   }
   if(!s && S.hasToken) carregarOpcoesCu();
@@ -3141,12 +3222,11 @@ function openEdit(id, dateStr, pre){
 }
 // ---- os 3 modos do "Novo post" ----
 let E_MODO = 'link';
-/** Cada aba mostra SÓ os campos dela: 1 link = o formulário de sempre; 2 ClickUp = o que a task tem; 3 matriz = as colunas da planilha. */
+/** Cada aba mostra SÓ os campos dela: 1 link = o formulário de sempre; 2 ClickUp = o que a task tem. */
 function aplicaModo(m){
   document.querySelectorAll('#ovEdit [data-modos]').forEach(el=>{
     const ok = el.dataset.modos.split(' ').includes(m);
     if(el.id==='eGmWrap'){ el.style.display = ok && $('#eConta').value==='seubone' ? '' : 'none'; return; }
-    if(el.id==='eMatWrap'){ el.hidden = !ok || (m==='edit' && el.dataset.fechado==='1'); return; }
     el.style.display = ok ? '' : 'none';
   });
   $('#eFmtRow').style.gridTemplateColumns = (m==='link'||m==='edit') ? '' : '1fr';
@@ -3157,48 +3237,11 @@ function setModo(m){
   document.querySelectorAll('#eModos .modo').forEach(b=> b.classList.toggle('on', b.dataset.modo===m));
   aplicaModo(m);
   $('#eCu').checked = m==='clickup';
-  $('#eSave').textContent = m==='clickup' ? 'Criar no ClickUp e salvar' : (m==='matriz' ? 'Salvar na matriz' : 'Salvar');
+  $('#eSave').textContent = m==='clickup' ? 'Criar no ClickUp e salvar' : 'Salvar';
   $('#eMsg').textContent = (m==='clickup' && !S.hasToken) ? 'Sem token do ClickUp configurado: esse modo não funciona ainda.' : '';
   if(m==='clickup') atualizaCuNome();
-  if(m==='matriz') setTimeout(()=>$('#mObjetivo').focus(), 40);
 }
 document.querySelectorAll('#eModos .modo').forEach(b=> b.onclick = ()=> setModo(b.dataset.modo));
-$('#eMatToggle').onclick = ()=>{ const w=$('#eMatWrap'); w.hidden=!w.hidden; w.dataset.fechado = w.hidden?'1':'0'; $('#eMatToggle').textContent = (w.hidden?'▸':'▾')+' Matriz de conteúdo (objetivo, funil, tese, gancho…)'; };
-/** Monta os selects da matriz com as listas que vêm do servidor e preenche com o que o post já tem. */
-function matPreencher(m, resp){
-  const op = (S.matriz && S.matriz.opcoes) || {};
-  document.querySelectorAll('#eMatWrap select[data-m]').forEach(sel=>{
-    const k = sel.dataset.m; const lista = op[k] || [];
-    sel.innerHTML = '<option value="">—</option>' + lista.map(o=>'<option>'+esc(o)+'</option>').join('');
-    sel.value = m[k] || '';
-  });
-  // campos livres: o que está na lista vira só sugestão ao digitar
-  [['lstObjetivo','objetivo'],['lstTipo','tipo'],['lstTipoC','tipoConteudo']].forEach(([id,k])=>{ const dl=$('#'+id); if(dl) dl.innerHTML=(op[k]||[]).map(o=>'<option value="'+esc(o)+'"></option>').join(''); });
-  document.querySelectorAll('#eMatWrap input[data-m], #eMatWrap textarea[data-m]').forEach(el=>{ el.value = m[el.dataset.m] || ''; });
-  // responsável: só a equipe (lista fixa do servidor); um nome antigo fora dela continua aparecendo pra não sumir
-  const eq = (S.matriz && S.matriz.responsaveis) || [];
-  const nomes = eq.slice(); if(resp && !nomes.includes(resp)) nomes.push(resp);
-  $('#mResp').innerHTML = '<option value="">sem responsável</option>' + nomes.map(n=>'<option>'+esc(n)+'</option>').join('');
-  $('#mResp').value = resp || '';
-  matDerivados();
-}
-function matLer(){
-  const m = {};
-  document.querySelectorAll('#eMatWrap [data-m]').forEach(el=>{ const v = el.value.trim(); if(v) m[el.dataset.m] = v; });
-  return Object.keys(m).length ? m : null;
-}
-function regraObjetivoFront(obj){
-  const R = (S.matriz && S.matriz.regras) || {}; const n = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-  const k = Object.keys(R).find(x => n(x)===n(obj) || (obj && n(obj).startsWith(n(x).slice(0,5))));
-  return k ? R[k] : null;
-}
-function matDerivados(){
-  const obj = $('#mObjetivo').value; const r = regraObjetivoFront(obj);
-  $('#mDeriv').innerHTML = r
-    ? '<b>CTA:</b> '+esc(r.cta)+' &nbsp;·&nbsp; <b>Métrica primária:</b> '+esc(r.metrica1)+' &nbsp;·&nbsp; <b>Secundária:</b> '+esc(r.metrica2)
-    : 'escolha o objetivo pra ver CTA e métricas (saem sozinhos, como na planilha)';
-}
-$('#mObjetivo').addEventListener('input', matDerivados);
 
 // ---- criar a task no ClickUp a partir do "Novo post" ----
 let CU_OPCOES = null;
@@ -3242,9 +3285,7 @@ $('#eSave').onclick = async ()=>{
     collab: [...eCollabSel],
   };
   const criarCu = !S.editing && E_MODO==='clickup' && S.hasToken;
-  if(!S.editing && E_MODO!=='link') body.taskUrl = '';   // nos modos 2 e 3 o link colado não vale
-  if(S.editing || E_MODO==='matriz'){ body.matriz = matLer(); body.responsavelManual = $('#mResp').value.trim(); }
-  if(!S.editing && E_MODO==='matriz' && !body.titulo && body.matriz && body.matriz.tema) body.titulo = body.matriz.tema.slice(0,120); // o tema vira o nome do card
+  if(!S.editing && E_MODO!=='link') body.taskUrl = '';   // no modo 2 o link colado não vale
   $('#eSave').disabled = true; $('#eMsg').textContent = criarCu ? 'criando a task no ClickUp…' : '';
   try{
     let r;
@@ -3259,38 +3300,145 @@ $('#eSave').onclick = async ()=>{
         ? await api('/api/slots/'+S.editing, {method:'PATCH', body:JSON.stringify(body)})
         : await api('/api/slots', {method:'POST', body:JSON.stringify(body)});
       closeOv('ovEdit'); await loadState();
-      toast((!S.editing && E_MODO==='matriz') ? 'Salvo na matriz · veja em mais → Matriz de conteúdo' : 'Salvo'+(r.entrega? ' · entrega no ClickUp: '+r.entrega.split('-').reverse().slice(0,2).join('/') : ''));
+      toast('Salvo'+(r.entrega? ' · entrega no ClickUp: '+r.entrega.split('-').reverse().slice(0,2).join('/') : ''));
     }
   }catch(e){ $('#eMsg').textContent = 'Erro: '+e.message; }
   finally{ $('#eSave').disabled = false; }
 };
 
-// ================= matriz de conteúdo: tabela + planilha =================
-const MAT_COLS = [['n','#'],['semana','Sem'],['objetivo','Objetivo'],['funil','Funil'],['consciencia','Consciência'],['tipo','Tipo'],['tipoConteudo','Tipo de conteúdo'],['formato','Formato'],['emocao','Emoção'],['cta','CTA'],['metrica1','Métrica primária'],['metrica2','Métrica secundária'],['pautaQuente','Pauta quente'],['tema','Tema'],['tese','Tese'],['gancho','Gancho'],['responsavel','Responsável'],['data','Data'],['status','Status'],['titulo','Post']];
-const MAT_ST_COR = { 'Postado':'#2FD06A', 'Em aprovação':'#0f9d9f', 'Briefing criado':'#FFB020', 'Não iniciado':'#8C897C' };
-async function abrirMatriz(){
-  $('#matTit').textContent = 'Matriz de conteúdo · '+S.aba+' · '+MESES[+S.mes.slice(5)-1]+' '+S.mes.slice(0,4);
-  $('#matBaixar').href = '/api/matriz.xlsx?aba='+encodeURIComponent(S.aba)+'&mes='+S.mes;
-  $('#matTable').innerHTML = '<div class="note" style="padding:14px">carregando…</div>'; $('#matKpis').innerHTML='';
-  $('#ovMatriz').classList.add('open');
+// ================= MATRIZ DA SEUBONÉ: o card amarelo =================
+// Todo dia vazio da SeuBoné nasce (no servidor) com um card da matriz: o tipo do dia vem da rotação
+// A/B, e a copywriter preenche formato, ângulo, pauta, tema, tese, gancho, descrição, refs.
+let MZ_ATUAL = null;       // id do card aberto
+let MZ_TIPO_LIVRE = false; // "trocar tipo" num dia de tipo fixo
+function mzTiposPossiveis(s){
+  const d = s.date ? mzTipoDoDia(s.date) : null;
+  if(d && d.opcoes) return d.opcoes;
+  if(!d) return Object.keys(mzCfg().tipos);           // sem data (banco): qualquer tipo
+  return MZ_TIPO_LIVRE ? Object.keys(mzCfg().tipos) : null;
+}
+/** Formato já usado por outro card do mesmo tipo na semana anterior ou na mesma semana (regras 2 e 3 da rotação). */
+function mzFormatoRepetido(s, tipo, formato){
+  if(!s.date || !tipo || !formato) return null;
+  const alvo = formato.trim().toLowerCase(); const d = mzUtc(s.date);
+  const seg = d - ((new Date(d).getUTCDay()+6)%7)*86400000;
+  for(const x of S.slots){
+    if(x.id===s.id || x.conta!=='seubone' || !x.date || !x.matrizSB) continue;
+    if((x.matrizSB.tipo||'')!==tipo || String(x.matrizSB.formato||'').trim().toLowerCase()!==alvo) continue;
+    const t = mzUtc(x.date);
+    if(t >= seg - 7*86400000 && t < seg + 7*86400000) return x;
+  }
+  return null;
+}
+function mzDesenhaTipo(s, tipo){
+  const cfg = mzCfg(); const t = cfg.tipos[tipo] || null;
+  const d = s.date ? mzTipoDoDia(s.date) : null;
+  const dows = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
+  $('#mzKicker').textContent = s.date ? (dows[new Date(mzUtc(s.date)).getUTCDay()]+' '+brData(s.date).slice(0,5)+' · semana '+d.semana+(d.opcoes?' · slot em aberto':'')) : 'sem data · banco';
+  $('#mzTit').textContent = tipo || 'Escolha o tipo';
+  const cor = tipo ? mzObjCor(tipo) : '#FCC100';
+  $('#ovMz').style.setProperty('--mzc', cor);
+  $('#mzObj').textContent = t ? t.objetivo : ''; $('#mzObj').hidden = !t;
+  $('#mzSub').textContent = t ? t.oQueE : 'Este dia é um slot em aberto: escolha o tipo de conteúdo que faz sentido agora.';
+  $('#mzGm').hidden = !(s.date && gmCadenciaDia(s.date));
+  // travadas: saem do tipo, não se mexe aqui
+  $('#mzTrava').innerHTML = t ? [
+      ['Objetivo', t.objetivo], ['Etapa de funil', t.funil], ['Nível de consciência', t.consciencia], ['Emoção alvo', t.emocao],
+      ['CTA', t.cta, 1], ['Métrica primária', t.metrica1], ['Métrica secundária', t.metrica2]
+    ].map(([k,v,l])=>'<div'+(k==='CTA'?' class="largo"':'')+'><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('') : '';
+  // tipo: slot em aberto (ou "trocar tipo") mostra os botões
+  const poss = mzTiposPossiveis(s);
+  $('#mzAberto').hidden = !poss;
+  if(poss){
+    $('#mzAbertoLbl').textContent = d && d.opcoes ? 'Slot em aberto: escolha o tipo ('+d.opcoes.join(', ')+')' : 'Tipo de conteúdo';
+    $('#mzOpc').innerHTML = poss.map(o=>'<button type="button" data-t="'+esc(o)+'" class="'+(o===tipo?'on':'')+'">'+esc(o)+'</button>').join('');
+    $('#mzOpc').querySelectorAll('button').forEach(b=> b.onclick = ()=>{ $('#ovMz').dataset.tipo = b.dataset.t; mzDesenhaTipo(s, b.dataset.t); });
+  }
+  // chips de formato e ângulo do tipo
+  const chips = (el, lista, input)=>{
+    el.innerHTML = (lista||[]).map(o=>'<button type="button">'+esc(o)+'</button>').join('');
+    el.querySelectorAll('button').forEach(b=> b.onclick = ()=>{ input.value = b.textContent; mzMarcaChips(s); input.focus(); });
+  };
+  chips($('#mzFormatos'), t && t.formatos, $('#mzFormato'));
+  chips($('#mzAngulos'), t && t.angulos, $('#mzAngulo'));
+  mzMarcaChips(s);
+}
+function mzMarcaChips(s){
+  const tipo = $('#ovMz').dataset.tipo || '';
+  const f = $('#mzFormato').value.trim(), a = $('#mzAngulo').value.trim();
+  $('#mzFormatos').querySelectorAll('button').forEach(b=>{ b.classList.toggle('on', b.textContent===f); b.classList.toggle('usado', !!mzFormatoRepetido(s, tipo, b.textContent)); });
+  $('#mzAngulos').querySelectorAll('button').forEach(b=> b.classList.toggle('on', b.textContent===a));
+  const rep = mzFormatoRepetido(s, tipo, f);
+  $('#mzAvisoFmt').textContent = rep ? 'Esse formato já está no '+tipo+' de '+brData(rep.date).slice(0,5)+'. A regra é não repetir o formato do mesmo tipo em semanas seguidas (nem 2 Produtos iguais na semana).' : '';
+}
+function openMatriz(id){
+  const s = S.slots.find(x=>x.id===id); if(!s) return;
+  const cfg = mzCfg(); const m = s.matrizSB || {};
+  MZ_ATUAL = id; MZ_TIPO_LIVRE = false;
+  const tipo = m.tipo || (s.date ? (mzTipoDoDia(s.date).tipo||'') : '');
+  $('#ovMz').dataset.tipo = tipo;
+  document.querySelectorAll('#ovMz [data-mz]').forEach(el=>{ if(el.tagName!=='SELECT') el.value = m[el.dataset.mz] || ''; });
+  const eq = cfg.responsaveis.slice(); if(m.responsavel && !eq.includes(m.responsavel)) eq.push(m.responsavel);
+  $('#mzResp').innerHTML = '<option value="">sem responsável</option>' + eq.map(n=>'<option>'+esc(n)+'</option>').join('');
+  $('#mzResp').value = m.responsavel || '';
+  $('#mzStatus').innerHTML = cfg.status.map(n=>'<option>'+esc(n)+'</option>').join('');
+  $('#mzStatus').value = mzStatus(s);
+  $('#mzRegrasTxt').innerHTML = '<b>Regras da rotação</b><ol>'+cfg.regras.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ol><b>Antes de aprovar qualquer peça</b><ul>'+cfg.checklist.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>';
+  $('#mzExcluir').hidden = !isMatriz(s);                 // card que já virou post normal se apaga pelo editor
+  $('#mzMsg').textContent = s.taskId ? 'Este post já tem task no ClickUp. Aqui fica o planejamento da matriz.' : '';
+  mzDesenhaTipo(s, tipo);
+  // dia de tipo fixo: link discreto pra trocar o tipo mesmo assim
+  if(s.date && mzTipoDoDia(s.date).tipo && !$('#mzTrocar')){
+    const a = document.createElement('button'); a.type='button'; a.id='mzTrocar'; a.className='mbtn'; a.style.cssText='padding:3px 9px; font-size:11px';
+    a.textContent = 'trocar tipo'; a.dataset.tip = 'a rotação pede este tipo neste dia; troque só se tiver motivo';
+    $('#mzSub').after(a);
+  }
+  const tr = $('#mzTrocar');
+  if(tr){ tr.hidden = !(s.date && mzTipoDoDia(s.date).tipo); tr.onclick = ()=>{ MZ_TIPO_LIVRE = true; tr.hidden = true; mzDesenhaTipo(s, $('#ovMz').dataset.tipo); }; }
+  $('#ovMz').classList.add('open');
+  setTimeout(()=>{ const alvo = !tipo ? null : (!m.formato ? $('#mzFormato') : (!m.tema ? $('#mzTema') : null)); if(alvo) alvo.focus(); }, 60);
+}
+['#mzFormato','#mzAngulo'].forEach(k=> $(k).addEventListener('input', ()=>{ const s=S.slots.find(x=>x.id===MZ_ATUAL); if(s) mzMarcaChips(s); }));
+async function salvarMatriz(){
+  const s = S.slots.find(x=>x.id===MZ_ATUAL); if(!s) return;
+  const m = { tipo: $('#ovMz').dataset.tipo || '' };
+  document.querySelectorAll('#ovMz [data-mz]').forEach(el=>{ m[el.dataset.mz] = el.value.trim(); });
+  $('#mzSalvar').disabled = true; $('#mzMsg').textContent = 'salvando…';
   try{
-    const r = await api('/api/matriz?aba='+encodeURIComponent(S.aba)+'&mes='+S.mes);
-    const L = r.linhas;
-    const cont = st => L.filter(l=>l.status===st).length;
-    const semMatriz = L.filter(l=>!l.objetivo && !l.tese && !l.gancho).length;
-    $('#matKpis').innerHTML = [['posts',L.length],['postados',cont('Postado')],['em aprovação',cont('Em aprovação')],['briefing criado',cont('Briefing criado')],['não iniciado',cont('Não iniciado')],['sem matriz',semMatriz]]
-      .map(([k,v])=>'<div class="k"><b>'+v+'</b>'+k+'</div>').join('');
-    if(!L.length){ $('#matTable').innerHTML = '<div class="note" style="padding:14px">Nenhum post com data neste mês nesta conta.</div>'; return; }
-    const longos = new Set(['metrica1','metrica2','tese','gancho','pautaQuente','tema','titulo']);
-    $('#matTable').innerHTML = '<table><thead><tr>'+MAT_COLS.map(([k,t])=>'<th>'+esc(t)+'</th>').join('')+'</tr></thead><tbody>'+
-      L.map(l=>'<tr data-id="'+esc(l.id)+'">'+MAT_COLS.map(([k])=>{
-        let v = l[k];
-        if(k==='data') v = v ? brData(v) : '';
-        if(k==='status') return '<td><span class="st" style="background:'+(MAT_ST_COR[v]||'#8C897C')+'">'+esc(v)+'</span></td>';
-        return '<td class="'+(longos.has(k)?'longo':'')+(v===''||v==null?' vazio':'')+'">'+(v===''||v==null?'—':esc(String(v)))+'</td>';
-      }).join('')+'</tr>').join('')+'</tbody></table>';
-    $('#matTable').querySelectorAll('tr[data-id]').forEach(tr=> tr.onclick = ()=>{ closeOv('ovMatriz'); openEdit(tr.dataset.id); });
-  }catch(e){ $('#matTable').innerHTML = '<div class="note err" style="padding:14px">'+esc(e.message)+'</div>'; }
+    const r = await api('/api/slots/'+s.id, {method:'PATCH', body:JSON.stringify({ matrizSB: m })});
+    closeOv('ovMz'); await loadState();
+    const novo = S.slots.find(x=>x.id===s.id);
+    toast('Matriz salva'+(novo && novo.matrizSB && novo.matrizSB.status==='Briefing criado' && m.status==='Não iniciado' ? ' · tudo preenchido: status foi pra Briefing criado' : '')+' · Ctrl+Z desfaz');
+  }catch(e){ $('#mzMsg').textContent = 'Erro: '+e.message; }
+  finally{ $('#mzSalvar').disabled = false; }
+}
+$('#mzSalvar').onclick = salvarMatriz;
+$('#ovMz').addEventListener('keydown', ev=>{ if(ev.key==='Enter' && (ev.ctrlKey||ev.metaKey)){ ev.preventDefault(); salvarMatriz(); } });
+$('#mzEditar').onclick = ()=>{ const id = MZ_ATUAL; closeOv('ovMz'); openEdit(id); };
+$('#mzExcluir').onclick = async ()=>{
+  const s = S.slots.find(x=>x.id===MZ_ATUAL); if(!s) return;
+  if(!confirm('Excluir este card da matriz?\n\n(Ele não volta sozinho nesse dia. Ctrl+Z desfaz.)')) return;
+  try{ await api('/api/slots/'+s.id, {method:'DELETE'}); closeOv('ovMz'); await loadState(); toast('Card da matriz excluído · Ctrl+Z desfaz'); }
+  catch(e){ $('#mzMsg').textContent = 'Erro: '+e.message; }
+};
+/** Botão amarelo do dia: cria um card da matriz naquele dia (com o tipo da rotação) e já abre pra preencher. */
+async function criarCardMatriz(dateStr){
+  try{
+    const r = await api('/api/slots', {method:'POST', body:JSON.stringify({ conta:'seubone', date:dateStr, matrizSB:{} })});
+    await loadState();
+    toast('Card da matriz criado · Ctrl+Z desfaz');
+    openMatriz(r.slot.id);
+  }catch(e){ toast(e.message, true); }
+}
+/** Menu "mais": preenche todo dia vazio do mês em foco com o card da matriz. */
+async function gerarMatrizMes(){
+  const [y,m] = S.mes.split('-').map(Number);
+  if(!confirm('Criar o card amarelo da matriz em todo dia SEM post da SeuBoné em '+MESES[m-1]+' '+y+'?\n\nDia que já tem post fica como está. Ctrl+Z desfaz.')) return;
+  try{
+    const r = await api('/api/matriz-sb/gerar', {method:'POST', body:JSON.stringify({ mes:S.mes })});
+    await loadState();
+    toast(r.criados ? r.criados+' card'+(r.criados>1?'s':'')+' da matriz criado'+(r.criados>1?'s':'')+' · Ctrl+Z desfaz' : 'Nenhum dia vazio neste mês: nada pra criar');
+  }catch(e){ toast(e.message, true); }
 }
 $('#eDelete').onclick = async ()=>{
   if(!S.editing) return;
@@ -4410,8 +4558,10 @@ function initIcons(){
   $('#btnRelatorio').innerHTML = icon('list') + 'Relatório';
   $('#btnExportar').innerHTML = icon('external') + 'Exportar';
   $('#btnImportar').innerHTML = icon('plus') + 'Importar em lote';
-  $('#btnMatriz').innerHTML = icon('list') + 'Matriz de conteúdo';
-  $('#btnMatriz').onclick = abrirMatriz;
+  $('#btnMzGerar').innerHTML = icon('sparkle') + 'Matriz: preencher o mês';
+  $('#btnMzGerar').onclick = gerarMatrizMes;
+  $('#btnMzXlsx').innerHTML = icon('list') + 'Matriz: baixar planilha';
+  $('#btnMzXlsx').onclick = ()=>{ location.href = '/api/matriz-sb.xlsx?mes='+S.mes; };
   atualizaRotuloPauta();
   // link da pauta: com escopo (só a conta atual) ou geral (todas). O token muda conforme o escopo,
   // então o link de uma empresa não abre as outras nem dá pra "alargar" editando a URL.
