@@ -829,7 +829,47 @@
   .emais .emseta{display:inline-block; transition:transform var(--t)}
   .emais.aberto .emseta{transform:rotate(90deg)}
   /* modal do card da matriz */
-  #ovMz .modal{width:min(860px,100%)}
+  #ovMz .modal{width:min(1120px,100%)}
+  /* v3.67: formulário em 3 blocos + guia do tipo ao lado */
+  .mzprogw{display:flex; align-items:center; gap:10px; padding:0 22px 12px 26px; border-left:6px solid var(--mzc,#FCC100); background:linear-gradient(90deg, rgba(252,193,0,.10), transparent 60%)}
+  .mzprogbar{flex:1; max-width:340px; height:6px; border-radius:4px; background:rgba(252,193,0,.18); overflow:hidden}
+  .mzprogbar i{display:block; height:100%; width:0; background:#FCC100; border-radius:4px; transition:width .25s}
+  #mzProgTxt{font-size:11.5px; font-weight:800; color:#FFE27A; letter-spacing:.02em}
+  .mzbody{display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:16px; align-items:start}
+  .mzcol{gap:12px}
+  .mzbloco{border:1.5px solid var(--hair); border-radius:10px; padding:12px 14px 14px; background:var(--surface-2); display:grid; gap:10px; transition:border-color var(--t)}
+  .mzbloco:focus-within{border-color:rgba(252,193,0,.7)}
+  .mzbt{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
+  .mzbt b{font-size:14px; color:var(--ink)}
+  .mzbt small{font-size:11.5px; color:var(--ink-3)}
+  .mzbn{width:22px; height:22px; border-radius:50%; border:1.5px solid var(--hair); display:inline-flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:800; color:var(--ink-2); flex:none; align-self:center}
+  .mzbloco.ok .mzbn{background:#FCC100; border-color:#000; color:#000}
+  .mzbloco.ok{border-color:rgba(252,193,0,.35)}
+  .mzdica{text-transform:none; letter-spacing:0; font-weight:500; color:var(--ink-3); font-size:11px; margin-left:4px}
+  #ovMz .mzbloco input,#ovMz .mzbloco textarea{background:var(--surface)}
+  #ovMz textarea{resize:none; overflow:hidden; line-height:1.4}
+  /* sugestões: aparecem enquanto o campo está vazio ou em uso; preenchido, some e a tela fica limpa */
+  .mzcampo.cheio .mzchips{display:none}
+  .mzver{display:none; background:none; border:0; padding:0; margin-left:6px; font:inherit; font-size:11px; font-weight:700; color:var(--ink-3); text-decoration:underline; cursor:pointer; text-transform:none; letter-spacing:0}
+  .mzver:hover{color:#FCC100}
+  .mzcampo.cheio .mzver{display:inline}
+  .mzguia{position:sticky; top:12px; display:grid; gap:10px}
+  /* Salvar sempre à vista, mesmo com o formulário grande */
+  #ovMz .mfoot{position:sticky; bottom:0; z-index:3; background:var(--surface); border-top:1.5px solid var(--hair); padding-top:12px; border-radius:0 0 12px 12px}
+  .mzgbox{border:1.5px solid var(--hair); border-radius:10px; padding:12px 14px; background:var(--surface-2)}
+  .mzgbox label{font-size:10.5px; font-weight:800; color:var(--ink-2); display:block; margin-bottom:6px; letter-spacing:.07em; text-transform:uppercase}
+  .mzgbox select{width:100%; border:1.5px solid var(--hair); border-radius:6px; padding:8px 10px; background:var(--surface); font-size:13px; color:var(--ink)}
+  .mzgbox .echip{padding:5px 9px; font-size:12px}
+  .mzpede{display:grid; gap:9px}
+  .mzpede .pt{font-size:10.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#FCC100}
+  .mzpede .cta{border:1.5px solid #FCC100; border-radius:8px; padding:8px 10px; background:rgba(252,193,0,.08)}
+  .mzpede .cta span{display:block; font-size:9.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#FFE27A}
+  .mzpede .cta b{font-size:14px; color:var(--ink)}
+  .mzpede .lin{display:flex; justify-content:space-between; gap:10px; font-size:12px; border-bottom:1px solid var(--hair-2); padding-bottom:6px}
+  .mzpede .lin span{color:var(--ink-3)} .mzpede .lin b{color:var(--ink-2); text-align:right; font-weight:700}
+  .mzpede .met{font-size:12px; color:var(--ink-2); line-height:1.45}
+  .mzpede .met span{display:block; font-size:9.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3)}
+  @media (max-width:900px){ .mzbody{grid-template-columns:1fr} .mzguia{position:static; order:-1} }
   .mzhead{border-left:6px solid var(--mzc,#FCC100); background:linear-gradient(90deg, rgba(252,193,0,.10), transparent 60%)}
   .mzkicker{font-size:10.5px; font-weight:800; letter-spacing:.1em; color:#FCC100; text-transform:uppercase}
   .mzhead .mtit{display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:22px}
@@ -845,11 +885,7 @@
   .mzopc button.on{font-weight:800}
   .mzchips{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
   .mzchips button.usado{text-decoration:line-through; opacity:.6}
-  .mztrava{display:grid; grid-template-columns:repeat(4,1fr); gap:6px}
-  .mztrava div{border:1.5px solid var(--hair-2); border-radius:6px; padding:6px 8px; background:var(--surface-2)}
-  .mztrava div.largo{grid-column:span 2}
-  .mztrava span{display:block; font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3)}
-  .mztrava b{font-size:12px; color:var(--ink-2); font-weight:700}
+
   .mzsec{font-size:10.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#FCC100; margin:4px 0 -4px}
   .mzaviso{font-size:11.5px; font-weight:700; color:var(--warn); margin-top:5px}
   .mzaviso:empty{display:none}
@@ -857,7 +893,7 @@
   .mzregras{border:1.5px dashed var(--hair); border-radius:8px; padding:8px 12px; font-size:12px; color:var(--ink-2)}
   .mzregras summary{cursor:pointer; font-weight:800; color:var(--ink); font-size:12px}
   .mzregras ol,.mzregras ul{margin:8px 0 4px 18px; padding:0; line-height:1.5}
-  @media (max-width:640px){ .mztrava{grid-template-columns:1fr 1fr} }
+
   .cuwrap{border:2px solid var(--hair); border-radius:8px; padding:10px 12px; background:var(--surface-2)}
   .cutit b{display:block; font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--sb)}
   .cutit small{display:block; font-size:10.5px; color:var(--ink-3); font-weight:500; margin-top:2px}
@@ -1282,33 +1318,47 @@
     <div class="mzgm" id="mzGm" hidden>☆ este dia pede GRANDE MARCA na capa</div>
     <button class="mbtn mzcopy mzcopytop" id="mzCopyTop" data-tip="salva a matriz e abre o documento da copy deste post (editor estilo Docs)"></button>
   </div>
-  <div class="mbody">
-    <div class="f">
+  <div class="mzprogw"><div class="mzprogbar"><i id="mzProgBar"></i></div><span id="mzProgTxt"></span></div>
+  <div class="mbody mzbody">
+    <!-- v3.67: o que a copywriter preenche em 3 blocos na ordem em que se pensa a peça; o que o tipo pede fica ao lado, sempre à vista -->
+    <div class="mzcol f">
       <div class="mzaberto" id="mzAberto" hidden>
         <label id="mzAbertoLbl">Slot em aberto: escolha o tipo</label>
         <div class="mzopc" id="mzOpc"></div>
       </div>
-      <div class="mztrava" id="mzTrava"></div>
-      <div class="mzsec">A copywriter preenche</div>
-      <div><label>Formato</label><input id="mzFormato" data-mz="formato" placeholder="escolha abaixo ou escreva outro" maxlength="200">
-        <div class="mzchips" id="mzFormatos"></div><div class="mzaviso" id="mzAvisoFmt"></div></div>
-      <div><label>Ângulo</label><input id="mzAngulo" data-mz="angulo" placeholder="escolha abaixo ou escreva um novo" maxlength="300">
-        <div class="mzchips" id="mzAngulos"></div></div>
-      <div class="f2">
-        <div><label>Pauta quente</label><input id="mzPauta" data-mz="pautaQuente" placeholder="assunto do momento que ancora a peça, ou ATEMPORAL" maxlength="300"></div>
-        <div><label>Tema</label><input id="mzTema" data-mz="tema" placeholder="o recorte específico (vira o nome do card)" maxlength="300"></div>
-      </div>
-      <div><label>Tese em uma frase</label><textarea id="mzTese" data-mz="tese" rows="2" placeholder="a opinião da SeuBoné. Sem tese não tem posicionamento."></textarea></div>
-      <div><label>Gancho escolhido</label><textarea id="mzGancho" data-mz="gancho" rows="2" placeholder="bate em dor ou desejo concreto e é entendido em 1,5 s"></textarea></div>
-      <div><label>Descrição (o que fazer)</label><textarea id="mzDesc" data-mz="descricao" rows="4" placeholder="2 ou 3 linhas: cena, estrutura, quem aparece"></textarea></div>
-      <div><label>Refs visuais / inserts</label><textarea id="mzRefs" data-mz="refs" rows="2" placeholder="links pro Samuca e pra edição"></textarea></div>
-      <div class="f2">
-        <div><label>Responsável</label><select id="mzResp" data-mz="responsavel"></select></div>
-        <div><label>Status</label><select id="mzStatus" data-mz="status"></select></div>
-      </div>
-      <div><label>Observações</label><textarea id="mzObs" data-mz="obs" rows="2" placeholder="o que confirmar antes de gravar, autorização, número..."></textarea></div>
-      <details class="mzregras" id="mzRegras"><summary>Regras da rotação e checklist antes de aprovar</summary><div id="mzRegrasTxt"></div></details>
+      <section class="mzbloco" data-bloco="formato angulo">
+        <div class="mzbt"><span class="mzbn">1</span><b>O que vai ser</b><small>formato e ângulo</small></div>
+        <div class="mzcampo"><label>Formato <button type="button" class="mzver">ver sugestões</button></label><input id="mzFormato" data-mz="formato" placeholder="escolha uma sugestão ou escreva outro" maxlength="200">
+          <div class="mzchips" id="mzFormatos"></div><div class="mzaviso" id="mzAvisoFmt"></div></div>
+        <div class="mzcampo"><label>Ângulo <button type="button" class="mzver">ver sugestões</button></label><input id="mzAngulo" data-mz="angulo" placeholder="escolha uma sugestão ou escreva um novo" maxlength="300">
+          <div class="mzchips" id="mzAngulos"></div></div>
+      </section>
+      <section class="mzbloco" data-bloco="pautaQuente tema tese gancho">
+        <div class="mzbt"><span class="mzbn">2</span><b>A ideia</b><small>do que a peça fala e por que alguém para pra ver</small></div>
+        <div class="f2">
+          <div><label>Pauta quente</label><input id="mzPauta" data-mz="pautaQuente" placeholder="assunto do momento, ou ATEMPORAL" maxlength="300"></div>
+          <div><label>Tema <span class="mzdica">vira o nome do card</span></label><input id="mzTema" data-mz="tema" placeholder="o recorte específico" maxlength="300"></div>
+        </div>
+        <div><label>Tese em uma frase <span class="mzdica">a opinião da SeuBoné</span></label><textarea id="mzTese" data-mz="tese" rows="1" placeholder="sem tese não tem posicionamento"></textarea></div>
+        <div><label>Gancho <span class="mzdica">entendido em 1,5 s</span></label><textarea id="mzGancho" data-mz="gancho" rows="1" placeholder="bate em dor ou desejo concreto"></textarea></div>
+      </section>
+      <section class="mzbloco" data-bloco="descricao">
+        <div class="mzbt"><span class="mzbn">3</span><b>Como fazer</b><small>o que o Samuca e a edição precisam saber</small></div>
+        <div><label>Descrição <span class="mzdica">2 ou 3 linhas</span></label><textarea id="mzDesc" data-mz="descricao" rows="2" placeholder="cena, estrutura, quem aparece"></textarea></div>
+        <div><label>Refs visuais / inserts <span class="mzdica">opcional</span></label><textarea id="mzRefs" data-mz="refs" rows="1" placeholder="links de referência"></textarea></div>
+        <div><label>Observações <span class="mzdica">opcional</span></label><textarea id="mzObs" data-mz="obs" rows="1" placeholder="o que confirmar antes de gravar, autorização, número..."></textarea></div>
+      </section>
     </div>
+    <aside class="mzguia">
+      <div class="mzgbox">
+        <label>Quem faz</label>
+        <div class="echips" id="mzRespChips"></div><select id="mzResp" data-mz="responsavel" hidden></select>
+        <label style="margin-top:12px">Status</label>
+        <select id="mzStatus" data-mz="status"></select>
+      </div>
+      <div class="mzgbox mzpede" id="mzTrava"></div>
+      <details class="mzregras" id="mzRegras"><summary>Regras da rotação e checklist</summary><div id="mzRegrasTxt"></div></details>
+    </aside>
   </div>
   <div class="mfoot">
     <button class="mbtn primary" id="mzSalvar">Salvar</button>
@@ -1436,7 +1486,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.66'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.67'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -3743,10 +3793,12 @@ function mzDesenhaTipo(s, tipo){
   $('#mzSub').textContent = t ? t.oQueE : 'Este dia é um slot em aberto: escolha o tipo de conteúdo que faz sentido agora.';
   $('#mzGm').hidden = !(s.date && gmCadenciaDia(s.date));
   // travadas: saem do tipo, não se mexe aqui
-  $('#mzTrava').innerHTML = t ? [
-      ['Objetivo', t.objetivo], ['Etapa de funil', t.funil], ['Nível de consciência', t.consciencia], ['Emoção alvo', t.emocao],
-      ['CTA', t.cta, 1], ['Métrica primária', t.metrica1], ['Métrica secundária', t.metrica2]
-    ].map(([k,v,l])=>'<div'+(k==='CTA'?' class="largo"':'')+'><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('') : '';
+  // o que o tipo pede (não se mexe aqui): CTA em destaque, o resto em linhas curtas
+  $('#mzTrava').hidden = !t;
+  $('#mzTrava').innerHTML = t ? '<div class="pt">O que o tipo '+esc(tipo)+' pede</div>'+
+    '<div class="cta"><span>CTA</span><b>'+esc(t.cta)+'</b></div>'+
+    [['Objetivo', t.objetivo], ['Funil', t.funil], ['Consciência', t.consciencia], ['Emoção', t.emocao]].map(([k,v])=>'<div class="lin"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('')+
+    '<div class="met"><span>Métrica principal</span>'+esc(t.metrica1)+'</div><div class="met"><span>Métrica secundária</span>'+esc(t.metrica2)+'</div>' : '';
   // tipo: slot em aberto (ou "trocar tipo") mostra os botões
   const poss = mzTiposPossiveis(s);
   $('#mzAberto').hidden = !poss;
@@ -3758,12 +3810,28 @@ function mzDesenhaTipo(s, tipo){
   // chips de formato e ângulo do tipo
   const chips = (el, lista, input)=>{
     el.innerHTML = (lista||[]).map(o=>'<button type="button">'+esc(o)+'</button>').join('');
-    el.querySelectorAll('button').forEach(b=> b.onclick = ()=>{ input.value = b.textContent; mzMarcaChips(s); input.focus(); });
+    el.querySelectorAll('button').forEach(b=> b.onclick = ()=>{ input.value = b.textContent; mzMarcaChips(s); mzProgresso_(); input.focus(); });
   };
   chips($('#mzFormatos'), t && t.formatos, $('#mzFormato'));
   chips($('#mzAngulos'), t && t.angulos, $('#mzAngulo'));
   mzMarcaChips(s);
+  mzProgresso_();
 }
+/** Barra "x de 8" no topo, check nos blocos completos, sugestões somem no campo preenchido e textos crescem sozinhos. */
+// sugestões: quem abre um campo já preenchido vê só o valor (tela limpa); durante a edição nada some,
+// pra lista não pular embaixo do mouse. "ver sugestões" mostra de novo.
+function mzProgresso_(inicial){
+  const ob = mzCfg().obrigatorios; const val = k => { const el = document.querySelector('#ovMz [data-mz="'+k+'"]'); return el && el.value.trim(); };
+  const n = ob.filter(val).length;
+  $('#mzProgBar').style.width = Math.round(100*n/ob.length)+'%';
+  $('#mzProgTxt').textContent = n===ob.length ? 'tudo preenchido: pronto pra briefing' : n+' de '+ob.length+' preenchidos';
+  document.querySelectorAll('#ovMz .mzbloco').forEach(b=> b.classList.toggle('ok', b.dataset.bloco.split(' ').every(val)));
+  document.querySelectorAll('#ovMz .mzcampo').forEach(c=>{ const i=c.querySelector('input'); const tem = !!(i && i.value.trim()); if(inicial===true) c.classList.toggle('cheio', tem); else if(!tem) c.classList.remove('cheio'); });
+  document.querySelectorAll('#ovMz textarea').forEach(mzCresce);
+}
+function mzCresce(t){ t.style.height = 'auto'; t.style.height = Math.max(t.scrollHeight + 2, 38)+'px'; }
+document.getElementById('ovMz').addEventListener('input', ev=>{ if(ev.target.matches('[data-mz]')) mzProgresso_(); });
+document.querySelectorAll('#ovMz .mzver').forEach(b=> b.onclick = ev=>{ ev.preventDefault(); b.closest('.mzcampo').classList.remove('cheio'); });
 function mzMarcaChips(s){
   const tipo = $('#ovMz').dataset.tipo || '';
   const f = $('#mzFormato').value.trim(), a = $('#mzAngulo').value.trim();
@@ -3782,6 +3850,7 @@ function openMatriz(id){
   const eq = cfg.responsaveis.slice(); if(m.responsavel && !eq.includes(m.responsavel)) eq.push(m.responsavel);
   $('#mzResp').innerHTML = '<option value="">sem responsável</option>' + eq.map(n=>'<option>'+esc(n)+'</option>').join('');
   $('#mzResp').value = m.responsavel || '';
+  chipsDoSelect('#mzRespChips', '#mzResp', [{v:'', rot:'ninguém'}].concat(eq.map(n=>({v:n, rot:n}))), ()=>mzProgresso_());
   $('#mzStatus').innerHTML = cfg.status.map(n=>'<option>'+esc(n)+'</option>').join('');
   $('#mzStatus').value = mzStatus(s);
   $('#mzRegrasTxt').innerHTML = '<b>Regras da rotação</b><ol>'+cfg.regras.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ol><b>Antes de aprovar qualquer peça</b><ul>'+cfg.checklist.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>';
@@ -3798,6 +3867,7 @@ function openMatriz(id){
   const tr = $('#mzTrocar');
   if(tr){ tr.hidden = !(s.date && mzTipoDoDia(s.date).tipo); tr.onclick = ()=>{ MZ_TIPO_LIVRE = true; tr.hidden = true; mzDesenhaTipo(s, $('#ovMz').dataset.tipo); }; }
   $('#ovMz').classList.add('open');
+  requestAnimationFrame(()=>mzProgresso_(true));   // altura dos textos só dá pra medir com a janela aberta
   setTimeout(()=>{ const alvo = !tipo ? null : (!m.formato ? $('#mzFormato') : (!m.tema ? $('#mzTema') : null)); if(alvo) alvo.focus(); }, 60);
 }
 ['#mzFormato','#mzAngulo'].forEach(k=> $(k).addEventListener('input', ()=>{ const s=S.slots.find(x=>x.id===MZ_ATUAL); if(s) mzMarcaChips(s); }));
