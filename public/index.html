@@ -44,18 +44,52 @@
     --mz-ink:#FFE8A3; --mz-ink2:#FFE27A; --mz-vazio:rgba(255,226,122,.55); --vaga-ink:#FF8B8B; --vaga-obs:#FFC9C9; --sug-ink:#E3C4FF;
     --link:#6EA8FF; --code-bg:#0F0F0D; --thumb-bg:#101010; --art-bg:#0D0D0B;
   }
-  /* ---------- MODO CLARO (v3.68): mesma cara de marca, fundo claro. A cor de destaque da aba vem do aplicarTema. ---------- */
+  /* ---------- MODO CLARO (v3.69, refeito): limpo, cinza-claro neutro, folha branca, sombras suaves.
+     Sem as bordas pretas e sombras duras do escuro; a marca de cada aba entra só nos destaques. ---------- */
   html[data-modo="claro"]{
     --on-ink:#FFFFFF;
-    --surface:#FFFFFF; --surface-2:#F5F3EC; --ink:#1B1A16; --ink-2:#47453C; --ink-3:#77746A;
-    --hair:#D5D1C4; --hair-2:#E7E4DA; --stroke:#1B1A16;
-    --hard:4px 4px 0 rgba(27,26,22,.9); --hard-s:3px 3px 0 rgba(27,26,22,.9); --hard-c:6px 6px 0 rgba(27,26,22,.9);
-    --ok:#1E9E4F; --warn:#C47F00; --crit:#D93636; --info:#2563EB;
-    --dots:rgba(0,0,0,.055); --fds:#EFEDE5; --fora-borda:#DDD9CC; --drag-bg:#FFF4CC; --card-hover:#8E8A7E; --gm-borda:#D4AE2E;
-    --mz-ink:#5E4600; --mz-ink2:#7A5B00; --mz-vazio:rgba(94,70,0,.55); --vaga-ink:#C42525; --vaga-obs:#A83A3A; --sug-ink:#6B2FB3;
-    --link:#1D5BD6; --code-bg:#F2F0E8; --thumb-bg:#E8E5DB; --art-bg:#ECEAE2;
+    --surface:#FFFFFF; --surface-2:#FAFAF8; --ink:#18181B; --ink-2:#3F3F46; --ink-3:#71717A;
+    --hair:#E2E2DE; --hair-2:#ECECE8; --stroke:#D6D6D1; --bw:1px;
+    --hard:0 1px 2px rgba(24,24,27,.06), 0 6px 16px rgba(24,24,27,.08);
+    --hard-s:0 1px 2px rgba(24,24,27,.08), 0 2px 8px rgba(24,24,27,.06);
+    --hard-c:0 2px 6px rgba(24,24,27,.06), 0 18px 44px rgba(24,24,27,.16);
+    --ok:#16A34A; --warn:#D97706; --crit:#DC2626; --info:#2563EB;
+    --dots:transparent; --fds:#F5F5F2; --fora-borda:#E4E4E0; --drag-bg:#FFF8DB; --card-hover:#C9C9C3; --gm-borda:#E8C45A;
+    --mz-ink:#5B4300; --mz-ink2:#7A5A00; --mz-vazio:rgba(91,67,0,.5); --vaga-ink:#B91C1C; --vaga-obs:#9F2A2A; --sug-ink:#6D28D9;
+    --link:#1D4ED8; --code-bg:#F4F4F1; --thumb-bg:#EDEDEA; --art-bg:#F1F1EE;
   }
-  *{box-sizing:border-box; margin:0}
+  html[data-modo="claro"] body{background-image:none}
+  html[data-modo="claro"] header{border-bottom:1px solid var(--hair); box-shadow:0 1px 0 rgba(255,255,255,.6)}
+  html[data-modo="claro"] .tab{background:var(--surface); border-color:var(--hair)}
+  html[data-modo="claro"] .tab.on{border-color:transparent; box-shadow:0 1px 2px rgba(24,24,27,.1), 0 4px 12px rgba(24,24,27,.12)}
+  html[data-modo="claro"] .tab.on .n{color:inherit; background:color-mix(in srgb, currentColor 18%, transparent)}
+  html[data-modo="claro"] .tab.on:active{box-shadow:0 1px 2px rgba(24,24,27,.12)}
+  html[data-modo="claro"] .day{background:var(--surface-2); border:1px solid var(--hair-2)}
+  html[data-modo="claro"] .day.hoje{border:2px solid var(--sb)}
+  html[data-modo="claro"] .day.fora{background:transparent}
+  html[data-modo="claro"] .card{border:1px solid var(--hair); box-shadow:0 1px 2px rgba(24,24,27,.05)}
+  html[data-modo="claro"] .card:hover{box-shadow:0 2px 4px rgba(24,24,27,.06), 0 8px 18px rgba(24,24,27,.1); transform:translateY(-1px)}
+  html[data-modo="claro"] .card.mz{background:#FFFBEB; border:1.5px dashed #E6BE3E !important}
+  html[data-modo="claro"] .card.mz:hover{border-style:solid !important; border-color:#E0AE00 !important; box-shadow:0 6px 16px rgba(180,140,0,.18)}
+  html[data-modo="claro"] .card.mz .mzbar{background:rgba(224,174,0,.18)}
+  html[data-modo="claro"] .card.postado{background:#F2FBF5; border-color:#BFE6CC}
+  html[data-modo="claro"] .avatar{background:#F1F1EE; border-color:var(--hair)}
+  html[data-modo="claro"] .mescab{box-shadow:0 10px 14px -8px var(--page)}
+  html[data-modo="claro"] .ov{background:rgba(24,24,27,.38); backdrop-filter:blur(2px)}
+  html[data-modo="claro"] .modal{border:1px solid var(--hair)}
+  html[data-modo="claro"] .mbtn.primary{background:#18181B; color:#fff; border-color:#18181B}
+  html[data-modo="claro"] .vtoggle button.on{box-shadow:0 1px 2px rgba(24,24,27,.2)}
+  html[data-modo="claro"] :is(.mbtn.mzcopy,.echip.on,.mzopc button.on,.mzsug.on,.eopc.mz .eic,.mzbloco.ok .mzbn,.mzgm,.mzprog.cheio){border-color:#D9A800}
+  html[data-modo="claro"] :is(.mbtn.mzcopytop,.echip.on,.mzopc button.on,.mzsug.on,.pcheck,.dcl:hover,.eopc:hover,.pf-ico.on,.pf-preview .pdot,.pf-pvnome){box-shadow:0 1px 2px rgba(24,24,27,.12), 0 4px 10px rgba(24,24,27,.08)}
+  html[data-modo="claro"] :is(.vagapop,.aplic,.aplicar-btn:hover,.pfcard,.pf-input:hover,.pf-input:focus,.pf-salvar:hover){box-shadow:var(--hard-c)}
+  html[data-modo="claro"] .b3d-top{border-color:rgba(0,0,0,.18)}
+  html[data-modo="claro"] .b3d-bottom{border-color:rgba(0,0,0,.18); background:linear-gradient(rgba(0,0,0,.22), rgba(0,0,0,.22)), var(--sb)}
+  html[data-modo="claro"] .b3d-base{background:rgba(0,0,0,.14)}
+  html[data-modo="claro"] .mzhead,html[data-modo="claro"] .mzprogw{background:linear-gradient(90deg, rgba(252,193,0,.14), rgba(252,193,0,0) 65%)}
+  html[data-modo="claro"] .mzbloco{background:var(--surface-2)}
+  html[data-modo="claro"] .mzpede .cta{background:#FFF8DB; border-color:#E6BE3E}
+  html[data-modo="claro"] .infopop{border:1px solid var(--hair)}
+  html[data-modo="claro"] .toast{box-shadow:var(--hard-c)}  *{box-sizing:border-box; margin:0}
   html{color-scheme:dark}
   html[data-modo="claro"]{color-scheme:light}
   /* min-height, NÃO height: com height:100% o body vira uma caixa de exatamente uma tela,
@@ -789,6 +823,8 @@
   .infopop .ipx{color:var(--ink-3); font-size:13px; padding:2px 7px; border-radius:5px}
   .infopop .ipx:hover{background:var(--hair-2); color:var(--ink)}
   .infopop p{margin:0 0 8px; color:var(--ink-2)}
+  .infopop .ipk{font-size:10.5px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--sb-ink); margin:-2px 0 4px}
+  .infopop .ipd{font-size:11.5px; color:var(--ink-3); margin:2px 0 2px}
   .infopop .ipl{list-style:none; margin:2px 0 6px; padding:0; display:grid; gap:5px}
   .infopop .ipl li{padding:5px 8px; border-radius:6px; border:1px solid var(--hair); color:var(--ink-2); font-size:12.5px}
   .infopop .ipl li b{color:var(--ink)}
@@ -919,13 +955,20 @@
   .mzgm{margin-top:8px; font-size:12px; font-weight:800; color:#000; background:#FCC100; border:1.5px solid #000; border-radius:6px; padding:5px 9px; display:inline-block}
   .mzaberto{border:2px dashed #FCC100; border-radius:8px; padding:10px 12px; background:rgba(252,193,0,.06)}
   .mzaberto .mzopc{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px}
-  .mzopc button,.mzchips button{font-family:inherit; cursor:pointer; border:1.5px solid var(--hair); background:var(--surface-2); color:var(--ink-2);
+  .mzopc button,.mzchips .mzsb{font-family:inherit; cursor:pointer; border:1.5px solid var(--hair); background:var(--surface-2); color:var(--ink-2);
     border-radius:6px; font-size:11.5px; font-weight:700; padding:5px 9px; text-align:left; transition:transform .18s cubic-bezier(.34,1.56,.64,1), border-color .15s}
-  .mzopc button:hover,.mzchips button:hover{border-color:#FCC100; color:var(--ink); transform:translateY(-1px)}
-  .mzopc button.on,.mzchips button.on{background:#FCC100; color:#000; border-color:#000; box-shadow:2px 2px 0 #000}
+  .mzopc button:hover,.mzchips .mzsb:hover{border-color:#FCC100; color:var(--ink); transform:translateY(-1px)}
+  .mzopc button.on{background:#FCC100; color:#000; border-color:#000; box-shadow:2px 2px 0 #000}
   .mzopc button.on{font-weight:800}
   .mzchips{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
-  .mzchips button.usado{text-decoration:line-through; opacity:.6}
+  /* sugestão = nome (usa) + (i) (explica), numa pílula só */
+  .mzsug{display:inline-flex; align-items:center; border:1.5px solid var(--hair); background:var(--surface-2); border-radius:6px; padding-right:3px; transition:border-color .15s, transform .18s}
+  .mzsug:hover{border-color:#FCC100}
+  .mzsug .mzsb{border:0 !important; background:transparent !important; padding:5px 4px 5px 9px !important; transform:none !important}
+  .mzsug .ib{margin-left:1px; width:18px; height:18px}
+  .mzsug.on{background:#FCC100; border-color:#000; box-shadow:2px 2px 0 #000}
+  .mzsug.on .mzsb,.mzsug.on .ib{color:#000}
+  .mzsug.usado .mzsb{text-decoration:line-through; opacity:.6}
 
   .mzsec{font-size:10.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#FCC100; margin:4px 0 -4px}
   .mzaviso{font-size:11.5px; font-weight:700; color:var(--warn); margin-top:5px}
@@ -1528,7 +1571,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.68'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.69'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1612,10 +1655,10 @@ const TEMAS = {
 // modo claro: mesma marca por aba, fundo claro. ink = destaque usado como TEXTO (amarelo puro não se lê no branco);
 // on = cor do texto em cima do destaque (a Carbone clara vira preto com texto branco).
 const TEMAS_CLARO = {
-  'SEUBONÉ': { sb:'#FCC100', ink:'#8A6400', on:'#000',  page:'#F7F4EA' },
-  'CARBONE': { sb:'#1B1B18', ink:'#1B1B18', on:'#FFF',  page:'#F2F2F0' },
-  'ONEVO':   { sb:'#0AFFA3', ink:'#06815A', on:'#000',  page:'#EDF6F1' },
-  'WEEVO':   { sb:'#177D81', ink:'#12676A', on:'#FFF',  page:'#EDF4F4' },
+  'SEUBONÉ': { sb:'#FCC100', ink:'#8A6400', on:'#000',  page:'#F1F1EE' },
+  'CARBONE': { sb:'#18181B', ink:'#18181B', on:'#FFF',  page:'#F1F1F1' },
+  'ONEVO':   { sb:'#12D98D', ink:'#067A51', on:'#000',  page:'#EEF3F1' },
+  'WEEVO':   { sb:'#177D81', ink:'#12676A', on:'#FFF',  page:'#EEF2F3' },
 };
 function modoClaro(){ return document.documentElement.getAttribute('data-modo') === 'claro'; }
 function aplicarTema(aba){
@@ -1629,7 +1672,7 @@ function trocarModo(){
   const claro = !modoClaro();
   if(claro) document.documentElement.setAttribute('data-modo', 'claro'); else document.documentElement.removeAttribute('data-modo');
   try{ localStorage.setItem('bone.modo', claro ? 'claro' : 'escuro'); }catch(e){}
-  aplicarTema(S.aba); desenhaBotaoModo();
+  aplicarTema(S.aba); desenhaBotaoModo(); render();
 }
 function desenhaBotaoModo(){ const b = document.getElementById('btnModo'); if(!b) return; b.innerHTML = icon(modoClaro() ? 'lua' : 'sol'); b.dataset.tip = modoClaro() ? 'voltar pro modo escuro' : 'modo claro'; }
 function hojeStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -2094,7 +2137,7 @@ function renderTabs(){
     const b = document.createElement('button');
     b.className = 'tab'+(S.aba===aba?' on':'');
     const cor = contas.length===1 ? contaCor(contas[0]) : contaCor(contas[0]);
-    if(S.aba===aba){ b.style.background = cor; }
+    if(S.aba===aba){ b.style.background = modoClaro() ? 'var(--sb)' : cor; if(modoClaro()) b.style.color = 'var(--on-sb)'; }
     b.innerHTML = esc(aba) + ' <span class="n">'+n+'</span>';
     b.onclick = ()=> irParaAba(aba);
     el.appendChild(b);
@@ -3758,9 +3801,16 @@ function abreInfo(btn){
     const t = mzCfg().tipos[v]; tit = v;
     corpo = '<p>'+esc(t ? t.oQueE : '')+'</p>'+(t ? '<ul class="ipl"><li><b>Quando</b>: '+esc(t.quando)+'</li><li><b>Objetivo</b>: '+esc(t.objetivo)+' · <b>CTA</b>: '+esc(t.cta)+'</li></ul>' : '')+
       (g.campos.tipo ? '<p>'+esc(g.campos.tipo.txt)+'</p>' : '');
+  } else if(k.startsWith('sug:')){
+    const qual = k.slice(4), txt = ((g.sugestoes||{})[qual]||{})[v];
+    tit = v; corpo = '<p class="ipk">Sugestão de '+(qual==='formato'?'formato':'ângulo')+'</p><p>'+esc(txt || 'Sem explicação cadastrada ainda.')+'</p><p class="ipd">Clique no nome da sugestão pra usar ela no campo.</p>';
   } else {
     const c = g.campos[k]; if(!c) return;
     tit = c.tit; corpo = '<p>'+esc(c.txt)+'</p>';
+    // formato/ângulo: se o que está escrito é uma das sugestões, explica ela também
+    const atual = (k==='formato' || k==='angulo') ? (document.querySelector('#ovMz [data-mz="'+k+'"]')||{}).value : '';
+    const exp = atual && ((g.sugestoes||{})[k]||{})[atual.trim()];
+    if(exp) corpo += '<ul class="ipl"><li class="atual"><b>'+esc(atual.trim())+'</b>: '+esc(exp)+'</li></ul>';
     const vals = g.valores[k];
     if(vals && (v || btn.dataset.lista)) corpo += '<ul class="ipl">'+Object.entries(vals).map(([nome, txt])=>'<li'+(nome===v?' class="atual"':'')+'><b>'+esc(nome)+'</b>: '+esc(txt)+'</li>').join('')+'</ul>';
   }
@@ -3913,12 +3963,13 @@ function mzDesenhaTipo(s, tipo){
     $('#mzOpc').querySelectorAll('button').forEach(b=> b.onclick = ()=>{ $('#ovMz').dataset.tipo = b.dataset.t; mzDesenhaTipo(s, b.dataset.t); });
   }
   // chips de formato e ângulo do tipo
-  const chips = (el, lista, input)=>{
-    el.innerHTML = (lista||[]).map(o=>'<button type="button">'+esc(o)+'</button>').join('');
-    el.querySelectorAll('button').forEach(b=> b.onclick = ()=>{ input.value = b.textContent; mzMarcaChips(s); mzProgresso_(); const c = el.closest('.mzcampo'); c.classList.remove('aberto'); mzRotuloSug(c); input.focus(); });
+  // cada sugestão tem o nome (clique usa) e o (i) do lado (clique explica)
+  const chips = (el, lista, input, qual)=>{
+    el.innerHTML = (lista||[]).map(o=>'<span class="mzsug"><button type="button" class="mzsb">'+esc(o)+'</button>'+infoBtn('sug:'+qual, o)+'</span>').join('');
+    el.querySelectorAll('.mzsb').forEach(b=> b.onclick = ()=>{ input.value = b.textContent; mzMarcaChips(s); mzProgresso_(); const c = el.closest('.mzcampo'); c.classList.remove('aberto'); mzRotuloSug(c); input.focus(); });
   };
-  chips($('#mzFormatos'), t && t.formatos, $('#mzFormato'));
-  chips($('#mzAngulos'), t && t.angulos, $('#mzAngulo'));
+  chips($('#mzFormatos'), t && t.formatos, $('#mzFormato'), 'formato');
+  chips($('#mzAngulos'), t && t.angulos, $('#mzAngulo'), 'angulo');
   // sugestões começam recolhidas; o botão diz quantas tem
   document.querySelectorAll('#ovMz .mzcampo').forEach(c=>{ c.classList.remove('aberto'); mzRotuloSug(c); });
   mzMarcaChips(s);
@@ -3935,13 +3986,13 @@ function mzProgresso_(){
 }
 function mzCresce(t){ t.style.height = 'auto'; t.style.height = Math.max(t.scrollHeight + 2, 38)+'px'; }
 document.getElementById('ovMz').addEventListener('input', ev=>{ if(ev.target.matches('[data-mz]')) mzProgresso_(); });
-function mzRotuloSug(c){ const n = c.querySelectorAll('.mzchips button').length; const b = c.querySelector('.mzver'); b.hidden = !n; b.textContent = c.classList.contains('aberto') ? 'esconder sugestões ▴' : 'ver sugestões ('+n+') ▾'; }
+function mzRotuloSug(c){ const n = c.querySelectorAll('.mzchips .mzsb').length; const b = c.querySelector('.mzver'); b.hidden = !n; b.textContent = c.classList.contains('aberto') ? 'esconder sugestões ▴' : 'ver sugestões ('+n+') ▾'; }
 document.querySelectorAll('#ovMz .mzver').forEach(b=> b.onclick = ev=>{ ev.preventDefault(); const c = b.closest('.mzcampo'); c.classList.toggle('aberto'); mzRotuloSug(c); });
 function mzMarcaChips(s){
   const tipo = $('#ovMz').dataset.tipo || '';
   const f = $('#mzFormato').value.trim(), a = $('#mzAngulo').value.trim();
-  $('#mzFormatos').querySelectorAll('button').forEach(b=>{ b.classList.toggle('on', b.textContent===f); b.classList.toggle('usado', !!mzFormatoRepetido(s, tipo, b.textContent)); });
-  $('#mzAngulos').querySelectorAll('button').forEach(b=> b.classList.toggle('on', b.textContent===a));
+  $('#mzFormatos').querySelectorAll('.mzsb').forEach(b=>{ b.parentNode.classList.toggle('on', b.textContent===f); b.parentNode.classList.toggle('usado', !!mzFormatoRepetido(s, tipo, b.textContent)); });
+  $('#mzAngulos').querySelectorAll('.mzsb').forEach(b=> b.parentNode.classList.toggle('on', b.textContent===a));
   const rep = mzFormatoRepetido(s, tipo, f);
   $('#mzAvisoFmt').textContent = rep ? 'Esse formato já está no '+tipo+' de '+brData(rep.date).slice(0,5)+'. A regra é não repetir o formato do mesmo tipo em semanas seguidas (nem 2 Produtos iguais na semana).' : '';
 }

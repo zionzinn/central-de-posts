@@ -1489,7 +1489,7 @@ function montaLateral(){
     if(t) h += '<div class="sb-sub">'+esc(t.oQueE||'')+(t.objetivo?' Objetivo: '+esc(t.objetivo)+'.':'')+'</div>';
     h += '<div class="sb-sec">Preenchido na matriz</div>';
     [['Formato','formato'],['Pauta quente','pautaQuente'],['Ângulo','angulo'],['Tema','tema'],['Tese em uma frase','tese'],['Gancho','gancho'],['Descrição (o que fazer)','descricao'],['Refs visuais / inserts','refs',1],['Responsável','responsavel'],['Status','status'],['Observações','obs']]
-      .forEach(([l,k,ln])=> h += row(l, m[k]||'', ln, k, k==='status' ? (m[k]||'') : ''));
+      .forEach(([l,k,ln])=> h += row(l, m[k]||'', ln, k, (k==='status' || k==='formato' || k==='angulo') ? (m[k]||'') : ''));
     if(t){ h += '<div class="sb-sec">Vem do tipo (não muda)</div>'; [['Objetivo','objetivo'],['Etapa do funil','funil'],['Nível de consciência','consciencia'],['Emoção','emocao'],['CTA','cta'],['Métrica principal','metrica1'],['Métrica secundária','metrica2']].forEach(([l,k])=> h += row(l, t[k]||'', 0, k, t[k]||'')); }
     if(D.checklistMatriz && D.checklistMatriz.length){ h += '<div class="sb-sec">Checklist antes de entregar</div>'; D.checklistMatriz.forEach((c,i)=> h += '<label class="sb-chk'+(CHK[i]?' ok':'')+'"><input type="checkbox" data-i="'+i+'"'+(CHK[i]?' checked':'')+(LEITURA?' disabled':'')+'><span>'+esc(c)+'</span></label>'); }
     if(D.regras && D.regras.length) h += '<div class="sb-sec">Regras da matriz</div><ol class="sb-list">'+D.regras.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ol>';
@@ -1514,7 +1514,8 @@ function abreInfo(btn){
   const g = (D && D.glossario) || {campos:{}, valores:{}}; const k = btn.dataset.info, v = btn.dataset.valor || '';
   let tit = '', corpo = '';
   if(k === 'tipoAtual'){ tit = v; corpo = '<p>'+esc(D.tipo ? D.tipo.oQueE : '')+'</p>'+(D.tipo ? '<ul><li><b>Quando</b>: '+esc(D.tipo.quando)+'</li></ul>' : '')+(g.campos.tipo ? '<p>'+esc(g.campos.tipo.txt)+'</p>' : ''); }
-  else { const c = g.campos[k]; if(!c) return; tit = c.tit; corpo = '<p>'+esc(c.txt)+'</p>'; const vals = g.valores[k]; if(vals && v) corpo += '<ul>'+Object.entries(vals).map(([n,t])=>'<li'+(n===v?' class="atual"':'')+'><b>'+esc(n)+'</b>: '+esc(t)+'</li>').join('')+'</ul>'; }
+  else { const c = g.campos[k]; if(!c) return; tit = c.tit; corpo = '<p>'+esc(c.txt)+'</p>'; const vals = g.valores[k]; if(vals && v) corpo += '<ul>'+Object.entries(vals).map(([n,t])=>'<li'+(n===v?' class="atual"':'')+'><b>'+esc(n)+'</b>: '+esc(t)+'</li>').join('')+'</ul>';
+    const sug = v && ((g.sugestoes||{})[k]||{})[v.trim()]; if(sug) corpo += '<ul><li class="atual"><b>'+esc(v.trim())+'</b>: '+esc(sug)+'</li></ul>'; }
   const pop = document.createElement('div'); pop.id = 'infoPop'; pop.className = 'gd-info';
   pop.innerHTML = '<div class="gi-h">'+IC_INFO+'<b>'+esc(tit)+'</b><button type="button" class="gi-x" aria-label="fechar">'+ic('x')+'</button></div>'+corpo;
   document.body.appendChild(pop);
