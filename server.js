@@ -18,7 +18,7 @@ const { Readable, pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.70'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.71'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -46,20 +46,53 @@ if (!db.matrizSBGeradas || typeof db.matrizSBGeradas !== 'object' || Array.isArr
 // cadência automática de GM (grande marca na capa) — só SeuBoné. ancora null = desligado até configurar.
 if (!db.gmCadencia || typeof db.gmCadencia !== 'object' || Array.isArray(db.gmCadencia))
   db.gmCadencia = { ativo: false, ancora: null, periodo: 3 };
-let saveTimer = null;
+/**
+ * Grava um arquivo sem nunca deixar ele pela metade (v3.71, pedido do Klenio pra VPS):
+ * escreve num .tmp ao lado, força o conteúdo pro disco (fsync), troca pelo nome certo (rename,
+ * que é atômico no mesmo disco) e força a pasta pro disco também. Se o processo ou a máquina cair
+ * no meio, sobra o arquivo antigo inteiro ou o novo inteiro, nunca um pedaço.
+ */
+function gravaAtomico(arquivo, texto) {
+  const tmp = arquivo + '.tmp';
+  const fd = fs.openSync(tmp, 'w');
+  try { fs.writeFileSync(fd, texto); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  fs.renameSync(tmp, arquivo);
+  try { const d = fs.openSync(path.dirname(arquivo), 'r'); try { fs.fsyncSync(d); } finally { fs.closeSync(d); } } catch { /* Windows não abre pasta: tudo bem */ }
+}
+let saveTimer = null, savePendente = false;
+/** Grava o banco AGORA se houver algo pendente. Se o disco falhar, não derruba o servidor: tenta de novo em 5 s. */
+function gravarAgora() {
+  clearTimeout(saveTimer); saveTimer = null;
+  if (!savePendente) return true;
+  try {
+    gravaAtomico(DATA_FILE, JSON.stringify(db, null, 2));
+    savePendente = false;
+    return true;
+  } catch (e) {
+    console.error('[gravação] não consegui salvar o data.json:', e.message, '· tento de novo em 5 s (os dados seguem na memória)');
+    saveTimer = setTimeout(gravarAgora, 5000);
+    return false;
+  }
+}
 function saveDb() {
+  savePendente = true;
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    const tmp = DATA_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
-    fs.renameSync(tmp, DATA_FILE);
-  }, 150);
+  saveTimer = setTimeout(gravarAgora, 150);
+}
+// Desligou (deploy novo, docker stop, Ctrl+C): grava o que estiver pendente antes de sair.
+// Rodando direto (node server.js, como na VPS) o servidor sai sozinho. Rodando pelo start.js, só grava
+// e deixa o start.js mandar pro GitHub e encerrar (o handler dele roda depois deste).
+for (const sinal of ['SIGTERM', 'SIGINT']) {
+  process.on(sinal, () => {
+    gravarAgora();
+    if (require.main === module) { console.log('[' + sinal + '] dados gravados, encerrando.'); process.exit(0); }
+  });
 }
 
 function loadConfig() {
   try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch { return {}; }
 }
-function saveConfig(cfg) { fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2)); }
+function saveConfig(cfg) { gravaAtomico(CONFIG_FILE, JSON.stringify(cfg, null, 2)); }
 let config = loadConfig();
 // nuvem: variáveis de ambiente sobrepõem o config.json (token/senha/secret sem ficar em arquivo)
 if (process.env.CU_TOKEN) config.token = String(process.env.CU_TOKEN).trim();
