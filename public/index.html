@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>B.O.N.E · Grupo SB</title>
+<!-- modo claro/escuro escolhido neste computador: aplica antes de desenhar, pra não piscar escuro -->
+<script>try{ if(localStorage.getItem('bone.modo')==='claro') document.documentElement.setAttribute('data-modo','claro'); }catch(e){}</script>
 <!-- Ícone da aba: calendário na cor da marca, embutido como PNG em base64. Vai dentro do
      próprio index.html de propósito, pra não depender de um arquivo extra que possa
      ficar pra trás quando o painel é copiado pra pasta da nuvem. -->
@@ -36,9 +38,26 @@
     --shadow:var(--hard-s);
     --shadow-2:var(--hard-c);
     --t:.14s cubic-bezier(.2,.8,.3,1);
+    /* v3.68: cores que mudam no modo claro */
+    --sb-ink:var(--sb); --on-sb:#000; --on-ink:#000;
+    --dots:rgba(255,255,255,.028); --fds:#131311; --fora-borda:#1D1D18; --drag-bg:#1E1E19; --card-hover:#4A493F; --gm-borda:#5b4a17;
+    --mz-ink:#FFE8A3; --mz-ink2:#FFE27A; --mz-vazio:rgba(255,226,122,.55); --vaga-ink:#FF8B8B; --vaga-obs:#FFC9C9; --sug-ink:#E3C4FF;
+    --link:#6EA8FF; --code-bg:#0F0F0D; --thumb-bg:#101010; --art-bg:#0D0D0B;
+  }
+  /* ---------- MODO CLARO (v3.68): mesma cara de marca, fundo claro. A cor de destaque da aba vem do aplicarTema. ---------- */
+  html[data-modo="claro"]{
+    --on-ink:#FFFFFF;
+    --surface:#FFFFFF; --surface-2:#F5F3EC; --ink:#1B1A16; --ink-2:#47453C; --ink-3:#77746A;
+    --hair:#D5D1C4; --hair-2:#E7E4DA; --stroke:#1B1A16;
+    --hard:4px 4px 0 rgba(27,26,22,.9); --hard-s:3px 3px 0 rgba(27,26,22,.9); --hard-c:6px 6px 0 rgba(27,26,22,.9);
+    --ok:#1E9E4F; --warn:#C47F00; --crit:#D93636; --info:#2563EB;
+    --dots:rgba(0,0,0,.055); --fds:#EFEDE5; --fora-borda:#DDD9CC; --drag-bg:#FFF4CC; --card-hover:#8E8A7E; --gm-borda:#D4AE2E;
+    --mz-ink:#5E4600; --mz-ink2:#7A5B00; --mz-vazio:rgba(94,70,0,.55); --vaga-ink:#C42525; --vaga-obs:#A83A3A; --sug-ink:#6B2FB3;
+    --link:#1D5BD6; --code-bg:#F2F0E8; --thumb-bg:#E8E5DB; --art-bg:#ECEAE2;
   }
   *{box-sizing:border-box; margin:0}
   html{color-scheme:dark}
+  html[data-modo="claro"]{color-scheme:light}
   /* min-height, NÃO height: com height:100% o body vira uma caixa de exatamente uma tela,
      e o cabeçalho grudento só gruda dentro dela. Passando disso ele descolava e sumia.
      Só apareceu agora porque a página do fluxo contínuo é muito mais alta que uma tela. */
@@ -46,14 +65,14 @@
   body{
     font-family:"Space Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     background:var(--page); color:var(--ink); font-size:14px;
-    background-image:radial-gradient(rgba(255,255,255,.028) 1px, transparent 1px);
+    background-image:radial-gradient(var(--dots) 1px, transparent 1px);
     background-size:22px 22px;
     transition:background-color .45s ease;
   }
   button{font:inherit; cursor:pointer; border:none; background:none; color:inherit}
   input,select,textarea{font:inherit; color:inherit}
   a{color:inherit}
-  ::selection{background:var(--sb); color:#000}
+  ::selection{background:var(--sb); color:var(--on-sb)}
 
   .ic{width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2.4;
     stroke-linecap:round; stroke-linejoin:round; display:block; flex:none}
@@ -61,7 +80,7 @@
   [data-tip]{position:relative}
   [data-tip]:hover::after{
     content:attr(data-tip); position:absolute; bottom:calc(100% + 9px); left:50%;
-    transform:translateX(-50%); background:var(--ink); color:#000;
+    transform:translateX(-50%); background:var(--ink); color:var(--on-ink);
     border:2px solid var(--stroke); box-shadow:var(--hard-s); border-radius:6px;
     padding:4px 9px; font-size:11px; font-weight:700; white-space:nowrap; z-index:120;
     pointer-events:none; animation:tipin .12s ease both;
@@ -81,7 +100,7 @@
   .topright{flex:1 1 0; display:flex; align-items:center; justify-content:flex-end; gap:10px; min-width:110px}
   .brand .logo{width:30px; height:30px; background:var(--sb); border:var(--bw) solid var(--stroke);
     border-radius:7px; box-shadow:var(--hard-s); display:flex; align-items:center; justify-content:center;
-    color:#000; font-weight:800; font-size:15px; transform:rotate(-4deg);
+    color:var(--on-sb); font-weight:800; font-size:15px; transform:rotate(-4deg);
     transition:transform .3s cubic-bezier(.34,1.56,.64,1), background-color .45s ease}
   .brand:hover .logo{transform:rotate(5deg) scale(1.1)}
   .brand .bname{display:flex; flex-direction:column; line-height:1.05; min-width:0; overflow:hidden}
@@ -131,10 +150,10 @@
   .b3d-top{
     position:absolute; z-index:2; left:0; top:0; width:36px; height:28px;
     display:flex; align-items:center; justify-content:center;
-    background:var(--sb); color:#000; border:2px solid var(--stroke); border-radius:8px;
+    background:var(--sb); color:var(--on-sb); border:2px solid var(--stroke); border-radius:8px;
     transition:transform .1s ease, filter .12s, background-color .45s ease;
   }
-  .b3d-top .ic{width:15px; height:15px; stroke:#000; stroke-width:2.4}
+  .b3d-top .ic{width:15px; height:15px; stroke:var(--on-sb); stroke-width:2.4}
   .b3d-bottom{
     position:absolute; z-index:1; left:0; top:5px; width:36px; height:28px; border-radius:8px;
     background:linear-gradient(rgba(0,0,0,.48), rgba(0,0,0,.48)), var(--sb);
@@ -175,7 +194,7 @@
   /* ---- botão de silenciar avisos: sino tocando (marca) / sino cortado (mudo) ----
      mecânica: checkbox invisível por cima controla o estado via :has(); o sino balança ao voltar a tocar */
   .mute{position:relative; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    cursor:pointer; border:var(--bw) solid var(--stroke); background:var(--sb); color:#000; box-shadow:var(--hard-s);
+    cursor:pointer; border:var(--bw) solid var(--stroke); background:var(--sb); color:var(--on-sb); box-shadow:var(--hard-s);
     transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .18s, background-color .3s, border-color .3s, color .3s}
   .mute:hover{transform:translateY(-2px) scale(1.06); box-shadow:var(--hard)}
   .mute:active{transform:scale(.9); box-shadow:none}
@@ -201,7 +220,7 @@
   .pdot:first-child{margin-left:0}
   .pdot:hover{transform:translateY(-2px) scale(1.12); z-index:2}
   .pdot.fora{opacity:.5}
-  .pdot .pd-tip{position:absolute; top:calc(100% + 7px); right:0; background:var(--ink); color:#000; font-size:10.5px;
+  .pdot .pd-tip{position:absolute; top:calc(100% + 7px); right:0; background:var(--ink); color:var(--on-ink); font-size:10.5px;
     font-weight:700; white-space:nowrap; padding:3px 8px; border-radius:6px; box-shadow:var(--hard-s); opacity:0; pointer-events:none;
     transform:translateY(-3px); transition:opacity .15s, transform .15s}
   .pdot{position:relative}
@@ -243,13 +262,13 @@
   .chip:hover{border-color:var(--ink-3); transform:translateY(-1px)}
   .chip .dot{width:9px; height:9px; border-radius:2px; border:1.5px solid rgba(0,0,0,.55)}
   .chip.off{opacity:.32}
-  .chip.gmchip{border-color:#5b4a17; color:var(--sb); cursor:default}
+  .chip.gmchip{border-color:var(--gm-borda); color:var(--sb-ink); cursor:default}
   .hint{font-size:11px; color:var(--ink-3); margin-left:auto; font-weight:500}
   select.filtro{border:1.5px solid var(--hair); background:var(--surface); border-radius:6px;
     padding:4px 10px; font-size:11.5px; font-weight:700; color:var(--ink-2); cursor:pointer;
     transition:border-color var(--t)}
   select.filtro:hover{border-color:var(--ink-3)}
-  select.filtro.on{border-color:var(--sb); color:var(--sb)}
+  select.filtro.on{border-color:var(--sb); color:var(--sb-ink)}
 
   /* ---------- gavetas ---------- */
   .drawer{position:fixed; top:0; right:0; bottom:0; width:344px; z-index:55; background:var(--surface-2);
@@ -291,19 +310,19 @@
   .refform input{border:1.5px solid var(--hair); border-radius:6px; background:var(--surface); padding:8px 10px; font-size:12px; width:100%; transition:border-color var(--t)}
   .refform input:focus{outline:none; border-color:var(--sb)}
   .refform .rfrow{display:flex; gap:6px}
-  .refform .rfbtn{flex:1; border:var(--bw) solid var(--stroke); background:var(--sb); color:#000; font-weight:800; font-size:12px; border-radius:6px; padding:7px 0;
+  .refform .rfbtn{flex:1; border:var(--bw) solid var(--stroke); background:var(--sb); color:var(--on-sb); font-weight:800; font-size:12px; border-radius:6px; padding:7px 0;
     box-shadow:var(--hard-s); transition:transform var(--t), box-shadow var(--t)}
   .refform .rfbtn:hover{transform:translate(-1px,-1px); box-shadow:var(--hard)}
   .refform .rfbtn:active{transform:translate(2px,2px); box-shadow:none}
   .refform .rfcancel{border:1.5px solid var(--hair); background:var(--surface); color:var(--ink-3); font-size:12px; border-radius:6px; padding:7px 10px}
   .novobanco{width:100%; border:2px dashed var(--hair); border-radius:6px; padding:8px 0; font-size:11.5px; font-weight:700; color:var(--ink-2); background:transparent; margin-bottom:3px;
     transition:border-color var(--t), color var(--t)}
-  .novobanco:hover{border-color:var(--sb); color:var(--sb)}
+  .novobanco:hover{border-color:var(--sb); color:var(--sb-ink)}
   .pchips{display:flex; gap:6px; flex-wrap:wrap; padding:11px 12px 0}
   .pchips button{border:1.5px solid var(--hair); background:var(--surface); border-radius:6px; padding:5px 12px; font-size:11.5px; font-weight:700; color:var(--ink-3);
     transition:all var(--t)}
   .pchips button:hover{border-color:var(--ink-3); color:var(--ink)}
-  .pchips button.on{background:var(--ink); color:#000; border-color:var(--stroke); box-shadow:var(--hard-s)}
+  .pchips button.on{background:var(--ink); color:var(--on-ink); border-color:var(--stroke); box-shadow:var(--hard-s)}
   .pitem{display:flex; gap:9px; align-items:flex-start; border:1.5px solid var(--hair); border-radius:var(--radius-s); background:var(--surface); padding:9px; cursor:pointer;
     transition:transform var(--t), box-shadow var(--t), border-color var(--t)}
   .pitem:hover{transform:translate(-1px,-1px); box-shadow:var(--hard-s); border-color:var(--ink-3)}
@@ -317,15 +336,15 @@
   /* ---------- semanas ---------- */
   .vtoggle{display:flex; gap:0; background:var(--surface); border:var(--bw) solid var(--hair); border-radius:var(--radius-s); padding:3px}
   .vtoggle button{padding:4px 14px; border-radius:5px; font-size:12px; font-weight:800; color:var(--ink-3); transition:all var(--t)}
-  .vtoggle button.on{background:var(--ink); color:#000; box-shadow:2px 2px 0 rgba(0,0,0,.7)}
+  .vtoggle button.on{background:var(--ink); color:var(--on-ink); box-shadow:2px 2px 0 rgba(0,0,0,.7)}
   .grid.withwk,.dows.withwk{grid-template-columns:50px repeat(7,1fr)}
   .dows.withwk::before{content:""}
   .wklabel{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
     border:1.5px dashed var(--hair); border-radius:var(--radius-s); background:transparent; color:var(--ink-3);
     font-size:8px; font-weight:800; letter-spacing:.12em; cursor:pointer; transition:all var(--t)}
   .wklabel b{font-size:16px; color:var(--ink-2); font-weight:800}
-  .wklabel:hover{border-color:var(--sb); border-style:solid; color:var(--sb)}
-  .wklabel:hover b{color:var(--sb)}
+  .wklabel:hover{border-color:var(--sb); border-style:solid; color:var(--sb-ink)}
+  .wklabel:hover b{color:var(--sb-ink)}
   .day.big{min-height:250px}
   .day.big .card .tit{font-size:13px}
   .mes{cursor:default}
@@ -348,8 +367,8 @@
   .mescab{position:sticky; top:calc(var(--htop,90px) - 1px); z-index:25; background:var(--page);
     padding:10px 0 0; box-shadow:0 10px 14px -6px var(--page)}
   .mescabtop{display:flex; align-items:baseline; gap:10px; padding-bottom:8px}
-  .mescabtop b{font-size:17px; font-weight:800; letter-spacing:-.01em; color:var(--sb); text-transform:uppercase}
-  .mesbloco.atual .mescabtop b{background:var(--sb); color:#000; border-radius:6px; padding:1px 9px}
+  .mescabtop b{font-size:17px; font-weight:800; letter-spacing:-.01em; color:var(--sb-ink); text-transform:uppercase}
+  .mesbloco.atual .mescabtop b{background:var(--sb); color:var(--on-sb); border-radius:6px; padding:1px 9px}
   .mescabtop .mesn{font-size:11px; font-weight:700; color:var(--ink-3); letter-spacing:.04em}
   /* legenda das 6 cores com contagem do mês (clique filtra) */
   .mesleg{margin-left:auto; display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; align-self:center}
@@ -375,23 +394,23 @@
   .obsfoot #obsMsg{font-weight:800}
   .obsfoot #obsMsg.ok{color:var(--ok)} .obsfoot #obsMsg.err{color:var(--crit)}
   .mtab.temobs::after{content:""; width:6px; height:6px; border-radius:50%; background:var(--sb); display:inline-block; margin-left:6px; vertical-align:middle}
-  .tagic.t-obs{background:var(--ink-2); color:#000}
+  .tagic.t-obs{background:var(--ink-2); color:var(--on-ink)}
   .day{
     background:var(--surface-2); border:1.5px solid var(--hair-2); border-radius:var(--radius);
     min-height:122px; padding:7px; display:flex; flex-direction:column; gap:7px; position:relative;
     transition:border-color var(--t);
   }
   .day:hover{border-color:var(--hair)}
-  .day.fds{background:#131311}
-  .day.fora{background:transparent; border-style:dashed; border-color:#1D1D18}
+  .day.fds{background:var(--fds)}
+  .day.fora{background:transparent; border-style:dashed; border-color:var(--fora-borda)}
   .day.hoje{border:var(--bw) solid var(--sb)}
-  .day.hoje .dnum{background:var(--sb); color:#000; border-radius:5px; padding:1px 7px; font-weight:800}
-  .day.dragover{outline:3px solid var(--sb); outline-offset:-3px; background:#1E1E19}
+  .day.hoje .dnum{background:var(--sb); color:var(--on-sb); border-radius:5px; padding:1px 7px; font-weight:800}
+  .day.dragover{outline:3px solid var(--sb); outline-offset:-3px; background:var(--drag-bg)}
   .day-top{display:flex; align-items:center; justify-content:space-between; padding:0 2px}
   .dnum{font-size:11.5px; font-weight:800; color:var(--ink-3)}
   .addbtn{opacity:0; color:var(--ink-3); padding:2px 6px; border-radius:5px; transition:all var(--t)}
   .day:hover .addbtn{opacity:1}
-  .addbtn:hover{background:var(--sb); color:#000}
+  .addbtn:hover{background:var(--sb); color:var(--on-sb)}
   /* ---- VAGA: "falta criar post" num dia ---- */
   .day-acts{display:flex; align-items:center; gap:2px}
   .vagabtn{opacity:0; color:var(--ink-3); padding:2px 6px; border-radius:5px; transition:all var(--t); display:inline-flex}
@@ -403,16 +422,16 @@
   .card.vaga{
     border:2px dashed var(--crit) !important; border-left:5px solid var(--crit) !important;
     background:repeating-linear-gradient(135deg, rgba(255,77,77,.13) 0 9px, rgba(255,77,77,.04) 9px 18px)}
-  .card.vaga .tit{color:#FF8B8B; font-weight:800; letter-spacing:.02em; -webkit-line-clamp:3}
+  .card.vaga .tit{color:var(--vaga-ink); font-weight:800; letter-spacing:.02em; -webkit-line-clamp:3}
   .card.vaga .vagatag{display:inline-flex; align-items:center; gap:4px; background:var(--crit); color:#fff;
     font-size:9.5px; font-weight:800; letter-spacing:.04em; padding:2px 6px; border-radius:5px; margin-bottom:5px}
   .card.vaga .vagatag svg{width:10px; height:10px; stroke-width:3}
-  .card.vaga .obsline{color:#FFC9C9; font-style:normal; font-weight:600}
+  .card.vaga .obsline{color:var(--vaga-obs); font-style:normal; font-weight:600}
   /* sugestão vinda pela pauta: roxo tracejado, some quando você cola a task */
   .card.sugestao{
     border:2px dashed #C77DFF !important; border-left:5px solid #C77DFF !important;
     background:repeating-linear-gradient(135deg, rgba(199,125,255,.13) 0 9px, rgba(199,125,255,.04) 9px 18px)}
-  .card.sugestao .tit{color:#E3C4FF; font-weight:700; -webkit-line-clamp:3}
+  .card.sugestao .tit{color:var(--sug-ink); font-weight:700; -webkit-line-clamp:3}
   .card.sugestao .sugtag{background:#C77DFF; color:#000}
   .card.sugestao .sugtag svg{stroke:#000}
   /* MATRIZ DA SEUBONÉ: o mesmo desenho do "falta criar", só que AMARELO. É o card que a copywriter preenche. */
@@ -433,19 +452,19 @@
   .card.mz .mzobj{width:8px; height:8px; border-radius:50%; border:1.5px solid #000; flex:none}
   .card.mz .mzstar{margin-left:auto; display:inline-flex; flex:none}
   .card.mz .mzstar .ic{width:11px; height:11px; fill:#000; stroke:#000; stroke-width:1}
-  .card.mz .tit{color:#FFE8A3; font-weight:700; -webkit-line-clamp:3}
-  .card.mz .tit.vazio{color:rgba(255,226,122,.55); font-style:italic; font-weight:600}
+  .card.mz .tit{color:var(--mz-ink); font-weight:700; -webkit-line-clamp:3}
+  .card.mz .tit.vazio{color:var(--mz-vazio); font-style:italic; font-weight:600}
   .card.mz .meta{margin-top:7px}
   .mzbar{flex:1; min-width:30px; height:4px; border-radius:3px; background:rgba(252,193,0,.18); overflow:hidden}
   .mzbar i{display:block; height:100%; background:#FCC100; border-radius:3px}
-  .mzn{font-size:9.5px; font-weight:800; color:#FFE27A; font-variant-numeric:tabular-nums}
+  .mzn{font-size:9.5px; font-weight:800; color:var(--mz-ink2); font-variant-numeric:tabular-nums}
   .card.mz .qdel{top:22px}
   .card.mz.postado{background:rgba(47,208,106,.07); border-color:rgba(47,208,106,.45) !important}
   .card.mz.postado .mzband{background:var(--ok)}
   .card .mztag{display:inline-flex; align-items:center; gap:5px; background:#FCC100; color:#000; font-size:9.5px; font-weight:800;
     letter-spacing:.04em; padding:2px 6px; border-radius:5px; margin-bottom:5px; text-transform:uppercase; max-width:100%}
   .card .mztag .mzobj{width:7px; height:7px; border-radius:50%; background:var(--mzc,#000); border:1.5px solid #000; flex:none}
-  .mzprog{font-size:9.5px; font-weight:800; color:#FFE27A; border:1.5px solid rgba(252,193,0,.55); border-radius:4px; padding:0 5px; line-height:15px}
+  .mzprog{font-size:9.5px; font-weight:800; color:var(--mz-ink2); border:1.5px solid rgba(252,193,0,.55); border-radius:4px; padding:0 5px; line-height:15px}
   .mzprog.cheio{background:#FCC100; color:#000; border-color:#000}
   .tagic.t-mz{color:#FCC100; font-size:9px; font-weight:900; border:1.5px solid #FCC100; border-radius:4px; padding:0 3px; line-height:13px; cursor:pointer}
   /* parecer vindo pela pauta: aprovado (verde) ou reprovado (vermelho), aparece em qualquer card */
@@ -470,7 +489,7 @@
   /* fonte do banco: task que rende vários posts. Fica com cara de "estoque", não de post do dia. */
   .card.fonte{border-style:dashed; background:var(--surface-2)}
   .usochip{font-size:9.5px; font-weight:800; letter-spacing:.03em; padding:1.5px 6px; border-radius:4px;
-    background:var(--sb); color:#000; border:1.5px solid var(--stroke)}
+    background:var(--sb); color:var(--on-sb); border:1.5px solid var(--stroke)}
   .refform select.bkconta{flex:1; border:1.5px solid var(--hair); border-radius:6px; background:var(--surface);
     padding:7px 9px; font-size:12px; color:var(--ink)}
   .day-cards{display:flex; flex-direction:column; gap:7px; flex:1}
@@ -487,14 +506,14 @@
     padding:7px 9px 6px; cursor:grab; user-select:none; position:relative;
     transition:transform var(--t), box-shadow var(--t), border-color var(--t);
   }
-  .card:hover{transform:translate(-2px,-2px); box-shadow:var(--hard); border-color:#4A493F; z-index:3}
+  .card:hover{transform:translate(-2px,-2px); box-shadow:var(--hard); border-color:var(--card-hover); z-index:3}
   .card.dragging{opacity:.4; transform:none; box-shadow:none}
   .card.postado{opacity:.5; background:rgba(47,208,106,.07); border-color:rgba(47,208,106,.35); border-left-color:var(--ok)}
   .card.postado:hover{opacity:.9; border-left-color:var(--ok)}
   .card.clip{outline:2px dashed var(--sb); outline-offset:1px}
   .card.clip.cut{opacity:.5}
-  .colar-aqui{width:100%; margin-bottom:7px; padding:7px 8px; border:1.5px dashed var(--sb); background:rgba(252,193,0,.1); color:var(--sb); border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px}
-  .colar-aqui:hover{background:var(--sb); color:#000}
+  .colar-aqui{width:100%; margin-bottom:7px; padding:7px 8px; border:1.5px dashed var(--sb); background:rgba(252,193,0,.1); color:var(--sb-ink); border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px}
+  .colar-aqui:hover{background:var(--sb); color:var(--on-sb)}
   .colar-aqui svg{width:12px; height:12px}
   .card.gm{border-top-color:rgba(252,193,0,.45); border-right-color:rgba(252,193,0,.45); border-bottom-color:rgba(252,193,0,.45)}
   .card.sel{outline:3px solid var(--info); outline-offset:1px}
@@ -515,9 +534,9 @@
   .tagic{width:19px; height:19px; border-radius:5px; border:1.5px solid var(--stroke); display:inline-flex; align-items:center; justify-content:center; flex:none}
   .tagic .ic{width:11px; height:11px; stroke-width:3}
   .tagic.t-pin{background:#FF8A3D; color:#000}
-  .tagic.t-gm{background:var(--sb); color:#000}
+  .tagic.t-gm{background:var(--sb); color:var(--on-sb)}
   .tagic.t-apr{background:var(--ok); color:#000}
-  .tagic.t-clb{background:var(--ink); color:#000; width:auto; padding:0 5px; gap:3px}
+  .tagic.t-clb{background:var(--ink); color:var(--on-ink); width:auto; padding:0 5px; gap:3px}
   .tagic.t-due{background:var(--warn); color:#000}
   /* conta divergente: o nome da task no ClickUp diz uma conta e o painel está com outra */
   .tagic.t-cdiv{background:var(--crit); color:#fff; cursor:pointer}
@@ -550,12 +569,12 @@
   .qpost:hover,.qvaga:hover,.qfonte:hover{background:var(--ok); color:#000; border-color:var(--stroke)}
   .qdel:hover{background:var(--crit); color:#fff; border-color:var(--stroke)}
   .qpost .ic,.qvaga .ic,.qfonte .ic,.qdel .ic{width:11px; height:11px; stroke-width:3}
-  .gmday{color:var(--sb); margin-left:5px; display:inline-flex; transform:translateY(1px)}
+  .gmday{color:var(--sb-ink); margin-left:5px; display:inline-flex; transform:translateY(1px)}
   .gmday .ic{width:11px; height:11px; fill:var(--sb); stroke:var(--sb); stroke-width:1}
   .gmday.esperado{opacity:.85}
   .gmday.esperado .ic{fill:none; stroke:var(--sb); stroke-width:1.8}
   .day.gmpede{background:linear-gradient(180deg, rgba(252,193,0,.06), transparent 60%)}
-  .day.gmpede .dnum{color:var(--sb)}
+  .day.gmpede .dnum{color:var(--sb-ink)}
 
   /* ---------- seleção ---------- */
   #selbar{position:fixed; left:50%; transform:translateX(-50%) translateY(90px); bottom:18px; z-index:70;
@@ -568,7 +587,7 @@
     padding:6px 12px; font-size:12px; font-weight:800; color:var(--ink-2); display:flex; align-items:center; gap:6px;
     transition:all var(--t)}
   #selbar button:hover{transform:translate(-1px,-1px); box-shadow:var(--hard-s); border-color:var(--ink-3); color:var(--ink)}
-  #selbar .primario{background:var(--sb); color:#000; border:1.5px solid var(--stroke)}
+  #selbar .primario{background:var(--sb); color:var(--on-sb); border:1.5px solid var(--stroke)}
   #selbar .primario:hover{color:#000}
   #selbar .seldias{display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--ink-3); font-weight:600}
   #selbar .seldias input{width:52px; text-align:center; border:1.5px solid var(--hair); background:var(--surface-2);
@@ -577,7 +596,7 @@
 
   /* ---------- pills do modal ---------- */
   .gmpill{display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:800; letter-spacing:.02em;
-    background:var(--sb); color:#000; border:1.5px solid var(--stroke); border-radius:5px; padding:2.5px 8px}
+    background:var(--sb); color:var(--on-sb); border:1.5px solid var(--stroke); border-radius:5px; padding:2.5px 8px}
   .aprpill{display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:800;
     background:var(--ok); color:#000; border:1.5px solid var(--stroke); border-radius:5px; padding:2.5px 8px}
   .clbpill{display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:800;
@@ -634,7 +653,7 @@
   @keyframes pfin{from{opacity:0; transform:rotateX(18deg) rotateY(-14deg) translateY(18px)} to{opacity:1; transform:rotateX(7deg) rotateY(-7deg)}}
   .pf-tag{
     position:absolute; top:-15px; left:20px; z-index:4; transform:translateZ(50px);
-    background:var(--sb); color:#000; font-weight:800; font-size:12px; letter-spacing:.14em;
+    background:var(--sb); color:var(--on-sb); font-weight:800; font-size:12px; letter-spacing:.14em;
     padding:5px 11px; border:2px solid var(--stroke); border-radius:6px; box-shadow:3px 3px 0 #000;
     transition:background-color .45s ease;
   }
@@ -668,7 +687,7 @@
   .pf-depois{color:var(--ink-3); font-weight:700; font-size:12px; padding:8px 10px; border-radius:6px; transition:color .15s, background .15s}
   .pf-depois:hover{color:var(--ink); background:var(--hair-2)}
   .pf-salvar{
-    background:var(--sb); color:#000; border:3px solid var(--stroke); border-radius:8px; padding:11px 22px;
+    background:var(--sb); color:var(--on-sb); border:3px solid var(--stroke); border-radius:8px; padding:11px 22px;
     font-weight:800; font-size:13px; letter-spacing:.1em; text-transform:uppercase; cursor:pointer;
     transition:transform .4s cubic-bezier(.23,1,.32,1), box-shadow .4s cubic-bezier(.23,1,.32,1), background-color .45s ease;
   }
@@ -685,14 +704,14 @@
     transition:all var(--t)}
   .mbtn:hover{transform:translate(-1px,-1px); box-shadow:var(--hard-s); border-color:var(--ink-3); color:var(--ink)}
   .mbtn:active{transform:translate(1px,1px); box-shadow:none}
-  .mbtn.primary{background:var(--ink); color:#000; border-color:var(--stroke)}
+  .mbtn.primary{background:var(--ink); color:var(--on-ink); border-color:var(--stroke)}
   .mbtn.primary:hover{color:#000}
   .mbtn.okbtn{background:var(--ok); color:#000; border-color:var(--stroke); font-weight:800}
   .mbtn.okbtn:hover{color:#000}
   .mbtn.critbtn{background:transparent; color:var(--crit); border-color:var(--crit)}
   .mbtn.critbtn:hover{background:var(--crit); color:#fff}
   .mbtn.apron{background:var(--ok); border-color:var(--stroke); color:#000; font-weight:800}
-  .mbtn.gmon{background:var(--sb); color:#000; border-color:var(--stroke); font-weight:800}
+  .mbtn.gmon{background:var(--sb); color:var(--on-sb); border-color:var(--stroke); font-weight:800}
   .mbtn.clbon{background:#A78BFA; color:#000; border-color:var(--stroke); font-weight:800}
   /* botão de aplicar datas no ClickUp (canto inferior esquerdo) */
   .aplicar-btn{position:fixed; left:16px; bottom:16px; z-index:60; display:none; align-items:center; gap:8px;
@@ -753,8 +772,30 @@
   .f .modos .modo b{font-size:12.5px; color:var(--ink)} .f .modos .modo small{font-size:10.5px; color:var(--ink-3); font-weight:500}
   .f .modos .modo:hover{transform:translateY(-2px); border-color:var(--ink-3)}
   .f .modos .modo.on{border-color:var(--sb); box-shadow:3px 3px 0 var(--sb); background:var(--surface)}
-  .f .modos .modo.on b{color:var(--sb)}
+  .f .modos .modo.on b{color:var(--sb-ink)}
   @media (max-width:640px){ .modos{grid-template-columns:1fr} }
+  /* ---- (i) explicação de cada campo (v3.68): círculo com i ao lado do nome; clique abre a caixinha ---- */
+  .ib{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; padding:0; margin:0 0 0 4px; vertical-align:-4px;
+    color:var(--ink-3); border-radius:50%; cursor:pointer; flex:none; transition:color var(--t), transform var(--t)}
+  .ib svg{width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:2.1; stroke-linecap:round}
+  .ib:hover{color:var(--sb-ink); transform:scale(1.12)}
+  .ib.on{color:var(--sb-ink)}
+  .infopop{position:fixed; z-index:9800; width:min(360px, calc(100vw - 16px)); background:var(--surface); color:var(--ink);
+    border:var(--bw) solid var(--stroke); border-radius:10px; box-shadow:var(--hard-c); padding:12px 14px 10px; font-size:13px; line-height:1.5;
+    text-transform:none; letter-spacing:0; font-weight:500; animation:popin .14s cubic-bezier(.2,.8,.3,1) both}
+  .infopop .iph{display:flex; align-items:center; gap:8px; margin-bottom:6px}
+  .infopop .iph svg{width:20px; height:20px; fill:none; stroke:var(--sb-ink); stroke-width:2.1; stroke-linecap:round; flex:none}
+  .infopop .iph b{font-size:14.5px; flex:1}
+  .infopop .ipx{color:var(--ink-3); font-size:13px; padding:2px 7px; border-radius:5px}
+  .infopop .ipx:hover{background:var(--hair-2); color:var(--ink)}
+  .infopop p{margin:0 0 8px; color:var(--ink-2)}
+  .infopop .ipl{list-style:none; margin:2px 0 6px; padding:0; display:grid; gap:5px}
+  .infopop .ipl li{padding:5px 8px; border-radius:6px; border:1px solid var(--hair); color:var(--ink-2); font-size:12.5px}
+  .infopop .ipl li b{color:var(--ink)}
+  .infopop .ipl li.atual{border:1.5px solid var(--sb); background:color-mix(in srgb, var(--sb) 12%, transparent)}
+  .infopop .ipl li.atual b::after{content:" · este card"; font-weight:600; color:var(--sb-ink); font-size:11px}
+  .mzkickw{display:flex; align-items:center; gap:2px}
+  .mzkickw .ib{vertical-align:0}
   /* ---- documento da copy (v3.66): pop-up em tela cheia com o editor, e a lista de documentos ---- */
   #ovDoc{position:fixed; inset:0; z-index:9500; background:#F9FBFD; animation:docEntra .16s ease-out both}
   #ovDoc iframe{width:100%; height:100%; border:0; display:block; background:#F9FBFD}
@@ -781,13 +822,13 @@
   .dcl .tg.ok{border-color:var(--ok); color:var(--ok)}
   .dcvazio{padding:30px 10px; text-align:center; color:var(--ink-3); font-size:13px}
   .mk.t-doc{color:var(--ink-2); cursor:pointer}
-  .mk.t-doc:hover{color:var(--sb)}
+  .mk.t-doc:hover{color:var(--sb-ink)}
   /* ---- Novo post v3.65: passo 1 = escolha grande; passo 2 = só os campos do caminho ---- */
   #ovEdit .emodal{width:min(600px,100%)}
   .etopo{display:flex; align-items:center; gap:10px; min-width:0}
   .evoltar{width:30px; height:30px; border-radius:8px; border:1.5px solid var(--hair); background:var(--surface-2); color:var(--ink-2);
     font-size:20px; line-height:1; cursor:pointer; flex:none; display:flex; align-items:center; justify-content:center; padding:0 0 3px}
-  .evoltar:hover{border-color:var(--sb); color:var(--sb)}
+  .evoltar:hover{border-color:var(--sb); color:var(--sb-ink)}
   .ectx{font-size:12px; color:var(--ink-3); font-weight:600; margin-top:2px}
   .eopcs{display:grid; gap:10px}
   .eopc{display:flex; align-items:center; gap:14px; text-align:left; padding:14px 16px; border:2px solid var(--hair); border-radius:10px;
@@ -802,13 +843,13 @@
   .eopc .ekey{font-size:10.5px; font-weight:800; color:var(--ink-3); border:1.5px solid var(--hair); border-radius:5px; padding:1px 6px; flex:none}
   .eopc.mz{border-color:rgba(252,193,0,.5); background:rgba(252,193,0,.06)}
   .eopc.mz .eic{background:#FCC100; border-color:#000; color:#000}
-  .eopc.mz b{color:#FFE27A}
+  .eopc.mz b{color:var(--mz-ink2)}
   .eopc.mz:hover{border-color:#FCC100; box-shadow:4px 4px 0 rgba(252,193,0,.4)}
   .echips{display:flex; gap:6px; flex-wrap:wrap}
   .echip{display:inline-flex; align-items:center; gap:6px; border:1.5px solid var(--hair); border-radius:7px; padding:6px 11px; font-size:12.5px;
     font-weight:700; background:var(--surface-2); color:var(--ink-2); cursor:pointer; font-family:inherit; transition:all var(--t)}
   .echip:hover{border-color:var(--ink-3); color:var(--ink)}
-  .echip.on{background:var(--sb); color:#000; border-color:#000; box-shadow:2px 2px 0 #000}
+  .echip.on{background:var(--sb); color:var(--on-sb); border-color:#000; box-shadow:2px 2px 0 #000}
   .echip.nada:not(.on){border-style:dashed}
   .echip .dot{width:8px; height:8px; border-radius:50%; display:inline-block}
   .echips.faltando .echip{border-color:var(--crit)}
@@ -834,7 +875,7 @@
   .mzprogw{display:flex; align-items:center; gap:10px; padding:0 22px 12px 26px; border-left:6px solid var(--mzc,#FCC100); background:linear-gradient(90deg, rgba(252,193,0,.10), transparent 60%)}
   .mzprogbar{flex:1; max-width:340px; height:6px; border-radius:4px; background:rgba(252,193,0,.18); overflow:hidden}
   .mzprogbar i{display:block; height:100%; width:0; background:#FCC100; border-radius:4px; transition:width .25s}
-  #mzProgTxt{font-size:11.5px; font-weight:800; color:#FFE27A; letter-spacing:.02em}
+  #mzProgTxt{font-size:11.5px; font-weight:800; color:var(--mz-ink2); letter-spacing:.02em}
   .mzbody{display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:16px; align-items:start}
   .mzcol{gap:12px}
   .mzbloco{border:1.5px solid var(--hair); border-radius:10px; padding:12px 14px 14px; background:var(--surface-2); display:grid; gap:10px; transition:border-color var(--t)}
@@ -849,10 +890,10 @@
   #ovMz .mzbloco input,#ovMz .mzbloco textarea{background:var(--surface)}
   #ovMz textarea{resize:none; overflow:hidden; line-height:1.4}
   /* sugestões: aparecem enquanto o campo está vazio ou em uso; preenchido, some e a tela fica limpa */
-  .mzcampo.cheio .mzchips{display:none}
-  .mzver{display:none; background:none; border:0; padding:0; margin-left:6px; font:inherit; font-size:11px; font-weight:700; color:var(--ink-3); text-decoration:underline; cursor:pointer; text-transform:none; letter-spacing:0}
+  .mzcampo .mzchips{display:none}
+  .mzcampo.aberto .mzchips{display:flex}
+  .mzver{display:inline; background:none; border:0; padding:0; margin-left:6px; font:inherit; font-size:11px; font-weight:700; color:var(--ink-3); text-decoration:underline; cursor:pointer; text-transform:none; letter-spacing:0}
   .mzver:hover{color:#FCC100}
-  .mzcampo.cheio .mzver{display:inline}
   .mzguia{position:sticky; top:12px; display:grid; gap:10px}
   /* Salvar sempre à vista, mesmo com o formulário grande */
   #ovMz .mfoot{position:sticky; bottom:0; z-index:3; background:var(--surface); border-top:1.5px solid var(--hair); padding-top:12px; border-radius:0 0 12px 12px}
@@ -863,7 +904,7 @@
   .mzpede{display:grid; gap:9px}
   .mzpede .pt{font-size:10.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#FCC100}
   .mzpede .cta{border:1.5px solid #FCC100; border-radius:8px; padding:8px 10px; background:rgba(252,193,0,.08)}
-  .mzpede .cta span{display:block; font-size:9.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#FFE27A}
+  .mzpede .cta span{display:block; font-size:9.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--mz-ink2)}
   .mzpede .cta b{font-size:14px; color:var(--ink)}
   .mzpede .lin{display:flex; justify-content:space-between; gap:10px; font-size:12px; border-bottom:1px solid var(--hair-2); padding-bottom:6px}
   .mzpede .lin span{color:var(--ink-3)} .mzpede .lin b{color:var(--ink-2); text-align:right; font-weight:700}
@@ -895,7 +936,7 @@
   .mzregras ol,.mzregras ul{margin:8px 0 4px 18px; padding:0; line-height:1.5}
 
   .cuwrap{border:2px solid var(--hair); border-radius:8px; padding:10px 12px; background:var(--surface-2)}
-  .cutit b{display:block; font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--sb)}
+  .cutit b{display:block; font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--sb-ink)}
   .cutit small{display:block; font-size:10.5px; color:var(--ink-3); font-weight:500; margin-top:2px}
   .cuwrap{border-color:var(--sb); box-shadow:3px 3px 0 var(--sb)}
   .f .cuwrap label.cuchk{display:flex; align-items:flex-start; gap:10px; cursor:pointer; text-transform:none; letter-spacing:0; font-size:13px; color:var(--ink); margin:0; font-weight:600}
@@ -905,7 +946,7 @@
   .cuchk small{display:block; font-size:11px; color:var(--ink-3); font-weight:500; margin-top:2px; text-transform:none; letter-spacing:0}
   #eCuCampos{margin-top:10px; display:flex; flex-direction:column; gap:10px}
   .cuinfo{font-size:12.5px; font-weight:700; color:var(--ink-2); border:1.5px solid var(--hair); border-radius:6px; padding:10px 12px; background:var(--surface)}
-  .wpp-tit{font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--sb); margin-bottom:6px}
+  .wpp-tit{font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--sb-ink); margin-bottom:6px}
   .wpp-grid{display:grid; grid-template-columns:1fr 1fr; gap:9px}
   .wpp-grid label{display:block; font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3); margin-bottom:3px}
   .wpp-grid input{width:100%}
@@ -945,13 +986,13 @@
   .mtab{padding:9px 14px; font-size:12.5px; font-weight:800; color:var(--ink-3); border:1.5px solid transparent; border-bottom:none;
     border-radius:8px 8px 0 0; letter-spacing:.03em; text-transform:uppercase; transition:color var(--t), background var(--t)}
   .mtab:hover{color:var(--ink-2)}
-  .mtab.on{color:#000; background:var(--ink); border-color:var(--stroke)}
+  .mtab.on{color:var(--on-ink); background:var(--ink); border-color:var(--stroke)}
   .mbody{padding:16px 20px 20px; min-height:180px}
   .files{display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:10px}
   .file{border:1.5px solid var(--hair); border-radius:8px; overflow:hidden; background:var(--surface-2); text-decoration:none; display:block;
     transition:transform var(--t), box-shadow var(--t), border-color var(--t)}
   .file:hover{transform:translate(-1px,-1px); box-shadow:var(--hard-s); border-color:var(--ink-3)}
-  .file .th{height:96px; background:#101010 center/cover no-repeat; display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--ink-3)}
+  .file .th{height:96px; background:var(--thumb-bg) center/cover no-repeat; display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--ink-3)}
   .file .fn{padding:6px 8px 2px; font-size:11px; font-weight:700; word-break:break-all; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
   .file .fd{padding:0 8px 7px; font-size:10px; color:var(--ink-3)}
   .vtag{background:var(--warn); color:#000; border:1px solid var(--stroke); border-radius:4px; padding:0 5px; font-size:9px; font-weight:800; margin-left:4px}
@@ -992,10 +1033,10 @@
   .desc li.chk{list-style:none; margin-left:-20px; display:flex; gap:8px; align-items:flex-start}
   .desc li.chk input{margin-top:2.5px; accent-color:var(--ok); pointer-events:none}
   .desc li.chk.done span{opacity:.55; text-decoration:line-through}
-  .desc pre{background:#0F0F0D; border:1.5px solid var(--hair-2); border-radius:6px; padding:8px 10px; margin:6px 0; overflow-x:auto; font-size:12px; white-space:pre-wrap}
-  .desc code{background:#0F0F0D; border:1px solid var(--hair-2); border-radius:4px; padding:0 5px; font-size:12px}
+  .desc pre{background:var(--code-bg); border:1.5px solid var(--hair-2); border-radius:6px; padding:8px 10px; margin:6px 0; overflow-x:auto; font-size:12px; white-space:pre-wrap}
+  .desc code{background:var(--code-bg); border:1px solid var(--hair-2); border-radius:4px; padding:0 5px; font-size:12px}
   .desc blockquote{border-left:4px solid var(--sb); margin:6px 0; padding:2px 0 2px 10px; color:var(--ink-3)}
-  .desc a{color:#6EA8FF}
+  .desc a{color:var(--link)}
   .desc hr{border:none; border-top:1.5px solid var(--hair); margin:10px 0}
   .descbar{display:flex; gap:8px; margin:12px 0 6px; align-items:center; flex-wrap:wrap}
   .desced{width:100%; min-height:200px; background:var(--surface-2); border:1.5px solid var(--hair); border-radius:8px;
@@ -1010,13 +1051,13 @@
   .art{position:relative; border:1.5px solid var(--hair); border-radius:10px; overflow:hidden; background:var(--surface-2); cursor:zoom-in;
     transition:transform var(--t), box-shadow var(--t), border-color var(--t)}
   .art:hover{transform:translate(-2px,-2px); box-shadow:var(--hard); border-color:var(--ink-3)}
-  .art img{width:100%; max-height:430px; object-fit:contain; display:block; background:#0D0D0B}
-  .artnum{position:absolute; top:9px; left:9px; z-index:2; background:var(--sb); color:#000; border:1.5px solid var(--stroke); font-size:10px; font-weight:800; border-radius:5px; padding:2px 8px}
+  .art img{width:100%; max-height:430px; object-fit:contain; display:block; background:var(--art-bg)}
+  .artnum{position:absolute; top:9px; left:9px; z-index:2; background:var(--sb); color:var(--on-sb); border:1.5px solid var(--stroke); font-size:10px; font-weight:800; border-radius:5px; padding:2px 8px}
   /* curadoria pra pauta: controles no hover; oculta fica apagada com selo */
   .artctl{position:absolute; top:9px; right:9px; z-index:3; display:flex; gap:4px; opacity:0; transform:translateY(-4px); transition:opacity .15s, transform .15s}
   .art:hover .artctl{opacity:1; transform:none}
   .ac{width:26px; height:26px; border-radius:6px; background:rgba(0,0,0,.8); border:1.5px solid var(--stroke); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .12s, transform .15s cubic-bezier(.34,1.56,.64,1)}
-  .ac:hover{background:var(--sb); color:#000; transform:scale(1.1)}
+  .ac:hover{background:var(--sb); color:var(--on-sb); transform:scale(1.1)}
   .ac .ic{width:12px; height:12px; stroke:currentColor}
   .art.oculta img{opacity:.35; filter:grayscale(.7)}
   .art.oculta .artcap{opacity:.6}
@@ -1035,17 +1076,17 @@
   #lb img{max-width:92vw; max-height:86vh; object-fit:contain; border:var(--bw) solid var(--stroke); border-radius:8px; box-shadow:10px 10px 0 rgba(0,0,0,.7)}
   #lb .lbx{position:absolute; top:12px; right:14px; color:#fff9; padding:8px 10px; z-index:2; border-radius:6px}
   #lb .lbn{position:absolute; top:50%; transform:translateY(-50%); font-size:34px; color:#fff9; padding:10px 14px; z-index:2}
-  #lb .lbn:hover,#lb .lbx:hover{color:var(--sb)}
+  #lb .lbn:hover,#lb .lbx:hover{color:var(--sb-ink)}
   #lb .lbc{position:absolute; top:16px; left:0; right:0; text-align:center; color:#fff8; font-size:12px; pointer-events:none; font-weight:600}
 
   /* toast */
   #toasts{position:fixed; right:16px; bottom:16px; z-index:90; display:flex; flex-direction:column; gap:9px}
-  .toast{background:var(--ink); color:#000; border:var(--bw) solid var(--stroke); border-radius:8px; padding:10px 15px; font-size:12.5px; font-weight:700;
+  .toast{background:var(--ink); color:var(--on-ink); border:var(--bw) solid var(--stroke); border-radius:8px; padding:10px 15px; font-size:12.5px; font-weight:700;
     box-shadow:var(--hard); max-width:360px; animation:toastin .22s cubic-bezier(.2,.8,.3,1) both}
   .toast.err{background:var(--crit); color:#fff}
   @keyframes toastin{from{opacity:0; transform:translateX(20px)} to{opacity:1; transform:none}}
 
-  .banner{margin:12px 18px 0; border:var(--bw) solid var(--stroke); background:var(--sb); color:#000; border-radius:8px; padding:10px 15px; font-size:12.5px; font-weight:700; display:none; box-shadow:var(--hard-s)}
+  .banner{margin:12px 18px 0; border:var(--bw) solid var(--stroke); background:var(--sb); color:var(--on-sb); border-radius:8px; padding:10px 15px; font-size:12.5px; font-weight:700; display:none; box-shadow:var(--hard-s)}
   .banner.show{display:block; animation:toastin .2s ease both}
   .banner b{cursor:pointer; text-decoration:underline}
   .ic.s{width:12px; height:12px}
@@ -1070,6 +1111,7 @@
         <input type="checkbox" class="mute-chk" id="muteChk" aria-label="silenciar avisos">
         <span class="ic-ring"></span><span class="ic-silent"></span><span class="mn" id="muteN"></span>
       </label>
+      <button class="ico" id="btnModo" data-tip="modo claro"></button>
       <button class="ico" id="btnConfig" data-tip="conexão com o ClickUp"></button>
     </div>
   </div>
@@ -1312,48 +1354,48 @@
 <div class="ov" id="ovMz"><div class="modal" style="position:relative">
   <button class="mclose" data-close="ovMz">✕</button>
   <div class="mhead mzhead">
-    <div class="mzkicker" id="mzKicker"></div>
-    <div class="mtit"><span id="mzTit">Case</span><span class="mzobjpill" id="mzObj"></span></div>
+    <div class="mzkickw"><span class="mzkicker" id="mzKicker"></span><span data-ib="semana"></span></div>
+    <div class="mtit"><span id="mzTit">Case</span><span id="mzTitInfo"></span><span class="mzobjpill" id="mzObj"></span></div>
     <div class="mzsub" id="mzSub"></div>
-    <div class="mzgm" id="mzGm" hidden>☆ este dia pede GRANDE MARCA na capa</div>
+    <div class="mzgm" id="mzGm" hidden>☆ este dia pede GRANDE MARCA na capa <span data-ib="gm"></span></div>
     <button class="mbtn mzcopy mzcopytop" id="mzCopyTop" data-tip="salva a matriz e abre o documento da copy deste post (editor estilo Docs)"></button>
   </div>
-  <div class="mzprogw"><div class="mzprogbar"><i id="mzProgBar"></i></div><span id="mzProgTxt"></span></div>
+  <div class="mzprogw"><div class="mzprogbar"><i id="mzProgBar"></i></div><span id="mzProgTxt"></span><span data-ib="progresso"></span></div>
   <div class="mbody mzbody">
     <!-- v3.67: o que a copywriter preenche em 3 blocos na ordem em que se pensa a peça; o que o tipo pede fica ao lado, sempre à vista -->
     <div class="mzcol f">
       <div class="mzaberto" id="mzAberto" hidden>
-        <label id="mzAbertoLbl">Slot em aberto: escolha o tipo</label>
+        <label><span id="mzAbertoLbl">Slot em aberto: escolha o tipo</span> <span data-ib="slotAberto"></span></label>
         <div class="mzopc" id="mzOpc"></div>
       </div>
       <section class="mzbloco" data-bloco="formato angulo">
         <div class="mzbt"><span class="mzbn">1</span><b>O que vai ser</b><small>formato e ângulo</small></div>
-        <div class="mzcampo"><label>Formato <button type="button" class="mzver">ver sugestões</button></label><input id="mzFormato" data-mz="formato" placeholder="escolha uma sugestão ou escreva outro" maxlength="200">
+        <div class="mzcampo"><label>Formato <span data-ib="formato"></span><button type="button" class="mzver"></button></label><input id="mzFormato" data-mz="formato" placeholder="escolha uma sugestão ou escreva outro" maxlength="200">
           <div class="mzchips" id="mzFormatos"></div><div class="mzaviso" id="mzAvisoFmt"></div></div>
-        <div class="mzcampo"><label>Ângulo <button type="button" class="mzver">ver sugestões</button></label><input id="mzAngulo" data-mz="angulo" placeholder="escolha uma sugestão ou escreva um novo" maxlength="300">
+        <div class="mzcampo"><label>Ângulo <span data-ib="angulo"></span><button type="button" class="mzver"></button></label><input id="mzAngulo" data-mz="angulo" placeholder="escolha uma sugestão ou escreva um novo" maxlength="300">
           <div class="mzchips" id="mzAngulos"></div></div>
       </section>
       <section class="mzbloco" data-bloco="pautaQuente tema tese gancho">
         <div class="mzbt"><span class="mzbn">2</span><b>A ideia</b><small>do que a peça fala e por que alguém para pra ver</small></div>
         <div class="f2">
-          <div><label>Pauta quente</label><input id="mzPauta" data-mz="pautaQuente" placeholder="assunto do momento, ou ATEMPORAL" maxlength="300"></div>
-          <div><label>Tema <span class="mzdica">vira o nome do card</span></label><input id="mzTema" data-mz="tema" placeholder="o recorte específico" maxlength="300"></div>
+          <div><label>Pauta quente <span data-ib="pautaQuente"></span></label><input id="mzPauta" data-mz="pautaQuente" placeholder="assunto do momento, ou ATEMPORAL" maxlength="300"></div>
+          <div><label>Tema <span data-ib="tema"></span><span class="mzdica">vira o nome do card</span></label><input id="mzTema" data-mz="tema" placeholder="o recorte específico" maxlength="300"></div>
         </div>
-        <div><label>Tese em uma frase <span class="mzdica">a opinião da SeuBoné</span></label><textarea id="mzTese" data-mz="tese" rows="1" placeholder="sem tese não tem posicionamento"></textarea></div>
-        <div><label>Gancho <span class="mzdica">entendido em 1,5 s</span></label><textarea id="mzGancho" data-mz="gancho" rows="1" placeholder="bate em dor ou desejo concreto"></textarea></div>
+        <div><label>Tese em uma frase <span data-ib="tese"></span><span class="mzdica">a opinião da SeuBoné</span></label><textarea id="mzTese" data-mz="tese" rows="1" placeholder="sem tese não tem posicionamento"></textarea></div>
+        <div><label>Gancho <span data-ib="gancho"></span><span class="mzdica">entendido em 1,5 s</span></label><textarea id="mzGancho" data-mz="gancho" rows="1" placeholder="bate em dor ou desejo concreto"></textarea></div>
       </section>
       <section class="mzbloco" data-bloco="descricao">
         <div class="mzbt"><span class="mzbn">3</span><b>Como fazer</b><small>o que o Samuca e a edição precisam saber</small></div>
-        <div><label>Descrição <span class="mzdica">2 ou 3 linhas</span></label><textarea id="mzDesc" data-mz="descricao" rows="2" placeholder="cena, estrutura, quem aparece"></textarea></div>
-        <div><label>Refs visuais / inserts <span class="mzdica">opcional</span></label><textarea id="mzRefs" data-mz="refs" rows="1" placeholder="links de referência"></textarea></div>
-        <div><label>Observações <span class="mzdica">opcional</span></label><textarea id="mzObs" data-mz="obs" rows="1" placeholder="o que confirmar antes de gravar, autorização, número..."></textarea></div>
+        <div><label>Descrição <span data-ib="descricao"></span><span class="mzdica">2 ou 3 linhas</span></label><textarea id="mzDesc" data-mz="descricao" rows="2" placeholder="cena, estrutura, quem aparece"></textarea></div>
+        <div><label>Refs visuais / inserts <span data-ib="refs"></span><span class="mzdica">opcional</span></label><textarea id="mzRefs" data-mz="refs" rows="1" placeholder="links de referência"></textarea></div>
+        <div><label>Observações <span data-ib="obs"></span><span class="mzdica">opcional</span></label><textarea id="mzObs" data-mz="obs" rows="1" placeholder="o que confirmar antes de gravar, autorização, número..."></textarea></div>
       </section>
     </div>
     <aside class="mzguia">
       <div class="mzgbox">
-        <label>Quem faz</label>
+        <label>Quem faz <span data-ib="responsavel"></span></label>
         <div class="echips" id="mzRespChips"></div><select id="mzResp" data-mz="responsavel" hidden></select>
-        <label style="margin-top:12px">Status</label>
+        <label style="margin-top:12px">Status <span data-ib="status" data-lista="1"></span></label>
         <select id="mzStatus" data-mz="status"></select>
       </div>
       <div class="mzgbox mzpede" id="mzTrava"></div>
@@ -1486,7 +1528,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.67'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.68'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1513,6 +1555,8 @@ const ICONS = {
   undo:'<path d="M8 5L3.5 9.5 8 14"/><path d="M3.5 9.5H14a6 6 0 1 1 0 12h-2.5"/>',
   chevL:'<path d="M14.5 5.5L8 12l6.5 6.5"/>',
   chevR:'<path d="M9.5 5.5L16 12l-6.5 6.5"/>',
+  sol:'<circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7"/>',
+  lua:'<path d="M20 14.2A8.3 8.3 0 0 1 9.8 4a8.3 8.3 0 1 0 10.2 10.2z"/>',
   gear:'<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9L19 19M19 5l-2.1 2.1M7.1 16.9L5 19"/>',
   refresh:'<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 3.5V8h-4.5"/>',
   calendar:'<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10.2h16M8.2 3.5v4M15.8 3.5v4"/>',
@@ -1565,11 +1609,29 @@ const TEMAS = {
   'ONEVO':   { sb:'#0AFFA3', page:'#081815' },
   'WEEVO':   { sb:'#177D81', page:'#0C1414' },
 };
+// modo claro: mesma marca por aba, fundo claro. ink = destaque usado como TEXTO (amarelo puro não se lê no branco);
+// on = cor do texto em cima do destaque (a Carbone clara vira preto com texto branco).
+const TEMAS_CLARO = {
+  'SEUBONÉ': { sb:'#FCC100', ink:'#8A6400', on:'#000',  page:'#F7F4EA' },
+  'CARBONE': { sb:'#1B1B18', ink:'#1B1B18', on:'#FFF',  page:'#F2F2F0' },
+  'ONEVO':   { sb:'#0AFFA3', ink:'#06815A', on:'#000',  page:'#EDF6F1' },
+  'WEEVO':   { sb:'#177D81', ink:'#12676A', on:'#FFF',  page:'#EDF4F4' },
+};
+function modoClaro(){ return document.documentElement.getAttribute('data-modo') === 'claro'; }
 function aplicarTema(aba){
-  const t = TEMAS[aba] || TEMAS['SEUBONÉ'];
-  document.documentElement.style.setProperty('--sb', t.sb);
-  document.documentElement.style.setProperty('--page', t.page);
+  const lista = modoClaro() ? TEMAS_CLARO : TEMAS;
+  const t = lista[aba] || lista['SEUBONÉ'];
+  const r = document.documentElement.style;
+  r.setProperty('--sb', t.sb); r.setProperty('--page', t.page);
+  r.setProperty('--sb-ink', t.ink || t.sb); r.setProperty('--on-sb', t.on || '#000');
 }
+function trocarModo(){
+  const claro = !modoClaro();
+  if(claro) document.documentElement.setAttribute('data-modo', 'claro'); else document.documentElement.removeAttribute('data-modo');
+  try{ localStorage.setItem('bone.modo', claro ? 'claro' : 'escuro'); }catch(e){}
+  aplicarTema(S.aba); desenhaBotaoModo();
+}
+function desenhaBotaoModo(){ const b = document.getElementById('btnModo'); if(!b) return; b.innerHTML = icon(modoClaro() ? 'lua' : 'sol'); b.dataset.tip = modoClaro() ? 'voltar pro modo escuro' : 'modo claro'; }
 function hojeStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function mesAtual(){ return hojeStr().slice(0,7); }
 
@@ -3680,6 +3742,48 @@ $('#eSave').onclick = async ()=>{
   finally{ $('#eSave').disabled = false; }
 };
 
+// ================= (i) EXPLICAÇÃO DE CADA CAMPO (v3.68) =================
+// Os textos moram no servidor (lib/matriz-seubone.js, GLOSSARIO) e chegam no /api/state.
+const ICON_INFO = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><path d="M12 11v5.8"/><circle cx="12" cy="7.7" r="1.15" fill="currentColor" stroke="none"/></svg>';
+function glo(){ return (S.matrizSB && S.matrizSB.glossario) || { campos:{}, valores:{} }; }
+function infoBtn(chave, valor, lista){ return '<button type="button" class="ib" data-info="'+esc(chave)+'"'+(valor?' data-valor="'+esc(valor)+'"':'')+(lista?' data-lista="1"':'')+' title="o que é isso?" aria-label="o que é isso?">'+ICON_INFO+'</button>'; }
+function trocaMarcadoresInfo(raiz){ (raiz||document).querySelectorAll('span[data-ib]').forEach(el=>{ el.outerHTML = infoBtn(el.dataset.ib, el.dataset.valor, el.dataset.lista); }); }
+let INFO_BTN = null;
+function fechaInfo(){ const p = document.getElementById('infoPop'); if(p) p.remove(); if(INFO_BTN){ INFO_BTN.classList.remove('on'); INFO_BTN = null; } }
+function abreInfo(btn){
+  fechaInfo();
+  const g = glo(), k = btn.dataset.info, v = btn.dataset.valor || '';
+  let tit = '', corpo = '';
+  if(k === 'tipoAtual'){
+    const t = mzCfg().tipos[v]; tit = v;
+    corpo = '<p>'+esc(t ? t.oQueE : '')+'</p>'+(t ? '<ul class="ipl"><li><b>Quando</b>: '+esc(t.quando)+'</li><li><b>Objetivo</b>: '+esc(t.objetivo)+' · <b>CTA</b>: '+esc(t.cta)+'</li></ul>' : '')+
+      (g.campos.tipo ? '<p>'+esc(g.campos.tipo.txt)+'</p>' : '');
+  } else {
+    const c = g.campos[k]; if(!c) return;
+    tit = c.tit; corpo = '<p>'+esc(c.txt)+'</p>';
+    const vals = g.valores[k];
+    if(vals && (v || btn.dataset.lista)) corpo += '<ul class="ipl">'+Object.entries(vals).map(([nome, txt])=>'<li'+(nome===v?' class="atual"':'')+'><b>'+esc(nome)+'</b>: '+esc(txt)+'</li>').join('')+'</ul>';
+  }
+  const pop = document.createElement('div'); pop.id = 'infoPop'; pop.className = 'infopop'; pop.setAttribute('role', 'dialog');
+  pop.innerHTML = '<div class="iph">'+ICON_INFO+'<b>'+esc(tit)+'</b><button type="button" class="ipx" aria-label="fechar">✕</button></div>'+corpo;
+  document.body.appendChild(pop);
+  const r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  const x = Math.min(Math.max(8, r.left - 18), innerWidth - w - 8);
+  let y = r.bottom + 8; if(y + h > innerHeight - 8) y = Math.max(8, r.top - h - 8);
+  pop.style.left = x+'px'; pop.style.top = y+'px';
+  pop.querySelector('.ipx').onclick = fechaInfo;
+  btn.classList.add('on'); INFO_BTN = btn; INFO_EM = Date.now();
+}
+let INFO_EM = 0;   // a rolagem que o próprio clique provoca não fecha a caixinha
+document.addEventListener('click', ev=>{
+  const b = ev.target.closest && ev.target.closest('.ib');
+  if(b){ ev.preventDefault(); ev.stopPropagation(); if(INFO_BTN === b){ fechaInfo(); return; } abreInfo(b); return; }
+  if(!(ev.target.closest && ev.target.closest('#infoPop'))) fechaInfo();
+}, true);
+document.addEventListener('keydown', ev=>{ if(ev.key === 'Escape' && document.getElementById('infoPop')){ ev.stopPropagation(); ev.preventDefault(); fechaInfo(); } }, true);
+document.addEventListener('scroll', ev=>{ if(Date.now() - INFO_EM > 350 && !(ev.target.closest && ev.target.closest('#infoPop'))) fechaInfo(); }, true);
+trocaMarcadoresInfo();
+
 // ================= COPY: documento estilo editor de texto (v3.66) =================
 // O editor mora em public/doc.html (arquivo separado, carregado só quando abre). Aqui só: criar o
 // documento do post, abrir num pop-up em tela cheia, a lista de todos e o link direto (#doc=ID).
@@ -3795,10 +3899,11 @@ function mzDesenhaTipo(s, tipo){
   // travadas: saem do tipo, não se mexe aqui
   // o que o tipo pede (não se mexe aqui): CTA em destaque, o resto em linhas curtas
   $('#mzTrava').hidden = !t;
-  $('#mzTrava').innerHTML = t ? '<div class="pt">O que o tipo '+esc(tipo)+' pede</div>'+
-    '<div class="cta"><span>CTA</span><b>'+esc(t.cta)+'</b></div>'+
-    [['Objetivo', t.objetivo], ['Funil', t.funil], ['Consciência', t.consciencia], ['Emoção', t.emocao]].map(([k,v])=>'<div class="lin"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('')+
-    '<div class="met"><span>Métrica principal</span>'+esc(t.metrica1)+'</div><div class="met"><span>Métrica secundária</span>'+esc(t.metrica2)+'</div>' : '';
+  $('#mzTrava').innerHTML = t ? '<div class="pt">O que o tipo '+esc(tipo)+' pede '+infoBtn('pede')+'</div>'+
+    '<div class="cta"><span>CTA '+infoBtn('cta')+'</span><b>'+esc(t.cta)+'</b></div>'+
+    [['Objetivo','objetivo'], ['Funil','funil'], ['Consciência','consciencia'], ['Emoção','emocao']].map(([r,k])=>'<div class="lin"><span>'+esc(r)+' '+infoBtn(k, t[k])+'</span><b>'+esc(t[k])+'</b></div>').join('')+
+    '<div class="met"><span>Métrica principal '+infoBtn('metrica1')+'</span>'+esc(t.metrica1)+'</div><div class="met"><span>Métrica secundária '+infoBtn('metrica2')+'</span>'+esc(t.metrica2)+'</div>' : '';
+  $('#mzTitInfo').innerHTML = tipo && t ? infoBtn('tipoAtual', tipo) : infoBtn('tipo');
   // tipo: slot em aberto (ou "trocar tipo") mostra os botões
   const poss = mzTiposPossiveis(s);
   $('#mzAberto').hidden = !poss;
@@ -3810,28 +3915,28 @@ function mzDesenhaTipo(s, tipo){
   // chips de formato e ângulo do tipo
   const chips = (el, lista, input)=>{
     el.innerHTML = (lista||[]).map(o=>'<button type="button">'+esc(o)+'</button>').join('');
-    el.querySelectorAll('button').forEach(b=> b.onclick = ()=>{ input.value = b.textContent; mzMarcaChips(s); mzProgresso_(); input.focus(); });
+    el.querySelectorAll('button').forEach(b=> b.onclick = ()=>{ input.value = b.textContent; mzMarcaChips(s); mzProgresso_(); const c = el.closest('.mzcampo'); c.classList.remove('aberto'); mzRotuloSug(c); input.focus(); });
   };
   chips($('#mzFormatos'), t && t.formatos, $('#mzFormato'));
   chips($('#mzAngulos'), t && t.angulos, $('#mzAngulo'));
+  // sugestões começam recolhidas; o botão diz quantas tem
+  document.querySelectorAll('#ovMz .mzcampo').forEach(c=>{ c.classList.remove('aberto'); mzRotuloSug(c); });
   mzMarcaChips(s);
   mzProgresso_();
 }
 /** Barra "x de 8" no topo, check nos blocos completos, sugestões somem no campo preenchido e textos crescem sozinhos. */
-// sugestões: quem abre um campo já preenchido vê só o valor (tela limpa); durante a edição nada some,
-// pra lista não pular embaixo do mouse. "ver sugestões" mostra de novo.
-function mzProgresso_(inicial){
+function mzProgresso_(){
   const ob = mzCfg().obrigatorios; const val = k => { const el = document.querySelector('#ovMz [data-mz="'+k+'"]'); return el && el.value.trim(); };
   const n = ob.filter(val).length;
   $('#mzProgBar').style.width = Math.round(100*n/ob.length)+'%';
   $('#mzProgTxt').textContent = n===ob.length ? 'tudo preenchido: pronto pra briefing' : n+' de '+ob.length+' preenchidos';
   document.querySelectorAll('#ovMz .mzbloco').forEach(b=> b.classList.toggle('ok', b.dataset.bloco.split(' ').every(val)));
-  document.querySelectorAll('#ovMz .mzcampo').forEach(c=>{ const i=c.querySelector('input'); const tem = !!(i && i.value.trim()); if(inicial===true) c.classList.toggle('cheio', tem); else if(!tem) c.classList.remove('cheio'); });
   document.querySelectorAll('#ovMz textarea').forEach(mzCresce);
 }
 function mzCresce(t){ t.style.height = 'auto'; t.style.height = Math.max(t.scrollHeight + 2, 38)+'px'; }
 document.getElementById('ovMz').addEventListener('input', ev=>{ if(ev.target.matches('[data-mz]')) mzProgresso_(); });
-document.querySelectorAll('#ovMz .mzver').forEach(b=> b.onclick = ev=>{ ev.preventDefault(); b.closest('.mzcampo').classList.remove('cheio'); });
+function mzRotuloSug(c){ const n = c.querySelectorAll('.mzchips button').length; const b = c.querySelector('.mzver'); b.hidden = !n; b.textContent = c.classList.contains('aberto') ? 'esconder sugestões ▴' : 'ver sugestões ('+n+') ▾'; }
+document.querySelectorAll('#ovMz .mzver').forEach(b=> b.onclick = ev=>{ ev.preventDefault(); const c = b.closest('.mzcampo'); c.classList.toggle('aberto'); mzRotuloSug(c); });
 function mzMarcaChips(s){
   const tipo = $('#ovMz').dataset.tipo || '';
   const f = $('#mzFormato').value.trim(), a = $('#mzAngulo').value.trim();
@@ -3867,7 +3972,7 @@ function openMatriz(id){
   const tr = $('#mzTrocar');
   if(tr){ tr.hidden = !(s.date && mzTipoDoDia(s.date).tipo); tr.onclick = ()=>{ MZ_TIPO_LIVRE = true; tr.hidden = true; mzDesenhaTipo(s, $('#ovMz').dataset.tipo); }; }
   $('#ovMz').classList.add('open');
-  requestAnimationFrame(()=>mzProgresso_(true));   // altura dos textos só dá pra medir com a janela aberta
+  requestAnimationFrame(()=>mzProgresso_());   // altura dos textos só dá pra medir com a janela aberta
   setTimeout(()=>{ const alvo = !tipo ? null : (!m.formato ? $('#mzFormato') : (!m.tema ? $('#mzTema') : null)); if(alvo) alvo.focus(); }, 60);
 }
 ['#mzFormato','#mzAngulo'].forEach(k=> $(k).addEventListener('input', ()=>{ const s=S.slots.find(x=>x.id===MZ_ATUAL); if(s) mzMarcaChips(s); }));
@@ -5054,6 +5159,7 @@ function initIcons(){
   $('#btnMais').innerHTML = icon('dots') + 'mais';
   $('#btnAjuda').innerHTML = icon('help');
   $('#btnConfig').innerHTML = icon('gear');
+  desenhaBotaoModo(); $('#btnModo').onclick = trocarModo;
   $('#btnMute .ic-ring').innerHTML = icon('sino');
   $('#btnMute .ic-silent').innerHTML = icon('sinoOff');
   pintaMute();

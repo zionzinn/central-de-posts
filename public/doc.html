@@ -126,7 +126,25 @@
   .sb-sec{font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink3); margin:18px 18px 4px}
   .sb-row{padding:7px 18px; display:grid; grid-template-columns:1fr auto; gap:2px 8px; border-bottom:1px solid #F1F3F4}
   .sb-row:hover{background:#F8F9FA}
-  .sb-row .l{font-size:11.5px; color:var(--ink3); grid-column:1}
+  .sb-row .l{font-size:11.5px; color:var(--ink3); grid-column:1; display:flex; align-items:center; gap:2px}
+  /* (i) o que é cada campo */
+  .ib{display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; padding:0; border:0; background:transparent; color:#80868B; border-radius:50%; cursor:pointer; margin-left:3px; flex:none}
+  .ib svg{width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round}
+  .ib:hover,.ib.on{color:var(--blue); background:#E8F0FE}
+  .sb-band .ib{color:#000; margin-left:auto} .sb-band .ib:hover{background:rgba(0,0,0,.08); color:#000}
+  .gd-info{position:fixed; z-index:150; width:min(340px, calc(100vw - 16px)); background:#fff; border-radius:8px; padding:12px 14px 10px; font-size:13.5px; line-height:1.5; color:var(--ink2);
+    box-shadow:0 2px 6px 2px rgba(60,64,67,.15), 0 1px 2px rgba(60,64,67,.3)}
+  .gd-info .gi-h{display:flex; align-items:center; gap:8px; margin-bottom:6px}
+  .gd-info .gi-h svg{width:20px; height:20px; fill:none; stroke:var(--blue); stroke-width:2; stroke-linecap:round; flex:none}
+  .gd-info .gi-h b{flex:1; font-size:15px; font-weight:500; color:var(--ink)}
+  .gd-info .gi-x{width:28px; height:28px; border:0; background:transparent; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--ink3)}
+  .gd-info .gi-x:hover{background:var(--hover)} .gd-info .gi-x .ic{width:16px; height:16px}
+  .gd-info p{margin:0 0 8px}
+  .gd-info ul{list-style:none; margin:0 0 6px; padding:0; display:grid; gap:5px}
+  .gd-info li{border:1px solid var(--line2); border-radius:6px; padding:5px 8px; font-size:12.5px}
+  .gd-info li b{color:var(--ink); font-weight:500}
+  .gd-info li.atual{border-color:var(--blue); background:#E8F0FE}
+  .gd-info li.atual b::after{content:" · este post"; color:var(--blue); font-size:11.5px}
   .sb-row .v{font-size:13.5px; color:var(--ink); grid-column:1; white-space:pre-wrap; line-height:1.4; word-break:break-word}
   .sb-row .v.vazio{color:#9AA0A6; font-style:italic}
   .sb-row .v a{color:var(--blue)}
@@ -1464,15 +1482,15 @@ function montaLateral(){
   const m = D.matriz, t = D.tipo, p = D.post;
   $('#bMatriz').innerHTML = ic('matriz')+'<span class="rot">'+(m?'Matriz':'Post')+'</span>';
   $('#sideTit').textContent = m ? 'Matriz do post' : 'Informações do post';
-  const row = (l, v, ln) => '<div class="sb-row"><span class="l">'+esc(l)+'</span><span class="v'+(v?'':' vazio')+'">'+(v ? (ln?linkify(v):esc(v)) : 'não preenchido')+'</span>'+(v?'<button class="cp" title="copiar" data-v="'+esc(v)+'">'+ic('copiar')+'</button>':'')+'</div>';
+  const row = (l, v, ln, k, val) => '<div class="sb-row"><span class="l">'+esc(l)+(k?infoBtn(k, val):'')+'</span><span class="v'+(v?'':' vazio')+'">'+(v ? (ln?linkify(v):esc(v)) : 'não preenchido')+'</span>'+(v?'<button class="cp" title="copiar" data-v="'+esc(v)+'">'+ic('copiar')+'</button>':'')+'</div>';
   let h = '';
   if(m){
-    h += '<div class="sb-band"><i style="background:'+((t && COR_OBJ[t.objetivo])||'#FCC100')+'"></i>MATRIZ · '+esc(m.tipo||'em aberto')+'</div>';
+    h += '<div class="sb-band"><i style="background:'+((t && COR_OBJ[t.objetivo])||'#FCC100')+'"></i>MATRIZ · '+esc(m.tipo||'em aberto')+(m.tipo && t ? infoBtn('tipoAtual', m.tipo) : '')+'</div>';
     if(t) h += '<div class="sb-sub">'+esc(t.oQueE||'')+(t.objetivo?' Objetivo: '+esc(t.objetivo)+'.':'')+'</div>';
     h += '<div class="sb-sec">Preenchido na matriz</div>';
     [['Formato','formato'],['Pauta quente','pautaQuente'],['Ângulo','angulo'],['Tema','tema'],['Tese em uma frase','tese'],['Gancho','gancho'],['Descrição (o que fazer)','descricao'],['Refs visuais / inserts','refs',1],['Responsável','responsavel'],['Status','status'],['Observações','obs']]
-      .forEach(([l,k,ln])=> h += row(l, m[k]||'', ln));
-    if(t){ h += '<div class="sb-sec">Vem do tipo (não muda)</div>'; [['Etapa do funil','funil'],['Nível de consciência','consciencia'],['Emoção','emocao'],['CTA','cta'],['Métrica principal','metrica1'],['Métrica secundária','metrica2']].forEach(([l,k])=> h += row(l, t[k]||'')); }
+      .forEach(([l,k,ln])=> h += row(l, m[k]||'', ln, k, k==='status' ? (m[k]||'') : ''));
+    if(t){ h += '<div class="sb-sec">Vem do tipo (não muda)</div>'; [['Objetivo','objetivo'],['Etapa do funil','funil'],['Nível de consciência','consciencia'],['Emoção','emocao'],['CTA','cta'],['Métrica principal','metrica1'],['Métrica secundária','metrica2']].forEach(([l,k])=> h += row(l, t[k]||'', 0, k, t[k]||'')); }
     if(D.checklistMatriz && D.checklistMatriz.length){ h += '<div class="sb-sec">Checklist antes de entregar</div>'; D.checklistMatriz.forEach((c,i)=> h += '<label class="sb-chk'+(CHK[i]?' ok':'')+'"><input type="checkbox" data-i="'+i+'"'+(CHK[i]?' checked':'')+(LEITURA?' disabled':'')+'><span>'+esc(c)+'</span></label>'); }
     if(D.regras && D.regras.length) h += '<div class="sb-sec">Regras da matriz</div><ol class="sb-list">'+D.regras.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ol>';
   } else if(p){
@@ -1486,6 +1504,30 @@ function montaLateral(){
   $$('#sideBody .cp').forEach(x=> x.onclick = async ()=>{ await copiaTexto(x.dataset.v); toast('Copiado.'); });
   $$('#sideBody .sb-chk input').forEach(x=> x.onchange = ()=>{ CHK[+x.dataset.i] = x.checked; x.closest('.sb-chk').classList.toggle('ok', x.checked); mudou(); });
 }
+// ---------------- (i) o que é cada campo: os textos vêm do servidor (lib/matriz-seubone.js) ----------------
+const IC_INFO = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><path d="M12 11v5.8"/><circle cx="12" cy="7.7" r="1.15" fill="currentColor" stroke="none"/></svg>';
+function infoBtn(k, v){ return '<button type="button" class="ib" data-info="'+esc(k)+'"'+(v?' data-valor="'+esc(v)+'"':'')+' title="o que é isso?">'+IC_INFO+'</button>'; }
+let INFO_ATUAL = null;
+function fechaInfo(){ const p = document.getElementById('infoPop'); if(p) p.remove(); if(INFO_ATUAL){ INFO_ATUAL.classList.remove('on'); INFO_ATUAL = null; } }
+function abreInfo(btn){
+  fechaInfo();
+  const g = (D && D.glossario) || {campos:{}, valores:{}}; const k = btn.dataset.info, v = btn.dataset.valor || '';
+  let tit = '', corpo = '';
+  if(k === 'tipoAtual'){ tit = v; corpo = '<p>'+esc(D.tipo ? D.tipo.oQueE : '')+'</p>'+(D.tipo ? '<ul><li><b>Quando</b>: '+esc(D.tipo.quando)+'</li></ul>' : '')+(g.campos.tipo ? '<p>'+esc(g.campos.tipo.txt)+'</p>' : ''); }
+  else { const c = g.campos[k]; if(!c) return; tit = c.tit; corpo = '<p>'+esc(c.txt)+'</p>'; const vals = g.valores[k]; if(vals && v) corpo += '<ul>'+Object.entries(vals).map(([n,t])=>'<li'+(n===v?' class="atual"':'')+'><b>'+esc(n)+'</b>: '+esc(t)+'</li>').join('')+'</ul>'; }
+  const pop = document.createElement('div'); pop.id = 'infoPop'; pop.className = 'gd-info';
+  pop.innerHTML = '<div class="gi-h">'+IC_INFO+'<b>'+esc(tit)+'</b><button type="button" class="gi-x" aria-label="fechar">'+ic('x')+'</button></div>'+corpo;
+  document.body.appendChild(pop);
+  const r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.min(Math.max(8, r.left - w + 30), innerWidth - w - 8)+'px';
+  let y = r.bottom + 8; if(y + h > innerHeight - 8) y = Math.max(8, r.top - h - 8); pop.style.top = y+'px';
+  pop.querySelector('.gi-x').onclick = fechaInfo;
+  btn.classList.add('on'); INFO_ATUAL = btn; INFO_EM = Date.now();
+}
+let INFO_EM = 0;
+document.addEventListener('click', e=>{ const b = e.target.closest && e.target.closest('.ib'); if(b){ e.preventDefault(); e.stopPropagation(); if(INFO_ATUAL===b){ fechaInfo(); return; } abreInfo(b); return; } if(!(e.target.closest && e.target.closest('#infoPop'))) fechaInfo(); }, true);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && document.getElementById('infoPop')){ e.stopPropagation(); fechaInfo(); } }, true);
+$('#sideBody').addEventListener('scroll', ()=>{ if(Date.now() - INFO_EM > 350) fechaInfo(); });
 function abreLateral(forcar){
   const abrir = forcar ? true : $('#side').hidden;
   $('#side').hidden = !abrir; $('#bMatriz').classList.toggle('on', abrir);

@@ -17,7 +17,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.67'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.68'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -1155,7 +1155,7 @@ const server = http.createServer(async (req, res) => {
         zapiPronto: zapiPronto() && zapiCfg().ligado,
         gmCadencia: db.gmCadencia,
         duePendentes: Object.keys(db.dueSync).filter(temSlotComData), // post excluído não deixa data fantasma pra aplicar
-        matrizSB: { conta: MZ_CONTA, tipos: MZ.TIPOS, semanas: MZ.SEMANAS, ancora: MZ.ANCORA, status: MZ.STATUS, obrigatorios: MZ.OBRIGATORIOS, regras: MZ.REGRAS, checklist: MZ.CHECKLIST, responsaveis: RESPONSAVEIS },
+        matrizSB: { conta: MZ_CONTA, tipos: MZ.TIPOS, semanas: MZ.SEMANAS, ancora: MZ.ANCORA, status: MZ.STATUS, obrigatorios: MZ.OBRIGATORIOS, regras: MZ.REGRAS, checklist: MZ.CHECKLIST, responsaveis: RESPONSAVEIS, glossario: MZ.GLOSSARIO },
       });
     }
 
