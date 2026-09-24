@@ -1571,7 +1571,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.69'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.70'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1693,8 +1693,9 @@ async function loadState(fresh, silencioso){
   try{ j = await api('/api/state'+(q||fresh?'?':'')+q+(fresh?(q?'&':'')+'fresh=1':'')); }
   catch(e){ if(e.status===401){ if(!silencioso) mostrarLogin(); return; } if(silencioso) return; throw e; }
   // assinatura barata do que aparece na tela: se nada mudou, o modo silencioso não redesenha
-  const assinatura = j.slots.map(x=>x.id+'|'+(x.date||'')+'|'+(x.tituloCache||'')+'|'+((x.statusCache&&x.statusCache.status)||'')+'|'+(x.assigneeCache||'')+'|'+(x.postado?1:0)+'|'+(x.notas?x.notas.length:0)).join(';')
-    + '#' + (j.duePendentes||[]).length;
+  // v3.70: a assinatura cobre o post INTEIRO (formato, GM, obs, matriz...) e as referências: mudança
+  // feita por outra pessoa aparece no próximo ciclo de 20 s. Antes só o poll de 90 s (removido) pegava isso.
+  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.referencias||[]) + '#' + (j.duePendentes||[]).join(',');
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
   Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], duePendentes:j.duePendentes||[], hasToken:j.hasToken, user:j.user, temSenha:j.temSenha, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
@@ -5236,11 +5237,8 @@ $('#pfDepois').onclick = ()=>{ PERFIL.marcaPulou(); $('#ovPerfil').classList.rem
 $('#pfNome').addEventListener('input', pfPreview);
 $('#pfNome').addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); salvarPerfil(); } });
 if(!PERFIL.get() && !PERFIL.pulou()) setTimeout(()=>{ if(!document.querySelector('.ov.open')) openPerfil(); }, 900);
-setInterval(()=>{
-  if(S.dragging || document.querySelector('.ov.open')) return;
-  if(S.drawer && document.activeElement && $('#drawer').contains(document.activeElement)) return;
-  loadState().catch(()=>{});
-}, 90000);
+// v3.70: o poll antigo de 90 s saiu. Ele baixava o estado e redesenhava TUDO mesmo sem mudança,
+// com a aba escondida e com o documento aberto; o poll de 20 s (podeAtualizarSozinho) já cobre.
 </script>
 </body>
 </html>

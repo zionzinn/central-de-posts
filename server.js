@@ -14,10 +14,11 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { Readable } = require('node:stream');
+const { Readable, pipeline } = require('node:stream');
+const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.69'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.70'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -585,7 +586,7 @@ async function enrichSlots(slotList, { fresh = false } = {}) {
     .filter(id => fresh || !enrichAt.has(id) || now - enrichAt.get(id) > CACHE_MS);
   if (!ids.length) return { ok: true, atualizados: 0 };
   const results = await mapLimit(ids, 6, id => cuFetch(`/task/${id}`, { fresh }));
-  let n = 0;
+  let n = 0, avisosMudou = false;
   const novasAprovacoes = [];
   results.forEach((task, i) => {
     const id = ids[i];
@@ -606,21 +607,30 @@ async function enrichSlots(slotList, { fresh = false } = {}) {
         if (slot) novasAprovacoes.push({ taskId: id, slot, nome: task.name || '', status: st.status });
       } else if (!anterior) {
         db.avisos[id] = st.status; // primeira vez que vemos: registra sem avisar
+        avisosMudou = true;
       }
     }
-    if (!AVISA_STATUS.has(st.status) && db.avisos[id]) delete db.avisos[id];
+    if (!AVISA_STATUS.has(st.status) && db.avisos[id]) { delete db.avisos[id]; avisosMudou = true; }
+    // v3.70: só grava o que MUDOU de verdade. Antes todo post sincronizado ganhava um carimbo
+    // novo de atualizadoEm a cada 75 s, o data.json mudava sempre e o start.js fazia 1 commit
+    // por ciclo (1.152/dia), o que estourou os 5 GB de banda do Render em 24/09/2026.
     for (const s of db.slots) {
-      if (s.taskId === id) {
-        s.tituloCache = task.name || s.tituloCache;
-        s.statusCache = st;
-        s.assigneeCache = assignee || s.assigneeCache;
-        s.dueCache = due; // entrega REAL no ClickUp (detecta ajuste manual)
-        s.atualizadoEm = new Date().toISOString();
-        n++;
-      }
+      if (s.taskId !== id) continue;
+      const titulo = task.name || s.tituloCache;
+      const resp = assignee || s.assigneeCache;
+      const velho = s.statusCache || {};
+      const mudou = s.tituloCache !== titulo || velho.status !== st.status || velho.color !== st.color
+        || s.assigneeCache !== resp || (s.dueCache ?? null) !== due;
+      if (!mudou) continue;
+      s.tituloCache = titulo;
+      s.statusCache = st;
+      s.assigneeCache = resp;
+      s.dueCache = due; // entrega REAL no ClickUp (detecta ajuste manual)
+      s.atualizadoEm = new Date().toISOString();
+      n++;
     }
   });
-  if (n) saveDb();
+  if (n || avisosMudou) saveDb();
   if (novasAprovacoes.length) avisarAprovar(novasAprovacoes).catch(() => {});
   return { ok: true, atualizados: n };
 }
@@ -913,7 +923,18 @@ async function importFromSheet() {
 // ---------------- http ----------------
 function json(res, code, obj) {
   const body = JSON.stringify(obj);
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(body) });
+  const h = { 'Content-Type': 'application/json; charset=utf-8', Vary: 'Accept-Encoding' };
+  // v3.70: comprime respostas maiores que 1 KB (o /api/state cai de ~93 KB pra ~18 KB).
+  // Banda de saída do Render é contada e o plano grátis tem só 5 GB/mês.
+  const aceitaGzip = /\bgzip\b/.test((res.req && res.req.headers['accept-encoding']) || '');
+  if (aceitaGzip && body.length > 1024) {
+    const gz = zlib.gzipSync(body, { level: 6 });
+    h['Content-Encoding'] = 'gzip'; h['Content-Length'] = gz.length;
+    res.writeHead(code, h);
+    return res.end(gz);
+  }
+  h['Content-Length'] = Buffer.byteLength(body);
+  res.writeHead(code, h);
   res.end(body);
 }
 function readBody(req) {
@@ -932,7 +953,8 @@ function serveStatic(res, file) {
     res.writeHead(404); res.end('não encontrado'); return;
   }
   res.writeHead(200, { 'Content-Type': MIME[path.extname(full)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
-  fs.createReadStream(full).pipe(res);
+  // pipeline (e não .pipe): se a leitura falhar, fecha a resposta em vez de derrubar o servidor
+  pipeline(fs.createReadStream(full), res, () => {});
 }
 
 // ===== presença ao vivo (cursores estilo Figma, via SSE, sem dependência) =====
@@ -1581,7 +1603,10 @@ const server = http.createServer(async (req, res) => {
       const h2 = { 'Content-Type': tipo, 'Cache-Control': 'public, max-age=3600', 'Accept-Ranges': 'bytes' };
       for (const k of ['content-range', 'content-length']) { const v = up.headers.get(k); if (v) h2[k] = v; }
       res.writeHead(up.status === 206 ? 206 : 200, h2);
-      Readable.fromWeb(up.body).pipe(res);
+      // v3.70: pipeline em vez de .pipe(). Com .pipe(), vídeo do ClickUp cortado no meio soltava
+      // um 'error' sem dono e DERRUBAVA o servidor inteiro; e quem fechava o vídeo no meio deixava
+      // a conexão com o ClickUp presa por minutos. O pipeline fecha os dois lados nos dois casos.
+      pipeline(Readable.fromWeb(up.body), res, () => {});
       return;
     }
 
