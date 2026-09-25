@@ -261,7 +261,7 @@
   .pdot:hover .pd-tip{opacity:1; transform:translateY(0)}
   /* ---- camada dos cursores dos outros ---- */
   #aovivoLayer{position:fixed; inset:0; z-index:70; pointer-events:none; overflow:hidden}
-  .aovivo-cursor{position:absolute; top:0; left:0; will-change:transform; transition:transform .09s linear}
+  .aovivo-cursor{position:absolute; top:0; left:0; will-change:transform; transition:transform .15s linear}
   .aovivo-cursor svg{display:block; filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
   .aovivo-cursor .av-nome{position:absolute; top:16px; left:14px; white-space:nowrap; font-size:11px; font-weight:800;
     color:#000; padding:2px 8px; border-radius:0 8px 8px 8px; box-shadow:0 2px 5px rgba(0,0,0,.4)}
@@ -857,6 +857,30 @@
   .dcl .tg{font-size:9.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:1px 6px; border-radius:4px; border:1px solid var(--hair); color:var(--ink-2)}
   .dcl .tg.ok{border-color:var(--ok); color:var(--ok)}
   .dcvazio{padding:30px 10px; text-align:center; color:var(--ink-3); font-size:13px}
+  /* ---- v3.72: pausa por inatividade, aviso de uso e arquivamento de documentos ---- */
+  #pausaOcio{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:80; background:var(--surface); color:var(--ink-2); border:1px solid var(--hair); border-radius:999px; padding:8px 16px; font-size:12.5px; font-weight:700; box-shadow:var(--hard-s); pointer-events:none; white-space:nowrap}
+  /* fixo no canto (o painel rola sozinho até o mês atual, então um aviso no topo da página ficaria fora da tela) */
+  .usoaviso{position:fixed; right:18px; bottom:18px; z-index:85; width:min(420px, calc(100vw - 36px)); border-radius:10px; padding:12px 14px; font-size:12.5px; line-height:1.55;
+    border:1.5px solid var(--warn); background:color-mix(in srgb, var(--warn) 12%, var(--surface)); color:var(--ink); box-shadow:var(--hard-c, 0 10px 30px rgba(0,0,0,.35)); animation:toastin .2s ease both}
+  .usoaviso.alto{border-color:var(--crit); background:color-mix(in srgb, var(--crit) 12%, var(--surface))}
+  .usoaviso .usobts{display:flex; gap:8px; margin-top:9px; flex-wrap:wrap}
+  .usoaviso .mbtn{padding:5px 11px; font-size:12px}
+  body.drawer-open .usoaviso{right:374px}
+  #btnDocs.uso-atencao,#btnDocs.uso-alto{position:relative}
+  #btnDocs.uso-atencao::after,#btnDocs.uso-alto::after{content:''; position:absolute; top:3px; right:3px; width:8px; height:8px; border-radius:50%; background:var(--warn)}
+  #btnDocs.uso-alto::after{background:var(--crit)}
+  .dcuso{display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; margin:0 0 12px; padding:10px 12px; border:1.5px solid var(--hair); border-radius:8px; background:var(--surface-2); font-size:12px; line-height:1.5; color:var(--ink-2)}
+  .dcuso b{color:var(--ink)}
+  .dcuso .barra{flex:1 1 150px; height:8px; border-radius:99px; background:var(--hair-2); overflow:hidden; min-width:120px}
+  .dcuso .barra i{display:block; height:100%; background:var(--ok)}
+  .dcuso .barra i.atencao{background:var(--warn)} .dcuso .barra i.alto{background:var(--crit)}
+  .dcuso .mbtn{padding:5px 10px; font-size:11.5px}
+  .arqlin{display:flex; gap:10px 16px; align-items:center; flex-wrap:wrap; font-size:13px; color:var(--ink-2)}
+  #ovArq input[type=date]{border:1.5px solid var(--hair); border-radius:6px; background:var(--surface-2); padding:7px 9px; color:var(--ink); font:inherit}
+  .arqprev{margin-top:12px; padding:12px 14px; border:1.5px solid var(--hair); border-radius:8px; background:var(--surface-2); font-size:13px; line-height:1.6; color:var(--ink-2)}
+  .arqprev b{color:var(--ink)}
+  .arqprev.ok{border-color:var(--ok)}
+  #arqApagar.confirma{background:var(--crit); color:#fff; border-color:var(--crit)}
   .mk.t-doc{color:var(--ink-2); cursor:pointer}
   .mk.t-doc:hover{color:var(--sb-ink)}
   /* ---- Novo post v3.65: passo 1 = escolha grande; passo 2 = só os campos do caminho ---- */
@@ -1190,6 +1214,7 @@
 </header>
 
 <div class="banner" id="banner"></div>
+<div class="usoaviso" id="usoAviso" hidden></div>
 <div id="aovivoLayer" aria-hidden="true"></div>
 <div id="seguindoFrame" aria-hidden="true"></div>
 <div id="seguindoBar"></div>
@@ -1459,12 +1484,29 @@
   <button class="mclose" data-close="ovDocs">✕</button>
   <div class="mhead"><div class="mtit">Documentos</div><div class="ectx">as copys escritas no painel, da mais recente pra mais antiga</div></div>
   <div class="mbody">
+    <div class="dcuso" id="dcUso" hidden></div>
     <div class="dcfil">
       <input id="dcBusca" placeholder="procurar pelo nome, conta ou post" autocomplete="off">
       <label class="dcexc"><input type="checkbox" id="dcExc"> ver excluídos</label>
     </div>
     <div class="echips" id="dcContas" style="margin:10px 0 4px"></div>
     <div class="dclista" id="dcLista"></div>
+  </div>
+</div></div>
+<div class="ov" id="ovArq"><div class="modal" style="position:relative; width:min(580px,100%)">
+  <button class="mclose" data-close="ovArq">✕</button>
+  <div class="mhead"><div class="mtit">Arquivar documentos antigos</div><div class="ectx">baixa um .zip com os documentos e só depois tira eles do servidor</div></div>
+  <div class="mbody">
+    <div class="arqlin">
+      <label>Documentos de posts até <input type="date" id="arqAte"></label>
+      <label class="dcexc"><input type="checkbox" id="arqLix" checked> incluir os que estão na lixeira</label>
+    </div>
+    <div class="arqprev" id="arqPrevia">calculando…</div>
+  </div>
+  <div class="mfoot" style="display:flex; justify-content:flex-end; align-items:center; gap:8px; flex-wrap:wrap">
+    <span id="arqMsg" class="note" style="margin-right:auto"></span>
+    <button class="mbtn" id="arqApagar" hidden>Apagar do servidor</button>
+    <button class="mbtn primary" id="arqBaixar">1. Baixar .zip</button>
   </div>
 </div></div>
 <div class="ov" id="ovRelatorio"><div class="modal" style="max-width:580px; position:relative">
@@ -1571,7 +1613,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.71'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.72'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1701,6 +1743,7 @@ async function loadState(fresh, silencioso){
   Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], duePendentes:j.duePendentes||[], hasToken:j.hasToken, user:j.user, temSenha:j.temSenha, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
+  mostraUso(j.uso);
   checarAprovacoes(S.slots);
   if(mudou || !silencioso) render(); else renderRefLabel();
   const b = $('#banner');
@@ -2998,6 +3041,7 @@ function pintaMute(){
 // cada 20s, mas SÓ quando dá: aba visível, nada aberto, nada sendo arrastado ou digitado.
 const POLL_MS = 20_000;
 function podeAtualizarSozinho(){
+  if(S.ocioso) return false;                                  // v3.72: 20 min sem ninguém mexer, fica quieto
   if(document.hidden) return false;
   if(!document.getElementById('ovDoc').hidden) return false;   // documento aberto: nada de redesenhar por trás
   if(S.dragging || S.clip) return false;
@@ -3868,6 +3912,7 @@ window.addEventListener('message', ev=>{
 let DOCS_LISTA = [], DOCS_CONTA = '';
 async function abrirListaDocs(){
   $('#ovDocs').classList.add('open');
+  desenhaUsoDocs();
   $('#dcLista').innerHTML = '<div class="dcvazio">carregando…</div>';
   try{ DOCS_LISTA = (await api('/api/docs'+($('#dcExc').checked?'?excluidos=1':''))).docs; }
   catch(e){ $('#dcLista').innerHTML = '<div class="dcvazio">Não consegui carregar: '+esc(e.message)+'</div>'; return; }
@@ -3901,6 +3946,126 @@ function desenhaListaDocs(){
 $('#dcBusca').addEventListener('input', desenhaListaDocs);
 $('#dcExc').addEventListener('change', abrirListaDocs);
 $('#btnDocs').onclick = abrirListaDocs;
+
+// ================= uso de banda e arquivamento de documentos (v3.72) =================
+// O servidor mede quanto o painel manda pra fora no mês (é o que o Render cobra; grátis até 5 GB) e quanto
+// pesa dos documentos. No Render, cada alteração envia o arquivo de dados INTEIRO pro GitHub, então documento
+// acumulado deixa TODA alteração mais cara. Quando pesa, aparece o aviso e o botão de arquivar.
+const fmtMB = b => (b/1048576 >= 10 ? Math.round(b/1048576) : (b/1048576).toFixed(1).replace('.', ',')) + ' MB';
+const fmtGB = b => (b/1e9 >= 10 ? Math.round(b/1e9) : (b/1e9).toFixed(1).replace('.', ',')) + ' GB';
+const fmtTam = b => b >= 1048576 ? fmtMB(b) : Math.max(1, Math.round(b/1024)) + ' KB';
+function mostraUso(u){
+  S.uso = u || null;
+  const el = $('#usoAviso'), bt = $('#btnDocs');
+  const nivel = u ? u.nivel : 'ok';
+  bt.classList.toggle('uso-atencao', nivel==='atencao'); bt.classList.toggle('uso-alto', nivel==='alto');
+  let adiado = 0; try{ adiado = +localStorage.getItem('bone.usoAdiado') || 0; }catch(e){}
+  if(!u || nivel==='ok' || Date.now() < adiado){ el.hidden = true; return; }
+  el.className = 'usoaviso' + (nivel==='alto' ? ' alto' : '');
+  const prev = 'Previsão de <b>'+fmtGB(u.previsaoBytes)+'</b> de banda este mês (grátis até '+fmtGB(u.limiteBytes)+').';
+  el.innerHTML = u.porDocs
+    ? '<b>'+(nivel==='alto' ? 'Os documentos estão fazendo o painel passar do limite grátis.' : 'Os documentos estão pesando no servidor.')+'</b> '+prev+
+      ' São '+fmtMB(u.docsBytes)+' de documentos'+(u.comGitHub ? ', e cada alteração no painel leva tudo isso junto pro backup.' : '.')+
+      '<div class="usobts"><button class="mbtn primary" id="usoArq">Arquivar documentos antigos</button><button class="mbtn" id="usoDepois">Lembrar amanhã</button></div>'
+    : '<b>O painel está gastando mais banda que o normal.</b> '+prev+'<div class="usobts"><button class="mbtn" id="usoVer">Ver detalhes</button><button class="mbtn" id="usoDepois">Lembrar amanhã</button></div>';
+  el.hidden = false;
+  if($('#usoArq')) $('#usoArq').onclick = ()=>abrirArquivar();
+  if($('#usoVer')) $('#usoVer').onclick = ()=>abrirListaDocs();
+  $('#usoDepois').onclick = ()=>{ try{ localStorage.setItem('bone.usoAdiado', String(Date.now()+20*3600_000)); }catch(e){} el.hidden = true; };
+}
+async function desenhaUsoDocs(){
+  const el = $('#dcUso');
+  let u; try{ u = await api('/api/uso'); }catch(e){ el.hidden = true; return; }
+  const pct = Math.min(100, Math.round(u.previsaoBytes / u.limiteBytes * 100));
+  el.innerHTML = '<span><b>'+u.docsN+' documento'+(u.docsN===1?'':'s')+'</b> no servidor ('+fmtTam(u.docsBytes)+(u.docsLixeira?', '+u.docsLixeira+' na lixeira':'')+') · arquivo de dados: '+fmtTam(u.dataBytes)+'</span>'+
+    '<span class="barra" title="banda prevista no mês"><i class="'+u.nivel+'" style="width:'+Math.max(2,pct)+'%"></i></span>'+
+    '<span>banda do mês: '+fmtGB(u.totalBytes)+' · previsão '+fmtGB(u.previsaoBytes)+' de '+fmtGB(u.limiteBytes)+'</span>'+
+    '<button class="mbtn" id="dcArq">Arquivar antigos</button>';
+  el.hidden = false;
+  $('#dcArq').onclick = ()=>abrirArquivar();
+}
+
+// ---- arquivar: 1) prévia  2) baixa o .zip (montado aqui, com um .docx por documento)  3) apaga do servidor ----
+const ARQ = { ids:[], baixado:false, bytes:0, arquivo:'' };
+function carregaDocx(){
+  if(window.DOCX) return Promise.resolve();
+  return new Promise((ok, no)=>{ const sc = document.createElement('script'); sc.src = '/js/docx.js'; sc.onload = ok; sc.onerror = ()=>no(new Error('não carregou o gerador de .docx')); document.head.appendChild(sc); });
+}
+function abrirArquivar(){
+  closeOv('ovDocs');
+  const d = new Date(); d.setDate(d.getDate()-30);
+  $('#arqAte').value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  $('#ovArq').classList.add('open');
+  previaArquivar();
+}
+async function previaArquivar(){
+  Object.assign(ARQ, { ids:[], baixado:false, bytes:0, arquivo:'' });
+  $('#arqApagar').hidden = true; $('#arqApagar').classList.remove('confirma'); $('#arqApagar').textContent = '2. Apagar do servidor';
+  $('#arqBaixar').disabled = true; $('#arqMsg').textContent = '';
+  const box = $('#arqPrevia'); box.className = 'arqprev'; box.textContent = 'calculando…';
+  let r; try{ r = await api('/api/docs/arquivo/previa', {method:'POST', body:JSON.stringify({ ate:$('#arqAte').value, lixeira:$('#arqLix').checked })}); }
+  catch(e){ box.textContent = 'Não consegui calcular: '+e.message; return; }
+  ARQ.ids = r.ids; ARQ.bytes = r.bytes;
+  if(!r.n){ box.innerHTML = 'Nenhum documento de post até '+brData($('#arqAte').value)+($('#arqLix').checked ? ' nem na lixeira' : '')+'.'+(S.uso && S.uso.docsN ? ' Os '+S.uso.docsN+' documentos do servidor são de posts depois dessa data: escolha uma data mais recente pra incluir mais.' : '')+(r.abertos ? '<br>'+r.abertos+' documento(s) aberto(s) agora por alguém ficam de fora.' : ''); return; }
+  box.innerHTML = '<b>'+r.n+' documento'+(r.n===1?'':'s')+'</b>'+(r.lixeira ? ' ('+r.lixeira+' da lixeira)' : '')+' · libera cerca de <b>'+fmtTam(r.bytes)+'</b> do servidor.'+
+    '<br>Primeiro você baixa o .zip (um .docx por documento, em pastas por conta, e um arquivo com tudo pra restaurar se precisar). Guarda no Drive, confere, e só então apaga do servidor.'+
+    (r.abertos ? '<br>'+r.abertos+' documento(s) aberto(s) agora por alguém ficam de fora.' : '');
+  $('#arqBaixar').disabled = false;
+}
+const nomeSeguro = t => String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\x20-\x7E]/g,'').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim().slice(0,80) || 'documento';
+async function baixarArquivo_zip(){
+  if(!ARQ.ids.length) return;
+  const bt = $('#arqBaixar'); bt.disabled = true; $('#arqMsg').textContent = 'montando o .zip…';
+  try{
+    await carregaDocx();
+    const r = await api('/api/docs/arquivo/lista', {method:'POST', body:JSON.stringify({ ids:ARQ.ids })});
+    const arquivos = [], usados = new Set();
+    for(const d of r.docs){
+      const m = d.meta || {};
+      const pasta = nomeSeguro(m.contaNome || m.conta || 'sem conta');
+      let base = 'documentos/'+pasta+'/'+(m.date || d.dateSnap || 'sem-dia')+' '+nomeSeguro(d.titulo)+(d.excluido?' (lixeira)':'');
+      let nome = base+'.docx', k = 2; while(usados.has(nome)) nome = base+' ('+(k++)+').docx';
+      usados.add(nome);
+      arquivos.push({ nome, bytes: DOCX.docxDeHtml(d.html, { titulo:d.titulo, autor:d.por||d.criadoPor||'' }) });
+    }
+    const hoje = hojeStr();
+    const dataBr = iso => iso.split('-').reverse().join('/');
+    const leia = 'B.O.N.E - documentos arquivados em '+dataBr(hoje)+'\r\n\r\n'+
+      'Critério: documentos de posts até '+dataBr($('#arqAte').value)+($('#arqLix').checked?', mais os que estavam na lixeira':'')+'.\r\n'+
+      'Total: '+r.docs.length+' documento(s).\r\n\r\n'+
+      'documentos/  um .docx por documento, separado por conta (abre no Word e no Google Docs).\r\n'+
+      'arquivo-documentos.json  tudo o que o painel guardava (texto, versões antigas, quem escreveu), pra restaurar se um dia precisar.\r\n';
+    arquivos.push({ nome:'LEIA-ME.txt', texto:'﻿'+leia });
+    arquivos.push({ nome:'arquivo-documentos.json', texto:JSON.stringify({ geradoEm:r.geradoEm, criterio:{ ate:$('#arqAte').value, lixeira:$('#arqLix').checked }, docs:r.docs }) });
+    const blob = DOCX.zipBlob(arquivos, 'application/zip');
+    ARQ.arquivo = 'bone-documentos-ate-'+$('#arqAte').value+'.zip';
+    const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = ARQ.arquivo; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 4000);
+    ARQ.baixado = true;
+    const box = $('#arqPrevia'); box.className = 'arqprev ok';
+    box.innerHTML = '<b>Baixado: '+esc(ARQ.arquivo)+'</b> ('+fmtTam(blob.size)+', '+r.docs.length+' documento'+(r.docs.length===1?'':'s')+').'+
+      '<br>Guarde no Drive e abra um ou dois pra conferir. Depois clique em <b>2. Apagar do servidor</b>. Antes de apagar o painel ainda faz um backup do arquivo de dados.';
+    $('#arqMsg').textContent = '';
+    $('#arqApagar').hidden = false; bt.textContent = 'Baixar de novo'; bt.disabled = false;
+  }catch(e){ $('#arqMsg').textContent = 'Não consegui montar o .zip: '+e.message; bt.disabled = false; }
+}
+async function apagarArquivados(){
+  const bt = $('#arqApagar');
+  if(!ARQ.baixado || !ARQ.ids.length) return;
+  if(!bt.classList.contains('confirma')){ bt.classList.add('confirma'); bt.textContent = 'Confirmar: apagar '+ARQ.ids.length+' do servidor'; return; }
+  bt.disabled = true; $('#arqMsg').textContent = 'apagando…';
+  try{
+    const r = await api('/api/docs/arquivo/apagar', {method:'POST', body:JSON.stringify({ ids:ARQ.ids, confirmo:true })});
+    toast(r.apagados+' documento'+(r.apagados===1?'':'s')+' arquivado'+(r.apagados===1?'':'s')+' · '+fmtTam(r.liberadoBytes)+' liberados'+(r.pulados&&r.pulados.length?' · '+r.pulados.length+' aberto(s) ficou(aram)':''));
+    closeOv('ovArq');
+    await loadState(false, true); render();
+  }catch(e){ $('#arqMsg').textContent = 'Não apagou: '+e.message; }
+  bt.disabled = false;
+}
+$('#arqAte').addEventListener('change', previaArquivar);
+$('#arqLix').addEventListener('change', previaArquivar);
+$('#arqBaixar').onclick = baixarArquivo_zip;
+$('#arqApagar').onclick = apagarArquivados;
 $('#mzCopy').onclick = $('#mzCopyTop').onclick = async ()=>{
   const id = MZ_ATUAL; if(!id) return;
   await salvarMatriz();
@@ -4996,40 +5161,60 @@ function avMeuId(){
   catch(e){ return Math.random().toString(36).slice(2,10); }
 }
 function cssEsc(s){ return String(s).replace(/["\\]/g,'\\$&'); }
+// v3.72: a presença foi dividida em "ligar uma vez" (ouvintes da janela) e "conectar/desconectar"
+// (a conexão ao vivo). Assim dá pra sair do ao vivo quando a aba fica esquecida e voltar sem duplicar nada.
+const AV_PASSO = 150;   // ms entre envios da posição do cursor (antes 55 ms: ~17 envios por segundo)
 function aovivoIniciar(){
+  if(!AV.pronto){
+    AV.pronto = true;
+    // seguir alguém termina no primeiro gesto seu de navegação (roda do mouse, toque, teclas de rolagem)
+    window.addEventListener('wheel', ()=>{ if(AV.seguindo) pararDeSeguir(); }, {passive:true});
+    window.addEventListener('touchmove', ()=>{ if(AV.seguindo) pararDeSeguir(); }, {passive:true});
+    window.addEventListener('keydown', ev=>{ if(AV.seguindo && ['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(ev.key) && !/input|textarea|select/i.test(ev.target.tagName)) pararDeSeguir(); });
+    // envio DIRETO no mousemove (não depende do rAF, que trava em aba de fundo). Só manda se tem mais gente online.
+    window.addEventListener('mousemove', e=>{
+      AV.mx=e.clientX; AV.my=e.clientY; AV.dentro=true;
+      if(!AV.es || !AV.peers.size) return;
+      const now=performance.now();
+      if(now-AV.ultimoEnvio>AV_PASSO){ AV.ultimoEnvio=now; avEnviaDaPos(); }
+      else { clearTimeout(AV.trail); AV.trail=setTimeout(()=>{ AV.ultimoEnvio=performance.now(); avEnviaDaPos(); }, AV_PASSO+10); }
+    }, {passive:true});
+    window.addEventListener('mouseout', e=>{ if(!e.relatedTarget){ AV.dentro=false; avEnviar(null,0,0); } }, {passive:true});
+    window.addEventListener('scroll', avPosicionaTodos, {passive:true});
+    window.addEventListener('resize', avPosicionaTodos, {passive:true});
+    const tick=()=>{ avPosicionaTodos(); AV.raf=requestAnimationFrame(tick); };
+    AV.raf=requestAnimationFrame(tick);
+  }
+  aovivoConectar();
+}
+/** Abre a conexão ao vivo (quem está online e os cursores). */
+function aovivoConectar(){
   if(AV.es) return;
-  AV.id = avMeuId();
+  AV.id = avMeuId(); AV.ult = null;
   const pf = PERFIL.get();
   let url = '/api/ao-vivo?id='+encodeURIComponent(AV.id);
   if(pf){ url += '&nome='+encodeURIComponent(pf.nome)+'&icone='+encodeURIComponent(pf.icone||'')+'&cor='+encodeURIComponent(pf.cor||''); }
   const es = new EventSource(url);
   AV.es = es;
+  // chegou gente (ou já tinha): manda a posição atual uma vez, pra ela ver o seu cursor
+  const avisaQueEstouAqui = ()=>{ if(AV.peers.size){ AV.ult=null; avEnviaDaPos(); } };
   es.addEventListener('eu', e=>{ const d=JSON.parse(e.data); AV.nome=d.nome; AV.icone=d.icone||''; AV.cor=d.cor; renderPresenca(); });
-  es.addEventListener('roster', e=>{ const arr=JSON.parse(e.data); AV.peers.clear(); arr.forEach(p=>AV.peers.set(p.id,p)); renderPresenca(); });
+  es.addEventListener('roster', e=>{ const arr=JSON.parse(e.data); AV.peers.clear(); arr.forEach(p=>AV.peers.set(p.id,p)); renderPresenca(); avisaQueEstouAqui(); });
   // entrou também é "mudou o perfil": recria o cursor daquela pessoa pra pegar nome/ícone/cor novos
-  es.addEventListener('entrou', e=>{ const p=JSON.parse(e.data); AV.peers.set(p.id, Object.assign(AV.peers.get(p.id)||{}, p)); const el=document.getElementById('avc-'+p.id); if(el) el.remove(); renderPresenca(); });
+  es.addEventListener('entrou', e=>{ const p=JSON.parse(e.data); AV.peers.set(p.id, Object.assign(AV.peers.get(p.id)||{}, p)); const el=document.getElementById('avc-'+p.id); if(el) el.remove(); renderPresenca(); avisaQueEstouAqui(); });
   es.addEventListener('saiu', e=>{ const d=JSON.parse(e.data); AV.peers.delete(d.id); const el=document.getElementById('avc-'+d.id); if(el) el.remove(); if(AV.seguindo===d.id) pararDeSeguir(); renderPresenca(); });
   es.addEventListener('mexeu', e=>{ const p=JSON.parse(e.data); const antes=AV.peers.get(p.id); const contaMudou = !antes || antes.conta!==p.conta; const cur=Object.assign(antes||{id:p.id}, p); AV.peers.set(p.id, cur); if(AV.seguindo===p.id) acompanhar(cur,false); avPosicionaUm(cur); if(contaMudou) renderPresenca(); });
   es.onerror = ()=>{};
-  // seguir alguém termina no primeiro gesto seu de navegação (roda do mouse, toque, teclas de rolagem)
-  window.addEventListener('wheel', ()=>{ if(AV.seguindo) pararDeSeguir(); }, {passive:true});
-  window.addEventListener('touchmove', ()=>{ if(AV.seguindo) pararDeSeguir(); }, {passive:true});
-  window.addEventListener('keydown', ev=>{ if(AV.seguindo && ['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(ev.key) && !/input|textarea|select/i.test(ev.target.tagName)) pararDeSeguir(); });
-  // envio DIRETO no mousemove (não depende do rAF, que trava em aba de fundo)
-  window.addEventListener('mousemove', e=>{
-    AV.mx=e.clientX; AV.my=e.clientY; AV.dentro=true;
-    const now=performance.now();
-    if(now-AV.ultimoEnvio>55){ AV.ultimoEnvio=now; avEnviaDaPos(); }
-    else { clearTimeout(AV.trail); AV.trail=setTimeout(()=>{ AV.ultimoEnvio=performance.now(); avEnviaDaPos(); }, 60); }
-  }, {passive:true});
-  window.addEventListener('mouseout', e=>{ if(!e.relatedTarget){ AV.dentro=false; avEnviar(null,0,0); } }, {passive:true});
-  window.addEventListener('scroll', avPosicionaTodos, {passive:true});
-  window.addEventListener('resize', avPosicionaTodos, {passive:true});
-  const tick=()=>{
-    avPosicionaTodos();
-    AV.raf=requestAnimationFrame(tick);
-  };
-  AV.raf=requestAnimationFrame(tick);
+}
+/** Sai do ao vivo (aba esquecida ou escondida): fecha a conexão e some com os cursores dos outros. */
+function aovivoParar(){
+  if(!AV.es) return;
+  try{ AV.es.close(); }catch(e){}
+  AV.es = null; AV.ult = null;
+  if(AV.seguindo) pararDeSeguir();
+  AV.peers.clear();
+  document.querySelectorAll('.aovivo-cursor').forEach(el=>el.remove());
+  renderPresenca();
 }
 function avAncora(x,y){
   const el = document.elementFromPoint(x,y);
@@ -5045,7 +5230,10 @@ function avAncora(x,y){
 function avRel(elm, x, y, a){ const r=elm.getBoundingClientRect(); return {anchor:a, fx:(x-r.left)/Math.max(1,r.width), fy:(y-r.top)/Math.max(1,r.height)}; }
 function avEnviaDaPos(){ if(AV.dentro){ const info=avAncora(AV.mx,AV.my); avEnviar(info?info.anchor:null, info?info.fx:0, info?info.fy:0); } else avEnviar(null,0,0); }
 function avEnviar(anchor, fx, fy){
-  if(!AV.id) return;
+  if(!AV.id || !AV.es || !AV.peers.size) return;          // v3.72: sozinho no painel, ninguém precisa do seu cursor
+  const k = anchor ? anchor.t+':'+anchor.k : '', u = AV.ult;
+  if(u && u.k===k && u.conta===S.aba && Math.abs(u.fx-fx)<0.004 && Math.abs(u.fy-fy)<0.004) return; // não mexeu de verdade
+  AV.ult = { k, conta:S.aba, fx, fy };
   const body = JSON.stringify({ id:AV.id, conta:S.aba, anchor, fx, fy, temCursor:!!anchor });
   fetch('/api/ao-vivo/mover', {method:'POST', headers:{'Content-Type':'application/json'}, body}).catch(()=>{});
 }
@@ -5174,6 +5362,41 @@ async function salvarPerfil(){
   toast(pf.icone+' Perfil salvo: '+pf.nome);
   try{ if(AV.id) await api('/api/ao-vivo/perfil', {method:'POST', body:JSON.stringify({ id:AV.id, ...pf })}); }catch(e){}
 }
+
+// ================= pausa por inatividade (v3.72) =================
+// Aba esquecida aberta gastava banda o dia inteiro (uma consulta a cada 20 s e os cursores dos outros).
+// Agora: 20 min sem ninguém mexer (mouse, teclado, rolagem, toque), o painel para de perguntar novidades e
+// sai do ao vivo. Aba escondida por mais de 2 min também sai do ao vivo. Qualquer gesto volta na hora, atualizado.
+const OCIO_MS = 20*60_000, ESCONDIDA_MS = 2*60_000;
+let ultimaAtividade = Date.now(), escondidaDesde = 0, _ultMovOcio = 0;
+function marcaAtividade(){ ultimaAtividade = Date.now(); if(S.ocioso) sairDoOcio(); }
+function mostraPausa(on){
+  let el = document.getElementById('pausaOcio');
+  if(on && !el){ el = document.createElement('div'); el.id = 'pausaOcio'; document.body.appendChild(el); }
+  if(!el) return;
+  el.textContent = 'Pausado depois de 20 min sem uso. Mexa o mouse pra continuar.';
+  el.hidden = !on;
+}
+function entrarNoOcio(){ if(S.ocioso) return; S.ocioso = true; aovivoParar(); mostraPausa(true); }
+function sairDoOcio(){
+  S.ocioso = false; mostraPausa(false);
+  if(!document.hidden) aovivoConectar();
+  if(podeAtualizarSozinho()) loadState(false, true).catch(()=>{});
+}
+['pointerdown','keydown','wheel','touchstart'].forEach(ev=>window.addEventListener(ev, marcaAtividade, {passive:true, capture:true}));
+window.addEventListener('pointermove', ()=>{ const t=Date.now(); if(S.ocioso || t-_ultMovOcio>5000){ _ultMovOcio=t; marcaAtividade(); } }, {passive:true, capture:true});
+// quem está escrevendo no documento (iframe) também está usando o painel
+$('#docFrame').addEventListener('load', ()=>{ try{ const w = $('#docFrame').contentWindow; ['pointerdown','keydown','wheel','touchstart'].forEach(ev=>w.addEventListener(ev, marcaAtividade, {passive:true, capture:true})); }catch(e){} });
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){ escondidaDesde = Date.now(); return; }
+  escondidaDesde = 0; ultimaAtividade = Date.now();
+  if(S.ocioso){ S.ocioso = false; mostraPausa(false); if(podeAtualizarSozinho()) loadState(false, true).catch(()=>{}); }
+  if(!AV.es) aovivoConectar();
+});
+setInterval(()=>{
+  if(!S.ocioso && Date.now()-ultimaAtividade > OCIO_MS) entrarNoOcio();
+  if(document.hidden && escondidaDesde && Date.now()-escondidaDesde > ESCONDIDA_MS && AV.es) aovivoParar();
+}, 30_000);
 
 // ================= init =================
 function initIcons(){

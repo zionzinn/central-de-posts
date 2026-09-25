@@ -18,7 +18,7 @@ const { Readable, pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.71'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.72'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -59,6 +59,8 @@ function gravaAtomico(arquivo, texto) {
   fs.renameSync(tmp, arquivo);
   try { const d = fs.openSync(path.dirname(arquivo), 'r'); try { fs.fsyncSync(d); } finally { fs.closeSync(d); } } catch { /* Windows não abre pasta: tudo bem */ }
 }
+// Medidor de uso de banda (v3.72): quanto sai por mês e quanto é culpa dos documentos (lib/uso.js)
+const USO = require('./lib/uso.js')({ db, fs, dataFile: DATA_FILE, limiteGB: +process.env.USO_LIMITE_GB || 5, comGitHub: !!(process.env.GH_TOKEN && process.env.GH_REPO) });
 let saveTimer = null, savePendente = false;
 /** Grava o banco AGORA se houver algo pendente. Se o disco falhar, não derruba o servidor: tenta de novo em 5 s. */
 function gravarAgora() {
@@ -67,6 +69,7 @@ function gravarAgora() {
   try {
     gravaAtomico(DATA_FILE, JSON.stringify(db, null, 2));
     savePendente = false;
+    try { USO.gravou(fs.statSync(DATA_FILE).size); } catch { /* só estatística */ }
     return true;
   } catch (e) {
     console.error('[gravação] não consegui salvar o data.json:', e.message, '· tento de novo em 5 s (os dados seguem na memória)');
@@ -87,6 +90,19 @@ for (const sinal of ['SIGTERM', 'SIGINT']) {
     gravarAgora();
     if (require.main === module) { console.log('[' + sinal + '] dados gravados, encerrando.'); process.exit(0); }
   });
+}
+
+/** Backup avulso antes de mexer em massa nos dados: data/backups/data.backup-AAAA-MM-DD-HHMM.json (guarda os 10 últimos). */
+function backupAgora(motivo) {
+  gravarAgora();
+  const dir = path.join(DATA_DIR, 'backups'); fs.mkdirSync(dir, { recursive: true });
+  const d = new Date(), z = n => String(n).padStart(2, '0');
+  const nome = 'data.backup-' + d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + '-' + z(d.getHours()) + z(d.getMinutes()) + '.json';
+  gravaAtomico(path.join(dir, nome), JSON.stringify(db, null, 2));
+  console.log('[backup] ' + nome + (motivo ? ' · ' + motivo : ''));
+  const avulsos = fs.readdirSync(dir).filter(f => /^data\.backup-\d{4}-\d{2}-\d{2}-\d{4}\.json$/.test(f)).sort();
+  while (avulsos.length > 10) { try { fs.unlinkSync(path.join(dir, avulsos.shift())); } catch { break; } }
+  return nome;
 }
 
 function loadConfig() {
@@ -954,9 +970,9 @@ async function importFromSheet() {
 }
 
 // ---------------- http ----------------
-function json(res, code, obj) {
-  const body = JSON.stringify(obj);
-  const h = { 'Content-Type': 'application/json; charset=utf-8', Vary: 'Accept-Encoding' };
+function json(res, code, obj, extra) { return jsonTexto(res, code, JSON.stringify(obj), extra); }
+function jsonTexto(res, code, body, extra) {
+  const h = Object.assign({ 'Content-Type': 'application/json; charset=utf-8', Vary: 'Accept-Encoding' }, extra || {});
   // v3.70: comprime respostas maiores que 1 KB (o /api/state cai de ~93 KB pra ~18 KB).
   // Banda de saída do Render é contada e o plano grátis tem só 5 GB/mês.
   const aceitaGzip = /\bgzip\b/.test((res.req && res.req.headers['accept-encoding']) || '');
@@ -964,10 +980,12 @@ function json(res, code, obj) {
     const gz = zlib.gzipSync(body, { level: 6 });
     h['Content-Encoding'] = 'gzip'; h['Content-Length'] = gz.length;
     res.writeHead(code, h);
+    USO.resposta(gz.length);
     return res.end(gz);
   }
   h['Content-Length'] = Buffer.byteLength(body);
   res.writeHead(code, h);
+  USO.resposta(h['Content-Length']);
   res.end(body);
 }
 function readBody(req) {
@@ -980,12 +998,32 @@ function readBody(req) {
   });
 }
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+const estaticoGz = new Map(); // arquivo -> { etag, gz } (comprime uma vez por versão do arquivo)
+/**
+ * Arquivos da tela (v3.72): com ETag, o navegador pergunta "mudou?" e, se não mudou, recebe só um 304
+ * (antes baixava os 335 KB do painel a cada recarga). Texto vai comprimido (335 KB -> ~99 KB).
+ * Deploy novo muda o arquivo, muda o ETag, e todo mundo recebe a versão nova na hora.
+ */
 function serveStatic(res, file) {
   const full = path.join(PUBLIC_DIR, path.normalize(file).replace(/^([.][.][/\\])+/, ''));
-  if (!full.startsWith(PUBLIC_DIR) || !fs.existsSync(full) || !fs.statSync(full).isFile()) {
-    res.writeHead(404); res.end('não encontrado'); return;
+  let st = null;
+  try { if (full.startsWith(PUBLIC_DIR)) st = fs.statSync(full); } catch { /* não existe */ }
+  if (!st || !st.isFile()) { res.writeHead(404); USO.resposta(14); res.end('não encontrado'); return; }
+  const tipo = MIME[path.extname(full)] || 'application/octet-stream';
+  const etag = 'W/"' + st.size.toString(36) + '-' + Math.floor(st.mtimeMs).toString(36) + '"';
+  const h = { 'Content-Type': tipo, 'Cache-Control': 'no-cache', ETag: etag, Vary: 'Accept-Encoding' };
+  const req = res.req || { headers: {} };
+  if (req.headers['if-none-match'] === etag) { res.writeHead(304, h); USO.resposta(0); return res.end(); }
+  const comprime = /^(text\/|application\/(json|manifest))|javascript|svg/.test(tipo) && st.size > 1024 && st.size < 5e6
+    && /\bgzip\b/.test(req.headers['accept-encoding'] || '');
+  if (comprime) {
+    let c = estaticoGz.get(full);
+    if (!c || c.etag !== etag) { c = { etag, gz: zlib.gzipSync(fs.readFileSync(full), { level: 9 }) }; estaticoGz.set(full, c); }
+    h['Content-Encoding'] = 'gzip'; h['Content-Length'] = c.gz.length;
+    res.writeHead(200, h); USO.resposta(c.gz.length); return res.end(c.gz);
   }
-  res.writeHead(200, { 'Content-Type': MIME[path.extname(full)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+  h['Content-Length'] = st.size;
+  res.writeHead(200, h); USO.resposta(st.size);
   // pipeline (e não .pipe): se a leitura falhar, fecha a resposta em vez de derrubar o servidor
   pipeline(fs.createReadStream(full), res, () => {});
 }
@@ -1005,17 +1043,22 @@ function aovivoPerfilLimpo(b) {
   const cor = /^#[0-9a-fA-F]{6}$/.test(String(b.cor || '')) ? String(b.cor) : '';
   return { nome, icone, cor };
 }
-function sseEnvia(res, evt, obj) { try { res.write('event: ' + evt + '\ndata: ' + JSON.stringify(obj) + '\n\n'); } catch (e) {} }
+function sseEnvia(res, evt, obj) { try { const t = 'event: ' + evt + '\ndata: ' + JSON.stringify(obj) + '\n\n'; res.write(t); USO.bruto(Buffer.byteLength(t)); } catch (e) {} }
 function aovivoBroadcast(evt, obj, exceto) { for (const [id, r] of aovivoSSE) { if (id === exceto) continue; sseEnvia(r, evt, obj); } }
 setInterval(() => { const t = Date.now(); for (const [id, p] of aovivo) { if (t - p.visto > 40000 && !aovivoSSE.has(id)) { aovivo.delete(id); aovivoBroadcast('saiu', { id }); } } }, 20000);
 
 // Documentos (a copy do post, editor estilo Docs em public/doc.html). Rotas em lib/docs.js.
-const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, cuFetch, cuWrite, cuCache, pushUndo, MZ });
+const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, cuFetch, cuWrite, cuCache, pushUndo, MZ, backupAgora, usoInvalida: () => USO.invalida() });
 
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
   const p = u.pathname;
   try {
+    // ---------- ping (v3.72): pro cron-job.org manter o Render acordado gastando 2 bytes ----------
+    if (p === '/api/ping' && (req.method === 'GET' || req.method === 'HEAD')) {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Length': 2 });
+      USO.resposta(2); return res.end(req.method === 'HEAD' ? undefined : 'ok');
+    }
     // ---------- login (só ativa quando há senha configurada) ----------
     if (p === '/api/login' && req.method === 'POST') {
       const b = await readBody(req);
@@ -1201,7 +1244,7 @@ const server = http.createServer(async (req, res) => {
       const enriquecimento = config.token
         ? { ok: !sync.erro, motivo: sync.erro || undefined, at: sync.at }
         : { ok: false, motivo: 'sem token' };
-      return json(res, 200, {
+      const corpo = JSON.stringify({
         versao: VERSAO,
         contas: db.contas, abas: db.abas, statusColors: db.statusColors,
         slots, referencias: db.referencias,
@@ -1210,9 +1253,18 @@ const server = http.createServer(async (req, res) => {
         zapiPronto: zapiPronto() && zapiCfg().ligado,
         gmCadencia: db.gmCadencia,
         duePendentes: Object.keys(db.dueSync).filter(temSlotComData), // post excluído não deixa data fantasma pra aplicar
+        uso: USO.curto(),
         matrizSB: { conta: MZ_CONTA, tipos: MZ.TIPOS, semanas: MZ.SEMANAS, ancora: MZ.ANCORA, status: MZ.STATUS, obrigatorios: MZ.OBRIGATORIOS, regras: MZ.REGRAS, checklist: MZ.CHECKLIST, responsaveis: RESPONSAVEIS, glossario: MZ.GLOSSARIO },
       });
+      // v3.72: o painel pergunta a cada 20 s; se nada mudou, a resposta é um 304 de ~0,3 KB em vez de ~17 KB.
+      // O navegador guarda a última resposta e devolve ela pro painel sozinho (nada muda no front).
+      const etag = 'W/"' + crypto.createHash('md5').update(corpo).digest('hex').slice(0, 20) + '"';
+      if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, 'Cache-Control': 'no-cache', Vary: 'Accept-Encoding' }); USO.resposta(0); return res.end(); }
+      return jsonTexto(res, 200, corpo, { ETag: etag, 'Cache-Control': 'no-cache' });
     }
+
+    // ---------- uso de banda do mês (v3.72) ----------
+    if (p === '/api/uso' && req.method === 'GET') return json(res, 200, USO.resumo());
 
     if (p === '/api/sync' && req.method === 'POST') {
       await backgroundSync();
@@ -1611,9 +1663,9 @@ const server = http.createServer(async (req, res) => {
         if (hit) {
           imgCache.delete(chaveImg); imgCache.set(chaveImg, hit); // LRU: vai pro fim
           const etag = '"' + hit.etag + '"';
-          if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, 'Cache-Control': 'public, max-age=86400' }); return res.end(); }
+          if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, 'Cache-Control': 'public, max-age=86400' }); USO.resposta(0); return res.end(); }
           res.writeHead(200, { 'Content-Type': hit.type, 'Content-Length': hit.buf.length, 'Cache-Control': 'public, max-age=86400', ETag: etag, 'X-Img-Cache': 'hit' });
-          return res.end(hit.buf);
+          USO.resposta(hit.buf.length); return res.end(hit.buf);
         }
       }
       const bom = r => r && (r.ok || r.status === 206) && r.body;
@@ -1631,11 +1683,11 @@ const server = http.createServer(async (req, res) => {
         if (buf.length <= IMG_CACHE_ITEM_MAX) imgCachePut(chaveImg, buf, tipo);
         const etag = '"' + crypto.createHash('md5').update(buf).digest('hex').slice(0, 16) + '"';
         res.writeHead(200, { 'Content-Type': tipo, 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=86400', ETag: etag, 'X-Img-Cache': 'miss' });
-        return res.end(buf);
+        USO.resposta(buf.length); return res.end(buf);
       }
       const h2 = { 'Content-Type': tipo, 'Cache-Control': 'public, max-age=3600', 'Accept-Ranges': 'bytes' };
       for (const k of ['content-range', 'content-length']) { const v = up.headers.get(k); if (v) h2[k] = v; }
-      res.writeHead(up.status === 206 ? 206 : 200, h2);
+      res.writeHead(up.status === 206 ? 206 : 200, h2); USO.resposta(+up.headers.get('content-length') || 0);
       // v3.70: pipeline em vez de .pipe(). Com .pipe(), vídeo do ClickUp cortado no meio soltava
       // um 'error' sem dono e DERRUBAVA o servidor inteiro; e quem fechava o vídeo no meio deixava
       // a conexão com o ClickUp presa por minutos. O pipeline fecha os dois lados nos dois casos.
@@ -1824,7 +1876,7 @@ const server = http.createServer(async (req, res) => {
       sseEnvia(res, 'eu', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor });
       sseEnvia(res, 'roster', aovivoRoster().filter(x => x.id !== id));
       aovivoBroadcast('entrou', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor, conta: peer.conta, temCursor: false }, id);
-      const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch (e) {} }, 15000);
+      const ping = setInterval(() => { try { res.write(': ping\n\n'); USO.bruto(8); } catch (e) {} }, 15000);
       req.on('close', () => { clearInterval(ping); aovivoSSE.delete(id); aovivo.delete(id); aovivoBroadcast('saiu', { id }); });
       return;
     }
@@ -1839,7 +1891,7 @@ const server = http.createServer(async (req, res) => {
       peer.temCursor = !!b.temCursor && !!peer.anchor;
       peer.visto = Date.now();
       aovivoBroadcast('mexeu', { id: peer.id, conta: peer.conta, anchor: peer.anchor, fx: peer.fx, fy: peer.fy, temCursor: peer.temCursor }, peer.id);
-      return json(res, 200, { ok: true });
+      res.writeHead(204); USO.resposta(0); return res.end(); // v3.72: sem corpo (é a resposta mais repetida do sistema)
     }
     // a pessoa mudou o perfil (nome/ícone/cor): atualiza em memória e avisa os outros sem derrubar a conexão
     if (p === '/api/ao-vivo/perfil' && req.method === 'POST') {

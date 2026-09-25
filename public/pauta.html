@@ -713,7 +713,13 @@ $('#btnHoje').onclick=()=>irParaHoje(true);
   const h=lerHash(); ST.aba=ESCOPO||h.aba; ST.mes=h.mes||hojeStr().slice(0,7);
   if(!token){ $('#lista').innerHTML='<div class="erro">Faltou o token no link. Abra pelo link copiado no painel.</div>'; return; }
   carregar();
-  setInterval(carregar, 60000);
+  // v3.72: link esquecido aberto (no celular ou no PC) não fica recarregando à toa: para com a aba escondida
+  // e depois de 20 min sem ninguém mexer. Voltou a mexer ou a olhar, atualiza na hora.
+  let ativo = Date.now();
+  const OCIO = 20*60000;
+  ['pointerdown','keydown','wheel','touchstart','scroll'].forEach(ev=>window.addEventListener(ev, ()=>{ const voltou = Date.now()-ativo > OCIO; ativo = Date.now(); if(voltou) carregar(); }, {passive:true, capture:true}));
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ ativo = Date.now(); carregar(); } });
+  setInterval(()=>{ if(!document.hidden && Date.now()-ativo < OCIO) carregar(); }, 60000);
 })();
 </script>
 </body>
