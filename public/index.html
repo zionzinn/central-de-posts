@@ -143,19 +143,8 @@
   /* abas das contas: centralizadas, maiores, com pop no hover; setas 3D dos lados passam de conta */
   .tabswrap{display:flex; align-items:center; gap:12px; flex:0 1 auto}
   .tabs{display:flex; gap:10px; flex:0 1 auto; justify-content:center; flex-wrap:wrap}
-  /* ---- seguindo alguém (estilo Figma): moldura na cor da pessoa + pílula pra parar ---- */
-  #seguindoFrame{position:fixed; inset:0; z-index:69; pointer-events:none; border:3px solid transparent; display:none}
-  #seguindoFrame.on{display:block}
-  #seguindoBar{position:fixed; top:calc(var(--htop,90px) + 10px); left:50%; transform:translateX(-50%); z-index:71; display:none;
-    align-items:center; gap:10px; padding:6px 7px 6px 13px; border-radius:999px; border:2px solid var(--stroke); color:#000;
-    font-size:12px; font-weight:800; box-shadow:var(--hard-s); animation:menuin .22s cubic-bezier(.34,1.56,.64,1) both}
-  #seguindoBar.on{display:flex}
-  #seguindoBar button{background:rgba(0,0,0,.2); border-radius:999px; padding:3px 9px; font-weight:800; font-size:11px; color:#000; transition:background .15s}
-  #seguindoBar button:hover{background:rgba(0,0,0,.35)}
   .pdot{--pc:#888}
   .pdot:not(.eu){cursor:pointer}
-  .pdot.seguindo{box-shadow:0 0 0 2px var(--page), 0 0 0 4px var(--pc); animation:pulsa .8s ease-in-out infinite alternate; z-index:2}
-  @keyframes pulsa{from{transform:scale(1)} to{transform:scale(1.15)}}
   .tab{
     padding:10px 22px; border-radius:var(--radius-s); border:var(--bw) solid var(--hair);
     background:transparent; font-weight:700; font-size:14px; letter-spacing:.02em;
@@ -259,12 +248,6 @@
     transform:translateY(-3px); transition:opacity .15s, transform .15s}
   .pdot{position:relative}
   .pdot:hover .pd-tip{opacity:1; transform:translateY(0)}
-  /* ---- camada dos cursores dos outros ---- */
-  #aovivoLayer{position:fixed; inset:0; z-index:70; pointer-events:none; overflow:hidden}
-  .aovivo-cursor{position:absolute; top:0; left:0; will-change:transform; transition:transform .15s linear}
-  .aovivo-cursor svg{display:block; filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
-  .aovivo-cursor .av-nome{position:absolute; top:16px; left:14px; white-space:nowrap; font-size:11px; font-weight:800;
-    color:#000; padding:2px 8px; border-radius:0 8px 8px 8px; box-shadow:0 2px 5px rgba(0,0,0,.4)}
   /* menu "mais": ações raras escondidas */
   .maiswrap{position:relative}
   .act-mais{padding:7px 11px}
@@ -730,7 +713,6 @@
   .pf-nota{font-size:11px; color:var(--ink-3); margin:14px 0 0; line-height:1.5}
   .pdot.eu{cursor:pointer; box-shadow:0 0 0 2px var(--page), 0 0 0 3.5px var(--sb)}
   .pdot.ico{font-size:14px}
-  .av-ico{margin-right:4px}
   .mclose:hover{background:var(--crit); color:#fff}
   .mrow{display:flex; align-items:center; gap:7px; margin-top:11px; flex-wrap:wrap}
   .mbtn{display:inline-flex; align-items:center; gap:7px; border:1.5px solid var(--hair); border-radius:6px;
@@ -1215,9 +1197,6 @@
 
 <div class="banner" id="banner"></div>
 <div class="usoaviso" id="usoAviso" hidden></div>
-<div id="aovivoLayer" aria-hidden="true"></div>
-<div id="seguindoFrame" aria-hidden="true"></div>
-<div id="seguindoBar"></div>
 
 <aside class="drawer" id="drawer">
   <div class="dr-head"><b id="drTitle">Bancos</b><span>arraste pro calendário</span><button class="dr-close" id="drClose" data-tip="fechar (ESC)">✕</button></div>
@@ -1613,7 +1592,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.72'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.73'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2166,7 +2145,7 @@ function render(){
   if(S.dragging){ S._renderDepois = true; return; }
   S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba);
   { const sb = S.aba==='SEUBONÉ'; const g=$('#btnMzGerar'), x=$('#btnMzXlsx'); if(g) g.hidden=!sb; if(x) x.hidden=!sb; }
-  renderTabs(); renderLegend(); renderDrawer(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); renderPresenca(); }
+  renderTabs(); renderLegend(); renderDrawer(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); }
 
 function renderRefLabel(){
   const el = $('#refLabel');
@@ -2194,9 +2173,8 @@ function atualizaRotuloPauta(){
   a.innerHTML = icon('link') + 'Link da pauta · só '+esc(S.aba||'esta conta');
   b.innerHTML = icon('link') + 'Link da pauta · todas as contas';
 }
-/** Troca de conta feita PELA PESSOA (aba ou seta): para de seguir alguém e dá o fade no conteúdo. */
+/** Troca de conta feita PELA PESSOA (aba ou seta): dá o fade no conteúdo. */
 function irParaAba(aba){
-  if(typeof pararDeSeguir==='function') pararDeSeguir();
   S.aba=aba; S.filtroConta.clear();
   try{history.replaceState(null,'','#'+encodeURIComponent(aba));}catch(e){}
   render();
@@ -5131,7 +5109,6 @@ document.addEventListener('keydown', ev=>{
   if($('#lb').classList.contains('open')) return closeLb();
   const abertos = [...document.querySelectorAll('.ov.open')].filter(o=>o.id!=='ovLogin'); // login não fecha no ESC
   if(abertos.length) return abertos.forEach(o=>o.classList.remove('open'));
-  if(AV.seguindo) return pararDeSeguir();
   if(document.getElementById('ajudapop')) return fecharAjuda();
   if($('#maiswrap').classList.contains('open')) return $('#maiswrap').classList.remove('open');
   if(S.clip) return limparClip();
@@ -5144,8 +5121,12 @@ document.addEventListener('keydown', ev=>{
   if(ev.key==='ArrowRight' && LB.i<LB.imgs.length-1){ LB.i++; drawLb(); }
 });
 
-// ================= presença ao vivo (cursores estilo Figma, via SSE) =================
-const AV = { id:null, nome:null, icone:'', cor:null, peers:new Map(), es:null, mx:0, my:0, moved:false, dentro:true, ultimoEnvio:0, raf:0, seguindo:null };
+// ================= presença ao vivo: quem está online e em qual aba (via SSE) =================
+// v3.73: os cursores dos outros e o "seguir" estilo Figma saíram. Eram o maior gasto de banda que sobrava:
+// cada movimento de mouse virava um envio pro servidor e um repasse pra cada pessoa online. Ficou só a
+// bolinha de quem está online e em qual aba, que custa quase nada: um aviso quando alguém entra, sai ou
+// troca de aba, e um sinal de vida de 8 bytes a cada 15 s.
+const AV = { id:null, nome:null, icone:'', cor:null, peers:new Map(), es:null, abaEnviada:null };
 /** Perfil da pessoa neste navegador (sem login ainda): nome + ícone + cor, salvo local. */
 const PERFIL = {
   chave:'sb.perfil',
@@ -5160,166 +5141,53 @@ function avMeuId(){
   try{ let x=sessionStorage.getItem('av_id'); if(!x){ x=Math.random().toString(36).slice(2,10); sessionStorage.setItem('av_id',x);} return x; }
   catch(e){ return Math.random().toString(36).slice(2,10); }
 }
-function cssEsc(s){ return String(s).replace(/["\\]/g,'\\$&'); }
-// v3.72: a presença foi dividida em "ligar uma vez" (ouvintes da janela) e "conectar/desconectar"
-// (a conexão ao vivo). Assim dá pra sair do ao vivo quando a aba fica esquecida e voltar sem duplicar nada.
-const AV_PASSO = 150;   // ms entre envios da posição do cursor (antes 55 ms: ~17 envios por segundo)
-function aovivoIniciar(){
-  if(!AV.pronto){
-    AV.pronto = true;
-    // seguir alguém termina no primeiro gesto seu de navegação (roda do mouse, toque, teclas de rolagem)
-    window.addEventListener('wheel', ()=>{ if(AV.seguindo) pararDeSeguir(); }, {passive:true});
-    window.addEventListener('touchmove', ()=>{ if(AV.seguindo) pararDeSeguir(); }, {passive:true});
-    window.addEventListener('keydown', ev=>{ if(AV.seguindo && ['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(ev.key) && !/input|textarea|select/i.test(ev.target.tagName)) pararDeSeguir(); });
-    // envio DIRETO no mousemove (não depende do rAF, que trava em aba de fundo). Só manda se tem mais gente online.
-    window.addEventListener('mousemove', e=>{
-      AV.mx=e.clientX; AV.my=e.clientY; AV.dentro=true;
-      if(!AV.es || !AV.peers.size) return;
-      const now=performance.now();
-      if(now-AV.ultimoEnvio>AV_PASSO){ AV.ultimoEnvio=now; avEnviaDaPos(); }
-      else { clearTimeout(AV.trail); AV.trail=setTimeout(()=>{ AV.ultimoEnvio=performance.now(); avEnviaDaPos(); }, AV_PASSO+10); }
-    }, {passive:true});
-    window.addEventListener('mouseout', e=>{ if(!e.relatedTarget){ AV.dentro=false; avEnviar(null,0,0); } }, {passive:true});
-    window.addEventListener('scroll', avPosicionaTodos, {passive:true});
-    window.addEventListener('resize', avPosicionaTodos, {passive:true});
-    const tick=()=>{ avPosicionaTodos(); AV.raf=requestAnimationFrame(tick); };
-    AV.raf=requestAnimationFrame(tick);
-  }
-  aovivoConectar();
-}
-/** Abre a conexão ao vivo (quem está online e os cursores). */
+function aovivoIniciar(){ aovivoConectar(); }
+/** Abre a conexão ao vivo (quem está online). A aba em que você está vai junto no endereço. */
 function aovivoConectar(){
   if(AV.es) return;
-  AV.id = avMeuId(); AV.ult = null;
+  AV.id = avMeuId();
   const pf = PERFIL.get();
-  let url = '/api/ao-vivo?id='+encodeURIComponent(AV.id);
+  let url = '/api/ao-vivo?id='+encodeURIComponent(AV.id)+'&conta='+encodeURIComponent(S.aba||'');
   if(pf){ url += '&nome='+encodeURIComponent(pf.nome)+'&icone='+encodeURIComponent(pf.icone||'')+'&cor='+encodeURIComponent(pf.cor||''); }
   const es = new EventSource(url);
-  AV.es = es;
-  // chegou gente (ou já tinha): manda a posição atual uma vez, pra ela ver o seu cursor
-  const avisaQueEstouAqui = ()=>{ if(AV.peers.size){ AV.ult=null; avEnviaDaPos(); } };
+  AV.es = es; AV.abaEnviada = S.aba||'';
   es.addEventListener('eu', e=>{ const d=JSON.parse(e.data); AV.nome=d.nome; AV.icone=d.icone||''; AV.cor=d.cor; renderPresenca(); });
-  es.addEventListener('roster', e=>{ const arr=JSON.parse(e.data); AV.peers.clear(); arr.forEach(p=>AV.peers.set(p.id,p)); renderPresenca(); avisaQueEstouAqui(); });
-  // entrou também é "mudou o perfil": recria o cursor daquela pessoa pra pegar nome/ícone/cor novos
-  es.addEventListener('entrou', e=>{ const p=JSON.parse(e.data); AV.peers.set(p.id, Object.assign(AV.peers.get(p.id)||{}, p)); const el=document.getElementById('avc-'+p.id); if(el) el.remove(); renderPresenca(); avisaQueEstouAqui(); });
-  es.addEventListener('saiu', e=>{ const d=JSON.parse(e.data); AV.peers.delete(d.id); const el=document.getElementById('avc-'+d.id); if(el) el.remove(); if(AV.seguindo===d.id) pararDeSeguir(); renderPresenca(); });
-  es.addEventListener('mexeu', e=>{ const p=JSON.parse(e.data); const antes=AV.peers.get(p.id); const contaMudou = !antes || antes.conta!==p.conta; const cur=Object.assign(antes||{id:p.id}, p); AV.peers.set(p.id, cur); if(AV.seguindo===p.id) acompanhar(cur,false); avPosicionaUm(cur); if(contaMudou) renderPresenca(); });
+  es.addEventListener('roster', e=>{ const arr=JSON.parse(e.data); AV.peers.clear(); arr.forEach(p=>AV.peers.set(p.id,p)); renderPresenca(); });
+  // entrou também é "mudou o perfil" (nome/ícone/cor novos)
+  es.addEventListener('entrou', e=>{ const p=JSON.parse(e.data); AV.peers.set(p.id, Object.assign(AV.peers.get(p.id)||{}, p)); renderPresenca(); });
+  es.addEventListener('saiu', e=>{ const d=JSON.parse(e.data); AV.peers.delete(d.id); renderPresenca(); });
+  es.addEventListener('aba', e=>{ const d=JSON.parse(e.data); const p=AV.peers.get(d.id); if(p){ p.conta=d.conta; renderPresenca(); } });
   es.onerror = ()=>{};
 }
-/** Sai do ao vivo (aba esquecida ou escondida): fecha a conexão e some com os cursores dos outros. */
+/** Sai do ao vivo (aba esquecida ou escondida): fecha a conexão e some com as bolinhas dos outros. */
 function aovivoParar(){
   if(!AV.es) return;
   try{ AV.es.close(); }catch(e){}
-  AV.es = null; AV.ult = null;
-  if(AV.seguindo) pararDeSeguir();
+  AV.es = null;
   AV.peers.clear();
-  document.querySelectorAll('.aovivo-cursor').forEach(el=>el.remove());
   renderPresenca();
 }
-function avAncora(x,y){
-  const el = document.elementFromPoint(x,y);
-  if(!el) return null;
-  const card = el.closest('.card[data-id]');
-  if(card) return avRel(card, x, y, {t:'card', k:card.dataset.id});
-  const dia = el.closest('[data-dia]');
-  if(dia) return avRel(dia, x, y, {t:'dia', k:dia.dataset.dia});
-  const mes = el.closest('.mesbloco[data-mes]');
-  if(mes) return avRel(mes, x, y, {t:'mes', k:mes.dataset.mes});
-  return null; // sobre o topo/barra: sem cursor flutuante, só a bolinha de presença
-}
-function avRel(elm, x, y, a){ const r=elm.getBoundingClientRect(); return {anchor:a, fx:(x-r.left)/Math.max(1,r.width), fy:(y-r.top)/Math.max(1,r.height)}; }
-function avEnviaDaPos(){ if(AV.dentro){ const info=avAncora(AV.mx,AV.my); avEnviar(info?info.anchor:null, info?info.fx:0, info?info.fy:0); } else avEnviar(null,0,0); }
-function avEnviar(anchor, fx, fy){
-  if(!AV.id || !AV.es || !AV.peers.size) return;          // v3.72: sozinho no painel, ninguém precisa do seu cursor
-  const k = anchor ? anchor.t+':'+anchor.k : '', u = AV.ult;
-  if(u && u.k===k && u.conta===S.aba && Math.abs(u.fx-fx)<0.004 && Math.abs(u.fy-fy)<0.004) return; // não mexeu de verdade
-  AV.ult = { k, conta:S.aba, fx, fy };
-  const body = JSON.stringify({ id:AV.id, conta:S.aba, anchor, fx, fy, temCursor:!!anchor });
-  fetch('/api/ao-vivo/mover', {method:'POST', headers:{'Content-Type':'application/json'}, body}).catch(()=>{});
-}
-function avElementoDe(p){
-  if(!p.anchor) return null;
-  if(p.anchor.t==='card') return document.querySelector('.card[data-id="'+cssEsc(p.anchor.k)+'"]');
-  if(p.anchor.t==='dia')  return document.querySelector('[data-dia="'+cssEsc(p.anchor.k)+'"]');
-  if(p.anchor.t==='mes')  return document.querySelector('.mesbloco[data-mes="'+cssEsc(p.anchor.k)+'"]');
-  return null;
-}
-function avPosicionaTodos(){ for(const p of AV.peers.values()) avPosicionaUm(p); }
-function avPosicionaUm(p){
-  const hh = (document.querySelector('header')?.offsetHeight||0);
-  let el = document.getElementById('avc-'+p.id);
-  const mostrar = p.temCursor && p.conta===S.aba;
-  const elm = mostrar ? avElementoDe(p) : null;
-  let vis=false, X=0, Y=0;
-  if(elm){
-    const r=elm.getBoundingClientRect();
-    X = r.left + (p.fx||0)*r.width; Y = r.top + (p.fy||0)*r.height;
-    vis = Y>=hh-2 && Y<=window.innerHeight-2 && X>=0 && X<=window.innerWidth-2;
-  }
-  if(!vis){ if(el) el.style.display='none'; return; }
-  if(!el) el=avCriaCursor(p);
-  el.style.display='';
-  el.style.transform='translate('+Math.round(X)+'px,'+Math.round(Y)+'px)';
-}
-function avCriaCursor(p){
-  const el=document.createElement('div'); el.className='aovivo-cursor'; el.id='avc-'+p.id;
-  el.innerHTML='<svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 2l6 15 2.3-6.4L18.7 8.2 4 2z" fill="'+(p.cor||'#888')+'" stroke="#000" stroke-width="1.1"/></svg>'+
-    '<span class="av-nome" style="background:'+(p.cor||'#888')+'">'+(p.icone? '<span class="av-ico">'+esc(p.icone)+'</span>' : '')+esc(p.nome||'alguém')+'</span>';
-  document.getElementById('aovivoLayer').appendChild(el);
-  return el;
+/** Chamado a cada render: se VOCÊ trocou de aba, avisa os outros (1 envio por troca, nada por mexer o mouse). */
+function avisaMinhaAba(){
+  const aba = S.aba||'';
+  if(!AV.es || !AV.id || aba===AV.abaEnviada) return;
+  AV.abaEnviada = aba;
+  renderPresenca();                                   // as bolinhas de quem está em outra aba ficam apagadas
+  fetch('/api/ao-vivo/aba', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:AV.id, conta:aba })}).catch(()=>{});
 }
 function renderPresenca(){
   const el=$('#presenca'); if(!el) return; el.innerHTML='';
   if(AV.cor) el.appendChild(avPdot({nome:AV.nome, icone:AV.icone, cor:AV.cor}, true));
   for(const p of AV.peers.values()) el.appendChild(avPdot(p, false));
-  pintaSeguindo();
 }
-// ---- seguir alguém (estilo Figma) ----
-function seguir(id){
-  if(AV.seguindo===id){ pararDeSeguir(); return; }
+/** Clicar na bolinha de alguém leva pra aba em que a pessoa está. */
+function irPraAbaDe(id){
   const p = AV.peers.get(id); if(!p) return;
-  AV.seguindo = id;
-  pintaSeguindo();
-  acompanhar(p, true);
-  toast('Seguindo '+(p.icone?p.icone+' ':'')+p.nome+' · role a tela ou aperte Esc pra parar');
-}
-function pararDeSeguir(){
-  if(!AV.seguindo) return;
-  AV.seguindo = null;
-  pintaSeguindo();
-}
-function pintaSeguindo(){
-  const p = AV.seguindo ? AV.peers.get(AV.seguindo) : null;
-  const bar=$('#seguindoBar'), fr=$('#seguindoFrame');
-  document.querySelectorAll('#presenca .pdot').forEach(d=>d.classList.toggle('seguindo', !!p && d.dataset.pid===AV.seguindo));
-  if(!bar || !fr) return;
-  if(!p){ bar.classList.remove('on'); fr.classList.remove('on'); return; }
-  bar.style.background = p.cor||'#888';
-  bar.innerHTML = '<span>seguindo '+esc((p.icone?p.icone+' ':'')+p.nome)+'</span><button type="button">parar</button>';
-  bar.querySelector('button').onclick = ()=>pararDeSeguir();
-  bar.classList.add('on');
-  fr.style.borderColor = p.cor||'#888'; fr.classList.add('on');
-}
-/** Leva a tela até onde a pessoa está: troca de conta se precisar, pula pro mês e rola até o dia/card dela. */
-function acompanhar(p, forcar){
-  if(p.conta && p.conta!==S.aba){
-    S.aba=p.conta; S.filtroConta.clear();
-    try{history.replaceState(null,'','#'+encodeURIComponent(S.aba));}catch(e){}
-    render();
-  }
-  if(!p.anchor) return;
-  let el = avElementoDe(p);
-  if(!el){
-    let mes = null;
-    if(p.anchor.t==='mes') mes = p.anchor.k;
-    else if(p.anchor.t==='dia') mes = p.anchor.k.slice(0,7);
-    else if(p.anchor.t==='card'){ const s=S.slots.find(x=>x.id===p.anchor.k); if(s && s.date) mes = s.date.slice(0,7); }
-    if(mes && typeof irParaMes==='function'){ try{ irParaMes(mes); }catch(e){} el = avElementoDe(p); }
-    if(!el) return;
-  }
-  const r = el.getBoundingClientRect(), hh = (document.querySelector('header')?.offsetHeight||0);
-  const fora = r.top < hh+8 || r.bottom > window.innerHeight-8;
-  if(fora || forcar) el.scrollIntoView({block:'center', behavior:'smooth'});
+  const quem = (p.icone ? p.icone+' ' : '')+p.nome;
+  if(!p.conta || !S.abas.includes(p.conta)){ toast(quem+' está online'); return; }
+  if(p.conta===S.aba){ toast(quem+' também está em '+p.conta); return; }
+  irParaAba(p.conta);
+  toast('Você foi pra '+p.conta+', onde '+quem+' está');
 }
 function avIniciais(n){ const w=String(n||'?').split(/[\s-]+/).filter(Boolean); if(w.length>=2) return (w[0][0]+w[w.length-1][0]).toUpperCase(); return String(n||'?').slice(0,2).toUpperCase(); }
 function avPdot(p, eu){
@@ -5327,9 +5195,10 @@ function avPdot(p, eu){
   d.style.background=p.cor||'#888'; d.style.setProperty('--pc', p.cor||'#888');
   if(!eu) d.dataset.pid = p.id;
   if(p.icone){ d.classList.add('ico'); d.textContent = p.icone; } else d.textContent = avIniciais(p.nome);
-  const onde = eu ? (p.nome+' (você) · clique pra editar seu perfil') : (p.nome + (p.conta? ' · '+p.conta : ' · online') + ' · clique pra seguir');
+  const onde = eu ? (p.nome+' (você) · clique pra editar seu perfil')
+    : (p.nome + (p.conta ? ' · em '+p.conta : ' · online') + (p.conta && p.conta!==S.aba ? ' · clique pra ir pra essa aba' : ''));
   const tip=document.createElement('span'); tip.className='pd-tip'; tip.textContent=onde; d.appendChild(tip);
-  if(eu) d.onclick = openPerfil; else d.onclick = ()=> seguir(p.id);
+  if(eu) d.onclick = openPerfil; else d.onclick = ()=> irPraAbaDe(p.id);
   return d;
 }
 // ---- modal de perfil (nome + ícone + cor) ----

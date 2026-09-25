@@ -18,7 +18,7 @@ const { Readable, pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.72'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.73'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -79,6 +79,7 @@ function gravarAgora() {
 }
 function saveDb() {
   savePendente = true;
+  USO.invalida();                     // o resumo de uso (peso dos documentos) recalcula na próxima consulta
   clearTimeout(saveTimer);
   saveTimer = setTimeout(gravarAgora, 150);
 }
@@ -1028,14 +1029,16 @@ function serveStatic(res, file) {
   pipeline(fs.createReadStream(full), res, () => {});
 }
 
-// ===== presença ao vivo (cursores estilo Figma, via SSE, sem dependência) =====
+// ===== presença ao vivo: quem está online e em qual aba (via SSE, sem dependência) =====
+// v3.73: sem cursores. Cada movimento de mouse virava um envio e um repasse pra todo mundo online:
+// era o maior gasto de banda que sobrava. Agora só entrou/saiu/trocou de aba e o sinal de vida de 15 s.
 const AOVIVO_CORES = ['#FF5D5D', '#FFB020', '#3DDC97', '#4DA3FF', '#C77DFF', '#FF7AC6', '#00D0C0', '#8AE234', '#FF9F1C', '#5E9BFF'];
 const AOVIVO_BICHOS = ['Capivara Chique', 'Jacaré de Terno', 'Suricato Espião', 'Lagartixa MEI', 'Perereca Gamer', 'Gambá Perfumado', 'Pombo Sniper', 'Barata Ninja', 'Sapo Filósofo', 'Tatu Blindado', 'Preguiça Turbo', 'Ornitorrinco Confuso', 'Minhoca Executiva', 'Tamanduá Detetive', 'Quati Boêmio', 'Coruja Insone', 'Morcego Vegano', 'Lontra DJ', 'Furão Hacker', 'Cutia Ansiosa', 'Tucano Influencer', 'Bode Expiatório', 'Peixe-boi Voador', 'Galinha Cyberpunk', 'Porco Espião', 'Jegue Turbinado', 'Camaleão Indeciso', 'Pangolim Blindado', 'Jabuti Foguete', 'Preguiça CLT'];
-const aovivo = new Map();      // id -> { id, nome, cor, conta, anchor, fx, fy, temCursor, visto }
+const aovivo = new Map();      // id -> { id, nome, icone, cor, conta, visto }
 const aovivoSSE = new Map();   // id -> res (conexão aberta)
 function aovivoCorLivre() { const usadas = new Set([...aovivo.values()].map(p => p.cor)); return AOVIVO_CORES.find(c => !usadas.has(c)) || AOVIVO_CORES[Math.floor(Math.random() * AOVIVO_CORES.length)]; }
 function aovivoNomeLivre() { const usados = new Set([...aovivo.values()].map(p => p.nome)); const livres = AOVIVO_BICHOS.filter(n => !usados.has(n)); const pool = livres.length ? livres : AOVIVO_BICHOS; return pool[Math.floor(Math.random() * pool.length)]; }
-function aovivoRoster() { return [...aovivo.values()].map(p => ({ id: p.id, nome: p.nome, icone: p.icone || '', cor: p.cor, conta: p.conta, anchor: p.anchor, fx: p.fx, fy: p.fy, temCursor: p.temCursor })); }
+function aovivoRoster() { return [...aovivo.values()].map(p => ({ id: p.id, nome: p.nome, icone: p.icone || '', cor: p.cor, conta: p.conta })); }
 /** Limpa o perfil vindo do navegador: nome curto sem tag, ícone curto (emoji), cor em hex. */
 function aovivoPerfilLimpo(b) {
   const nome = String(b.nome || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
@@ -1867,31 +1870,30 @@ const server = http.createServer(async (req, res) => {
       const id = (u.searchParams.get('id') || Math.random().toString(36).slice(2, 10)).slice(0, 24);
       // perfil escolhido pela pessoa (nome + ícone + cor). Sem perfil, cai no bicho aleatório só como quebra-galho.
       const pf = aovivoPerfilLimpo({ nome: u.searchParams.get('nome'), icone: u.searchParams.get('icone'), cor: u.searchParams.get('cor') });
+      const conta = String(u.searchParams.get('conta') || '').slice(0, 40) || null;
       let peer = aovivo.get(id);
-      if (!peer) { peer = { id, nome: pf.nome || aovivoNomeLivre(), icone: pf.icone || '', cor: pf.cor || aovivoCorLivre(), conta: null, anchor: null, fx: 0, fy: 0, temCursor: false, visto: Date.now() }; aovivo.set(id, peer); }
-      else { if (pf.nome) peer.nome = pf.nome; if (pf.icone) peer.icone = pf.icone; if (pf.cor) peer.cor = pf.cor; }
+      if (!peer) { peer = { id, nome: pf.nome || aovivoNomeLivre(), icone: pf.icone || '', cor: pf.cor || aovivoCorLivre(), conta, visto: Date.now() }; aovivo.set(id, peer); }
+      else { if (pf.nome) peer.nome = pf.nome; if (pf.icone) peer.icone = pf.icone; if (pf.cor) peer.cor = pf.cor; peer.conta = conta || peer.conta; peer.visto = Date.now(); }
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
       res.write('retry: 3000\n\n');
       aovivoSSE.set(id, res);
       sseEnvia(res, 'eu', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor });
       sseEnvia(res, 'roster', aovivoRoster().filter(x => x.id !== id));
-      aovivoBroadcast('entrou', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor, conta: peer.conta, temCursor: false }, id);
+      aovivoBroadcast('entrou', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor, conta: peer.conta }, id);
       const ping = setInterval(() => { try { res.write(': ping\n\n'); USO.bruto(8); } catch (e) {} }, 15000);
       req.on('close', () => { clearInterval(ping); aovivoSSE.delete(id); aovivo.delete(id); aovivoBroadcast('saiu', { id }); });
       return;
     }
-    if (p === '/api/ao-vivo/mover' && req.method === 'POST') {
+    // trocou de aba: avisa os outros (1 envio por troca). /mover é a rota das telas antigas (v3.72 ou antes)
+    // que ainda estejam abertas: não repassa mais posição de cursor, só a aba, até a pessoa recarregar.
+    if ((p === '/api/ao-vivo/aba' || p === '/api/ao-vivo/mover') && req.method === 'POST') {
       const b = await readBody(req);
       const peer = aovivo.get(String(b.id || ''));
       if (!peer) return json(res, 200, { ok: false, reentrar: true });
-      peer.conta = b.conta || null;
-      peer.anchor = (b.anchor && b.anchor.t && b.anchor.k != null) ? { t: String(b.anchor.t), k: String(b.anchor.k) } : null;
-      peer.fx = Math.max(0, Math.min(1, +b.fx || 0));
-      peer.fy = Math.max(0, Math.min(1, +b.fy || 0));
-      peer.temCursor = !!b.temCursor && !!peer.anchor;
       peer.visto = Date.now();
-      aovivoBroadcast('mexeu', { id: peer.id, conta: peer.conta, anchor: peer.anchor, fx: peer.fx, fy: peer.fy, temCursor: peer.temCursor }, peer.id);
-      res.writeHead(204); USO.resposta(0); return res.end(); // v3.72: sem corpo (é a resposta mais repetida do sistema)
+      const conta = String(b.conta || '').slice(0, 40) || null;
+      if (conta !== peer.conta) { peer.conta = conta; aovivoBroadcast('aba', { id: peer.id, conta }, peer.id); }
+      res.writeHead(204); USO.resposta(0); return res.end();
     }
     // a pessoa mudou o perfil (nome/ícone/cor): atualiza em memória e avisa os outros sem derrubar a conexão
     if (p === '/api/ao-vivo/perfil' && req.method === 'POST') {
@@ -1903,7 +1905,7 @@ const server = http.createServer(async (req, res) => {
       peer.icone = pf.icone || '';
       if (pf.cor) peer.cor = pf.cor;
       peer.visto = Date.now();
-      aovivoBroadcast('entrou', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor, conta: peer.conta, temCursor: peer.temCursor }, peer.id);
+      aovivoBroadcast('entrou', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor, conta: peer.conta }, peer.id);
       return json(res, 200, { ok: true, nome: peer.nome, icone: peer.icone, cor: peer.cor });
     }
 
