@@ -185,6 +185,14 @@
       <p class="note">Com senha definida, quem abrir o link precisa dela pra entrar. <b>Nunca deixe o painel exposto sem senha.</b> <span id="cLoginState"></span></p>
       <div id="cStatus" class="note"></div>
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
+      <div class="wpp-tit">MKT Hub (tasks de produção)</div>
+      <div class="hubestado" id="hubEstado">…</div>
+      <div style="display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap">
+        <button class="mbtn" id="hubTestar">Testar conexão com o MKT Hub</button>
+        <span class="note" id="hubMsg"></span>
+      </div>
+      <p class="note">O painel só <b>lê</b> o Hub: etapa, título e responsável das tasks ligadas aos posts, artes e comentários. A chave fica só na variável <b>MKH_CHAVE</b> do Render (nível leitura), nunca aqui.</p>
+      <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
       <div class="wpp-tit">GM automático da SeuBoné (estrela a cada N dias)</div>
       <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer">
         <input type="checkbox" id="gmAtivo" style="width:15px; height:15px"> marcar a estrela de GM sozinho na cadência
@@ -195,7 +203,7 @@
       </div>
       <p class="note">A estrela aparece sozinha a cada N dias contando <b>a partir da última grande marca que você marcou</b> (3 = "2 dias sem, 1 com"). Quando você marca um novo post como GM, as próximas se recalculam sozinhas a partir dele. O campo acima é só o ponto de partida (o último GM antes do sistema). Vale só na SeuBoné. <span id="gmEstado"></span></p>
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
-      <div class="wpp-tit">Aviso quando uma task vai pra aprovar ou pra alterar</div>
+      <div class="wpp-tit">Aviso quando uma matriz ou copy vai pra aprovar ou pra alterar</div>
       <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer">
         <input type="checkbox" id="nAtivo" style="width:15px; height:15px"> avisar (faixa no topo + título da aba piscando)
       </label>
@@ -207,7 +215,7 @@
         <button class="mbtn" id="nTestar">Testar o aviso</button>
         <span class="note" id="nEstado"></span>
       </div>
-      <p class="note">Entrou em <b>aprovar</b>: aviso amarelo. Entrou em <b>alterar</b>: aviso com o motivo e quem pediu. Os status das tasks voltam a chegar sozinhos quando o painel for ligado ao MKT Hub.</p>
+      <p class="note">Matriz ou copy mandada <b>pra aprovação</b>: aviso pra quem aprova. <b>Pedido de alteração</b>: aviso pra quem fez, com a nota e quem pediu. Vem das tarefas de Matriz e Copy (faixa de cima).</p>
       <p class="note">A notificação do Windows aparece no canto da tela e fica na central de notificações, mesmo com o painel minimizado ou atrás de outra janela. Precisa do painel <b>aberto em alguma aba</b>. Pra virar app com ícone na barra de tarefas: no Chrome, ícone de instalar na barra de endereço, ou menu <b>⋮ → Transmitir, salvar e compartilhar → Instalar página como app</b>.</p>
     </div>
   </div>
@@ -375,7 +383,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.80'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.81'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -608,7 +616,7 @@ function stInfo(s){
   if(s.postado) return {label:'postado', color:'#2FD06A'};
   if(s.statusCache){
     if(ehPublicar(s)) return {label:'publicar', color:COR_PUBLICAR};
-    return {label:s.statusCache.status, color:s.statusCache.color};
+    return {label:s.statusCache.nome || s.statusCache.status, color:s.statusCache.color};
   }
   if(s.taskId) return {label:'sem status', color:'#8C897C'};
   return {label:'sem task', color:'#8C897C'};
@@ -699,7 +707,9 @@ function refIcon(url){
 /** Endereço da arte pra mostrar. v3.77: sem proxy (as artes do MKT Hub vêm assinadas, direto do armazenamento). */
 function proxied(u){ return u; }
 /** Link da task de produção do post: o que foi colado (MKT Hub ou outro) ou, nos posts antigos, a task do ClickUp. */
-function linkDaTask(s){ return (s && (s.taskUrl || (s.taskId && /^[a-z0-9]+$/i.test(s.taskId) && !/^L[0-9a-f]{10}$/.test(s.taskId) ? 'https://app.clickup.com/t/'+s.taskId : ''))) || ''; }
+function linkDaTask(s){ return (s && (s.taskUrl || (s.hub && s.hub.url) || (s.taskId && /^[a-z0-9]+$/i.test(s.taskId) && !/^L[0-9a-f]{10}$/.test(s.taskId) ? 'https://app.clickup.com/t/'+s.taskId : ''))) || ''; }
+/** v3.81: task do MKT Hub (id uuid ou código MKT-0000). O resto é link antigo ou de outro sistema. */
+function ehDoHub(id){ return /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(id||'')) || /^MKT-\d+$/i.test(String(id||'')); }
 function nomeConta(k){ return (S.contas[k] && S.contas[k].nome) || k; }
 function matchBusca(txt){ return !S.busca || (txt||'').toLowerCase().includes(S.busca); }
 function slotMatch(s){ return matchBusca([slotTitulo(s), s.obs, s.formato, s.angulo, s.linkRef, s.drive].join(' ')); }
@@ -2030,11 +2040,11 @@ function digitandoNoModal(){
 async function loadTaskTab(s){
   tData = null;
   const body = $('#tBody'); body.innerHTML = '<div class="spin"></div>';
-  if(!s.taskId || !S.temFonte){ tData = {semFonte:true}; drawTab(); return; }
+  if(!s.taskId || !S.temFonte || !ehDoHub(s.taskId)){ tData = {semFonte:true, antigo: !!s.taskId && S.temFonte}; drawTab(); return; }
   try{
     const [task, com] = await Promise.all([ api('/api/task/'+s.taskId), api('/api/task/'+s.taskId+'/comments') ]);
     tData = {task, ...com};
-    if(task){ s.tituloCache=task.name; s.statusCache={status:task.status,color:task.color}; s.assigneeCache=(task.assignees||[]).map(a=>a.nome).join(', '); render(); }
+    if(task){ s.tituloCache=task.name; s.statusCache={status:task.status,color:task.color,nome:task.etapa?task.etapa.nome:''}; s.assigneeCache=(task.assignees||[]).map(a=>a.nome).join(', '); render(); }
     drawTab();
     const idade = Date.now() - Math.min(task._cachedAt||0, com._cachedAt||0);
     if(idade > 60000){
@@ -2042,7 +2052,7 @@ async function loadTaskTab(s){
         .then(([t2, c2])=>{
           if(S.taskSlot !== s) return;
           tData = {task:t2, ...c2};
-          if(t2){ s.tituloCache=t2.name; s.statusCache={status:t2.status,color:t2.color}; s.assigneeCache=(t2.assignees||[]).map(a=>a.nome).join(', '); render(); tRowDraw(s); }
+          if(t2){ s.tituloCache=t2.name; s.statusCache={status:t2.status,color:t2.color,nome:t2.etapa?t2.etapa.nome:''}; s.assigneeCache=(t2.assignees||[]).map(a=>a.nome).join(', '); render(); tRowDraw(s); }
           if(!digitandoNoModal()) drawTab();
         }).catch(()=>{});
     }
@@ -2098,7 +2108,9 @@ function drawTab(){
   // Salva sozinho enquanto você escreve, sem botão.
   if(cur==='obs'){ desenharObs(body, s); return; }
   if(tData && tData.semFonte && (cur==='arquivos' || cur==='comentarios')){
-    body.innerHTML='<div class="empty">Artes e comentários aparecem aqui quando o painel estiver ligado ao MKT Hub.<br>Por enquanto, use <b>Abrir a task</b> lá em cima.</div>';
+    body.innerHTML = tData.antigo
+      ? '<div class="empty">Esta task não é do MKT Hub (link antigo ou de outro sistema).<br>Use <b>Abrir a task</b> lá em cima, ou o lápis pra ligar a task do Hub.</div>'
+      : '<div class="empty">Artes e comentários aparecem aqui quando o painel estiver ligado ao MKT Hub.<br>Por enquanto, use <b>Abrir a task</b> lá em cima.</div>';
     return;
   }
   if(cur==='arquivos'){
@@ -2163,8 +2175,9 @@ function drawTab(){
       '<dl class="kv">'+
       '<dt>Conta</dt><dd>'+esc(S.contas[s.conta].nome)+'</dd>'+
       '<dt>Data de postagem</dt><dd>'+(s.date? s.date.split('-').reverse().join('/') : 'sem data (banco)')+'</dd>'+
-      (lk?'<dt>Task de produção</dt><dd><a href="'+esc(lk)+'" target="_blank" rel="noopener">'+esc(s.tituloCache || lk.replace(/^https?:\/\/(www\.)?/,''))+'</a></dd>':'')+
-      (s.statusCache && s.statusCache.status?'<dt>Status da task</dt><dd>'+esc(s.statusCache.status)+(S.temFonte?'':' <span class="note">(último recebido)</span>')+'</dd>':'')+
+      (lk?'<dt>Task de produção</dt><dd><a href="'+esc(lk)+'" target="_blank" rel="noopener">'+esc((s.hub && s.hub.codigo ? s.hub.codigo+' · ' : '')+(s.tituloCache || lk.replace(/^https?:\/\/(www\.)?/,'')))+'</a></dd>':'')+
+      (s.statusCache && s.statusCache.status?'<dt>'+(s.hub?'Etapa no MKT Hub':'Status da task')+'</dt><dd><span class="hubet" style="--c:'+esc(s.statusCache.color||'#8E8E93')+'"><i></i>'+esc(s.statusCache.nome || s.statusCache.status)+'</span>'+(s.hub || (S.temFonte && ehDoHub(s.taskId))?'':' <span class="note">(último recebido)</span>')+'</dd>':'')+
+      (t && t.prazo?'<dt>Prazo da produção</dt><dd>'+esc(brData(t.prazo))+'</dd>':'')+
       (s.formato?'<dt>Formato</dt><dd>'+esc(s.formato)+'</dd>':'')+
       (s.angulo?'<dt>Ângulo</dt><dd>'+esc(s.angulo)+'</dd>':'')+
       (s.obs?'<dt>Observação</dt><dd>'+esc(s.obs)+'</dd>':'')+
@@ -2175,7 +2188,7 @@ function drawTab(){
       ((t && t.assignees && t.assignees.length) || s.assigneeCache?'<dt>Responsável</dt><dd>'+esc(t && t.assignees && t.assignees.length ? t.assignees.map(a=>a.nome).join(', ') : s.assigneeCache)+'</dd>':'')+
       '<dt>Origem</dt><dd>'+esc(s.origem)+'</dd>'+
       '</dl>'+
-      (t? '<div class="descbar"><b style="font-size:12.5px">Descrição da task</b></div><div class="desc" id="descBody">'+(t.descricao? mdToHtml(t.descricao) : '<span style="color:var(--ink-3)">sem descrição</span>')+'</div>'
+      (t? '<div class="descbar"><b style="font-size:12.5px">'+(t.descricaoHtml!==undefined?'Briefing da task':'Descrição da task')+'</b></div><div class="desc" id="descBody">'+(t.descricaoHtml ? t.descricaoHtml : t.descricao? mdToHtml(t.descricao) : '<span style="color:var(--ink-3)">sem descrição</span>')+'</div>'
         : '');
   }
 }
@@ -2866,8 +2879,28 @@ async function openConfig(){
   $('#gmAncora').value = gc.ancora || hojeStr();
   $('#gmPeriodo').value = gc.periodo || 3;
   pintaGm();
+  hubPintaEstado();
   $('#ovConfig').classList.add('open');
 }
+/** v3.81: como está a ligação com o MKT Hub (sem mostrar a chave, que nunca sai do servidor). */
+async function hubPintaEstado(){
+  const el = $('#hubEstado'); $('#hubMsg').textContent = '';
+  try{
+    const h = await api('/api/hub');
+    el.className = 'hubestado '+(!h.ligado ? 'off' : h.erro ? 'erro' : 'ok');
+    el.innerHTML = !h.ligado ? '<i></i>Desligado: falta a variável <b>MKH_CHAVE</b> no Render.'
+      : h.erro ? '<i></i>Ligado, mas a última leitura falhou: '+esc(h.erro)
+      : '<i></i>Ligado · '+h.tarefas+' tasks na memória'+(h.syncEm ? ' · última leitura '+fmtDataHora(Date.parse(h.syncEm)) : ' · primeira leitura em andamento');
+  }catch(e){ el.className = 'hubestado erro'; el.textContent = 'Não consegui ver: '+e.message; }
+}
+$('#hubTestar').onclick = async ()=>{
+  const m = $('#hubMsg'); m.textContent = 'testando…';
+  try{
+    const r = await api('/api/hub/eu');
+    m.textContent = r.ok ? 'Conectado como '+r.nome+' ('+r.papel+')'+(r.chave ? ' · chave "'+r.chave.nome+'", nível '+r.chave.nivel : '')+(r.empresas && r.empresas.length ? ' · '+r.empresas.join(', ') : '') : 'Falhou: '+r.erro;
+    setTimeout(hubPintaEstado, 1500);
+  }catch(e){ m.textContent = 'Falhou: '+e.message; }
+};
 $('#btnConfig').onclick = openConfig;
 $('#cSave').onclick = async ()=>{
   const s = $('#cSenha').value;

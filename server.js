@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.80'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.81'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -368,6 +368,8 @@ const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo
 // v3.80: tarefas da copywriter (matriz e copy por empresa, com aprovação post a post) e o relógio delas
 const rotaTempo = require('./lib/tempo.js')({ db, saveDb, readBody, json });
 const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, undoSlots, tempo: rotaTempo });
+// v3.81: MKT Hub (só leitura; chave só na variável MKH_CHAVE). Sem chave, fica desligado.
+const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/docs.js').limpaHtml });
 
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
@@ -402,10 +404,13 @@ const server = http.createServer(async (req, res) => {
     // ---------- tarefas e relógio (v3.80) ----------
     if (p.startsWith('/api/tarefas') && await rotaTarefas(req, res, p, u)) return;
     if (p.startsWith('/api/tempo') && await rotaTempo(req, res, p, u)) return;
+    // ---------- MKT Hub (v3.81): status, artes e comentários das tasks de produção ----------
+    if ((p.startsWith('/api/hub') || p.startsWith('/api/task/')) && await rotaHub(req, res, p, u)) return;
 
     // ---------- estado ----------
     if (p === '/api/state' && req.method === 'GET') {
       const month = u.searchParams.get('month'); // "2026-07"
+      rotaHub.toque();                                   // v3.81: alguém usando o painel = o Hub pode sincronizar
       let slots = db.slots;
       if (month) {
         // além do mês pedido, inclui a janela de produção (hoje-7 a hoje+10)
@@ -416,9 +421,9 @@ const server = http.createServer(async (req, res) => {
       const corpo = JSON.stringify({
         versao: VERSAO,
         contas: db.contas, abas: db.abas,
-        slots, referencias: db.referencias,
+        slots: rotaHub.sobrepoe(slots), referencias: db.referencias,   // v3.81: status, título e responsável do Hub por cima (sem gravar)
         tarefas: rotaTarefas.publicas(),                  // v3.80: tarefas abertas (matriz e copy), com os posts de cada uma
-        temFonte: false,                                  // v3.78: true quando o MKT Hub estiver ligado (status, artes e comentários das tasks)
+        temFonte: rotaHub.ligado(),                       // v3.81: true com a chave do MKT Hub (artes e comentários das tasks)
         temSenha: !!config.senha,
         gmCadencia: db.gmCadencia,
         uso: USO.curto(),

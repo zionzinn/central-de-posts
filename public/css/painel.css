@@ -648,6 +648,11 @@ html[data-modo="claro"] .ov{background:rgba(0,0,0,.22)}
 .pf-depois:hover{background:var(--fill-3); color:var(--ink)}
 .pf-tempo{margin-right:auto; color:var(--ink); font-weight:600; font-size:13px; padding:0 14px; height:32px; border-radius:999px; background:var(--fill-3); transition:background var(--t)}   /* v3.80 */
 .pf-tempo:hover{background:var(--fill-2)}
+/* v3.81: estado da ligação com o MKT Hub nas Configurações (bolinha + frase) */
+.hubestado{display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:var(--ink-2); line-height:1.45; margin-top:4px}
+.hubestado i{width:8px; height:8px; border-radius:50%; background:var(--gray); margin-top:5px; flex:none}
+.hubestado.ok i{background:var(--green)} .hubestado.erro i{background:var(--red)}
+.hubet{font-size:inherit}
 .pf-salvar{background:var(--sb); color:var(--on-sb); border:0; border-radius:999px; padding:0 20px; height:34px;
   font-weight:600; font-size:13px; cursor:pointer; transition:filter var(--t)}
 .pf-salvar:hover{filter:brightness(1.06)}

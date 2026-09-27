@@ -8,7 +8,7 @@
    icon, toast, PERFIL... roda depois, chamado pelo painel. O relógio mora em js/cronometro.js (CRON).
    ===================================================================== */
 'use strict';
-const TF = { aberta: null, novo: null, det: null, sel: null, exp: new Set(), alt: null, voltar: null, conhecidos: null, pendPer: null };
+const TF = { aberta: null, novo: null, det: null, sel: null, exp: new Set(), alt: null, voltar: null, conhecidos: null, pendPer: null, ligar: null, ligarQ: '', ligarLista: null, ligarN: 0 };
 const TF_ABAS_MATRIZ = ['SEUBONÉ'];
 const TF_TIPOS = {
   matriz: { nome: 'Matriz', k: 'm', cor: 'var(--mz)', icone: 'calmz',
@@ -249,7 +249,7 @@ async function tfRelogioDoPost(slotId, tipo) {
 // ---------------- folha da tarefa ----------------
 function abrirTarefa(id, focoSlot) {
   const t = tfPorId(id); if (!t) { toast('Tarefa não encontrada', true); return; }
-  if (TF.aberta !== id) { TF.exp.clear(); TF.alt = null; TF.det = null; }
+  if (TF.aberta !== id) { TF.exp.clear(); TF.alt = null; TF.det = null; TF.ligar = null; }
   TF.sel = null;                                   // marca de novo o que está pronto e ganhou tempo (quando o detalhe chegar)
   TF.aberta = id; TF.novo = null; TF.voltar = null;
   if (focoSlot) TF.exp.add(focoSlot);
@@ -374,15 +374,19 @@ function tfLinha(s, t, dona) {
   // (v3.81: o painel lista as tasks do Hub daquele dia e conta pra escolher com 1 clique)
   if (t.tipo === 'copy' && a && a.st === 'aprovado') {
     const url = linkDaTask(s);
+    const cod = s.hub && s.hub.codigo ? s.hub.codigo : (/^MKT-\d+$/i.test(s.taskId || '') ? s.taskId : 'produção');
+    const et = s.hub && s.hub.etapa ? '<i style="background:' + esc(s.hub.etapa.cor) + '"></i>' + esc(s.hub.etapa.nome) : '';
     acoes += s.taskId
-      ? (url ? '<a class="ti-prod" href="' + esc(url) + '" target="_blank" rel="noopener" title="Task de produção (arte ou vídeo)">' : '<span class="ti-prod" title="Task de produção (arte ou vídeo)">') + icon('hub') + esc(/^MKT-\d+$/i.test(s.taskId) ? s.taskId : 'produção') + (url ? '</a>' : '</span>')
-      : '<button class="mbtn ti-ligar" data-ligar="' + s.id + '" title="Colar o link ou o código MKT da task de arte ou vídeo deste post">' + icon('hub') + 'Ligar a task de produção</button>';
+      ? (url ? '<a class="ti-prod" href="' + esc(url) + '" target="_blank" rel="noopener" title="Task de produção no MKT Hub (arte ou vídeo)">' : '<span class="ti-prod" title="Task de produção (arte ou vídeo)">') + icon('hub') + esc(cod) + (et ? '<span class="ti-et">' + et + '</span>' : '') + (url ? '</a>' : '</span>')
+        + '<button class="ti-desf" data-ligar="' + s.id + '" title="Trocar a task de produção">trocar</button>'
+      : '<button class="mbtn ti-ligar" data-ligar="' + s.id + '" title="Escolher a task de arte ou vídeo deste post no MKT Hub">' + icon('hub') + 'Ligar a task de produção</button>';
   }
   const aberto = TF.exp.has(s.id);
   const notas = [];
   if (a && a.st === 'alterar' && a.nota) notas.push('<div class="ti-nota alt">' + icon('pencil') + '<span><b>' + esc(a.ap || 'Pedido') + ':</b> ' + esc(a.nota) + '</span></div>');
   if (a && a.st === 'enviado' && a.pedido && !dona) notas.push('<div class="ti-nota">' + icon('undo') + '<span><b>Você tinha pedido:</b> ' + esc(a.pedido) + '</span></div>');
   if (a && a.st === 'aprovado' && a.ap) notas.push('<div class="ti-nota ok">' + icon('check') + '<span>Aprovada por <b>' + esc(a.ap) + '</b>' + (a.apEm ? ' em ' + fmtDataHora(Date.parse(a.apEm)) : '') + (k === 'm' ? ' · a copy deste post está liberada' : '') + '</span></div>');
+  const ligBox = TF.ligar === s.id ? tfLigarHtml(s) : '';
   const altBox = TF.alt === s.id ? '<div class="ti-altbox"><textarea id="tfAltTxt" rows="2" maxlength="500" placeholder="O que precisa mudar? (ela vê isso no card)"></textarea><div><button class="mbtn" data-altcancela="1">Cancelar</button><button class="mbtn primary" data-altmanda="' + s.id + '">Mandar pedido</button></div></div>' : '';
   return '<div class="ti st-' + est.cod + (aberto ? ' aberto' : '') + '" data-id="' + s.id + '">' +
     '<div class="ti-lin">' + chk +
@@ -394,10 +398,77 @@ function tfLinha(s, t, dona) {
       '<span class="ti-st" style="--stc:' + est.cor + '"><i></i>' + est.rot + '</span>' +
       acoes +
       '<button class="ti-exp" data-exp="' + s.id + '" aria-label="' + (aberto ? 'Esconder o resumo' : 'Ver o resumo') + '" aria-expanded="' + aberto + '">' + icon('chevR') + '</button>' +
-    '</div>' + notas.join('') + altBox +
+    '</div>' + notas.join('') + altBox + ligBox +
     (aberto ? '<div class="ti-res" data-res="' + s.id + '">' + tfResumo(s, t) + '</div>' : '') +
   '</div>';
 }
+// ---------------- copy aprovada: ligar a task de produção (arte ou vídeo) do MKT Hub (v3.81) ----------------
+/** Sem o Hub ligado: abre o post com o campo da task em foco (colar link ou código). Com o Hub: lista as tasks daquele dia. */
+function tfAbreLigar(sid, t) {
+  if (!S.temFonte) { tfColarLink(sid, t); return; }
+  TF.ligar = TF.ligar === sid ? null : sid; TF.ligarQ = ''; TF.ligarLista = null;
+  tfDesenha();
+  if (TF.ligar) { tfBuscaCandidatas(); setTimeout(() => { const x = $('#tfLigBusca'); if (x) x.focus(); }, 30); }
+}
+function tfColarLink(sid, t) {
+  TF.voltar = t.id; TF.ligar = null;
+  closeOv('ovTarefa'); openEdit(sid);
+  setTimeout(() => { const x = $('#eTask'); if (x) { x.focus(); x.select(); } }, 180);
+}
+async function tfBuscaCandidatas() {
+  const sid = TF.ligar; if (!sid) return;
+  const n = TF.ligarN = (TF.ligarN || 0) + 1;
+  try {
+    const r = await api('/api/hub/candidatas?slot=' + encodeURIComponent(sid) + (TF.ligarQ ? '&q=' + encodeURIComponent(TF.ligarQ) : ''));
+    if (n !== TF.ligarN || TF.ligar !== sid) return;
+    TF.ligarLista = r;
+  } catch (e) { TF.ligarLista = { erro: e.message, tarefas: [] }; }
+  const box = document.querySelector('.ti-ligbox .ti-liglista');
+  if (box) box.innerHTML = tfLigarLista();
+  tfLigaItens();
+}
+function tfLigarHtml(s) {
+  return '<div class="ti-ligbox"><div class="ti-ligtop">' + icon('hub') +
+    '<input id="tfLigBusca" placeholder="procurar no MKT Hub: título ou MKT-0000" value="' + esc(TF.ligarQ || '') + '" autocomplete="off">' +
+    '<button class="mbtn" data-ligcola="' + s.id + '">Colar link</button><button class="mbtn" data-ligfecha="1">Cancelar</button></div>' +
+    '<div class="ti-liglista">' + tfLigarLista() + '</div></div>';
+}
+function tfLigarLista() {
+  const r = TF.ligarLista;
+  if (!r) return '<div class="ti-ligvazio">procurando as tasks do dia no Hub…</div>';
+  if (r.erro && !(r.tarefas || []).length) return '<div class="ti-ligvazio">Não consegui ler o Hub: ' + esc(r.erro) + '. Use Colar link.</div>';
+  if (!r.tarefas.length) return '<div class="ti-ligvazio">' + (TF.ligarQ ? 'Nada com "' + esc(TF.ligarQ) + '".' : 'Nenhuma task dessa empresa com prazo perto deste dia.') + ' Procure pelo nome ou use Colar link.</div>';
+  return r.tarefas.map(x => '<button class="ti-ligit" data-ligtask="' + esc(x.id) + '" data-ligurl="' + esc(x.url || '') + '" data-ligcod="' + esc(x.codigo) + '">' +
+    '<span class="ti-ligcod">' + esc(x.codigo) + '</span><span class="ti-ligtit">' + esc(x.titulo) + '</span>' +
+    (x.etapa ? '<span class="ti-et"><i style="background:' + esc(x.etapa.cor) + '"></i>' + esc(x.etapa.nome) + '</span>' : '') +
+    '<span class="ti-ligpz">' + (x.prazo ? 'prazo ' + brData(x.prazo) : 'sem prazo') + '</span>' +
+    (x.ligada ? '<span class="ti-ligja">já ligada em outro post</span>' : '') + '</button>').join('');
+}
+function tfLigaItens() {
+  document.querySelectorAll('.ti-ligit').forEach(b => b.onclick = () => tfLigaTask(TF.ligar, b.dataset.ligurl || b.dataset.ligtask, b.dataset.ligcod));
+}
+function tfLigaLigar(t) {
+  const busca = $('#tfLigBusca');
+  if (busca) {
+    let tm = null;
+    busca.addEventListener('input', () => { TF.ligarQ = busca.value.trim(); clearTimeout(tm); tm = setTimeout(tfBuscaCandidatas, 250); });
+    busca.addEventListener('keydown', ev => { if (ev.key === 'Escape') { ev.stopPropagation(); TF.ligar = null; tfDesenha(); } if (ev.key === 'Enter') { ev.preventDefault(); const p = document.querySelector('.ti-ligit'); if (p) p.click(); } });
+  }
+  document.querySelectorAll('[data-ligcola]').forEach(b => b.onclick = () => tfColarLink(b.dataset.ligcola, t));
+  document.querySelectorAll('[data-ligfecha]').forEach(b => b.onclick = () => { TF.ligar = null; tfDesenha(); });
+  tfLigaItens();
+}
+async function tfLigaTask(sid, ref, cod) {
+  if (!sid || !ref) return;
+  try {
+    await api('/api/slots/' + sid, { method: 'PATCH', body: JSON.stringify({ taskUrl: ref }) });
+    TF.ligar = null;
+    await loadState();
+    tfDesenha();
+    toast('Task de produção ligada: ' + cod + ' · Ctrl+Z desfaz');
+  } catch (e) { toast(e.message, true); }
+}
+
 /** Resumo pra revisar sem abrir: matriz (os campos) ou copy (o texto, carregado na hora). */
 function tfResumo(s, t) {
   if (t.tipo === 'matriz') {
@@ -457,7 +528,8 @@ function tfLigaFolha(t, novo, dona) {
   const altTxt = $('#tfAltTxt');
   if (altTxt) altTxt.addEventListener('keydown', ev => { if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); tfPedeAlteracao(t, TF.alt); } });
   body.querySelectorAll('[data-reabre]').forEach(b => b.onclick = () => tfReabrir(t, b.dataset.reabre));
-  body.querySelectorAll('[data-ligar]').forEach(b => b.onclick = () => { TF.voltar = t.id; closeOv('ovTarefa'); openEdit(b.dataset.ligar); setTimeout(() => { const x = $('#eTask'); if (x) { x.focus(); x.select(); } }, 180); });
+  body.querySelectorAll('[data-ligar]').forEach(b => b.onclick = () => tfAbreLigar(b.dataset.ligar, t));
+  tfLigaLigar(t);
   const env = $('#tfEnviar'); if (env) env.onclick = () => tfEnviar(t);
   const tudo = $('#tfAprovarTudo'); if (tudo) tudo.onclick = () => tfAprovar(t, tfSlots(t).filter(s => (tfAprov(s, tfK(t)) || {}).st === 'enviado').map(s => s.id), tudo);
   $('#tfVerTempo').onclick = () => { closeOv('ovTarefa'); abrirTempo({ tarefa: t }); };
