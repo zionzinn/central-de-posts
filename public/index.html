@@ -338,7 +338,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.78'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.79'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -825,7 +825,11 @@ function render(){
   renderTabs(); renderLegend(); renderDrawer(); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); }
 
 function renderTabs(){
-  const el = $('#tabs'); el.innerHTML='';
+  const el = $('#tabs');
+  el.querySelectorAll('.tab').forEach(b=>b.remove());
+  // v3.79: a cápsula é uma só e fica entre um desenho e outro, pra poder deslizar de uma aba pra outra
+  let sel = el.querySelector('.tabs-sel');
+  if(!sel){ sel = document.createElement('span'); sel.className = 'tabs-sel sem-anim'; sel.setAttribute('aria-hidden','true'); el.prepend(sel); }
   for(const aba of S.abas){
     const contas = contasDaAba(aba);
     const n = S.slots.filter(s=>contas.includes(s.conta) && s.date && s.date.startsWith(S.mes)).length;
@@ -836,6 +840,82 @@ function renderTabs(){
     b.onclick = ()=> irParaAba(aba);
     el.appendChild(b);
   }
+  posicionaSelTab();
+}
+/** Leva a cápsula até a aba escolhida (semAnim: pula direto, ex.: quando a fonte carrega ou a tela muda de tamanho). */
+function posicionaSelTab(semAnim){
+  const el = $('#tabs'); if(!el) return;
+  const sel = el.querySelector('.tabs-sel'), on = el.querySelector('.tab.on');
+  if(!sel) return;
+  if(!on){ sel.style.opacity = '0'; return; }
+  if(semAnim) sel.classList.add('sem-anim');
+  sel.style.setProperty('--sel-x', on.offsetLeft + 'px');
+  sel.style.setProperty('--sel-w', on.offsetWidth + 'px');
+  sel.style.opacity = '';
+  if(sel.classList.contains('sem-anim')) requestAnimationFrame(()=> requestAnimationFrame(()=> sel.classList.remove('sem-anim')));
+}
+function abaMaisPerto(tabs, meio){
+  let melhor = 0, dist = 1e9;
+  tabs.forEach((b, i)=>{ const d = Math.abs(b.offsetLeft + b.offsetWidth / 2 - meio); if(d < dist){ dist = d; melhor = i; } });
+  return melhor;
+}
+function temaDaAba(aba){ const l = modoClaro() ? TEMAS_CLARO : TEMAS; return l[aba] || l['SEUBONÉ']; }
+/** Slider das contas: arrastar a cápsula (ou deslizar o dedo na barra) passa de conta; ← → no teclado também. */
+function ligaSliderAbas(){
+  const el = $('#tabs');
+  let arr = null;   // { x0, selX0, w, pid, moveu }
+  el.addEventListener('pointerdown', ev=>{
+    if(ev.button !== 0) return;
+    const on = el.querySelector('.tab.on'); if(!on) return;
+    const px = ev.clientX - el.getBoundingClientRect().left;
+    const naCapsula = px >= on.offsetLeft && px <= on.offsetLeft + on.offsetWidth;
+    if(ev.pointerType === 'mouse' && !naCapsula) return;          // no mouse, arrasta pela cápsula; no toque, a barra toda
+    arr = { x0: ev.clientX, selX0: on.offsetLeft, w: on.offsetWidth, pid: ev.pointerId, moveu: false };
+  });
+  el.addEventListener('pointermove', ev=>{
+    if(!arr || ev.pointerId !== arr.pid) return;
+    const dx = ev.clientX - arr.x0;
+    if(!arr.moveu){
+      if(Math.abs(dx) < 6) return;                                 // menos que isso ainda é clique
+      arr.moveu = true; try{ el.setPointerCapture(arr.pid); }catch(e){}
+      el.classList.add('arrastando');
+    }
+    const tabs = [...el.querySelectorAll('.tab')]; if(!tabs.length) return;
+    const x = Math.max(tabs[0].offsetLeft, Math.min(tabs[tabs.length-1].offsetLeft, arr.selX0 + dx));
+    const sel = el.querySelector('.tabs-sel');
+    sel.style.setProperty('--sel-x', x + 'px');
+    // a aba que está embaixo da cápsula já ganha a cor da marca dela (prévia de pra onde vai)
+    const i = abaMaisPerto(tabs, x + arr.w / 2);
+    if(i !== arr.idx){
+      arr.idx = i;
+      tabs.forEach((b, k)=> b.classList.toggle('sob', k === i));
+      const tm = temaDaAba(S.abas[i]);
+      sel.style.backgroundColor = tm.sb; el.style.setProperty('--on-sel', tm.on || '#000');
+    }
+  });
+  const solta = ev=>{
+    if(!arr || ev.pointerId !== arr.pid) return;
+    const a = arr; arr = null;
+    if(!a.moveu) return;                                           // foi clique: o onclick da aba resolve
+    el.classList.remove('arrastando');
+    try{ el.releasePointerCapture(a.pid); }catch(e){}
+    const sel = el.querySelector('.tabs-sel'), tabs = [...el.querySelectorAll('.tab')];
+    const melhor = abaMaisPerto(tabs, parseFloat(sel.style.getPropertyValue('--sel-x')) + a.w / 2);
+    tabs.forEach(b=> b.classList.remove('sob'));
+    sel.style.backgroundColor = ''; el.style.removeProperty('--on-sel');
+    const aba = S.abas[melhor];
+    if(aba && aba !== S.aba) irParaAba(aba); else posicionaSelTab();
+  };
+  el.addEventListener('pointerup', solta);
+  el.addEventListener('pointercancel', solta);
+  el.addEventListener('keydown', ev=>{
+    if(ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
+    ev.preventDefault(); trocarAba(ev.key === 'ArrowRight' ? 1 : -1);
+    const on = el.querySelector('.tab.on'); if(on) on.focus();
+  });
+  // a largura das abas muda quando a fonte carrega, quando a contagem muda ou a janela muda de tamanho
+  try{ new ResizeObserver(()=> posicionaSelTab(true)).observe(el); }catch(e){}
+  try{ document.fonts.ready.then(()=> posicionaSelTab(true)); }catch(e){}
 }
 /** Troca de conta feita PELA PESSOA (aba ou seta): dá o fade no conteúdo. */
 function irParaAba(aba){
@@ -3049,7 +3129,7 @@ $('#btnAjuda').onclick = (ev)=>{
     '<div><kbd>Shift</kbd> + arrasta: <b>reajusta</b> a sequência</div>'+
     '<div><b>Clique</b> num card: abre as artes</div>'+
     '<div><b>+</b> do dia: criar ali (<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> escolhem) · <b>+</b> do canto: criar sem dia</div>'+
-    '<div><kbd>1</kbd> a <kbd>4</kbd>: troca de empresa · <kbd>[</kbd> <kbd>]</kbd>: anterior e próxima</div>'+
+    '<div><kbd>1</kbd> a <kbd>4</kbd>: troca de empresa · <kbd>[</kbd> <kbd>]</kbd>: anterior e próxima · <b>arraste</b> a cápsula das empresas</div>'+
     '<div><kbd>Ctrl</kbd> + <kbd>Z</kbd>: desfaz · <kbd>Ctrl</kbd> + <kbd>,</kbd>: configurações</div>';
   document.body.appendChild(p);
   const w = p.offsetWidth, top = r.bottom + 8;
@@ -3447,7 +3527,7 @@ function initIcons(){
   $('#fabMain').innerHTML = icon('plus');
   $('#atMain').innerHTML = icon('share');
   $('#mzEditar').innerHTML = icon('pencil');
-  montaAtalhos(); ligaLeque(); ligaFab();
+  montaAtalhos(); ligaLeque(); ligaFab(); ligaSliderAbas();
   $('#btnAjuda').innerHTML = icon('help');
   $('#btnConfig').innerHTML = icon('gear');
   desenhaBotaoModo(); $('#btnModo').onclick = trocarModo;

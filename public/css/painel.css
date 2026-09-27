@@ -150,13 +150,26 @@ header::before{content:""; position:absolute; inset:0; z-index:-1; pointer-event
 .brand span{font-size:11px; color:var(--ink-3); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px}
 /* abas das empresas: barra de abas em cápsula, 1 clique (HIG > Tab bars) */
 .tabswrap{display:flex; align-items:center; flex:0 1 auto}
-.tabs{display:flex; gap:2px; flex:0 1 auto; justify-content:center; flex-wrap:nowrap; background:var(--fill-3); border-radius:999px; padding:3px}
-.tab{padding:6px 16px; border-radius:999px; border:0; background:transparent; font-weight:600; font-size:13px; letter-spacing:-.005em;
-  color:var(--ink-2); display:flex; align-items:center; gap:7px; min-height:32px; white-space:nowrap;
-  transition:background var(--t), color var(--t), box-shadow var(--t)}
+/* v3.79: segmentos do mesmo tamanho (HIG > Segmented controls) e uma cápsula só, que desliza até a conta escolhida */
+.tabs{position:relative; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:2px; flex:0 1 auto;
+  background:var(--fill-3); border-radius:999px; padding:3px; touch-action:pan-y}
+.tab{position:relative; z-index:1; padding:6px 16px; border-radius:999px; border:0; background:transparent; font-weight:600; font-size:13px; letter-spacing:-.005em;
+  color:var(--ink-2); display:flex; align-items:center; justify-content:center; gap:7px; min-height:32px; white-space:nowrap;
+  transition:background var(--t), color .2s ease}
 .tab:hover{background:var(--fill-3); color:var(--ink)}
-.tab.on{background:var(--sb); color:var(--on-sb);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 1px 2px rgba(0,0,0,.18), 0 3px 10px color-mix(in srgb, var(--sb) 30%, transparent)}
+.tab.on,.tab.on:hover{background:transparent; color:var(--on-sb); transition:background var(--t), color .18s ease .1s}
+/* a cápsula (ideia do radio-input de ssweb_8300, Uiverse, licença MIT): anda com mola e troca a cor da marca no caminho */
+.tabs-sel{position:absolute; top:3px; bottom:3px; left:0; z-index:0; pointer-events:none; width:var(--sel-w,0px); transform:translateX(var(--sel-x,0px));
+  border-radius:999px; background:var(--sb);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 1px 2px rgba(0,0,0,.18), 0 3px 10px color-mix(in srgb, var(--sb) 30%, transparent);
+  transition:transform .42s var(--mola), width .42s var(--mola), background-color .3s ease, box-shadow .3s ease}
+.tabs-sel.sem-anim{transition:none}
+/* arrastando a cápsula: ela segue o dedo ou o mouse, e ao soltar encaixa na conta mais perto */
+.tabs.arrastando{cursor:grabbing; user-select:none}
+.tabs.arrastando .tabs-sel{transition:background-color .3s ease, box-shadow .3s ease; box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 6px 18px rgba(0,0,0,.3)}
+.tab.on{cursor:grab}
+.tabs.arrastando .tab.on{color:var(--ink-2)} .tabs.arrastando .tab.on .n{background:var(--fill-3); color:var(--ink-3)}
+.tabs.arrastando .tab.sob{color:var(--on-sel,var(--on-sb))} .tabs.arrastando .tab.sob .n{background:rgba(0,0,0,.13); color:inherit}
 .tab .n{font-size:11px; background:var(--fill-3); border-radius:999px; padding:0 7px; min-width:22px; text-align:center; line-height:18px;
   color:var(--ink-3); font-weight:600; font-variant-numeric:tabular-nums}
 .tab.on .n{background:rgba(0,0,0,.13); color:inherit}
