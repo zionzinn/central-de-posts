@@ -1,0 +1,87 @@
+@charset "utf-8";
+/* =====================================================================
+   B.O.N.E · relógio das tarefas (v3.80): dígitos que rolam, botão redondo com anel e a cápsula flutuante.
+   Carregado pelo painel e pelo doc da copy (lá os tokens do painel não existem: tudo tem valor reserva).
+   Dígitos: ideia do Skiper37 (Skiper UI) e do NumberFlow (Maxwell Barvian, MIT), refeitos em CSS puro.
+   Botão: ideia do circle-button de vikramsinghnegi (Uiverse, MIT): o anel se desenha no hover e gira
+   enquanto o relógio anda.
+   ===================================================================== */
+
+/* ---------- dígitos ---------- */
+.nf{display:inline-flex; align-items:center; font-variant-numeric:tabular-nums; line-height:1; --nf-h:1.18em; white-space:nowrap}
+.nf-d{display:inline-block; height:var(--nf-h); overflow:hidden;
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 14%, #000 86%, transparent 100%);
+          mask-image:linear-gradient(to bottom, transparent 0, #000 14%, #000 86%, transparent 100%)}
+.nf-col{display:flex; flex-direction:column; transform:translateY(calc(var(--i, 0) * var(--nf-h) * -1));
+  transition:transform .6s var(--mola, cubic-bezier(.22,1.2,.36,1))}
+.nf-col i{display:block; height:var(--nf-h); line-height:var(--nf-h); width:1ch; text-align:center; font-style:normal}
+.nf-sep{padding:0 .05em; opacity:.6; transform:translateY(-.05em)}
+
+/* ---------- botão redondo com anel ---------- */
+.rl-btn{--rl-t:36px; --rl-cor:var(--sb, #FCC100); --rl-trilho:var(--fill-3, rgba(118,118,128,.24)); --rl-fundo:var(--fill-3, rgba(118,118,128,.18)); --rl-ink:var(--ink, #111);
+  position:relative; width:var(--rl-t); height:var(--rl-t); flex:none; padding:0; border:0; border-radius:50%; cursor:pointer;
+  display:grid; place-items:center; background:var(--rl-fundo); color:var(--rl-ink);
+  transition:background .25s, color .25s, transform .15s}
+.rl-btn:active{transform:scale(.92)}
+.rl-btn .rl-anel{position:absolute; inset:-3px; width:calc(100% + 6px); height:calc(100% + 6px); transform:rotate(-90deg); overflow:visible; pointer-events:none}
+.rl-btn .rl-trilho{fill:none; stroke:transparent; stroke-width:2.5}
+.rl-btn .rl-arco{fill:none; stroke:var(--rl-cor); stroke-width:2.5; stroke-linecap:round; stroke-dasharray:100 100; stroke-dashoffset:100;
+  transition:stroke-dashoffset .7s cubic-bezier(.4,0,.2,1), stroke-dasharray .4s}
+.rl-btn:is(:hover,:focus-visible) .rl-arco{stroke-dashoffset:0}                     /* o anel se desenha em volta */
+.rl-btn .rl-ic{position:relative; width:46%; height:46%; fill:currentColor}
+.rl-btn .rl-play,.rl-btn .rl-pause{transform-origin:12px 12px; transition:opacity .2s, transform .3s cubic-bezier(.2,.8,.2,1)}
+.rl-btn .rl-pause{opacity:0; transform:scale(.4)}
+/* andando: fundo na cor da tarefa, anel girando, ícone de pausa */
+.rl-btn[data-st="rodando"]{background:var(--rl-cor); color:var(--rl-on, #000)}
+.rl-btn[data-st="rodando"] .rl-trilho{stroke:color-mix(in srgb, var(--rl-cor) 30%, transparent)}
+.rl-btn[data-st="rodando"] .rl-arco{stroke-dasharray:26 74; stroke-dashoffset:0}
+.rl-btn[data-st="rodando"] .rl-anel{animation:rlgira 1.5s linear infinite}
+.rl-btn[data-st="rodando"] .rl-play{opacity:0; transform:scale(.4)}
+.rl-btn[data-st="rodando"] .rl-pause{opacity:1; transform:none}
+/* pausado: anel cheio parado, respira devagar */
+.rl-btn[data-st="pausado"] .rl-arco{stroke-dashoffset:0; opacity:.55}
+.rl-btn[data-st="pausado"]{animation:rlrespira 2.4s ease-in-out infinite}
+/* outra tarefa com o relógio andando: tracejado discreto */
+.rl-btn[data-st="outro"] .rl-trilho{stroke:var(--rl-trilho); stroke-dasharray:3 4}
+@keyframes rlgira{to{transform:rotate(270deg)}}
+@keyframes rlrespira{50%{box-shadow:0 0 0 5px color-mix(in srgb, var(--rl-cor) 22%, transparent)}}
+.rl-btn.grande{--rl-t:64px}
+.rl-btn.mini{--rl-t:28px}
+
+/* ---------- cápsula flutuante (centro de baixo): aparece em qualquer tela, até em cima do doc ---------- */
+.crono{position:fixed; left:50%; bottom:calc(18px + env(safe-area-inset-bottom, 0px)); z-index:9600; translate:-50% 0;
+  display:flex; align-items:center; gap:10px; padding:6px 7px 6px 12px; border-radius:999px; max-width:calc(100vw - 32px);
+  background:var(--glass-menu, rgba(38,38,40,.94)); -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
+  border:1px solid var(--glass-borda, rgba(255,255,255,.1)); box-shadow:0 10px 30px rgba(0,0,0,.35); color:var(--ink, #fff);
+  transition:bottom .35s cubic-bezier(.2,.8,.2,1)}
+.crono[hidden]{display:none}
+.crono.nasce{animation:crnasce .45s var(--mola, cubic-bezier(.22,1.2,.36,1)) both}
+@keyframes crnasce{from{opacity:0; transform:scale(.55)} to{opacity:1; transform:none}}
+body:has(#selbar.on) .crono{bottom:calc(76px + env(safe-area-inset-bottom, 0px))}   /* barra de seleção aberta: sobe */
+.crono .cr-cor{width:9px; height:9px; border-radius:50%; background:var(--cr, #FCC100); flex:none; box-shadow:0 0 0 3px color-mix(in srgb, var(--cr, #FCC100) 25%, transparent)}
+.crono.pausado .cr-cor{animation:crpisca 1.6s ease-in-out infinite}
+@keyframes crpisca{50%{opacity:.3}}
+.crono .cr-info{display:flex; flex-direction:column; min-width:0; max-width:230px; line-height:1.25; background:none; border:0; padding:0; text-align:left; color:inherit; cursor:pointer}
+.crono .cr-info:disabled{cursor:default}
+.crono .cr-tit{font-size:12px; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.crono .cr-sub{font-size:11px; color:var(--ink-3, rgba(235,235,245,.6)); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.crono .cr-nf{font-size:21px; font-weight:650; letter-spacing:-.01em; padding:0 2px}
+.crono.pausado .cr-nf{opacity:.5}
+.crono .cr-bt{width:32px; height:32px; border-radius:50%; border:0; padding:0; display:grid; place-items:center; flex:none; cursor:pointer;
+  background:var(--fill-3, rgba(118,118,128,.24)); color:var(--ink, #fff); transition:background .2s, color .2s, transform .15s}
+.crono .cr-bt:hover{background:var(--fill-2, rgba(120,120,128,.32))}
+.crono .cr-bt:active{transform:scale(.9)}
+.crono .cr-bt svg{width:15px; height:15px; fill:currentColor}
+.crono .cr-stop:hover{background:#D70015; color:#fff}
+/* pergunta de ócio: a cápsula cresce com a pergunta e os dois botões */
+.crono .cr-oc{display:none; align-items:center; gap:8px; font-size:12.5px; font-weight:550; white-space:nowrap}
+.crono.ocioso .cr-oc{display:flex}
+.crono.ocioso :is(.cr-info,.cr-nf,.cr-alt){display:none}
+.crono .cr-oc button{height:28px; padding:0 12px; border-radius:999px; border:0; font:inherit; font-size:12px; font-weight:650; cursor:pointer;
+  background:var(--fill-3, rgba(118,118,128,.24)); color:var(--ink, #fff)}
+.crono .cr-oc .sim{background:var(--cr, #FCC100); color:#000}
+@media (prefers-reduced-motion: reduce){
+  .nf-col{transition:none}
+  .rl-btn[data-st="rodando"] .rl-anel,.rl-btn[data-st="pausado"],.crono.pausado .cr-cor{animation:none}
+  .crono.nasce{animation:none}
+}

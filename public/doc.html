@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Montserrat:wght@400;700&family=Poppins:wght@400;600&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@400;700&family=Inter:wght@400;600&display=swap">
+<link rel="stylesheet" href="/css/relogio.css">
 <style>
   :root{
     --bg:#F9FBFD; --tb:#EDF2FA; --ink:#1F1F1F; --ink2:#444746; --ink3:#5F6368; --line:#C4C7C5; --line2:#E1E3E1;
@@ -178,6 +179,19 @@
   .gd-faixa{display:flex; align-items:center; gap:12px; padding:8px 16px; font-size:13.5px; background:#FEF7E0; color:#3C2F00; border-bottom:1px solid #F5E1A4; flex-wrap:wrap}
   .gd-faixa.azul{background:#E8F0FE; color:#062E6F; border-color:#D2E3FC}
   .gd-faixa.verm{background:#FCE8E6; color:#5F2120; border-color:#F6C7C3}
+  .gd-faixa.verde{background:#E6F4EA; color:#0D652D; border-color:#CEEAD6}
+  /* v3.80: relógio da tarefa de copy (o mesmo do painel: dígitos que rolam e botão com anel) */
+  .gd-rel{display:flex; align-items:center; gap:8px; padding:0 2px}
+  .gd-rel .rl-btn{--rl-t:36px; --rl-cor:#0B57D0; --rl-on:#fff; --rl-fundo:var(--tb); --rl-ink:var(--ink2); --rl-trilho:var(--line)}
+  .gd-rel .rl-btn:hover{background:#E1E8F4}
+  .gd-rel .rl-btn[data-st="rodando"]{background:#0B57D0; color:#fff}
+  .gd-nf{font:500 19px var(--ui); color:var(--ink); letter-spacing:-.01em}
+  .gd-nf.pausado{color:var(--ink3)}
+  .gd-nf.outro{font-size:14px; color:var(--ink3)}
+  body.com-relogio .gd-toast{bottom:84px}          /* a cápsula do relógio fica no centro de baixo: o aviso sobe */
+  .gd-rel [data-tip]{position:relative}
+  .gd-rel [data-tip]:hover::after{content:attr(data-tip); position:absolute; top:calc(100% + 8px); right:0; z-index:50; width:max-content; max-width:260px;
+    background:#3C4043; color:#fff; font-size:12px; padding:5px 8px; border-radius:4px; pointer-events:none; white-space:normal; text-align:left}
   .gd-faixa .acoes{margin-left:auto; display:flex; gap:6px}
   .gd-faixa button{border:0; border-radius:16px; padding:6px 14px; font-size:13px; font-weight:500; cursor:pointer; background:rgba(0,0,0,.06)}
   .gd-faixa button.forte{background:var(--blue); color:#fff}
@@ -310,6 +324,7 @@
   </div>
   <div class="gd-right">
     <div class="gd-pres" id="pres"></div>
+    <div class="gd-rel" id="gdRel" hidden><span class="nf gd-nf" id="gdNf" role="timer" hidden></span><button class="rl-btn" id="gdRelBtn"></button></div>
     <button class="gd-btn cinza" id="bMatriz" title="rever o que foi preenchido na matriz deste post (Ctrl+Alt+M)"></button>
     <button class="gd-copiar" id="bCopiar" title="copia o documento inteiro: formatado pra colar no MKT Hub ou no Docs, e texto limpo pra colar no Instagram"><span class="cp-a"></span><span class="cp-b" aria-hidden="true">Copiado</span></button>
     <button class="gd-x" id="bFechar" title="fechar e voltar pro painel (salva antes)"></button>
@@ -335,6 +350,7 @@
 </div>
 
 <div class="gd-count" id="count" hidden title="clique pra ver a contagem completa (Ctrl+Shift+C)"></div>
+<script src="/js/cronometro.js"></script>
 <script src="/js/docx.js"></script>
 <script>
 'use strict';
@@ -824,6 +840,7 @@ async function carregar(){
   }
   $('#carregando').remove();
   presenca();
+  avisoAprovacao(); relogioDoc();                  // v3.80
   // abre com o cursor no começo, igual abrir um documento
   if(!LEITURA){ page.focus({preventScroll:true}); try{ const r=document.createRange(); r.setStart(page.firstChild||page,0); r.collapse(true); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }catch(e){} }
   atualizaToolbar();
@@ -1694,6 +1711,83 @@ page.addEventListener('drop', e=>{
 });
 page.addEventListener('click', e=>{ $$('.gd-page img.sel').forEach(i=>i.classList.remove('sel')); if(e.target.tagName==='IMG') e.target.classList.add('sel'); });
 window.addEventListener('resize', ajustaTitulo);
+
+// ======================================================================
+// Relógio da tarefa de copy (v3.80). O relógio é o mesmo do painel (js/cronometro.js, guardado no
+// navegador): aqui ele mostra o tempo contando e diz que o post aberto é este, pra somar o tempo nele.
+// ======================================================================
+const EU_NOME = (() => { try { const p = JSON.parse(localStorage.getItem('sb.perfil') || 'null'); return (p && p.nome) || ''; } catch (e) { return ''; } })();
+const NOME_ABA = { 'SEUBONÉ':'SeuBoné', 'CARBONE':'Carbone', 'ONEVO':'Onevo', 'WEEVO':'Weevo' };
+let TAREFA_DOC = null, TAREFAS_ABA = [];
+function isoLocal(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function somaDia(iso, n){ const d = new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return isoLocal(d); }
+function brD(iso){ return iso.slice(8,10)+'/'+iso.slice(5,7); }
+async function relogioDoc(){
+  if(!window.CRON || !D || !D.post || !D.post.date || !D.post.aba || D.doc.excluido) return;
+  $('#gdRel').hidden = false;
+  try{
+    const r = await api('/api/tarefas');
+    TAREFAS_ABA = (r.tarefas||[]).filter(t => t.tipo === 'copy' && t.aba === D.post.aba);
+    TAREFA_DOC = TAREFAS_ABA.find(t => t.itens.includes(D.post.id)) || null;
+  }catch(e){}
+  $('#gdRelBtn').onclick = cliqueRelogioDoc;
+  // o foco (post aberto) é marcado aqui só ao abrir e no play: se reagisse a toda mudança, ele voltaria pro
+  // post no instante em que o painel fecha o doc e tira o foco
+  CRON.on(pintaRelogioDoc);
+  CRON.tique(pintaRelogioDoc);
+  pintaRelogioDoc(); focoDoc();
+  window.addEventListener('pagehide', ()=>{ const e = CRON.estado(); if(e && e.foco === D.post.id) CRON.foco(null); });
+}
+function stDoc(e){ if(!e) return 'parado'; if(TAREFA_DOC && e.tarefaId === TAREFA_DOC.id) return e.rodando ? 'rodando' : 'pausado'; return 'outro'; }
+function pintaRelogioDoc(){
+  const e = CRON.estado(), st = stDoc(e);
+  CRON.pintaBotao($('#gdRelBtn'), st,
+    st === 'rodando' ? 'Pausar o relógio da copy' : st === 'pausado' ? 'Continuar o relógio da copy'
+    : st === 'outro' ? 'O relógio está em '+(e.titulo || 'outra tarefa')+'. Clique pra passar pra copy deste post'
+    : 'Começar o relógio da copy' + (TAREFA_DOC ? '' : ' (cria a tarefa de copy da semana)'));
+  const nf = $('#gdNf');
+  document.body.classList.toggle('com-relogio', !!e);
+  nf.hidden = !e;
+  nf.classList.toggle('outro', st === 'outro'); nf.classList.toggle('pausado', st === 'pausado');
+  if(e) CRON.pintaDigitos(nf, CRON.decorrido(e));
+  nf.title = st === 'outro' ? 'relógio andando em: '+(e.titulo||'') : '';
+}
+/** Relógio andando na tarefa de copy deste post: o tempo passa a contar neste post. */
+function focoDoc(){
+  const e = CRON.estado();
+  if(e && TAREFA_DOC && e.tarefaId === TAREFA_DOC.id && e.foco !== D.post.id) CRON.foco(D.post.id, D.post.titulo || '');
+}
+/** Período livre pra tarefa nova: a semana do post, sem encostar nas outras tarefas de copy da empresa. */
+function periodoLivre(data){
+  const d = new Date(data+'T12:00:00'); d.setDate(d.getDate() - (d.getDay()+6)%7);
+  let de = isoLocal(d), ate = somaDia(de, 6);
+  for(const t of TAREFAS_ABA){ if(t.ate < data && t.ate >= de) de = somaDia(t.ate, 1); if(t.de > data && t.de <= ate) ate = somaDia(t.de, -1); }
+  return { de, ate };
+}
+async function cliqueRelogioDoc(){
+  const e = CRON.estado();
+  if(TAREFA_DOC && e && e.tarefaId === TAREFA_DOC.id){ CRON.alternar(); return; }
+  if(!EU_NOME){ toast('Antes, põe o seu nome no perfil do painel (a bolinha lá em cima).'); return; }
+  if(!TAREFA_DOC){
+    const p = periodoLivre(D.post.date);
+    try{
+      const r = await api('/api/tarefas', {method:'POST', body:JSON.stringify({ tipo:'copy', aba:D.post.aba, de:p.de, ate:p.ate, por:EU_NOME })});
+      TAREFA_DOC = r.tarefa; TAREFAS_ABA.push(r.tarefa);
+      toast('Tarefa de copy criada: '+brD(p.de)+' a '+brD(p.ate));
+    }catch(err){ toast(esc(err.message)); return; }
+  }
+  const r = await CRON.iniciar({ tarefaId:TAREFA_DOC.id, atv:'c', aba:TAREFA_DOC.aba, titulo:'Copy · '+(NOME_ABA[TAREFA_DOC.aba]||TAREFA_DOC.aba), por:EU_NOME, foco:D.post.id, focoTit:D.post.titulo||'' });
+  if(r && r.reg) toast(r.curto ? 'O relógio anterior tinha menos de 30 s e não contou.' : 'Relógio anterior salvo: '+CRON.fmtLongo(r.reg.seg)+'.');
+  focoDoc();
+}
+/** Aviso da aprovação desta copy (pedido de alteração em vermelho, com a nota). */
+function avisoAprovacao(){
+  const a = D && D.post ? D.post.aprov : null;
+  if(!a) return;
+  if(a.st === 'alterar') faixa('aprov', '<b>'+esc(a.ap || 'Pedido')+' pediu alteração nesta copy:</b> '+esc(a.nota || ''), [], 'verm');
+  else if(a.st === 'enviado') faixa('aprov', 'Esta copy está em aprovação desde '+fmtQuando(a.em)+'.', [], 'azul');
+  else if(a.st === 'aprovado') faixa('aprov', 'Copy aprovada'+(a.ap ? ' por <b>'+esc(a.ap)+'</b>' : '')+'.', [], 'verde');
+}
 
 // ======================================================================
 // Início

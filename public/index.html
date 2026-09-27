@@ -15,6 +15,8 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/css/painel.css">
+<link rel="stylesheet" href="/css/relogio.css">
+<link rel="stylesheet" href="/css/tarefas.css">
 </head>
 <body>
 
@@ -60,6 +62,8 @@
     <button class="ico ico-help" id="btnAjuda" data-tip="Ver os atalhos do mouse e do teclado"></button>
     </div>
   </div>
+  <!-- v3.80: as tarefas da empresa (Matriz e Copy), com o relógio e o que está pra aprovar -->
+  <div class="bar bar-tar" id="faixa" role="group" aria-label="Tarefas da empresa"></div>
 </header>
 
 <div class="banner" id="banner"></div>
@@ -84,6 +88,16 @@
 <nav class="atalhos" id="atalhos" aria-label="Atalhos">
   <button class="at-main" id="atMain" aria-label="Atalhos" aria-expanded="false"></button>
 </nav>
+
+<!-- v3.80: relógio da tarefa, sempre à vista (até em cima do doc) -->
+<div class="crono" id="crono" hidden role="region" aria-label="Relógio da tarefa">
+  <span class="cr-cor" aria-hidden="true"></span>
+  <button class="cr-info" id="crInfo"><span class="cr-tit" id="crTit"></span><span class="cr-sub" id="crSub"></span></button>
+  <span class="nf cr-nf" id="crNf" role="timer"></span>
+  <span class="cr-oc" id="crOc"><span id="crOcTxt"></span><button id="crOcNao">Não conta</button><button class="sim" id="crOcSim">Conta</button></span>
+  <button class="cr-bt cr-alt" id="crAlt" aria-label="Pausar" data-tip="Pausar"></button>
+  <button class="cr-bt cr-stop" id="crStop" aria-label="Parar e salvar" data-tip="Parar e salvar"></button>
+</div>
 
 <div id="selbar">
   <button id="selLimpar" data-tip="Limpar seleção (Esc)" aria-label="Limpar seleção"></button>
@@ -219,7 +233,11 @@
     <div class="mtit"><span id="mzTit">Case</span><span id="mzTitInfo"></span><span class="mzobjpill" id="mzObj"></span></div>
     <div class="mzsub" id="mzSub"></div>
     <div class="mzgm" id="mzGm" hidden>☆ este dia pede GRANDE MARCA na capa <span data-ib="gm"></span></div>
-    <button class="mbtn mzcopy mzcopytop" id="mzCopyTop" data-tip="Salvar a matriz e abrir o documento da copy deste post"></button>
+    <div class="tf-aviso" id="mzAprov" hidden></div>
+    <div class="mzacoes">
+      <div class="mzrelw"><span class="nf" id="mzRelNf" role="timer" hidden></span><button class="rl-btn" id="mzRel"></button></div>
+      <button class="mbtn mzcopy mzcopytop" id="mzCopyTop" data-tip="Salvar a matriz e abrir o documento da copy deste post"></button>
+    </div>
   </div>
   <div class="mzprogw"><div class="mzprogbar"><i id="mzProgBar"></i></div><span id="mzProgTxt"></span><span data-ib="progresso"></span></div>
   <div class="mbody mzbody">
@@ -316,6 +334,7 @@
       <label class="pf-lbl">cor</label>
       <div class="pf-cores" id="pfCores"></div>
       <div class="pf-acoes">
+        <button type="button" class="pf-tempo" id="pfTempo">Meu tempo</button>
         <button type="button" class="pf-depois" id="pfDepois">depois</button>
         <button type="button" class="pf-salvar" id="pfSalvar">SALVAR</button>
       </div>
@@ -323,6 +342,21 @@
     </div>
   </div>
 </div>
+
+<!-- v3.80: folha da tarefa (explicação, período, relógio, posts e aprovação) -->
+<div class="ov" id="ovTarefa"><div class="modal tmodal" style="position:relative">
+  <button class="mclose" data-close="ovTarefa">✕</button>
+  <div class="mhead tfhead" id="tfHead"></div>
+  <div class="mbody tfbody" id="tfBody"></div>
+  <div class="mfoot tffoot" id="tfFoot"></div>
+</div></div>
+<!-- v3.80: relatório de tempo (matriz e copy), com exportação pro MKT Hub -->
+<div class="ov" id="ovTempo"><div class="modal tpmodal" style="position:relative">
+  <button class="mclose" data-close="ovTempo">✕</button>
+  <div class="mhead"><div class="mtit">Tempo</div><div class="ectx" id="tpSub">quanto tempo foi em matriz e copy</div></div>
+  <div class="mbody" id="tpBody"></div>
+  <div class="mfoot" id="tpFoot"></div>
+</div></div>
 
 <!-- lightbox das artes -->
 <div id="lb">
@@ -335,10 +369,13 @@
 
 <div id="toasts"></div>
 
+<script src="/js/cronometro.js"></script>
+<script src="/js/tarefas.js"></script>
+<script src="/js/tempo.js"></script>
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.79'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.80'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -404,6 +441,7 @@ const S = {
   drawer:false, busca:'', editingRef:null,
   view:'mes', semIdx:0,
   filtro:'todos', selecao:new Set(),
+  tarefas:[],   // v3.80: tarefas abertas da copywriter (matriz e copy), com os posts de cada uma
 };
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 // paleta neo-brutal por marca (decisão do Zion 14/07/2026)
@@ -474,10 +512,10 @@ async function loadState(fresh, silencioso){
   // assinatura barata do que aparece na tela: se nada mudou, o modo silencioso não redesenha
   // v3.70: a assinatura cobre o post INTEIRO (formato, GM, obs, matriz...) e as referências: mudança
   // feita por outra pessoa aparece no próximo ciclo de 20 s. Antes só o poll de 90 s (removido) pegava isso.
-  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.referencias||[]);
+  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.referencias||[]) + '#' + JSON.stringify(j.tarefas||[]);
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], temFonte:!!j.temFonte, temSenha:j.temSenha, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, temSenha:j.temSenha, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   mostraUso(j.uso);
@@ -822,7 +860,7 @@ function render(){
   // e o painel ficaria preso em "arrastando" (clique não abre, atualização para, rolagem automática solta).
   if(S.dragging){ S._renderDepois = true; return; }
   S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba);
-  renderTabs(); renderLegend(); renderDrawer(); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); }
+  renderTabs(); renderFaixa(); renderLegend(); renderDrawer(); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); }
 
 function renderTabs(){
   const el = $('#tabs');
@@ -995,7 +1033,8 @@ function cardEl(s){
       [s.conta].concat(clb).map(c=>'<span class="cdot" style="background:'+contaCor(c)+'"></span>').join('')+'</span>':'')+
     (cdiv?'<span class="tagic t-cdiv" title="O nome da task diz '+esc(nomeConta(cdiv.sugerida))+', mas este post está em '+esc(nomeConta(s.conta))+'. Clique pra mover pra '+esc(nomeConta(cdiv.sugerida))+' (Ctrl+Z desfaz).">'+icon('alerta')+'</span>':'')+
     (!mz && s.matrizSB?'<span class="mk t-mz" title="Este post veio da matriz: clique pra ver tema, tese, gancho...">M</span>':'')+
-    (s.docId?'<span class="mk t-doc" title="Tem documento de copy: clique pra abrir">'+icon('doc')+'</span>':'');
+    (s.docId?'<span class="mk t-doc" title="Tem documento de copy: clique pra abrir">'+icon('doc')+'</span>':'')+
+    tfChipsCard(s);   // v3.80: M e C com a bolinha do estado da aprovação
   const parecer = (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'alt')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Alteração pedida')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'pencil')+(s.parecer.veredito==='aprovado'?'APROVADO':'ALTERAR')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '');
   // selo da conta: nome por extenso na cor da marca. Só em aba com mais de uma conta.
   const contatag = multi?'<div class="contatag" style="background:'+cor+'; color:'+corTexto(cor)+'">'+esc(contaCurta(s.conta))+'</div>':'';
@@ -1636,7 +1675,6 @@ const ALERTA = {
   mudo(){ return this.cfg().mudo === true; },
   setMudo(v){ const c=this.cfg(); c.mudo=!!v; this.salvar(c); },
 };
-let statusConhecidos = null;   // taskId -> status na última checagem (null = ainda não sabemos nada)
 let pendentesAprovar = [];     // o que entrou em aprovar/alterar e você ainda não viu ({tipo:'aprovar'|'alterar', ...})
 const AVISA_TIPOS = { aprovar:{ selo:'PRA APROVAR', emoji:'🟡', titulo:'Pra aprovar' }, alterar:{ selo:'PRA ALTERAR', emoji:'✏️', titulo:'Pra alterar' } };
 function contaTipos(){ const c={aprovar:0, alterar:0}; pendentesAprovar.forEach(x=>{ c[x.tipo||'aprovar']++; }); return c; }
@@ -1681,7 +1719,7 @@ function renderAlerta(){
     (c.aprovar? '<span class="ab-selo">'+icon('alerta')+c.aprovar+' PRA APROVAR</span>' : '')+
     (c.alterar? '<span class="ab-selo alt">'+icon('msg')+c.alterar+' PRA ALTERAR</span>' : '')+
     '<span class="ab-lista">'+pendentesAprovar.slice(0,4).map((x,i)=>
-      '<button class="ab-item'+(x.tipo==='alterar'?' alt':'')+'" data-i="'+i+'" title="'+esc(x.tipo==='alterar' ? ('pedido de alteração'+(x.motivo? ': '+x.motivo : '')) : 'abrir esta task')+'">'+(x.tipo==='alterar'?'✏️ ':'')+esc(x.titulo)+'</button>').join('')+
+      '<button class="ab-item'+(x.tipo==='alterar'?' alt':'')+'" data-i="'+i+'" title="'+esc(x.tipo==='alterar' ? ('pedido de alteração'+(x.motivo? ': '+x.motivo : '')) : 'abrir pra revisar'+(x.por? ' (mandada por '+x.por+')' : ''))+'">'+(x.tipo==='alterar'?'✏️ ':'')+esc(x.titulo)+'</button>').join('')+
       (n>4? '<span class="ab-mais">+'+(n-4)+'</span>' : '')+'</span>'+
     '<button class="ab-x" title="Dispensar">✕</button>';
   b.classList.add('on');
@@ -1690,21 +1728,7 @@ function renderAlerta(){
   piscaTitulo();
 }
 function limparAlerta(){ pendentesAprovar = []; renderAlerta(); }
-function abrirTaskDoAlerta(x){
-  const s = S.slots.find(y=>y.id===x.id) || S.slots.find(y=>y.taskId===x.taskId);
-  if(!s) return;
-  const aba = S.contas[s.conta] && S.contas[s.conta].aba;
-  if(aba && aba!==S.aba){ S.aba=aba; S.filtroConta.clear(); render(); }
-  if(s.date && S.view!=='semana'){ irParaMes(s.date.slice(0,7)); }
-  setTimeout(()=>{
-    const c=document.querySelector('.card[data-id="'+s.id+'"]');
-    if(c) c.scrollIntoView({block:'center', behavior:'smooth'});
-    openTask(s.id);
-  }, 70);
-  // tira este da fila do alerta (já foi visto), mantém os outros
-  pendentesAprovar = pendentesAprovar.filter(y=>y.taskId!==x.taskId);
-  renderAlerta();
-}
+function abrirTaskDoAlerta(x){ tfAbrirDoAviso(x); }
 /** Notificação nativa do sistema (aparece no canto e fica na central do Windows). */
 function notificaSistema(novos){
   if(!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -1713,37 +1737,14 @@ function notificaSistema(novos){
       const t = AVISA_TIPOS[x.tipo||'aprovar'];
       const n = new Notification(t.emoji+' '+t.titulo+' · '+x.conta, {
         body: x.titulo + (x.data? '\nPost do dia '+brData(x.data) : '') + (x.motivo? '\n"'+x.motivo+'"'+(x.por? ' ('+x.por+')':'') : ''),
-        icon: '/icone.png', badge: '/icone.png', tag: (x.tipo||'aprovar')+'-'+x.taskId, renotify: false,
+        icon: '/icone.png', badge: '/icone.png', tag: (x.tipo||'aprovar')+'-'+x.id+'-'+(x.k||''), renotify: false,
       });
       n.onclick = ()=>{ window.focus(); abrirTaskDoAlerta(x); n.close(); };
     }catch(e){}
   });
 }
-/** Compara o retrato anterior com o novo e dispara o que entrou em aprovar ou em alterar. */
-function checarAprovacoes(slots){
-  const agora = {};
-  slots.forEach(s=>{ if(s.taskId && s.statusCache && s.statusCache.status) agora[s.taskId] = s.statusCache.status; });
-  // primeira carga da sessão: só memoriza, senão gritaria por tudo que já estava em aprovar
-  if(statusConhecidos === null){ statusConhecidos = agora; return; }
-  const novos = [];
-  for(const [taskId, st] of Object.entries(agora)){
-    const antes = statusConhecidos[taskId];
-    if(AVISA_TIPOS[st] && antes && antes !== st){
-      const slot = slots.find(x=>x.taskId===taskId);
-      if(slot && !slot.postado){
-        // pedido de alteração recente vindo da pauta: leva o motivo e quem pediu junto no aviso
-        const pr = slot.parecer;
-        const rec = st==='alterar' && pr && pr.veredito==='alterar' && (Date.now()-(pr.quando||0)) < 3*3600e3;
-        novos.push({ tipo: st, taskId, id: slot.id, conta: nomeConta(slot.conta), titulo: slotTitulo(slot), data: slot.date, motivo: rec? pr.motivo : '', por: rec? pr.por : '' });
-      }
-    }
-  }
-  statusConhecidos = agora;
-  if(!novos.length || !ALERTA.ligado()) return;
-  pendentesAprovar = pendentesAprovar.concat(novos).slice(-20);
-  if(ALERTA.mudo()){ renderAlerta(); return; }   // mudo: guarda em silêncio (só o contador no sino), sem bipe nem Windows
-  renderAlerta(); bipe(); notificaSistema(novos);
-}
+/** v3.80: o que entrou em aprovação (pra quem aprova) ou voltou pra alterar (pra quem fez). Lógica em js/tarefas.js. */
+function checarAprovacoes(slots){ tfChecaAvisos(slots); }
 /** Estado visual do sino: marcado = mudo; contador vermelho quando tem coisa guardada no silêncio. */
 function pintaMute(){
   const chk = $('#muteChk'), lab = $('#btnMute'), n = $('#muteN');
@@ -2320,7 +2321,8 @@ function openEdit(id, dateStr, pre){
   $('#eFormato').value = s? (s.formato||'') : '';
   { let dl=document.getElementById('angulosLista'); if(!dl){ dl=document.createElement('datalist'); dl.id='angulosLista'; document.body.appendChild(dl); } dl.innerHTML=angulosConhecidos().map(a=>'<option value="'+esc(a)+'"></option>').join(''); }
   $('#eAngulo').value = s? (s.angulo||'') : (pre && pre.angulo || '');
-  $('#eTask').value = s ? linkDaTask(s) : '';
+  // v3.80 (bug): post ligado só pelo código MKT (ou pelo id do Hub), sem link, abria com o campo vazio e salvar apagava a ligação
+  $('#eTask').value = s ? (linkDaTask(s) || (s.taskId && (/^MKT-\d+$/i.test(s.taskId) || /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(s.taskId)) ? s.taskId : '')) : '';
   $('#eDrive').value = s? (s.drive||'') : (pre && pre.drive || '');
   $('#eObs').value = s? (s.obs||'') : (pre && pre.obs || '');
   $('#eGm').checked = s? isGm(s) : false;
@@ -2791,6 +2793,7 @@ function openMatriz(id){
   const tr = $('#mzTrocar');
   if(tr){ tr.hidden = !(s.date && mzTipoDoDia(s.date).tipo); tr.onclick = ()=>{ MZ_TIPO_LIVRE = true; tr.hidden = true; mzDesenhaTipo(s, $('#ovMz').dataset.tipo); }; }
   $('#ovMz').classList.add('open');
+  tfNaMatriz(s);                                  // v3.80: aviso da aprovação e o relógio da tarefa
   requestAnimationFrame(()=>mzProgresso_());   // altura dos textos só dá pra medir com a janela aberta
   setTimeout(()=>{ const alvo = !tipo ? null : (!m.formato ? $('#mzFormato') : (!m.tema ? $('#mzTema') : null)); if(alvo) alvo.focus(); }, 60);
 }
@@ -3130,6 +3133,7 @@ $('#btnAjuda').onclick = (ev)=>{
     '<div><b>Clique</b> num card: abre as artes</div>'+
     '<div><b>+</b> do dia: criar ali (<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> escolhem) · <b>+</b> do canto: criar sem dia</div>'+
     '<div><kbd>1</kbd> a <kbd>4</kbd>: troca de empresa · <kbd>[</kbd> <kbd>]</kbd>: anterior e próxima · <b>arraste</b> a cápsula das empresas</div>'+
+    '<div>Tarefas de <b>Matriz</b> e <b>Copy</b> na faixa de cima: play no relógio, o painel anota o post aberto sozinho</div>'+
     '<div><kbd>Ctrl</kbd> + <kbd>Z</kbd>: desfaz · <kbd>Ctrl</kbd> + <kbd>,</kbd>: configurações</div>';
   document.body.appendChild(p);
   const w = p.offsetWidth, top = r.bottom + 8;
@@ -3544,6 +3548,7 @@ function initIcons(){
   $('#selCollab').innerHTML = icon('users') + 'Collab';
   $('#selBanco').innerHTML = icon('box') + 'Banco';
   $('#selLimpar').innerHTML = icon('x');
+  tfInit();                                       // v3.80: faixa de tarefas, relógio e avisos de aprovação
   // botão só de ícone ganha nome pra leitor de tela (HIG > VoiceOver)
   document.querySelectorAll('button[data-tip]').forEach(b=>{ if(!b.getAttribute('aria-label') && !b.textContent.trim()) b.setAttribute('aria-label', b.dataset.tip); });
 }
@@ -3565,6 +3570,7 @@ loadState().catch(e=>{ toast('Erro ao carregar: '+e.message, true); });
 try{ aovivoIniciar(); }catch(e){}
 // perfil: salvar / depois / preview ao vivo / Enter salva. Na primeira vez sem perfil, abre sozinho (dá pra pular).
 $('#pfSalvar').onclick = salvarPerfil;
+$('#pfTempo').onclick = ()=>{ $('#ovPerfil').classList.remove('open'); abrirTempo(); };
 $('#pfDepois').onclick = ()=>{ PERFIL.marcaPulou(); $('#ovPerfil').classList.remove('open'); };
 $('#pfNome').addEventListener('input', pfPreview);
 $('#pfNome').addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); salvarPerfil(); } });

@@ -1,0 +1,233 @@
+@charset "utf-8";
+/* =====================================================================
+   B.O.N.E · tarefas da copywriter e relatório de tempo (v3.80)
+   Faixa no topo da empresa (cards de Matriz e Copy), folha da tarefa com aprovação post a post,
+   selo de aprovação no card do calendário e a folha de Tempo (números, barras, sessões, CSV pro Hub).
+   Segue o DESIGN-APPLE.md: card opaco, cor da tarefa só como marca, estado sempre bolinha + palavra.
+   ===================================================================== */
+
+/* cores do gráfico de tempo, validadas com o validador de paleta (claro e escuro, contraste e daltonismo) */
+:root{--tp-m:#BF8A00; --tp-c:#0091FF}
+html[data-modo="claro"]{--tp-m:#B38200; --tp-c:#0088FF}
+
+/* ---------- faixa de tarefas (3ª linha da barra de cima) ---------- */
+.bar-tar{padding:0 20px 10px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px}
+.bar-tar.um{grid-template-columns:minmax(0,1fr)}
+.bar-tar:empty{display:none}
+.tcard{--tc:var(--mz); position:relative; display:flex; align-items:center; gap:12px; min-width:0; min-height:54px; padding:7px 10px 7px 16px;
+  border-radius:14px; background:var(--cell); border:1px solid var(--hair); overflow:hidden; transition:border-color var(--t), box-shadow var(--t)}
+.tcard::before{content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--tc)}
+.tcard:hover{border-color:color-mix(in srgb, var(--tc) 55%, var(--hair)); box-shadow:var(--hard-s)}
+.tcard .tc-abre{flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; align-items:stretch; text-align:left; padding:0; border:0; background:none; color:inherit; cursor:pointer}
+.tc-l1{display:flex; align-items:center; gap:8px; min-width:0}
+.tc-ic{display:grid; place-items:center; width:22px; height:22px; border-radius:7px; flex:none; background:color-mix(in srgb, var(--tc) 22%, transparent); color:var(--ink)}
+.tc-ic .ic{width:14px; height:14px}
+.tc-l1 b{font-size:14px; font-weight:650; letter-spacing:-.01em}
+.tc-per{font-size:12px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.tc-mais{font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:999px; background:var(--fill-3); color:var(--ink-2); flex:none}
+.tc-l2{display:flex; align-items:center; gap:10px; min-width:0; overflow:hidden}
+.tc-bar{flex:0 1 130px; min-width:60px; height:6px; border-radius:3px; background:var(--fill-3); display:flex; gap:2px; overflow:hidden}
+.tc-bar i{display:block; height:100%; flex:none}
+.tc-bar .ok{background:var(--green)} .tc-bar .env{background:var(--orange)} .tc-bar .alt{background:var(--red)}
+.tc-num{font-size:12px; color:var(--ink-2); white-space:nowrap; font-variant-numeric:tabular-nums}
+.tc-chip{display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:var(--ink); white-space:nowrap}
+.tc-chip i{width:7px; height:7px; border-radius:50%; background:var(--gray)}
+.tc-chip.env i{background:var(--orange)} .tc-chip.alt i{background:var(--red)} .tc-chip.lib i{background:var(--blue)}
+.tc-rel{display:flex; align-items:center; gap:10px; flex:none}
+.tc-nf{font-size:18px; font-weight:650; letter-spacing:-.01em}
+.tc-tot{font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums}
+.tcard.vazio{border-style:dashed; background:transparent}
+.tcard.vazio::before{opacity:.5}
+.tc-cta{display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:600; color:var(--ink-2)}
+.tc-cta .ic{width:14px; height:14px}
+.tcard.vazio:hover .tc-cta{color:var(--ink)}
+@media (max-width:900px){ .tc-per,.tc-chip{display:none} }
+
+/* ---------- selo de aprovação no card do calendário: bolinha + letra (M matriz, C copy) ---------- */
+.apv{display:inline-flex; align-items:center; gap:3px; height:16px; padding:0 5px 0 4px; border-radius:8px; font-size:9.5px; font-weight:750; letter-spacing:.02em;
+  color:var(--ink-2); background:var(--fill-3); flex:none}
+.apv i{width:6px; height:6px; border-radius:50%; background:var(--gray)}
+.apv.st-enviado i{background:var(--orange)} .apv.st-aprovado i{background:var(--green)} .apv.st-alterar i{background:var(--red)}
+
+/* ---------- card da matriz: relógio e aviso da aprovação ---------- */
+.mzacoes{position:absolute; right:52px; top:16px; display:flex; align-items:center; gap:10px}
+.mzacoes .mbtn.mzcopytop{position:static}
+.mzrelw{display:flex; align-items:center; gap:8px}
+.mzrelw .nf{font-size:16px; font-weight:650}
+.mzrelw .rl-btn{--rl-t:32px}
+.tf-aviso{display:flex; align-items:flex-start; gap:8px; margin-top:10px; padding:8px 12px; border-radius:10px; font-size:12.5px; line-height:1.45; max-width:62ch}
+.tf-aviso .ic{width:15px; height:15px; margin-top:1px}
+.tf-aviso.alterar{background:color-mix(in srgb, var(--red) 14%, transparent)}
+.tf-aviso.enviado{background:color-mix(in srgb, var(--orange) 14%, transparent)}
+.tf-aviso.aprovado{background:color-mix(in srgb, var(--green) 14%, transparent)}
+
+/* ---------- folha da tarefa ---------- */
+.modal.tmodal{width:min(900px,100%); --tc:var(--mz)}
+.tfhead{position:relative; border-left:6px solid var(--tc); background:linear-gradient(90deg, color-mix(in srgb, var(--tc) 11%, transparent), transparent 60%); padding-bottom:16px; border-radius:20px 20px 0 0}
+.tf-kick{display:flex; align-items:center; gap:7px; font-size:11px; font-weight:650; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3)}
+.tf-kick i{width:8px; height:8px; border-radius:50%; background:var(--tc)}
+.tfhead .mtit{font-size:21px; margin-top:6px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; text-wrap:balance}
+.tf-concl{display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:650; padding:3px 9px; border-radius:999px; background:color-mix(in srgb, var(--green) 20%, transparent); color:var(--ink)}
+.tf-concl .ic{width:13px; height:13px}
+.tf-exp{font-size:13px; color:var(--ink-2); line-height:1.55; margin:8px 0 0; max-width:72ch}
+.tf-irmas{display:flex; gap:6px; flex-wrap:wrap; margin-top:12px}
+.tf-irmas .echip{padding:4px 10px; font-size:12px}
+.tf-irmas .echip .ic{width:13px; height:13px}
+.tfbody{display:flex; flex-direction:column; gap:16px}
+.tf-cfg{display:flex; align-items:flex-end; gap:18px; flex-wrap:wrap}
+.tf-campo{display:flex; flex-direction:column; gap:6px}
+.tf-lbl{font-size:11.5px; font-weight:600; color:var(--ink-3)}
+.tf-per{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.tf-per .echip{padding:5px 11px; font-size:12.5px}
+.tf-a{font-size:12px; color:var(--ink-3)}
+.tf-per input[type=date],.tf-inp,.tp-lancar select,.tp-lancar input,.tp-sed input{height:32px; border:0; border-radius:9px; background:var(--fill-3); color:var(--ink); padding:0 10px; font:inherit; font-size:13px; color-scheme:dark}
+html[data-modo="claro"] :is(.tf-per input[type=date],.tp-lancar input,.tp-lancar select){color-scheme:light}
+.tf-inp{width:150px}
+:is(.tf-per input,.tf-inp,.tp-lancar select,.tp-lancar input,.tp-sed input):focus{outline:none; box-shadow:0 0 0 3px color-mix(in srgb, var(--focus) 40%, transparent)}
+.tf-cfgmsg{font-size:12px; color:var(--ink-3); align-self:center}
+.tf-cfgmsg.erro{color:var(--red)}
+.tf-rel{display:flex; align-items:center; gap:18px; padding:14px 18px; border-radius:16px; background:var(--fill-4); border:1px solid var(--hair-2)}
+.tf-rel .rl-btn{--rl-fundo:var(--elev)}
+.tf-relinfo{display:flex; flex-direction:column; gap:4px; min-width:0; flex:1}
+.tf-nf{font-size:40px; font-weight:650; letter-spacing:-.02em}
+.tf-relsub{font-size:12.5px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tf-reltot{display:flex; flex-direction:column; align-items:flex-end; text-align:right; gap:2px}
+.tf-reltot b{font-size:17px; font-weight:650; font-variant-numeric:tabular-nums}
+.tf-reltot span{font-size:11.5px; color:var(--ink-3)}
+.tf-parar svg{width:13px; height:13px; fill:currentColor}
+.tf-parar:hover{background:#D70015; color:#fff}
+.tf-lhead{display:flex; align-items:center; gap:8px}
+.tf-lhead b{font-size:14px; font-weight:650}
+.tf-n{font-size:11.5px; font-weight:650; color:var(--ink-2); background:var(--fill-3); border-radius:999px; padding:1px 8px}
+.tf-dica{margin-left:auto; font-size:12px; color:var(--ink-3)}
+.tf-itens{display:flex; flex-direction:column; border:1px solid var(--hair); border-radius:14px; overflow:hidden; margin-top:-6px}
+.tf-itens.previa .ti{display:flex; align-items:center; gap:10px; padding:8px 12px; font-size:13px}
+.tf-itens.previa .ti-tit{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ti{border-top:1px solid var(--hair)}
+.ti:first-child{border-top:0}
+.ti-lin{display:flex; align-items:center; gap:10px; padding:8px 10px 8px 12px; min-height:46px}
+.ti-chk{display:grid; place-items:center; width:20px; flex:none}
+.ti-chk input{width:17px; height:17px; margin:0; accent-color:var(--tc); cursor:pointer}
+.ti-chk input:disabled{cursor:not-allowed; opacity:.35}
+.ti-dia{font-size:12px; color:var(--ink-3); width:66px; flex:none; font-variant-numeric:tabular-nums; white-space:nowrap}
+.ti-tit{flex:1; min-width:0; text-align:left; font-size:13.5px; font-weight:560; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  background:none; border:0; padding:0; color:var(--ink); cursor:pointer; font-family:inherit}
+.ti-tit:hover{text-decoration:underline; text-underline-offset:3px}
+.ti-conta{font-size:11px; font-weight:600; color:var(--ink-2); background:var(--fill-3); border-radius:6px; padding:1px 6px; flex:none}
+.ti-prog{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-3); width:96px; flex:none; font-variant-numeric:tabular-nums; white-space:nowrap}
+.ti-pbar{width:40px; height:5px; border-radius:3px; background:var(--fill-3); overflow:hidden; flex:none}
+.ti-pbar i{display:block; height:100%; background:var(--tc)}
+.ti-tempo{width:58px; flex:none; text-align:right; font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.ti-st{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:560; color:var(--ink-2); width:134px; flex:none; white-space:nowrap}
+.ti-st i{width:8px; height:8px; border-radius:50%; background:var(--stc); flex:none}
+.ti-exp{width:26px; height:26px; border-radius:50%; border:0; padding:0; flex:none; display:grid; place-items:center; background:transparent; color:var(--ink-3); cursor:pointer}
+.ti-exp:hover{background:var(--fill-3); color:var(--ink)}
+.ti-exp .ic{width:14px; height:14px; transition:transform .25s}
+.ti.aberto .ti-exp .ic{transform:rotate(90deg)}
+.ti-desf{font-size:11.5px; color:var(--ink-3); background:none; border:0; text-decoration:underline; text-underline-offset:2px; cursor:pointer; padding:0 4px; flex:none}
+.ti-desf:hover{color:var(--ink)}
+.ti .bt-edit{width:30px; height:30px}
+.ti-ligar{min-height:28px; font-size:12px; flex:none}
+.ti-ligar .ic,.ti-prod .ic{width:14px; height:14px}
+.ti-prod{display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:650; color:var(--ink); background:var(--fill-3); border-radius:999px; padding:4px 10px; text-decoration:none; flex:none}
+a.ti-prod:hover{background:var(--fill-2)}
+.ti.st-aprovado .ti-tit{color:var(--ink-2)}
+.ti.st-alterar{background:color-mix(in srgb, var(--red) 5%, transparent)}
+.ti-nota{margin:-2px 12px 10px 42px; padding:7px 10px; border-radius:10px; font-size:12.5px; line-height:1.45; display:flex; gap:7px; align-items:flex-start; background:var(--fill-4); color:var(--ink)}
+.ti-nota .ic{width:14px; height:14px; margin-top:1px; flex:none}
+.ti-nota.alt{background:color-mix(in srgb, var(--red) 13%, transparent)}
+.ti-nota.ok{background:color-mix(in srgb, var(--green) 12%, transparent)}
+.ti-res{margin:0 12px 12px 42px; padding:12px 14px; border-radius:12px; background:var(--fill-4)}
+.ti-kv{display:grid; grid-template-columns:110px 1fr; gap:6px 12px; margin:0; font-size:12.5px; line-height:1.45}
+.ti-kv dt{color:var(--ink-3)}
+.ti-kv dd{margin:0; color:var(--ink)}
+.ti-kv dd.vazio{color:var(--ink-4); font-style:italic}
+.ti-copy{white-space:pre-wrap; font-size:13px; line-height:1.6; max-height:280px; overflow:auto; color:var(--ink)}
+.ti-altbox{margin:0 12px 12px 42px; display:flex; flex-direction:column; gap:8px}
+.ti-altbox textarea{width:100%; resize:vertical; border:0; border-radius:10px; padding:9px 11px; font:inherit; font-size:13px; background:var(--fill-3); color:var(--ink); box-sizing:border-box}
+.ti-altbox textarea:focus{outline:none; box-shadow:0 0 0 3px color-mix(in srgb, var(--red) 40%, transparent)}
+.ti-altbox div{display:flex; justify-content:flex-end; gap:8px}
+.bt-aprovar.mini{padding:5px 12px; font-size:12px; border-radius:8px}
+.bt-aprovar[disabled]{opacity:.4; cursor:not-allowed}
+.bt-aprovar[disabled]::before{--progress:100%}
+.tf-vazio{padding:18px; text-align:center; color:var(--ink-3); font-size:13px}
+.tffoot{flex-wrap:wrap; padding-top:4px}
+.tffoot .bin{margin-left:auto}
+@media (max-width:720px){ .ti-prog,.ti-tempo{display:none} .ti-st{width:auto} .tf-rel{flex-wrap:wrap} }
+
+/* ---------- folha de Tempo ---------- */
+.modal.tpmodal{width:min(920px,100%)}
+#tpBody{transition:opacity .2s}
+#tpBody.carregando{opacity:.55}
+.tp-filtros{display:flex; flex-direction:column; gap:8px}
+.tp-filtros .echip{padding:4px 11px; font-size:12px}
+.tp-tiles{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin-top:16px}
+.tp-tile{padding:12px 14px; border-radius:14px; background:var(--fill-4); border:1px solid var(--hair-2); min-width:0}
+.tp-tile span{font-size:12px; color:var(--ink-3); display:flex; align-items:center; gap:6px}
+.tp-tile b{display:block; font-size:25px; font-weight:650; letter-spacing:-.02em; margin-top:4px; font-variant-numeric:tabular-nums; white-space:nowrap}
+.tp-tile small{font-size:11px; color:var(--ink-3)}
+.tp-sw{display:inline-block; width:10px; height:10px; border-radius:3px; background:var(--tp-m); flex:none; vertical-align:-1px; margin-right:6px}
+.tp-sw.c{background:var(--tp-c)}
+.tp-tile .tp-sw{margin-right:0}
+.tp-ghead{display:flex; align-items:center; gap:14px; margin-top:22px}
+.tp-ghead b{font-size:14px; font-weight:650}
+.tp-leg{display:flex; gap:14px; font-size:12px; color:var(--ink-2)}
+.tp-leg span{display:inline-flex; align-items:center}
+.tp-vista{margin-left:auto}
+.tp-graf{position:relative; height:200px; margin-top:14px}
+.tp-grade{position:absolute; left:46px; right:0; top:0; bottom:22px}
+.tp-linha{position:absolute; left:0; right:0; border-top:1px solid var(--hair-2)}
+.tp-linha.zero{border-top-color:var(--hair)}
+.tp-linha span{position:absolute; left:-46px; top:-8px; width:40px; text-align:right; font-size:10.5px; color:var(--ink-3); font-variant-numeric:tabular-nums}
+.tp-barras{position:absolute; left:46px; right:0; top:0; bottom:0; display:grid; grid-template-columns:repeat(var(--n), minmax(0,1fr))}
+.tp-col{position:relative; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; padding-bottom:22px; box-sizing:border-box; border-radius:6px; outline:none}
+.tp-col:hover,.tp-col:focus-visible{background:var(--fill-4)}
+.tp-col:focus-visible{box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--focus) 60%, transparent)}
+.tp-pilha{width:min(24px, 64%); display:flex; flex-direction:column; gap:2px; border-radius:4px 4px 0 0; overflow:hidden}
+.tp-pilha i{display:block; min-height:2px}
+.tp-pilha .m{background:var(--tp-m)} .tp-pilha .c{background:var(--tp-c)}
+.tp-rot{position:absolute; bottom:3px; font-size:10.5px; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap}
+.tp-col.hoje .tp-rot{color:var(--ink); font-weight:700}
+.tp-col .tp-rot{max-width:100%; overflow:hidden}
+.tp-dica{position:absolute; top:6px; z-index:5; pointer-events:none; display:flex; flex-direction:column; gap:3px;
+  padding:8px 10px; border-radius:10px; background:var(--elev-2); border:1px solid var(--glass-borda); box-shadow:var(--hard-s); font-size:12px; color:var(--ink); white-space:nowrap}
+.tp-dica b{font-weight:650}
+.tp-dica span{display:flex; align-items:center; color:var(--ink-2)}
+.tp-dica .tot{color:var(--ink); font-weight:600}
+.tp-vazio{margin-top:12px; padding:26px; text-align:center; color:var(--ink-3); font-size:13px; border:1px dashed var(--hair); border-radius:14px; line-height:1.5}
+.tp-tabw{overflow-x:auto; margin-top:10px; border:1px solid var(--hair); border-radius:12px}
+.tp-tab{width:100%; border-collapse:collapse; font-size:12.5px}
+.tp-tab th{text-align:left; font-weight:600; color:var(--ink-3); font-size:11.5px; padding:8px 12px; border-bottom:1px solid var(--hair); white-space:nowrap}
+.tp-tab td{padding:8px 12px; border-top:1px solid var(--hair-2); font-variant-numeric:tabular-nums; white-space:nowrap}
+.tp-tab tr:first-child td{border-top:0}
+.tp-tab tr.link{cursor:pointer}
+.tp-tab tr.link:hover td{background:var(--fill-4)}
+.tp-arq{font-size:10.5px; color:var(--ink-3); background:var(--fill-3); border-radius:999px; padding:1px 6px; margin-left:4px}
+.tp-sec{display:flex; align-items:center; gap:10px; margin-top:22px}
+.tp-sec b{font-size:14px; font-weight:650}
+.tp-sec .mbtn{margin-left:auto}
+.tp-sessoes{display:flex; flex-direction:column; margin-top:10px; border:1px solid var(--hair); border-radius:12px; overflow:hidden}
+.tp-ses{display:flex; align-items:center; gap:12px; padding:7px 10px 7px 12px; border-top:1px solid var(--hair-2); font-size:12.5px; min-height:40px}
+.tp-ses:first-child{border-top:0}
+.tp-sq{width:118px; flex:none; font-variant-numeric:tabular-nums; white-space:nowrap}
+.tp-sq small{color:var(--ink-3)}
+.tp-satv{flex:1; min-width:0; display:inline-flex; align-items:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tp-sque{width:120px; flex:none; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tp-man{font-size:10.5px; padding:1px 6px; border-radius:999px; background:var(--fill-3); color:var(--ink-3)}
+.tp-sposts{width:104px; flex:none; color:var(--ink-3); font-size:12px}
+.tp-sdur{display:inline-flex; align-items:center; gap:6px; font:inherit; font-size:13px; font-weight:650; background:none; border:0; color:var(--ink); cursor:pointer; padding:4px 8px; border-radius:8px; font-variant-numeric:tabular-nums; min-width:84px; justify-content:flex-end}
+.tp-sdur .ic{width:13px; height:13px; opacity:0; transition:opacity .15s}
+.tp-sdur:hover{background:var(--fill-3)}
+.tp-sdur:hover .ic,.tp-sdur:focus-visible .ic{opacity:.7}
+.tp-sed{display:inline-flex; gap:6px; align-items:center; font-size:12px; color:var(--ink-3)}
+.tp-sed input{width:70px}
+.tp-nada{margin-top:10px}
+.tp-lancar{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; padding:14px; margin-top:10px; border-radius:14px; background:var(--fill-4); border:1px solid var(--hair-2)}
+.tp-lc{display:flex; flex-direction:column; gap:6px; min-width:0}
+.tp-lc .echip{padding:5px 12px}
+.tp-lcb{grid-column:1/-1; display:flex; justify-content:flex-end; gap:8px}
+@media (max-width:720px){
+  .tp-tiles{grid-template-columns:repeat(2, minmax(0,1fr))}
+  .tp-lancar{grid-template-columns:1fr 1fr}
+  .tp-sposts,.tp-sque{display:none}
+}

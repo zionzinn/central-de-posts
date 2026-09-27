@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.79'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.80'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -60,7 +60,9 @@ function gravarAgora() {
   clearTimeout(saveTimer); saveTimer = null;
   if (!savePendente) return true;
   try {
-    gravaAtomico(DATA_FILE, JSON.stringify(db, null, 2));
+    // v3.80: sem espaços nem quebras de linha (29% menor). No Render o start.js manda o data.json INTEIRO pro
+    // GitHub a cada gravação, então cada byte a menos aqui sai de todas as gravações do mês.
+    gravaAtomico(DATA_FILE, JSON.stringify(db));
     savePendente = false;
     try { USO.gravou(fs.statSync(DATA_FILE).size); } catch { /* só estatística */ }
     return true;
@@ -363,6 +365,9 @@ setInterval(() => { const t = Date.now(); for (const [id, p] of aovivo) { if (t 
 
 // Documentos (a copy do post, editor estilo Docs em public/doc.html). Rotas em lib/docs.js.
 const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo, MZ, backupAgora, usoInvalida: () => USO.invalida() });
+// v3.80: tarefas da copywriter (matriz e copy por empresa, com aprovação post a post) e o relógio delas
+const rotaTempo = require('./lib/tempo.js')({ db, saveDb, readBody, json });
+const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, undoSlots, tempo: rotaTempo });
 
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
@@ -394,6 +399,9 @@ const server = http.createServer(async (req, res) => {
 
     // ---------- documentos (copy) ----------
     if (p.startsWith('/api/docs') && await rotaDocs(req, res, p, u)) return;
+    // ---------- tarefas e relógio (v3.80) ----------
+    if (p.startsWith('/api/tarefas') && await rotaTarefas(req, res, p, u)) return;
+    if (p.startsWith('/api/tempo') && await rotaTempo(req, res, p, u)) return;
 
     // ---------- estado ----------
     if (p === '/api/state' && req.method === 'GET') {
@@ -409,6 +417,7 @@ const server = http.createServer(async (req, res) => {
         versao: VERSAO,
         contas: db.contas, abas: db.abas,
         slots, referencias: db.referencias,
+        tarefas: rotaTarefas.publicas(),                  // v3.80: tarefas abertas (matriz e copy), com os posts de cada uma
         temFonte: false,                                  // v3.78: true quando o MKT Hub estiver ligado (status, artes e comentários das tasks)
         temSenha: !!config.senha,
         gmCadencia: db.gmCadencia,
@@ -785,6 +794,10 @@ function backupDiario() {
 }
 backupDiario();
 setInterval(backupDiario, 6 * 3600_000);
+// v3.80: faxina do relógio (sessão com mais de 14 dias sai da lista, dia velho vira mês) e das tarefas concluídas
+function faxinaTarefas() { try { rotaTempo.poda(); rotaTarefas.faxina(); } catch (e) { console.log('[tarefas] faxina falhou:', e.message); } }
+faxinaTarefas();
+setInterval(faxinaTarefas, 6 * 3600_000);
 limpezaV377();                                    // antes da matriz do dia: os dias que ficarem vazios ganham o card dela
 autoMatrizSB();                                   // depois do backup do dia
 setInterval(autoMatrizSB, 3600_000);
