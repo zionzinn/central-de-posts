@@ -55,11 +55,8 @@
     <div class="maiswrap" id="maiswrap">
       <button class="act act-mais" id="btnMais" data-tip="Mais ações"></button>
       <div class="maismenu" id="maismenu">
-        <button id="btnPauta" data-tip="Copiar o link ao vivo da pauta só desta conta (abre sem login)"></button>
-        <button id="btnPautaTodas" data-tip="Copiar o link ao vivo da pauta com todas as contas (pro time)"></button>
-        <div class="msep" role="separator" id="sepMz"></div>
         <button id="btnMzGerar" data-tip="Criar o card da matriz em cada dia vazio do mês, com o tipo do dia"></button>
-        <div class="msep" role="separator"></div>
+        <div class="msep" role="separator" id="sepMz"></div>
         <button id="btnConfig">Configurações…</button>
       </div>
     </div>
@@ -845,13 +842,6 @@ function renderTabs(){
     b.onclick = ()=> irParaAba(aba);
     el.appendChild(b);
   }
-  atualizaRotuloPauta();
-}
-/** Rótulos dos links da pauta no menu "mais" acompanham a conta atual. */
-function atualizaRotuloPauta(){
-  const a=$('#btnPauta'), b=$('#btnPautaTodas'); if(!a||!b) return;
-  a.innerHTML = icon('link') + 'Link da pauta · só '+esc(nomeAba(S.aba)||'esta conta');
-  b.innerHTML = icon('link') + 'Link da pauta · todas as contas';
 }
 /** Troca de conta feita PELA PESSOA (aba ou seta): dá o fade no conteúdo. */
 function irParaAba(aba){
@@ -2049,30 +2039,18 @@ function drawTab(){
       const imgs = arqs.filter(a=>!vids.includes(a) && (IMG_EXT.includes(extDe(a)) || a.thumb));
       const outros = arqs.filter(a=>!imgs.includes(a) && !vids.includes(a));
       const isCarrossel = imgs.length>1 || s.formato==='carrossel';
-      // curadoria pra pauta: a ordem que você deixou e as que você escondeu (chave = id ou nome do arquivo)
-      const chave = a => String(a.id || a.name || '');
-      const ordem = s.artesOrdem||[], ocultas = new Set(s.artesOcultas||[]);
-      const pos = k => { const i=ordem.indexOf(k); return i<0?1e6:i; };
-      const imgsOrd = imgs.map((a,i)=>({a,i})).sort((x,y)=>(pos(chave(x.a))-pos(chave(y.a)))||(x.i-y.i)).map(x=>x.a);
-      const visiveis = imgsOrd.filter(a=>!ocultas.has(chave(a))).length;
+      const imgsOrd = imgs;
       LB.imgs = imgsOrd;
       let html='';
       if(imgs.length){
-        html += '<p class="note" style="margin-bottom:10px"><b>'+(isCarrossel?'Carrossel':'Arte')+' · '+imgs.length+(imgs.length>1?' imagens':' imagem')+'</b> · sempre a versão mais recente de cada arte. Clique pra ampliar.<br>'+
-          '<span style="color:var(--sb)">Na pauta aparecem '+visiveis+' de '+imgs.length+', nesta ordem.</span> Passe o mouse numa arte pra mover ou esconder.</p>';
-        html += '<div class="arts">'+imgsOrd.map((a,i)=>{ const k=chave(a), oc=ocultas.has(k); return (
-          '<div class="art'+(oc?' oculta':'')+'" data-lb="'+i+'" data-k="'+esc(k)+'">'+
+        html += '<p class="note" style="margin-bottom:10px"><b>'+(isCarrossel?'Carrossel':'Arte')+' · '+imgs.length+(imgs.length>1?' imagens':' imagem')+'</b> · sempre a versão mais recente de cada arte. Clique pra ampliar.</p>';
+        html += '<div class="arts">'+imgsOrd.map((a,i)=>(
+          '<div class="art" data-lb="'+i+'">'+
             (isCarrossel?'<div class="artnum">'+(i+1)+' / '+imgsOrd.length+'</div>':'')+
             '<img loading="lazy" src="'+esc(proxied(a.thumbL||a.thumb||a.url))+'" data-full="'+esc(proxied(a.url||''))+'" alt="'+esc(a.name)+'">'+
-            (oc?'<div class="ocultatag">oculta na pauta</div>':'')+
-            '<div class="artctl">'+
-              '<button type="button" class="ac" data-mv="-1" title="Mover pra antes">'+icon('chevL')+'</button>'+
-              '<button type="button" class="ac" data-mv="1" title="Mover pra depois">'+icon('chevR')+'</button>'+
-              '<button type="button" class="ac" data-oc="1" title="'+(oc?'voltar a mostrar na pauta':'esconder na pauta')+'">'+(oc?icon('image'):icon('x'))+'</button>'+
-            '</div>'+
             '<div class="artcap"><b>'+esc(a.name)+'</b>'+((a.versions>1)?'<span class="vtag" title="'+a.versions+' versões; esta é a mais recente">v'+a.versions+'</span>':'')+
             '<span class="quando">'+fmtDataHora(a.date)+' · '+esc(a.user)+'</span></div>'+
-          '</div>'); }).join('')+'</div>';
+          '</div>')).join('')+'</div>';
       }
       if(vids.length){
         html += '<p class="note" style="margin:14px 0 8px"><b>Vídeo'+(vids.length>1?'s':'')+'</b></p>'+
@@ -2088,26 +2066,6 @@ function drawTab(){
       }
       body.innerHTML = html;
       body.querySelectorAll('.art').forEach(el=>{ el.onclick = ()=> openLb(Number(el.dataset.lb)); });
-      // mover / esconder: salva a curadoria no post e redesenha
-      body.querySelectorAll('.art .ac').forEach(btn=>{
-        btn.onclick = async ev=>{
-          ev.stopPropagation();
-          const art = btn.closest('.art'), k = art.dataset.k;
-          let novaOrdem = [...body.querySelectorAll('.art')].map(x=>x.dataset.k);
-          let novasOcultas = new Set(s.artesOcultas||[]);
-          if(btn.dataset.mv){
-            const i = novaOrdem.indexOf(k), j = i + Number(btn.dataset.mv);
-            if(j<0 || j>=novaOrdem.length) return;
-            [novaOrdem[i], novaOrdem[j]] = [novaOrdem[j], novaOrdem[i]];
-          } else if(btn.dataset.oc){
-            if(novasOcultas.has(k)) novasOcultas.delete(k); else novasOcultas.add(k);
-          }
-          s.artesOrdem = novaOrdem; s.artesOcultas = [...novasOcultas];
-          drawTab();
-          try{ await api('/api/slots/'+s.id, {method:'PATCH', body:JSON.stringify({artesOrdem:s.artesOrdem, artesOcultas:s.artesOcultas})}); }
-          catch(e){ toast('Não salvou a ordem das artes: '+e.message, true); }
-        };
-      });
       body.querySelectorAll('.art img').forEach(im=>{
         im.onerror = ()=>{ if(!im.dataset.fb && im.dataset.full){ im.dataset.fb='1'; im.src=im.dataset.full; } };
       });
@@ -3396,21 +3354,6 @@ function initIcons(){
   $('#mNext').innerHTML = icon('chevR');
   $('#btnMzGerar').innerHTML = icon('sparkle') + 'Matriz: preencher o mês';
   $('#btnMzGerar').onclick = gerarMatrizMes;
-  atualizaRotuloPauta();
-  // link da pauta: com escopo (só a conta atual) ou geral (todas). O token muda conforme o escopo,
-  // então o link de uma empresa não abre as outras nem dá pra "alargar" editando a URL.
-  const linkPauta = async (aba)=>{
-    try{
-      const r = await api('/api/pauta/link'+(aba?'?aba='+encodeURIComponent(aba):''));
-      const url = location.origin + '/pauta?token=' + encodeURIComponent(r.token) + (aba?'&aba='+encodeURIComponent(aba):'') + '#' + encodeURIComponent(S.aba) + '/' + S.mes;
-      let copiou = false;
-      try{ await navigator.clipboard.writeText(url); copiou = true; }catch(e){}
-      window.open(url, '_blank');
-      toast(copiou ? ('Link da pauta'+(aba?' só da '+aba:' (todas as contas)')+' copiado · abre sem login') : 'Pauta aberta em nova aba · copie o endereço de lá');
-    }catch(e){ toast('Não consegui gerar o link: '+e.message, true); }
-  };
-  $('#btnPauta').onclick = ()=> linkPauta(S.aba);
-  $('#btnPautaTodas').onclick = ()=> linkPauta(null);
   $('#btnDrawer').innerHTML = icon('box') + 'Bancos <span class="n" id="drawerN">0</span>';
   $('#btnDocs').innerHTML = icon('doc') + 'Docs';
   $('#btnMais').innerHTML = icon('dots') + 'Mais';

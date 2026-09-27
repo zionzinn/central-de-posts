@@ -526,7 +526,7 @@ select.faltando{box-shadow:0 0 0 2px color-mix(in srgb, var(--red) 55%, transpar
 .card.sugestao .sugtag{background:var(--purple); color:#000}
 .card.sugestao .sugtag svg{stroke:#000}
 .card.vaga .obsline{color:var(--ink-2); font-style:normal; font-weight:500}
-/* parecer vindo pela pauta (aprovado / alteração pedida) */
+/* parecer antigo (vinha pela pauta, que saiu na v3.77): aprovado / alteração pedida */
 .card .vagatag.parecer{display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600; padding:1px 8px; border-radius:999px; margin-bottom:4px; border:0}
 .card .vagatag.parecer svg{width:10px; height:10px; stroke-width:2.6}
 .card .vagatag.parecer.ok{background:var(--green); color:#000} .card .vagatag.parecer.ok svg{stroke:#000}
@@ -979,15 +979,6 @@ select.mini:hover{background-color:var(--fill-2)}
 .art:hover{transform:none; box-shadow:var(--hard); border-color:var(--ink-3)}
 .art img{width:100%; max-height:430px; object-fit:contain; display:block; background:var(--art-bg)}
 .artnum{position:absolute; top:9px; left:9px; z-index:2; background:var(--sb); color:var(--on-sb); border:1px solid var(--hair); font-size:10px; font-weight:600; border-radius:8px; padding:2px 8px}
-/* curadoria pra pauta: controles no hover; oculta fica apagada com selo */
-.artctl{position:absolute; top:9px; right:9px; z-index:3; display:flex; gap:4px; opacity:0; transform:translateY(-4px); transition:opacity .15s, transform .15s}
-.art:hover .artctl{opacity:1; transform:none}
-.ac{width:26px; height:26px; border-radius:8px; background:rgba(0,0,0,.8); border:1px solid var(--hair); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .12s, transform .15s cubic-bezier(.2,.8,.2,1)}
-.ac:hover{background:var(--sb); color:var(--on-sb); transform:none}
-.ac .ic{width:12px; height:12px; stroke:currentColor}
-.art.oculta img{opacity:.35; filter:grayscale(.7)}
-.art.oculta .artcap{opacity:.6}
-.ocultatag{position:absolute; left:9px; bottom:44px; z-index:2; background:var(--crit); color:#fff; font-size:9.5px; font-weight:600; letter-spacing:0; text-transform:none; border:1px solid var(--hair); border-radius:8px; padding:2px 7px}
 .artcap{display:flex; align-items:center; gap:8px; padding:8px 11px; font-size:11px; color:var(--ink-3); border-top:1px solid var(--hair-2); font-weight:600}
 .artcap b{color:var(--ink-2); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .artcap .quando{margin-left:auto; flex:none}

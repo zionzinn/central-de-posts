@@ -3,7 +3,7 @@
  * B.O.N.E (Bora Organizar Nossas Entregas) - Grupo SB · v3.0 (neo brutal)
  * Servidor local (Node.js >= 18, sem dependências externas).
  * - data/data.json é o BANCO oficial (datas, posts, matriz, documentos, referências)
- * - v3.77: o ClickUp saiu (decisão 8). Cada post guarda só o LINK da task de produção;
+ * - v3.77: o ClickUp e a pauta saíram (decisões 8 e 12). Cada post guarda só o LINK da task de produção;
  *   a próxima fonte de status/artes é o MKT Hub (API só leitura, v3.78)
  * - Undo universal no servidor (Ctrl+Z no front)
  * - Backup diário automático em data/backups
@@ -129,18 +129,6 @@ function validAuthToken(tok) {
   if (sig.length !== good.length) return false;
   try { return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(good)); } catch { return false; }
 }
-// Pauta do mês (link só-leitura, sem login). O token é derivado do secret, então é estável
-// entre reinícios e deploys (no Render o secret vem do ambiente) e não precisa de arquivo.
-// Pra invalidar todos os links já enviados: troque o secret.
-// Com `aba`, o token é de UMA empresa só: quem tem o link da ONEVO não consegue ver as outras
-// nem "alargar" o link tirando o parâmetro (o token não bate com o geral).
-function pautaToken(aba) { return crypto.createHmac('sha256', config.secret).update('pauta-do-mes' + (aba ? ':' + aba : '')).digest('hex').slice(0, 24); }
-function pautaTokenOk(t, aba) {
-  const bom = pautaToken(aba || null), dado = String(t || '');
-  if (dado.length !== bom.length) return false;
-  try { return crypto.timingSafeEqual(Buffer.from(dado), Buffer.from(bom)); } catch { return false; }
-}
-function contasDaAbaSrv(aba) { return Object.entries(db.contas || {}).filter(([, c]) => c.aba === aba).map(([k]) => k); }
 /** Sem acento, minúsculo e com espaço simples (comparar nomes e títulos). */
 function semAcento(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 // quem pode aparecer no "Quem faz" da matriz. Troque por RESPONSAVEIS no ambiente: "Nome A, Nome B".
@@ -399,118 +387,13 @@ const server = http.createServer(async (req, res) => {
     }
     // PORTEIRO: com senha configurada, todo /api (menos login/logout) exige cookie válido.
     // Estáticos (a própria tela de login) passam sempre.
-    // Rotas públicas da pauta (validam o próprio token).
-    const rotaPublica = p === '/api/login' || p === '/api/logout' || p === '/api/pauta' || p === '/api/pauta/obs' || p === '/api/pauta/sugestao' || p === '/api/pauta/parecer';
+    const rotaPublica = p === '/api/login' || p === '/api/logout';
     if (config.senha && p.startsWith('/api/') && !rotaPublica) {
       if (!validAuthToken(parseCookies(req.headers.cookie).sb_auth)) return json(res, 401, { erro: 'login', precisaLogin: true });
     }
 
     // ---------- documentos (copy) ----------
     if (p.startsWith('/api/docs') && await rotaDocs(req, res, p, u)) return;
-
-    // ---------- pauta do mês: página só-leitura pra compartilhar por link (sem login, com token) ----------
-    if (p === '/api/pauta' && req.method === 'GET') {
-      const aba = u.searchParams.get('aba') || null;                 // escopo: uma empresa só, ou tudo
-      if (aba && !(db.abas || []).includes(aba)) return json(res, 401, { erro: 'link inválido' });
-      if (!pautaTokenOk(u.searchParams.get('token'), aba)) return json(res, 401, { erro: 'link inválido' });
-      const mesQ = u.searchParams.get('mes') || '';
-      const mes = /^\d{4}-\d{2}$/.test(mesQ) ? mesQ : new Date().toISOString().slice(0, 7);
-      const contasOk = aba ? contasDaAbaSrv(aba) : null;
-      const slots = db.slots.filter(s => s.date && s.date.startsWith(mes) && (!contasOk || contasOk.includes(s.conta))).map(s => ({
-        id: s.id, conta: s.conta, date: s.date,
-        titulo: s.titulo || s.tituloCache || '', formato: s.formato || '', angulo: s.angulo || '', gm: s.gm || '',
-        postado: !!s.postado, vaga: !!s.vaga, taskId: s.taskId || null, taskUrl: s.taskUrl || null, origem: s.origem || '',
-        obs: s.origem === 'banco' ? (s.obs || '') : '',
-        notas: s.notas || '',   // observações do post (as do painel + as que chegam pela pauta)
-        sugestao: !!s.sugestao, sugeridoPor: s.sugeridoPor || '',
-        parecer: s.parecer || null,                       // aprovado/reprovado pela pauta, com motivo
-        matrizSB: s.matrizSB || null,                     // card da matriz (SeuBoné): tipo, tema, tese, gancho...
-        statusCache: s.statusCache ? { status: s.statusCache.status, color: s.statusCache.color } : null,
-        responsavel: s.assigneeCache || s.responsavelManual || '',
-      }));
-      const gc = db.gmCadencia || {};
-      const gmAncoras = [...new Set([
-        ...(gc.ancora ? [gc.ancora] : []),
-        ...db.slots.filter(s => s.conta === 'seubone' && s.gm === 'sim' && s.date).map(s => s.date),
-      ])].sort();
-      res.setHeader('Cache-Control', 'no-store');
-      return json(res, 200, { mes, escopo: aba, contas: db.contas, abas: aba ? [aba] : db.abas, gmCadencia: { ativo: !!gc.ativo, periodo: gc.periodo || 3 }, gmAncoras, slots, matrizTipos: MZ.TIPOS, temFonte: false, geradoEm: Date.now() });
-    }
-    // observação vinda pela pauta: ANEXA no caderno do post (nunca apaga o que já estava), com nome e hora
-    if (p === '/api/pauta/obs' && req.method === 'POST') {
-      const b = await readBody(req);
-      const aba = b.aba || null;
-      if (aba && !(db.abas || []).includes(aba)) return json(res, 401, { erro: 'link inválido' });
-      if (!pautaTokenOk(b.token, aba)) return json(res, 401, { erro: 'link inválido' });
-      const texto = String(b.texto || '').replace(/[<>]/g, '').trim().slice(0, 1500);
-      if (!texto) return json(res, 400, { erro: 'escreva algo' });
-      const nome = String(b.nome || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'alguém pela pauta';
-      const contasOk = aba ? contasDaAbaSrv(aba) : null;
-      const slot = db.slots.find(s => s.id === String(b.id || '') && s.date && (!contasOk || contasOk.includes(s.conta)));
-      if (!slot) return json(res, 403, { erro: 'post fora do escopo deste link' });
-      const quando = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' });
-      const linha = '• ' + nome + ', ' + quando + ' (pela pauta): ' + texto;
-      slot.notas = (slot.notas ? slot.notas.replace(/\s+$/, '') + '\n\n' : '') + linha;
-      saveDb();
-      return json(res, 200, { ok: true, notas: slot.notas });
-    }
-    // parecer pela pauta: aprovado ou alteração (com motivo), em qualquer post, pronto ou não.
-    // v3.77: fica gravado no post (selo no card do painel) e cai nas observações. Não mexe em sistema nenhum.
-    if (p === '/api/pauta/parecer' && req.method === 'POST') {
-      const b = await readBody(req);
-      const aba = b.aba || null;
-      if (aba && !(db.abas || []).includes(aba)) return json(res, 401, { erro: 'link inválido' });
-      if (!pautaTokenOk(b.token, aba)) return json(res, 401, { erro: 'link inválido' });
-      const veredito = b.veredito === 'aprovado' ? 'aprovado' : ((b.veredito === 'alterar' || b.veredito === 'reprovado') ? 'alterar' : '');
-      if (!veredito) return json(res, 400, { erro: 'veredito inválido' });
-      const motivo = String(b.motivo || '').replace(/[<>]/g, '').trim().slice(0, 1500);
-      if (veredito === 'alterar' && !motivo) return json(res, 400, { erro: 'diga o que precisa mudar' });
-      const nome = String(b.nome || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'alguém pela pauta';
-      const contasOk = aba ? contasDaAbaSrv(aba) : null;
-      const slot = db.slots.find(s => s.id === String(b.id || '') && s.date && (!contasOk || contasOk.includes(s.conta)));
-      if (!slot) return json(res, 403, { erro: 'post fora do escopo deste link' });
-      const quando = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' });
-      slot.parecer = { veredito, motivo, por: nome, quando: Date.now() };
-      const linha = (veredito === 'aprovado' ? '✅ Aprovado por ' : '✏️ Alteração pedida por ') + nome + ', ' + quando + ' (pela pauta)' + (motivo ? ': ' + motivo : '');
-      slot.notas = (slot.notas ? slot.notas.replace(/\s+$/, '') + '\n\n' : '') + linha;
-      saveDb();
-      return json(res, 200, { ok: true, parecer: slot.parecer, notas: slot.notas });
-    }
-    // sugestão de post num dia vazio, vinda pela pauta: vira um card "SUGESTÃO" naquele dia (sem task).
-    // Você aceita colando o link da task nele (a marca de sugestão cai sozinha) ou apaga.
-    if (p === '/api/pauta/sugestao' && req.method === 'POST') {
-      const b = await readBody(req);
-      const aba = b.aba || null;
-      if (aba && !(db.abas || []).includes(aba)) return json(res, 401, { erro: 'link inválido' });
-      if (!pautaTokenOk(b.token, aba)) return json(res, 401, { erro: 'link inválido' });
-      const date = String(b.date || '');
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { erro: 'dia inválido' });
-      const conta = String(b.conta || '');
-      if (!db.contas[conta]) return json(res, 400, { erro: 'conta inválida' });
-      if (aba && !contasDaAbaSrv(aba).includes(conta)) return json(res, 403, { erro: 'conta fora do escopo deste link' });
-      const texto = String(b.texto || '').replace(/[<>]/g, '').trim().slice(0, 1500);
-      if (!texto) return json(res, 400, { erro: 'escreva a ideia' });
-      const nome = String(b.nome || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'alguém pela pauta';
-      const formato = ['estático', 'carrossel', 'reels', 'story'].includes(b.formato) ? b.formato : '';
-      const quando = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' });
-      const slot = {
-        id: 's' + crypto.randomBytes(4).toString('hex'),
-        conta, date, taskId: null,
-        titulo: 'SUGESTÃO: ' + texto.split('\n')[0].slice(0, 70), formato, angulo: '', obs: '',
-        notas: '• ' + nome + ', ' + quando + ' (sugestão pela pauta): ' + texto,
-        gm: '', collab: [], drive: '', linkRef: '', aprovado: false, postado: false, fixo: false,
-        responsavelManual: '', origem: 'pauta', cat: '', fonteId: '', sugestao: true, sugeridoPor: nome,
-        tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: null,
-      };
-      db.slots.push(slot); saveDb();
-      return json(res, 200, { ok: true, slot: { id: slot.id, conta, date, titulo: slot.titulo, formato, notas: slot.notas, sugestao: true, sugeridoPor: nome } });
-    }
-    if (p === '/api/pauta/link' && req.method === 'GET') {
-      const aba = u.searchParams.get('aba') || null;
-      if (aba && !(db.abas || []).includes(aba)) return json(res, 400, { erro: 'conta desconhecida' });
-      return json(res, 200, { token: pautaToken(aba), escopo: aba });
-    }
-    if (p === '/pauta' && req.method === 'GET') return serveStatic(res, 'pauta.html');
 
     // ---------- estado ----------
     if (p === '/api/state' && req.method === 'GET') {
@@ -694,10 +577,6 @@ const server = http.createServer(async (req, res) => {
         if (slot.matrizSB) slot.postado = slot.matrizSB.status === 'Postado'; // status da matriz e "postado" andam juntos
       }
       if ('responsavelManual' in b) slot.responsavelManual = String(b.responsavelManual || '').slice(0, 80);
-      // curadoria das artes pra pauta: quais ficam escondidas e em que ordem aparecem (chave = id ou nome do arquivo)
-      const listaStr = v => Array.isArray(v) ? v.map(x => String(x).slice(0, 200)).filter(Boolean).slice(0, 200) : [];
-      if ('artesOcultas' in b) slot.artesOcultas = listaStr(b.artesOcultas);
-      if ('artesOrdem' in b) slot.artesOrdem = listaStr(b.artesOrdem);
       if ('postado' in b) {
         slot.postado = !!b.postado;
         if (slot.matrizSB) slot.matrizSB.status = slot.postado ? 'Postado' : (slot.matrizSB.status === 'Postado' ? 'Aprovado' : slot.matrizSB.status);
