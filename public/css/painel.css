@@ -10,6 +10,7 @@
      claro e escuro desenhados, não invertidos
    - status sempre bolinha + palavra (nunca só cor)
    - Inter (licença OFL) no lugar da SF, que a Apple não libera pra site
+   v3.76: medidor do Render na barra de cima (cápsula + balão com uso, previsão e custo)
    ===================================================================== */
 @font-face{font-family:"Inter"; src:url(/fonts/inter.woff2) format("woff2"); font-weight:100 900; font-style:normal; font-display:swap}
 
@@ -133,9 +134,14 @@ header{position:sticky; top:0; z-index:50; border-bottom:1px solid var(--sep)}
 header::before{content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background:var(--glass);
   -webkit-backdrop-filter:saturate(180%) blur(22px); backdrop-filter:saturate(180%) blur(22px)}
 .bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
-.bar-top{padding:10px 20px 6px}
+/* linha de cima em 3 colunas: as abas ficam no centro quando cabe; quando aperta, a coluna da direita (utilitários)
+   nunca encolhe e quem cede é a marca (antes os utilitários passavam por cima das abas em telas de ~1.100 px) */
+.bar-top{padding:10px 20px 6px; display:grid; grid-template-columns:minmax(0,1fr) auto minmax(max-content,1fr)}
+@media (max-width:1280px){ .brand .bname span{display:none} }
+@media (max-width:1060px){ .brand .bname{display:none} }   /* só o logo: nome cortado pela metade é pior que sem nome */
+@media (max-width:900px){ .bar-top{display:flex} }
 .bar-bot{padding:4px 20px 10px; gap:8px}
-.brand{display:flex; align-items:center; gap:10px; margin-right:8px; flex:1 1 0; min-width:200px}
+.brand{display:flex; align-items:center; gap:10px; margin-right:8px; flex:1 1 0; min-width:0; overflow:hidden}
 .topright{flex:1 1 0; display:flex; align-items:center; justify-content:flex-end; gap:4px; min-width:110px}
 .brand .logo{width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex:none;
   background:linear-gradient(180deg, color-mix(in srgb, var(--sb) 78%, #fff), var(--sb)); color:var(--on-sb);
@@ -239,6 +245,31 @@ header::before{content:""; position:absolute; inset:0; z-index:-1; pointer-event
 .maismenu .ic{width:16px; height:16px; flex:none; color:var(--ink-2)}
 .maismenu button:hover .ic{color:#fff}
 .maismenu .msep{height:1px; background:var(--sep); margin:4px 8px}
+/* medidor do Render na barra de cima (v3.76): anel com a previsão do mês + custo previsto no cartão */
+.usocap{display:flex; align-items:center; gap:7px; height:28px; padding:0 11px 0 9px; border-radius:999px; border:0; background:transparent;
+  font-size:12px; font-weight:500; color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; transition:background var(--t), color var(--t)}
+.usocap:hover{background:var(--fill-3); color:var(--ink)}
+.usocap .uc-anel{width:13px; height:13px; border-radius:50%; flex:none;
+  background:conic-gradient(var(--uc) calc(var(--p, 2) * 1%), var(--fill) 0);
+  -webkit-mask:radial-gradient(circle, transparent 3.2px, #000 3.7px); mask:radial-gradient(circle, transparent 3.2px, #000 3.7px)}
+.usocap.ok,.usopop.ok{--uc:var(--green)}
+.usocap.atencao,.usopop.atencao{--uc:var(--orange)}
+.usocap.alto,.usopop.alto{--uc:var(--red)}
+.usocap.atencao{color:var(--ink)}
+.usocap.alto{color:var(--ink); background:color-mix(in srgb, var(--red) 16%, transparent)}
+body:has(#usopop) #btnUso::after{display:none}
+.usopop{width:320px; max-width:calc(100vw - 20px); line-height:1.5}
+.usopop .ul{display:flex; justify-content:space-between; gap:16px; font-variant-numeric:tabular-nums; padding:1px 0}
+.usopop .ul span{color:var(--ink-2)}
+.usopop .ul b{color:var(--ink); font-weight:600; text-align:right}
+.usopop .ubar{position:relative; height:6px; border-radius:3px; background:var(--fill-3); margin:6px 0 10px; overflow:hidden}
+.usopop .ubar i{position:absolute; left:0; top:0; bottom:0; border-radius:3px; min-width:3px}
+.usopop .ubar .prev{background:color-mix(in srgb, var(--uc) 35%, transparent)}
+.usopop .ubar .feito{background:var(--uc)}
+.usopop .usep{height:1px; background:var(--sep); margin:8px 0}
+.usopop .unota{font-size:11.5px; color:var(--ink-3); line-height:1.45}
+.usopop .unota a{color:var(--link)}
+.usopop .ubts{margin-top:10px; display:flex; justify-content:flex-end}
 /* balão de atalhos atrás do "?" (popover) */
 .ajudapop{position:fixed; z-index:80; max-width:320px;
   background:var(--glass-menu); -webkit-backdrop-filter:saturate(180%) blur(28px); backdrop-filter:saturate(180%) blur(28px);

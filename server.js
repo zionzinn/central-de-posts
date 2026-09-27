@@ -18,7 +18,7 @@ const { Readable, pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.75'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.76'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -60,7 +60,7 @@ function gravaAtomico(arquivo, texto) {
   try { const d = fs.openSync(path.dirname(arquivo), 'r'); try { fs.fsyncSync(d); } finally { fs.closeSync(d); } } catch { /* Windows não abre pasta: tudo bem */ }
 }
 // Medidor de uso de banda (v3.72): quanto sai por mês e quanto é culpa dos documentos (lib/uso.js)
-const USO = require('./lib/uso.js')({ db, fs, dataFile: DATA_FILE, limiteGB: +process.env.USO_LIMITE_GB || 5, comGitHub: !!(process.env.GH_TOKEN && process.env.GH_REPO) });
+const USO = require('./lib/uso.js')({ db, fs, dataFile: DATA_FILE, limiteGB: +process.env.USO_LIMITE_GB || 5, comGitHub: !!(process.env.GH_TOKEN && process.env.GH_REPO), precoGB: +process.env.USO_PRECO_GB || 0.15 });
 let saveTimer = null, savePendente = false;
 /** Grava o banco AGORA se houver algo pendente. Se o disco falhar, não derruba o servidor: tenta de novo em 5 s. */
 function gravarAgora() {

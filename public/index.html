@@ -27,6 +27,7 @@
     <div class="topright">
       <div class="presenca" id="presenca"></div>
       <button class="sync" id="btnRefresh" data-tip="Atualizar os status do ClickUp agora"></button>
+      <button class="usocap ok" id="btnUso" aria-haspopup="dialog" hidden></button>
       <label class="mute" id="btnMute" data-tip="Silenciar os avisos (site e Windows)">
         <input type="checkbox" class="mute-chk" id="muteChk" aria-label="Silenciar avisos">
         <span class="ic-ring"></span><span class="ic-silent"></span><span class="mn" id="muteN"></span>
@@ -472,7 +473,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.75'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.76'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2827,6 +2828,7 @@ const fmtGB = b => (b/1e9 >= 10 ? Math.round(b/1e9) : (b/1e9).toFixed(1).replace
 const fmtTam = b => b >= 1048576 ? fmtMB(b) : Math.max(1, Math.round(b/1024)) + ' KB';
 function mostraUso(u){
   S.uso = u || null;
+  renderUsoCap(S.uso);
   const el = $('#usoAviso'), bt = $('#btnDocs');
   const nivel = u ? u.nivel : 'ok';
   bt.classList.toggle('uso-atencao', nivel==='atencao'); bt.classList.toggle('uso-alto', nivel==='alto');
@@ -2843,6 +2845,70 @@ function mostraUso(u){
   if($('#usoArq')) $('#usoArq').onclick = ()=>abrirArquivar();
   if($('#usoVer')) $('#usoVer').onclick = ()=>abrirListaDocs();
   $('#usoDepois').onclick = ()=>{ try{ localStorage.setItem('bone.usoAdiado', String(Date.now()+20*3600_000)); }catch(e){} el.hidden = true; };
+}
+// ---- medidor do Render na barra de cima (v3.76): previsão do mês e quanto vai custar no cartão ----
+// Usa o resumo que já vem no /api/state a cada 20 s (custo zero de banda). O balão pede o /api/uso (~0,7 KB).
+const fmtBanda = b => { b = b || 0; if(b >= 1e9){ const g = b/1e9; return String(g >= 10 ? Math.round(g) : +g.toFixed(2)).replace('.', ',') + ' GB'; } return b >= 1e6 ? Math.round(b/1e6)+' MB' : Math.round(b/1e3)+' KB'; };
+const fmtUSD = v => 'US$ ' + (!v || v < 0.005 ? '0' : v.toFixed(2).replace('.', ','));
+function custoUSD(u){ return Math.max(0, (u.previsaoBytes||0) - (u.limiteBytes||5e9)) / 1e9 * (u.precoGB||0.15); }
+function renderUsoCap(u){
+  const b = $('#btnUso'); if(!b) return;
+  if(!u || !u.limiteBytes){ b.hidden = true; return; }
+  const pct = (u.previsaoBytes||0) / u.limiteBytes * 100;
+  const rot = pct < 0.5 ? '<1%' : Math.round(pct) + '%';
+  const custo = fmtUSD(custoUSD(u));
+  b.hidden = false;
+  b.className = 'usocap ' + (u.nivel || 'ok');
+  b.style.setProperty('--p', Math.round(Math.min(100, Math.max(3, pct))));
+  b.innerHTML = '<span class="uc-anel" aria-hidden="true"></span>Render ' + rot + ' · ' + custo;
+  b.dataset.tip = 'Previsão do mês: ' + rot + ' dos ' + fmtBanda(u.limiteBytes) + ' grátis · ' + custo;
+  b.setAttribute('aria-label', 'Uso do Render: previsão de ' + rot + ' dos ' + fmtBanda(u.limiteBytes) + ' grátis no mês, custo previsto ' + custo + '. Abrir detalhes');
+}
+function fecharUsoPop(){ const p = document.getElementById('usopop'); if(p) p.remove(); }
+async function abrirUsoPop(ev){
+  if(ev) ev.stopPropagation();
+  if(document.getElementById('usopop')){ fecharUsoPop(); return; }
+  fecharAjuda(); $('#maiswrap').classList.remove('open');
+  const btn = $('#btnUso');
+  let u; try{ u = await api('/api/uso'); }catch(e){ toast(e.message, true); return; }
+  if(document.getElementById('usopop')) return;   // clicou de novo enquanto carregava
+  const MESES_N = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const [y, m] = u.mes.split('-').map(Number);
+  const prox = new Date(y, m, 1);                  // 1º do mês que vem: o Render zera a banda
+  const dias = Math.max(0, Math.ceil((prox - Date.now()) / 86400000));
+  const lim = u.limiteBytes;
+  const pctFeito = Math.min(100, u.totalBytes / lim * 100), pctPrev = Math.min(100, u.previsaoBytes / lim * 100);
+  const custo = u.custoPrevistoUSD != null ? u.custoPrevistoUSD : custoUSD(u);
+  const linha = (a, b) => '<div class="ul"><span>'+a+'</span><b>'+b+'</b></div>';
+  const p = document.createElement('div');
+  p.className = 'ajudapop usopop ' + (u.nivel || 'ok'); p.id = 'usopop';
+  p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Uso do Render');
+  p.innerHTML = '<div class="apt">Uso do Render em ' + MESES_N[m-1] + '</div>' +
+    '<div class="ubar" title="Até agora (cheio) e previsão do mês (claro)"><i class="prev" style="width:'+pctPrev.toFixed(1)+'%"></i><i class="feito" style="width:'+pctFeito.toFixed(1)+'%"></i></div>' +
+    linha('Até agora', fmtBanda(u.totalBytes) + ' de ' + fmtBanda(lim)) +
+    linha('Previsão do mês', fmtBanda(u.previsaoBytes) + ' (' + (pctPrev < 0.5 ? '<1' : Math.round(u.previsaoBytes / lim * 100)) + '%)') +
+    linha('Custo previsto', fmtUSD(custo) + (custo > 0 ? '' : ' (grátis)')) +
+    linha('Zera em', '1º de ' + MESES_N[prox.getMonth()] + ' (' + dias + ' dia' + (dias===1 ? '' : 's') + ')') +
+    '<div class="usep"></div>' +
+    linha('Telas e consultas', fmtBanda(u.respostasBytes)) +
+    (u.comGitHub ? linha('Backup no GitHub', fmtBanda(u.gitBytes) + ' · ' + u.gitEnvios + ' envio' + (u.gitEnvios===1 ? '' : 's')) : '') +
+    linha('Peso dos documentos', fmtTam(u.docsBytes) + (u.comGitHub ? ' por backup' : '')) +
+    (u.mesAnterior ? linha('Mês passado', fmtBanda(u.mesAnterior.totalBytes)) : '') +
+    '<div class="usep"></div>' +
+    '<div class="unota">Acima de ' + fmtBanda(lim) + ' no mês, o Render cobra ' + fmtUSD(u.precoGB || 0.15) + ' por GB no cartão. ' +
+      'Estimativa do próprio painel, contada desde ' + new Date(u.desde).toLocaleDateString('pt-BR') + '. O número oficial fica no ' +
+      '<a href="https://dashboard.render.com" target="_blank" rel="noopener">Render › Billing</a>.</div>' +
+    (u.porDocs ? '<div class="ubts"><button class="mbtn" id="usoPopArq">Arquivar documentos antigos</button></div>' : '');
+  document.body.appendChild(p);
+  const r = btn.getBoundingClientRect(), w = p.offsetWidth;
+  let left = r.right - w; if(left < 10) left = 10;
+  p.style.top = (r.bottom + 8) + 'px'; p.style.left = left + 'px';
+  const arq = document.getElementById('usoPopArq'); if(arq) arq.onclick = ()=>{ fecharUsoPop(); abrirArquivar(); };
+  const fora = e => {
+    if(!p.isConnected){ document.removeEventListener('pointerdown', fora, true); return; }
+    if(!p.contains(e.target) && !btn.contains(e.target)){ fecharUsoPop(); document.removeEventListener('pointerdown', fora, true); }
+  };
+  setTimeout(()=>document.addEventListener('pointerdown', fora, true), 0);
 }
 async function desenhaUsoDocs(){
   const el = $('#dcUso');
@@ -3343,6 +3409,7 @@ function openRelatorio(){
   $('#ovRelatorio').classList.add('open');
 }
 $('#btnRelatorio').onclick = openRelatorio;
+$('#btnUso').onclick = abrirUsoPop;
 $('#btnExportar').onclick = exportarSemana;
 
 // ---- exportar a semana num arquivo HTML pra enviar (somente leitura) ----
@@ -3620,7 +3687,7 @@ dropZone($('#drawer'), ()=>null);
 // menu "mais" (Importar, Exportar) e balão de atalhos
 (function(){
   const wrap = $('#maiswrap');
-  $('#btnMais').onclick = (ev)=>{ ev.stopPropagation(); fecharAjuda(); wrap.classList.toggle('open'); };
+  $('#btnMais').onclick = (ev)=>{ ev.stopPropagation(); fecharAjuda(); fecharUsoPop(); wrap.classList.toggle('open'); };
   document.addEventListener('click', ev=>{ if(!wrap.contains(ev.target)) wrap.classList.remove('open'); });
   // fecha o menu ao escolher uma ação (o próprio handler de cada botão faz o resto)
   $('#maismenu').addEventListener('click', ()=> wrap.classList.remove('open'));
@@ -3629,7 +3696,7 @@ function fecharAjuda(){ const p=document.getElementById('ajudapop'); if(p) p.rem
 $('#btnAjuda').onclick = (ev)=>{
   ev.stopPropagation();
   if(document.getElementById('ajudapop')){ fecharAjuda(); return; }
-  $('#maiswrap').classList.remove('open');
+  $('#maiswrap').classList.remove('open'); fecharUsoPop();
   const r = ev.currentTarget.getBoundingClientRect();
   const p = document.createElement('div');
   p.className = 'ajudapop'; p.id = 'ajudapop';
@@ -3645,7 +3712,10 @@ $('#btnAjuda').onclick = (ev)=>{
   const w = p.offsetWidth, top = r.bottom + 8;
   let left = r.right - w; if(left < 10) left = 10;
   p.style.top = top+'px'; p.style.left = left+'px';
-  setTimeout(()=>document.addEventListener('click', function h(e){ if(!p.contains(e.target)){ fecharAjuda(); document.removeEventListener('click', h); } }), 0);
+  // fecha ao apertar fora, na fase de captura (antes o clique num card deixava o balão aberto por cima da folha)
+  const fora = e => { if(!p.isConnected){ document.removeEventListener('pointerdown', fora, true); return; }
+    if(!p.contains(e.target) && !$('#btnAjuda').contains(e.target)){ fecharAjuda(); document.removeEventListener('pointerdown', fora, true); } };
+  setTimeout(()=>document.addEventListener('pointerdown', fora, true), 0);
 };
 
 // seleção múltipla
@@ -4004,6 +4074,7 @@ document.addEventListener('keydown', ev=>{
   if($('#lb').classList.contains('open')) return closeLb();
   const abertos = [...document.querySelectorAll('.ov.open')].filter(o=>o.id!=='ovLogin'); // login não fecha no ESC
   if(abertos.length) return abertos.forEach(o=>o.classList.remove('open'));
+  if(document.getElementById('usopop')) return fecharUsoPop();
   if(document.getElementById('ajudapop')) return fecharAjuda();
   if($('#maiswrap').classList.contains('open')) return $('#maiswrap').classList.remove('open');
   if(S.clip) return limparClip();
