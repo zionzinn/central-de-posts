@@ -121,11 +121,9 @@ a{color:inherit}
 /* na barra de cima a dica abre embaixo (em cima ela sairia da tela) */
 header [data-tip]:hover::after{bottom:auto; top:calc(100% + 8px)}
 /* na ponta direita ela encosta pela direita, pra não vazar da tela */
-.topright [data-tip]:hover::after, #btnAjuda:hover::after, #btnMais:hover::after{left:auto; right:0; transform:none; animation-name:tipfade}
-/* dentro do menu Mais ela abre do lado esquerdo do item, sem cobrir os vizinhos */
-/* com o menu, o balão ou a gaveta aberta, a dica do próprio botão some (senão fica atrás deles) */
-.maiswrap.open #btnMais::after, body:has(#ajudapop) #btnAjuda::after, body.drawer-open #btnDrawer::after{display:none}
-.maismenu [data-tip]:hover::after{left:auto; right:calc(100% + 12px); top:50%; bottom:auto; transform:translateY(-50%); text-align:left; animation-name:tipfade}
+.topright [data-tip]:hover::after, #btnAjuda:hover::after{left:auto; right:0; transform:none; animation-name:tipfade}
+/* com o balão ou a gaveta aberta, a dica do próprio botão some (senão fica atrás deles) */
+body:has(#ajudapop) #btnAjuda::after, body.drawer-open #btnDrawer::after{display:none}
 
 /* ---------- barra de cima: toolbar de vidro (HIG > Toolbars, Materials) ---------- */
 header{position:sticky; top:0; z-index:50; border-bottom:1px solid var(--sep)}
@@ -224,20 +222,7 @@ header::before{content:""; position:absolute; inset:0; z-index:-1; pointer-event
   font-size:11px; font-weight:500; white-space:nowrap; padding:3px 8px; border-radius:7px; box-shadow:var(--hard-s); opacity:0; pointer-events:none;
   transform:translateY(-3px); transition:opacity .15s, transform .15s}
 .pdot:hover .pd-tip{opacity:1; transform:translateY(0)}
-/* menu "mais": pull-down de vidro, grupos separados (HIG > Menus) */
-.maiswrap{position:relative}
-.maismenu{position:absolute; top:calc(100% + 6px); right:0; z-index:60; min-width:236px; width:max-content;
-  background:var(--glass-menu); -webkit-backdrop-filter:saturate(180%) blur(28px); backdrop-filter:saturate(180%) blur(28px);
-  border:1px solid var(--glass-borda); border-radius:14px; box-shadow:var(--hard), inset 0 1px 0 var(--glass-luz);
-  padding:6px; display:none; flex-direction:column; gap:1px}
-.maiswrap.open .maismenu{display:flex; animation:menuin .16s cubic-bezier(.2,.8,.2,1) both; transform-origin:top right}
 @keyframes menuin{from{opacity:0; transform:translateY(-4px) scale(.97)} to{opacity:1; transform:none}}
-.maismenu button{display:flex; align-items:center; gap:10px; width:100%; text-align:left; min-height:30px; white-space:nowrap;
-  padding:6px 12px 6px 10px; border-radius:8px; font-size:13px; font-weight:500; color:var(--ink)}
-.maismenu button:hover{background:var(--hl); color:#fff}
-.maismenu .ic{width:16px; height:16px; flex:none; color:var(--ink-2)}
-.maismenu button:hover .ic{color:#fff}
-.maismenu .msep{height:1px; background:var(--sep); margin:4px 8px}
 /* medidor do Render na barra de cima (v3.76): anel com a previsão do mês + custo previsto no cartão */
 .usocap{display:flex; align-items:center; gap:7px; height:28px; padding:0 11px 0 9px; border-radius:999px; border:0; background:transparent;
   font-size:12px; font-weight:500; color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; transition:background var(--t), color var(--t)}
@@ -419,13 +404,12 @@ main.trocou{animation:fadeup .24s ease both}
    assim o tipo do dia (Case, Educação...) usa a largura toda e só encolhe quando os botões aparecem */
 .day-acts{display:flex; align-items:center; gap:2px; position:absolute; right:0; top:50%; transform:translateY(-50%)}
 .day:hover .dleft,.day:focus-within .dleft{max-width:calc(100% - 58px)}
-.addbtn,.vagabtn,.mzbtn{opacity:0; color:var(--ink-3); width:26px; height:26px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+.addbtn,.vagabtn{opacity:0; color:var(--ink-3); width:26px; height:26px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
   transition:opacity var(--t), background var(--t), color var(--t)}
-.addbtn .ic,.vagabtn svg,.mzbtn svg{width:14px; height:14px}
-.day:hover .addbtn,.day:hover .vagabtn,.day:hover .mzbtn,.day:focus-within .addbtn{opacity:1}
+.addbtn .ic,.vagabtn svg{width:14px; height:14px}
+.day:hover .addbtn,.day:hover .vagabtn,.day:focus-within .addbtn{opacity:1}
 .addbtn:hover{background:var(--fill-3); color:var(--ink)}
 .vagabtn:hover{background:color-mix(in srgb, var(--red) 18%, transparent); color:var(--red)}
-.mzbtn:hover{background:color-mix(in srgb, var(--mz) 22%, transparent); color:var(--mz-txt)}
 .day.temvaga{box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--red) 55%, transparent)}
 .dleft{display:inline-flex; align-items:center; gap:4px; min-width:0; max-width:100%}
 .mzdia{font-size:10.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;
@@ -512,7 +496,7 @@ select.faltando{box-shadow:0 0 0 2px color-mix(in srgb, var(--red) 55%, transpar
 .card.postado .qdel{right:4px}
 .card:hover .qpost,.card:hover .qvaga,.card:hover .qfonte,.card:hover .qdel,.card:focus-within .qpost{opacity:1}
 .qpost:hover,.qvaga:hover,.qfonte:hover{background:var(--green); color:#000}
-.qdel:hover{background:var(--red); color:#000}
+.qdel.bin{border-radius:7px} .qdel.bin:hover{background:#D70015; color:#fff}
 .qpost .ic,.qvaga .ic,.qfonte .ic,.qdel .ic{width:12px; height:12px; stroke-width:2.2}
 
 /* falta criar (vermelho) e sugestão (roxo): espaço a preencher = tracejado, sem listras */
@@ -769,9 +753,6 @@ body.comdoc{overflow:hidden}
 .usoaviso .usobts{display:flex; gap:8px; margin-top:9px; flex-wrap:wrap}
 .usoaviso .mbtn{padding:5px 11px; font-size:12px}
 body.drawer-open .usoaviso{right:374px}
-#btnDocs.uso-atencao,#btnDocs.uso-alto{position:relative}
-#btnDocs.uso-atencao::after,#btnDocs.uso-alto::after{content:''; position:absolute; top:3px; right:3px; width:8px; height:8px; border-radius:50%; background:var(--warn)}
-#btnDocs.uso-alto::after{background:var(--crit)}
 .dcuso{display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; margin:0 0 12px; padding:10px 12px; border:1px solid var(--hair); border-radius:8px; background:var(--surface-2); font-size:12px; line-height:1.5; color:var(--ink-2)}
 .dcuso b{color:var(--ink)}
 .dcuso .barra{flex:1 1 150px; height:8px; border-radius:99px; background:var(--hair-2); overflow:hidden; min-width:120px}
@@ -1024,3 +1005,129 @@ select.mini:hover{background-color:var(--fill-2)}
 .modal :where(input:not([type=checkbox],[type=radio],[type=range],[type=color],[type=file]), select, textarea){border:0; background-color:var(--fill-3); border-radius:8px; color:var(--ink)}
 .modal :where(input, select, textarea):focus{outline:none; box-shadow:0 0 0 3px color-mix(in srgb, var(--focus) 40%, transparent)}
 input[type=checkbox], input[type=radio]{accent-color:var(--sb)}
+
+/* =====================================================================
+   v3.78: botões animados (pedido do Zion em 27/09/2026)
+   Animações do Uiverse.io (licença MIT) refeitas no jeito do B.O.N.E: tokens do claro e do escuro,
+   zero dependência, só transform, opacity e clip-path (a placa de vídeo faz o trabalho), alvo de
+   28 px ou mais, funciona no teclado e no toque. "Reduzir movimento" desliga tudo (regra global acima).
+   Créditos: leque = button-box (GreyD097) · criar = toggle radial (Shubh0408) · atalhos = share
+   buttons (csozidev) · excluir = bin-button (vinodjangid07) · editar e pedir alteração = edit-button
+   (aaronross1) · aprovar = btn-31 (doniaskima) · copiar tudo, no documento = copy button (fabiodevbr)
+   ===================================================================== */
+
+/* ---- leque: Bancos, Configurações e Docs empilhados; abrem no hover, no foco (Tab) ou no toque ---- */
+.leque{position:relative; width:112px; height:40px; flex:none}
+.leque .lq{position:absolute; left:50%; top:50%; width:32px; height:32px; border-radius:9px; padding:0;
+  display:flex; align-items:center; justify-content:center; border:1px solid var(--glass-borda);
+  box-shadow:inset 0 0 4px rgba(0,0,0,.28); opacity:.9;
+  transition:transform .3s cubic-bezier(.2,.8,.2,1), opacity .25s, box-shadow .25s, scale .12s}
+.leque .lq .ic{width:17px; height:17px}
+.leque .lq-c{transform:translate(-50%,-50%) rotate(90deg); z-index:3; background:var(--elev-2); color:var(--ink)}      /* configurações: sai pra esquerda */
+.leque .lq-d{transform:translate(-50%,-50%) rotate(-115deg); z-index:4; background:var(--blue); color:#fff}           /* docs: sai pra direita */
+.leque .lq-b{transform:translate(-50%,-50%) rotate(-45deg); z-index:5; background:var(--sb); color:var(--on-sb)}      /* bancos: fica no meio, por cima */
+.leque:is(:hover,:focus-within,.aberto) .lq{opacity:1}
+.leque:is(:hover,:focus-within,.aberto) .lq-c{transform:translate(-170%,-50%) rotate(0deg)}
+.leque:is(:hover,:focus-within,.aberto) .lq-d{transform:translate(70%,-50%) rotate(0deg)}
+.leque:is(:hover,:focus-within,.aberto) .lq-b{transform:translate(-50%,-50%) rotate(0deg)}
+.leque .lq:hover{box-shadow:inset 0 0 0 1px rgba(255,255,255,.28), var(--hard-s)}
+.leque .lq:active{scale:.9}
+.leque .lq-c:hover .ic{animation:lqgira 4s linear infinite}            /* a engrenagem gira enquanto o mouse está nela */
+@keyframes lqgira{to{transform:rotate(360deg)}}
+body.drawer-open .leque .lq-b{box-shadow:0 0 0 2px var(--page), 0 0 0 4px var(--sb)}
+.leque .lq-n{position:absolute; left:calc(50% + 9px); top:-2px; z-index:6; min-width:17px; height:17px; padding:0 5px; border-radius:9px;
+  background:var(--red); color:#fff; font-size:10.5px; font-weight:700; line-height:17px; text-align:center; font-variant-numeric:tabular-nums;
+  pointer-events:none; transition:opacity .2s}
+.leque .lq-n:empty{display:none}
+.leque:is(:hover,:focus-within,.aberto) .lq-n{opacity:0}
+.leque .lq-dot{position:absolute; top:-3px; right:-3px; width:9px; height:9px; border-radius:50%; border:1.5px solid var(--page); background:var(--warn); display:none}
+.leque.uso-atencao .lq-d .lq-dot,.leque.uso-alto .lq-d .lq-dot{display:block}
+.leque.uso-alto .lq-d .lq-dot{background:var(--crit)}
+.leque.uso-atencao::after,.leque.uso-alto::after{content:''; position:absolute; left:calc(50% - 22px); top:1px; width:8px; height:8px; border-radius:50%; background:var(--warn); pointer-events:none}
+.leque.uso-alto::after{background:var(--crit)}
+.leque:is(:hover,:focus-within,.aberto)::after{display:none}
+
+/* ---- criar: + que gira pra × e abre as opções em leque (no + de cada dia e no botão flutuante) ---- */
+.radial{position:fixed; width:0; height:0; z-index:58}
+.radial .rd-main{position:absolute; left:calc(var(--m,32px) / -2); top:calc(var(--m,32px) / -2); width:var(--m,32px); height:var(--m,32px); border-radius:50%;
+  display:flex; align-items:center; justify-content:center; padding:0; background:var(--ink); color:var(--page); box-shadow:var(--hard-s);
+  transition:transform .5s cubic-bezier(.2,.8,.2,1), background .5s, color .5s}
+.radial .rd-main .ic{width:18px; height:18px; stroke-width:2.2}
+.radial.aberto .rd-main{transform:rotate(45deg); background:var(--red); color:#fff}
+.radial .rd-it{position:absolute; left:-21px; top:-21px; width:42px; height:42px; border-radius:50%; padding:0;
+  display:flex; align-items:center; justify-content:center; color:var(--c, var(--ink));
+  background:var(--glass-menu); -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
+  border:1px solid var(--glass-borda); box-shadow:var(--hard-s); opacity:0; pointer-events:none; transform:translate(0,0) scale(.5);
+  transition:transform .5s cubic-bezier(.2,.8,.2,1) var(--d,0ms), opacity .3s ease var(--d,0ms), background .2s, color .2s}
+.radial .rd-it .ic{width:19px; height:19px}
+.radial.aberto .rd-it{opacity:1; pointer-events:auto; transform:translate(var(--x),var(--y)) scale(1)}
+.radial.pronto .rd-it{transition-delay:0s}
+.radial.aberto .rd-it:is(:hover,:focus-visible){background:var(--c, var(--ink)); color:var(--c-on, var(--page)); transform:translate(var(--x),var(--y)) scale(1.1); transition-delay:0s}
+.radial .rd-it[data-tip]:hover::after{animation-delay:.12s}
+.radial .rd-it kbd{position:absolute; right:-3px; bottom:-3px; min-width:15px; height:15px; border-radius:5px; font:600 9.5px/15px inherit; text-align:center;
+  background:var(--elev-2); color:var(--ink-2); border:1px solid var(--glass-borda)}
+/* o botão flutuante fica sempre na tela, no canto de baixo à direita (sai do caminho da gaveta) */
+.radial.fab{left:auto; top:auto; right:48px; bottom:48px; --m:48px; z-index:54; transition:right .3s cubic-bezier(.2,.8,.2,1)}
+.radial.fab .rd-main .ic{width:22px; height:22px}
+body.drawer-open .radial.fab{right:calc(344px + 40px)}
+
+/* ---- atalhos: bolinha no canto de baixo à esquerda; no hover os 6 links abrem em leque ---- */
+.atalhos{position:fixed; left:18px; bottom:18px; width:44px; height:44px; z-index:54}
+.atalhos::before{content:''; position:absolute; left:0; bottom:0; width:44px; height:44px; border-radius:50%}   /* área que segura o hover no caminho até o link */
+.atalhos:is(:hover,:focus-within,.aberto)::before{width:200px; height:200px; border-radius:0 100% 0 0}
+.atalhos .at-main{position:absolute; left:0; bottom:0; z-index:2; width:44px; height:44px; border-radius:50%; padding:0; display:grid; place-items:center;
+  background:var(--glass-forte); -webkit-backdrop-filter:saturate(180%) blur(24px); backdrop-filter:saturate(180%) blur(24px);
+  border:1px solid var(--glass-borda); color:var(--ink-2); box-shadow:var(--hard-s); transition:transform .2s, color .2s}
+.atalhos .at-main .ic{width:20px; height:20px}
+.atalhos:is(:hover,:focus-within,.aberto) .at-main{color:var(--ink); transform:scale(1.05)}
+.atalhos .at-it{position:absolute; left:4px; bottom:4px; width:36px; height:36px; border-radius:50%; display:grid; place-items:center; text-decoration:none;
+  background:var(--elev); border:1px solid var(--glass-borda); color:var(--ink-2); opacity:0; pointer-events:none; translate:0 0;
+  transition:translate .32s cubic-bezier(.2,.8,.2,1) var(--d,0s), opacity .2s var(--d,0s), background .2s, color .2s, box-shadow .3s}
+.atalhos .at-it .ic{width:18px; height:18px}
+.atalhos:is(:hover,:focus-within,.aberto) .at-it{translate:var(--x) var(--y); opacity:1; pointer-events:auto; box-shadow:var(--hard-s)}
+.atalhos .at-it:is(:hover,:focus-visible){background:var(--c); color:var(--c-on,#fff); transition-delay:0s}
+
+/* ---- excluir: lixeira que abre a tampa no hover ---- */
+.bin{display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; width:36px; height:36px; padding:0; flex:none;
+  border-radius:11px; background:var(--red); border:2px solid color-mix(in srgb, var(--red) 40%, #fff); color:#fff; transition:background .3s, transform .15s}
+.bin svg{display:block}
+.bin .bin-top{width:14px; transform-origin:right; transition:transform .3s}
+.bin .bin-bottom{width:11px}
+.bin:hover{background:#D70015}
+.bin:hover .bin-top{transform:rotate(45deg)}
+.bin:active{transform:scale(.9)}
+.bin.mini{width:22px; height:22px; border-radius:7px; border-width:1px; gap:0}
+.bin.mini .bin-top{width:10px} .bin.mini .bin-bottom{width:8px}
+
+/* ---- editar e pedir alteração: lápis que vira pílula com o nome no hover ---- */
+.bt-edit{position:relative; width:32px; height:32px; border-radius:50%; padding:0; flex:none; overflow:hidden;
+  display:inline-flex; align-items:center; justify-content:center; background:var(--fill-2); color:var(--ink); font-weight:600;
+  transition:width .3s, border-radius .3s, background .3s, color .3s}
+.bt-edit .ic{width:15px; height:15px; transition:transform .3s}
+.bt-edit::before{content:attr(data-rot); display:none; font-size:12.5px; padding-right:8px; white-space:nowrap}
+.bt-edit:is(:hover,:focus-visible){width:var(--w,108px); border-radius:999px; background:var(--hl); color:#fff}
+.bt-edit:is(:hover,:focus-visible)::before{display:block}
+.bt-edit:hover .ic{transform:rotate(360deg)}
+.bt-edit.alterar:is(:hover,:focus-visible){background:#D70015}
+
+/* ---- aprovar (matriz e copy; entra com o fluxo da copywriter): varredura em diagonal e o texto sobe e volta ---- */
+.bt-aprovar{position:relative; overflow:hidden; -webkit-mask-image:-webkit-radial-gradient(#000,#fff); padding:9px 22px; border-radius:10px;
+  border:1px solid var(--ink); background:var(--ink); color:#fff; font-size:13px; font-weight:800; line-height:1.4; flex:none}
+.bt-aprovar::before{--progress:100%; content:''; position:absolute; inset:0; background:var(--page);
+  clip-path:polygon(100% 0, var(--progress) var(--progress), 0 100%, 100% 100%); transition:clip-path .2s ease}
+.bt-aprovar:is(:hover,:focus-visible)::before{--progress:0%}
+.bt-aprovar .bt-txt{display:block; overflow:hidden; position:relative}
+.bt-aprovar .bt-txt span{display:block; position:relative; mix-blend-mode:difference}
+.bt-aprovar:is(:hover,:focus-visible) .bt-txt span{animation:btsobe .3s ease forwards}
+@keyframes btsobe{0%{transform:translateY(0)} 50%{transform:translateY(80%)} 51%{transform:translateY(-80%)} to{transform:translateY(0)}}
+
+/* ---- dicas que ficam perto da borda da tela abrem pra dentro ---- */
+.leque .lq[data-tip]:hover::after{left:auto; right:0; transform:none; animation-name:tipfade}
+.radial.fab [data-tip]:hover::after{left:auto; right:0; transform:none; animation-name:tipfade}
+.atalhos [data-tip]:hover::after{left:0; right:auto; transform:none; animation-name:tipfade}
+/* lixeira pequena na lista de referências da gaveta */
+.ref .ra button.bin{padding:0; color:#fff; align-self:center; margin-top:2px}
+.ref .ra button.bin:hover{background:#D70015; color:#fff}
+/* na folha, a lixeira fica na ponta, longe do Salvar (HIG: ação destrutiva separada da principal) */
+.mfoot .bin{margin-left:auto}
+main{padding-bottom:84px}

@@ -53,6 +53,17 @@
   .gd-btn[disabled]{opacity:.45; cursor:not-allowed}
   .gd-btn .ic{width:19px; height:19px}
   .gd-x{width:40px; height:40px; border-radius:50%; border:0; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--ink2)}
+  /* v3.78: Copiar tudo. Animação do copy button de fabiodevbr (Uiverse, licença MIT): o texto sobe, o botão cresce e escurece, aparece "Copiado" */
+  .gd-copiar{position:relative; height:40px; min-width:136px; padding:0 18px; border:0; border-radius:20px; background:var(--share); color:#001D35;
+    font:500 14px var(--ui); cursor:pointer; overflow:hidden; white-space:nowrap; transition:background .5s, min-width .5s}
+  .gd-copiar:hover{background:var(--share-h)}
+  .gd-copiar .cp-a{display:inline-flex; align-items:center; gap:7px; transition:transform .5s, opacity .5s}
+  .gd-copiar .cp-a .ic{width:18px; height:18px}
+  .gd-copiar .cp-b{position:absolute; left:50%; top:50%; transform:translate(-50%,100%); opacity:0; color:#fff; font-weight:600; transition:transform .5s, opacity .5s}
+  .gd-copiar.ok{background:var(--blue); min-width:152px; transition-delay:.1s}
+  .gd-copiar.ok .cp-a{transform:translateY(-150%); opacity:0}
+  .gd-copiar.ok .cp-b{transform:translate(-50%,-50%); opacity:1; transition-delay:.3s}
+  @media (prefers-reduced-motion: reduce){ .gd-copiar,.gd-copiar *{transition-duration:.01ms !important; transition-delay:0s !important} }
   .gd-x:hover{background:var(--hover)}
 
   /* ---------- barra de ferramentas ---------- */
@@ -300,7 +311,7 @@
   <div class="gd-right">
     <div class="gd-pres" id="pres"></div>
     <button class="gd-btn cinza" id="bMatriz" title="rever o que foi preenchido na matriz deste post (Ctrl+Alt+M)"></button>
-    <button class="gd-btn" id="bLegenda" title="copia o texto limpo, com as quebras de linha certas, pronto pra colar no Instagram (Ctrl+Alt+C). Se tiver um trecho selecionado, copia só ele."></button>
+    <button class="gd-copiar" id="bCopiar" title="copia o documento inteiro: formatado pra colar no MKT Hub ou no Docs, e texto limpo pra colar no Instagram"><span class="cp-a"></span><span class="cp-b" aria-hidden="true">Copiado</span></button>
     <button class="gd-x" id="bFechar" title="fechar e voltar pro painel (salva antes)"></button>
   </div>
 </header>
@@ -1489,6 +1500,25 @@ async function copiarLegenda(){
 }
 /** Link da task de produção: o que foi colado no painel (MKT Hub ou outro) ou, nos posts antigos, a task do ClickUp. */
 function linkDaTask(p){ return (p && (p.taskUrl || (p.taskId && /^[a-z0-9]+$/i.test(p.taskId) && !/^L[0-9a-f]{10}$/.test(p.taskId) ? 'https://app.clickup.com/t/'+p.taskId : ''))) || ''; }
+/** Copiar tudo (v3.78): o documento inteiro de uma vez. Vai formatado (HTML: negrito, listas e links chegam no
+    MKT Hub e no Docs) e em texto limpo (o que o Instagram e o WhatsApp pegam). Sem suporte a HTML, vai só o texto. */
+async function copiarTudo(){
+  const btn = $('#bCopiar');
+  const txt = textoPlano(page).replace(/\u200b/g,'');
+  if(!txt.trim()) return toast('O documento está vazio.');
+  let ok = false;
+  try{
+    if(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+      const html = '<meta charset="utf-8">' + page.innerHTML;
+      await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], {type:'text/html'}), 'text/plain': new Blob([txt], {type:'text/plain'}) })]);
+      ok = true;
+    }
+  }catch(e){}
+  if(!ok) ok = await copiaTexto(txt);
+  if(!ok) return toast('Não consegui copiar. Aperte Ctrl+A e depois Ctrl+C.');
+  btn.classList.remove('ok'); void btn.offsetWidth; btn.classList.add('ok');
+  clearTimeout(copiarTudo.t); copiarTudo.t = setTimeout(()=> btn.classList.remove('ok'), 1800);
+}
 async function excluirDoc(){
   const ok = await pergunta('Mover pra lixeira?', 'O documento sai do card e da lista. Nada é apagado de verdade: dá pra restaurar pela lista de documentos (Excluídos).', 'Mover pra lixeira', 'Cancelar');
   if(!ok) return;
@@ -1669,8 +1699,8 @@ window.addEventListener('resize', ajustaTitulo);
 // Início
 // ======================================================================
 montaToolbar(); desenhaIndicadoresCor();
-$('#bLegenda').innerHTML = ic('copiar')+'<span class="rot">Copiar legenda</span>';
-$('#bLegenda').onclick = copiarLegenda;
+$('#bCopiar').querySelector('.cp-a').innerHTML = ic('copiar')+'<span class="rot">Copiar tudo</span>';
+$('#bCopiar').onclick = copiarTudo;
 $('#bFechar').innerHTML = ic('x'); $('#bFechar').title = EMBUTIDO ? 'fechar e voltar pro painel (salva antes)' : 'fechar';
 $('#bFechar').onclick = fechar;
 $('#sideFechar').innerHTML = ic('x');

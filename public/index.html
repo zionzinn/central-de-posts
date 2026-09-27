@@ -50,15 +50,12 @@
     <div class="legend" id="legend"></div>
     <div class="spacer"></div>
     <div class="acoes">
-    <button class="act" id="btnDrawer" data-tip="Abrir os bancos: sem data, criativos, reutilizáveis e referências"></button>
-    <button class="act" id="btnDocs" data-tip="Ver todos os documentos de copy do painel"></button>
-    <div class="maiswrap" id="maiswrap">
-      <button class="act act-mais" id="btnMais" data-tip="Mais ações"></button>
-      <div class="maismenu" id="maismenu">
-        <button id="btnMzGerar" data-tip="Criar o card da matriz em cada dia vazio do mês, com o tipo do dia"></button>
-        <div class="msep" role="separator" id="sepMz"></div>
-        <button id="btnConfig">Configurações…</button>
-      </div>
+    <!-- v3.78: Bancos, Configurações e Docs num leque (abre no hover, no Tab ou no toque) -->
+    <div class="leque" id="leque" role="group" aria-label="Bancos, configurações e documentos">
+      <button class="lq lq-c" id="btnConfig" data-tip="Configurações (Ctrl+,)" aria-label="Configurações"></button>
+      <button class="lq lq-d" id="btnDocs" data-tip="Documentos de copy" aria-label="Documentos"></button>
+      <button class="lq lq-b" id="btnDrawer" data-tip="Bancos: sem data, criativos, reutilizáveis e referências" aria-label="Bancos"></button>
+      <span class="lq-n" id="drawerN" aria-hidden="true"></span>
     </div>
     <button class="ico ico-help" id="btnAjuda" data-tip="Ver os atalhos do mouse e do teclado"></button>
     </div>
@@ -81,6 +78,12 @@
   <div class="grid" id="grid"></div>
 </main>
 
+
+<!-- v3.78: + flutuante (criar sem dia) e atalhos no canto de baixo à esquerda -->
+<div class="radial fab" id="fabCriar"><button class="rd-main" id="fabMain" aria-expanded="false" data-tip="Criar: post, post do MKT Hub ou matriz do mês" aria-label="Criar"></button></div>
+<nav class="atalhos" id="atalhos" aria-label="Atalhos">
+  <button class="at-main" id="atMain" aria-label="Atalhos" aria-expanded="false"></button>
+</nav>
 
 <div id="selbar">
   <button id="selLimpar" data-tip="Limpar seleção (Esc)" aria-label="Limpar seleção"></button>
@@ -114,27 +117,11 @@
   <button class="mclose" data-close="ovEdit">✕</button>
   <div class="mhead">
     <div class="etopo">
-      <button type="button" class="evoltar" id="eVoltar" title="Voltar e escolher outro jeito">‹</button>
       <div><div class="mtit" id="eTit">Novo post</div><div class="ectx" id="eCtx"></div></div>
     </div>
   </div>
   <div class="mbody">
-    <!-- PASSO 1 (só post novo): como esse post vai nascer? -->
-    <div class="escolha" id="eEscolha">
-      <div class="eopcs">
-        <button type="button" class="eopc mz" data-modo="matriz" id="eOpcMz">
-          <span class="eic" data-ic="sparkle"></span>
-          <span class="etx"><b>Planejar na matriz</b><small id="eOpcMzSub">Card amarelo pra copywriter preencher. A task vem depois.</small></span>
-          <span class="ekey">1</span>
-        </button>
-        <button type="button" class="eopc" data-modo="link">
-          <span class="eic" data-ic="link"></span>
-          <span class="etx"><b>Post avulso</b><small>Título, dia e o link da task de produção, se já tiver.</small></span>
-          <span class="ekey">2</span>
-        </button>
-      </div>
-    </div>
-    <!-- PASSO 2: só os campos do caminho escolhido. O JS monta a ordem (E_LAYOUT). -->
+    <!-- os campos do caminho escolhido no leque do + (post avulso ou post do MKT Hub). O JS monta a ordem (E_LAYOUT). -->
     <div class="f" id="eForm">
       <div id="eBasico" class="f"></div>
       <button type="button" class="emais" id="eMaisBtn"><span class="emseta">▸</span> Mais opções <small id="eMaisResumo"></small></button>
@@ -142,7 +129,7 @@
     </div>
     <!-- guarda: campos que o caminho atual não usa ficam aqui, escondidos -->
     <div id="eGuarda" hidden>
-      <div id="eLinkWrap"><label>Link da task de produção</label><input id="eTask" placeholder="https://… (MKT Hub ou outro sistema)" autocomplete="off">
+      <div id="eLinkWrap"><label id="eLinkLbl">Link da task de produção</label><input id="eTask" placeholder="https://… (MKT Hub ou outro sistema)" autocomplete="off">
         <p class="note ehint" id="eLinkHint">Sem o link ainda? Pode salvar assim e colar depois.</p></div>
       <div id="eContaWrap"><label>Conta</label><div class="echips" id="eContaChips"></div><select id="eConta" hidden></select></div>
       <div id="eDataWrap"><label>Dia do post</label>
@@ -163,8 +150,8 @@
   </div>
   <div class="mfoot" id="eFoot">
     <button class="mbtn primary" id="eSave">Salvar</button>
-    <button class="mbtn critbtn" id="eDelete" style="display:none">Excluir</button>
     <span class="note" id="eMsg"></span>
+    <button class="bin" id="eDelete" style="display:none" data-tip="Excluir o post (Ctrl+Z desfaz)" aria-label="Excluir o post"><svg class="bin-top" viewBox="0 0 39 7" fill="none" aria-hidden="true"><line y1="5" x2="39" y2="5" stroke="currentColor" stroke-width="4"/><line x1="12" y1="1.5" x2="26" y2="1.5" stroke="currentColor" stroke-width="3"/></svg><svg class="bin-bottom" viewBox="0 0 33 39" fill="none" aria-hidden="true"><path d="M2 0v34a3 3 0 0 0 3 3h23a3 3 0 0 0 3-3V0" stroke="currentColor" stroke-width="4"/><path d="M12 6v23M21 6v23" stroke="currentColor" stroke-width="4"/></svg></button>
   </div>
 </div></div>
 
@@ -279,9 +266,9 @@
   <div class="mfoot">
     <button class="mbtn primary" id="mzSalvar">Salvar</button>
     <button class="mbtn mzcopy" id="mzCopy" data-tip="Salvar a matriz e abrir o documento da copy deste post"></button>
-    <button class="mbtn" id="mzEditar" data-tip="Editar o post: mudar a data ou colar o link da task">Editar post / colar task</button>
-    <button class="mbtn critbtn" id="mzExcluir">Excluir card</button>
+    <button class="bt-edit" id="mzEditar" data-rot="Editar post" style="--w:122px" data-tip="Editar o post: mudar a data ou colar o link da task" aria-label="Editar o post"></button>
     <span class="note" id="mzMsg"></span>
+    <button class="bin" id="mzExcluir" data-tip="Excluir o card da matriz (Ctrl+Z desfaz)" aria-label="Excluir o card da matriz"><svg class="bin-top" viewBox="0 0 39 7" fill="none" aria-hidden="true"><line y1="5" x2="39" y2="5" stroke="currentColor" stroke-width="4"/><line x1="12" y1="1.5" x2="26" y2="1.5" stroke="currentColor" stroke-width="3"/></svg><svg class="bin-bottom" viewBox="0 0 33 39" fill="none" aria-hidden="true"><path d="M2 0v34a3 3 0 0 0 3 3h23a3 3 0 0 0 3-3V0" stroke="currentColor" stroke-width="4"/><path d="M12 6v23M21 6v23" stroke="currentColor" stroke-width="4"/></svg></button>
   </div>
 </div></div>
 <!-- COPY: o editor estilo Docs (public/doc.html) abre aqui dentro, em tela cheia. Só carrega quando alguém abre. -->
@@ -351,7 +338,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.77'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.78'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -390,7 +377,14 @@ const ICONS = {
   sino:'<path d="M18 8.5a6 6 0 0 0-12 0c0 6.5-2.5 8-2.5 8h17S18 15 18 8.5z"/><path d="M13.7 20.5a2 2 0 0 1-3.4 0"/>',
   sinoOff:'<path d="M8.6 3.9A6 6 0 0 1 18 8.5c0 3.2.6 5.3 1.3 6.8"/><path d="M17.5 16.5H3.5S6 15 6 8.5c0-.6.1-1.2.2-1.7"/><path d="M13.7 20.5a2 2 0 0 1-3.4 0"/><path d="M3 3l18 18"/>',
   help:'<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.9.6c0 1.7-2.5 2-2.5 3.6"/><circle cx="12" cy="17" r=".9"/>',
+  hub:'<circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="4" r="1.8"/><circle cx="19" cy="16.5" r="1.8"/><circle cx="5" cy="16.5" r="1.8"/><path d="M12 5.8v3.6M17.4 15.5l-3.2-2M6.6 15.5l3.2-2"/>',
+  camera:'<path d="M4 8.5a2 2 0 0 1 2-2h2l1.4-2h5.2l1.4 2h2a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8.5z"/><circle cx="12" cy="12.6" r="3.4"/>',
+  apps:'<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>',
+  capelo:'<path d="M2.5 9.5L12 5l9.5 4.5L12 14 2.5 9.5z"/><path d="M6.5 11.5V16c1.4 1.4 3.3 2 5.5 2s4.1-.6 5.5-2v-4.5"/><path d="M21.5 9.5V14"/>',
+  share:'<circle cx="17.5" cy="5.5" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/><path d="M8.7 10.8l6.6-3.9M8.7 13.2l6.6 3.9"/>',
+  calmz:'<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10.2h16M8.2 3.5v4M15.8 3.5v4"/><path d="M12 12.3l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
 };
+const BIN_SVG = '<svg class="bin-top" viewBox="0 0 39 7" fill="none" aria-hidden="true"><line y1="5" x2="39" y2="5" stroke="currentColor" stroke-width="4"/><line x1="12" y1="1.5" x2="26" y2="1.5" stroke="currentColor" stroke-width="3"/></svg><svg class="bin-bottom" viewBox="0 0 33 39" fill="none" aria-hidden="true"><path d="M2 0v34a3 3 0 0 0 3 3h23a3 3 0 0 0 3-3V0" stroke="currentColor" stroke-width="4"/><path d="M12 6v23M21 6v23" stroke="currentColor" stroke-width="4"/></svg>';
 function icon(nome, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[nome]||ICONS.link)+'</svg>'; }
 function corTexto(hex){
   if(!hex || hex[0] !== '#' || hex.length < 7) return '#000';
@@ -506,6 +500,7 @@ function slotTitulo(s){
   if(s.titulo) return s.titulo;
   if(s.tituloCache) return s.tituloCache;
   if(s.origem==='banco') return s.taskId ? (s.obs || 'Task') : ('Reutilizar: ' + (s.obs || 'vídeo'));
+  if(s.taskId && /^MKT-\d+$/.test(s.taskId)) return s.taskId;          // post do MKT Hub ainda sem nome: mostra o código
   const c = S.contas[s.conta];
   return (s.formato? s.formato.charAt(0).toUpperCase()+s.formato.slice(1) : 'Post') + ' · ' + (c?c.nome:'');
 }
@@ -827,7 +822,6 @@ function render(){
   // e o painel ficaria preso em "arrastando" (clique não abre, atualização para, rolagem automática solta).
   if(S.dragging){ S._renderDepois = true; return; }
   S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba);
-  { const sb = S.aba==='SEUBONÉ'; const g=$('#btnMzGerar'), sp=$('#sepMz'); if(g) g.hidden=!sb; if(sp) sp.hidden=!sb; }
   renderTabs(); renderLegend(); renderDrawer(); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); }
 
 function renderTabs(){
@@ -945,7 +939,7 @@ function cardEl(s){
         alertas+ avatar+
       '</div>'+
       (s.postado?'<div class="pcheck" title="Clique pra desmarcar postado">'+icon('check')+'</div>':'')+
-      '<button class="qdel" title="Excluir este card da matriz">'+icon('x')+'</button>';
+      '<button class="qdel bin mini" title="Excluir este card da matriz">'+BIN_SVG+'</button>';
   } else {
     d.innerHTML =
       (vaga?'<div class="vagatag">'+icon('alerta')+'Falta criar</div>':'')+
@@ -964,7 +958,7 @@ function cardEl(s){
       (vaga? '<button class="qvaga" title="Já criei este post: dar baixa na sinalização">'+icon('check')+'</button>'
        : fonte? '<button class="qfonte" title="Concluído: tirar esta task do banco">'+icon('check')+'</button>'
            : (s.postado?'<div class="pcheck" title="Clique pra desmarcar postado">'+icon('check')+'</div>':'<button class="qpost" title="Marcar postado">'+icon('check')+'</button>'))+
-      (fonte?'':'<button class="qdel" title="Excluir este post do painel">'+icon('x')+'</button>');
+      (fonte?'':'<button class="qdel bin mini" title="Excluir este post do painel">'+BIN_SVG+'</button>');
   }
   d.addEventListener('dragstart', ev=>{
     S.dragging=true; d.classList.add('dragging');
@@ -1122,7 +1116,7 @@ function refEl(r){
     '<div class="ra">'+
       '<a href="'+esc(r.url)+'" target="_blank" title="Abrir link">'+icon('external','s')+'</a>'+
       '<button data-a="edit" title="Editar">'+icon('pencil','s')+'</button>'+
-      '<button data-a="del" title="Excluir">'+icon('x','s')+'</button>'+
+      '<button data-a="del" class="bin mini" title="Excluir a referência">'+BIN_SVG+'</button>'+
     '</div>';
   d.addEventListener('dragstart', ev=>{ S.dragging=true; d.classList.add('dragging'); ev.dataTransfer.setData('text/plain','ref:'+r.id); ev.dataTransfer.effectAllowed='move'; });
   d.addEventListener('dragend', ()=>{ S.dragging=false; d.classList.remove('dragging'); });
@@ -1223,7 +1217,7 @@ function renderDrawer(){
   const criat   = slotsVisiveis().filter(s=>!s.date && s.origem==='criativo');
   const reut    = slotsVisiveis().filter(s=>!s.date && s.origem==='banco');
   const total   = semData.length + criat.length + reut.length + S.referencias.length;
-  const dn = $('#drawerN'); if(dn) dn.textContent = total;
+  const dn = $('#drawerN'); if(dn) dn.textContent = total ? total : '';
   if(!S.drawer) return;
 
   const semDataV = semData.filter(slotMatch);
@@ -1402,19 +1396,16 @@ function celulaDia(c, di, porDia, semana){
   cell.innerHTML = '<div class="day-top"><span class="dleft"><span class="dnum">'+c.dnum+ estrela + '</span>'+
     (mzd ? '<span class="mzdia" style="--c:'+(mzd.tipo?mzObjCor(mzd.tipo):'#FCC100')+'" title="Matriz: '+esc(mzLabel)+' · semana '+mzd.semana+'">'+esc(mzd.tipo || 'Em aberto')+'</span>' : '')+
     '</span><span class="day-acts">'+
-      (sb ? '<button class="mzbtn" title="Novo card da matriz neste dia ('+esc(mzLabel)+')">'+icon('sparkle')+'</button>'
-          : '<button class="vagabtn" title="Sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>')+
-      '<button class="addbtn" title="Novo post">'+icon('plus','s')+'</button>'+
+      (sb ? '' : '<button class="vagabtn" title="Sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>')+
+      '<button class="addbtn" title="Criar neste dia" aria-haspopup="menu">'+icon('plus','s')+'</button>'+
     '</span></div><div class="day-cards"></div>';
   const cardsEl = cell.querySelector('.day-cards');
   doDia.forEach(s=>cardsEl.appendChild(cardEl(s)));
   const dateStr = c.date;
   cell.addEventListener('mouseenter', ()=>{ S.hoverDay = dateStr; });
-  cell.querySelector('.addbtn').onclick = ()=> openEdit(null, dateStr);
+  cell.querySelector('.addbtn').onclick = ev=>{ ev.stopPropagation(); abrirCriarDia(dateStr, ev.currentTarget); };
   const vb = cell.querySelector('.vagabtn');
   if(vb) vb.onclick = ev=>{ ev.stopPropagation(); abrirPopVaga(dateStr, ev.currentTarget); };
-  const mb = cell.querySelector('.mzbtn');
-  if(mb) mb.onclick = ev=>{ ev.stopPropagation(); criarCardMatriz(dateStr); };
   if(S.clip){
     const cb = document.createElement('button'); cb.className='colar-aqui'; cb.innerHTML = icon('plus','s')+'Colar aqui';
     cb.onclick = (e)=>{ e.stopPropagation(); colarNoDia(dateStr); };
@@ -1884,7 +1875,9 @@ function tRowDraw(s){
   }
 
   mk(icon('doc')+(s.docId?'Copy':'Escrever a copy'), '', s.docId ? 'Abrir o documento da copy deste post' : 'Criar o documento da copy deste post').onclick = ()=>{ closeOv('ovTask'); abrirCopy(s.id); };
-  mk(icon('pencil'), 'iconb', 'Editar o post (conta, data, links, collab)').onclick = ()=>{ closeOv('ovTask'); openEdit(s.id); };
+  { const be = document.createElement('button'); be.className = 'bt-edit'; be.dataset.rot = 'Editar'; be.style.setProperty('--w','96px');
+    be.dataset.tip = 'Editar o post (conta, data, links, collab)'; be.setAttribute('aria-label','Editar o post'); be.innerHTML = icon('pencil');
+    be.onclick = ()=>{ closeOv('ovTask'); openEdit(s.id); }; row.appendChild(be); }
 }
 
 // ================= markdown (descrição da task) =================
@@ -2131,6 +2124,7 @@ function drawCollabChips(){
 let E_MODO = 'link';
 const E_LAYOUT = {
   link:    { basico:['eTituloWrap','eContaWrap','eDataWrap','eLinkWrap'],                     mais:['eFmtWrap','eGmWrap','eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
+  hub:     { basico:['eLinkWrap','eContaWrap','eDataWrap','eTituloWrap'],                     mais:['eFmtWrap','eGmWrap','eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
   edit:    { basico:['eContaWrap','eDataWrap','eLinkWrap','eTituloWrap','eFmtWrap','eGmWrap'],    mais:['eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
 };
 const E_NOMES = { eTituloWrap:'título', eFmtWrap:'formato', eGmWrap:'GM', eAnguloWrap:'ângulo', eDriveWrap:'drive', eCollabWrap:'collab', eObsWrap:'observação' };
@@ -2180,8 +2174,10 @@ function aplicaModo(m){
   // aba com uma conta só (SeuBoné, Weevo): não pergunta a conta
   $('#eContaWrap').style.display = [...$('#eConta').options].filter(o=>o.value).length > 1 ? '' : 'none';
   syncGmVisibility();
-  $('#eLinkHint').hidden = m!=='link';
-  $('#eTituloLbl').textContent = 'Título';
+  $('#eLinkHint').hidden = m==='edit';
+  $('#eLinkHint').textContent = m==='hub' ? 'Cole o link da task no MKT Hub ou o código (MKT-0000). O nome e o status chegam sozinhos quando o painel for ligado ao Hub.' : 'Sem o link ainda? Pode salvar assim e colar depois.';
+  $('#eLinkLbl').textContent = m==='hub' ? 'Link da task no MKT Hub' : 'Link da task de produção';
+  $('#eTituloLbl').textContent = m==='hub' ? 'Título (opcional)' : 'Título';
   resumoMais();
 }
 /** "Mais opções": diz o que tem dentro e abre sozinho se algum campo de lá já tem valor. */
@@ -2203,14 +2199,8 @@ function abreMais(abrir){
 }
 $('#eMaisBtn').onclick = ()=> abreMais($('#eMaisCorpo').hidden);
 /** Passo 1 (escolha) ou passo 2 (campos). */
-function ePasso(n){
-  const novo = !S.editing;
-  $('#eEscolha').hidden = n!==1;
-  $('#eForm').hidden = n!==2;
-  $('#eFoot').hidden = n!==2;
-  $('#eVoltar').hidden = !(novo && n===2 && !$('#eOpcMz').hidden);   // só tem pra onde voltar se existe o passo 1
-}
-const E_TITULOS = { link:'Novo post', edit:'Editar post' };
+function ePasso(){ $('#eForm').hidden = false; $('#eFoot').hidden = false; }
+const E_TITULOS = { link:'Novo post', hub:'Post do MKT Hub', edit:'Editar post' };
 function setModo(m){
   if(m==='matriz'){ const dia = $('#eDate').value || null; closeOv('ovEdit'); criarCardMatriz(dia); return; }
   E_MODO = m;
@@ -2220,24 +2210,12 @@ function setModo(m){
   $('#eSave').textContent = 'Salvar post';
   $('#eMsg').textContent = '';
   abreMais(temValorNoMais());
-  const foco = '#eTitulo';
+  const foco = m==='hub' ? '#eTask' : '#eTitulo';
   if(foco) setTimeout(()=>{ const el=$(foco); if(el) el.focus(); }, 60);
 }
-document.querySelectorAll('#eEscolha .eopc').forEach(b=> b.onclick = ()=> setModo(b.dataset.modo));
-document.querySelectorAll('#eEscolha .eic').forEach(el=> el.innerHTML = icon(el.dataset.ic));
-$('#eVoltar').onclick = ()=>{ $('#eTit').textContent='Novo post'; ePasso(1); };
 $('#eSemDia').onclick = ()=>{ $('#eDate').value=''; eContexto(); };
 $('#eDate').addEventListener('change', eContexto);
 $('#eConta').addEventListener('change', ()=>{ $('#eConta').classList.toggle('faltando', !$('#eConta').value); syncGmVisibility(); drawCollabChips(); eContexto(); resumoMais(); });
-// atalho: no passo 1, teclas 1/2 escolhem o caminho
-document.addEventListener('keydown', ev=>{
-  if(!$('#ovEdit').classList.contains('open') || $('#eEscolha').hidden) return;
-  if(ev.ctrlKey || ev.metaKey || ev.altKey) return;
-  const mapa = {'1':'matriz','2':'link'};
-  const m = mapa[ev.key]; if(!m) return;
-  if(m==='matriz' && $('#eOpcMz').hidden) return;
-  ev.preventDefault(); setModo(m);
-});
 // Enter no link salva direto (colar + Enter = pronto)
 $('#eTask').addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); $('#eSave').click(); } });
 
@@ -2269,13 +2247,6 @@ function openEdit(id, dateStr, pre){
   $('#eDelete').style.display = s? '' : 'none';
   $('#eContaChips').classList.remove('faltando');
   desenhaChipsConta(); desenhaChipsFormato();
-  // o caminho "matriz" só existe na SeuBoné
-  const temMz = !s && S.aba==='SEUBONÉ' && !!S.matrizSB;
-  $('#eOpcMz').hidden = !temMz;
-  if(temMz){
-    const d = dateStr ? mzTipoDoDia(dateStr) : null;
-    $('#eOpcMzSub').textContent = 'Card amarelo'+(d ? ' de '+(d.tipo || d.opcoes.join(' / ')) : '')+' pra copywriter preencher. A task vem depois.';
-  }
   eContexto();
   $('#eMsg').textContent = '';
   if(s){
@@ -2285,14 +2256,10 @@ function openEdit(id, dateStr, pre){
     $('#eSave').textContent = 'Salvar';
     abreMais(temValorNoMais());
     $('#eMsg').textContent = s.tituloCache ? 'Task vinculada: '+s.tituloCache : '';
-  } else if(pre){
-    setModo(pre.modo || 'link');                         // veio de uma referência: já sabe o caminho
-    $('#eMsg').textContent = 'Criando post a partir de uma referência';
-  } else if(temMz){
-    E_MODO = 'link';
-    $('#eTit').textContent = 'Novo post';
-    ePasso(1);
-  } else setModo('link');                                   // sem matriz na aba: só tem um caminho, vai direto pros campos
+  } else {
+    setModo((pre && pre.modo) || 'link');                  // o caminho vem do leque do + (post avulso ou post do MKT Hub)
+    if(pre && (pre.drive || pre.obs)) $('#eMsg').textContent = 'Criando post a partir de uma referência';
+  }
   $('#ovEdit').classList.add('open');
 }
 
@@ -2449,6 +2416,7 @@ function mostraUso(u){
   const el = $('#usoAviso'), bt = $('#btnDocs');
   const nivel = u ? u.nivel : 'ok';
   bt.classList.toggle('uso-atencao', nivel==='atencao'); bt.classList.toggle('uso-alto', nivel==='alto');
+  { const lq = $('#leque'); if(lq){ lq.classList.toggle('uso-atencao', nivel==='atencao'); lq.classList.toggle('uso-alto', nivel==='alto'); } }
   let adiado = 0; try{ adiado = +localStorage.getItem('bone.usoAdiado') || 0; }catch(e){}
   if(!u || nivel==='ok' || Date.now() < adiado){ el.hidden = true; return; }
   el.className = 'usoaviso' + (nivel==='alto' ? ' alto' : '');
@@ -2485,7 +2453,7 @@ function fecharUsoPop(){ const p = document.getElementById('usopop'); if(p) p.re
 async function abrirUsoPop(ev){
   if(ev) ev.stopPropagation();
   if(document.getElementById('usopop')){ fecharUsoPop(); return; }
-  fecharAjuda(); $('#maiswrap').classList.remove('open');
+  fecharAjuda(); fecharRadial();
   const btn = $('#btnUso');
   let u; try{ u = await api('/api/uso'); }catch(e){ toast(e.message, true); return; }
   if(document.getElementById('usopop')) return;   // clicou de novo enquanto carregava
@@ -2908,6 +2876,135 @@ async function fazerLogin(){
 $('#loginBtn').onclick = fazerLogin;
 $('#loginSenha').addEventListener('keydown', e=>{ if(e.key==='Enter') fazerLogin(); });
 
+
+// ================= v3.78: botões animados (Uiverse, licença MIT, refeitos no B.O.N.E) =================
+// ---- criar em leque: o + gira pra × e as opções saem em arco (no + de cada dia e no + flutuante) ----
+let RADIAL = null;   // { el, itens, fechar } do leque aberto
+function fecharRadial(){
+  if(!RADIAL) return;
+  const r = RADIAL; RADIAL = null;
+  r.el.classList.remove('aberto', 'pronto');
+  if(r.fab){ const m = r.el.querySelector('.rd-main'); if(m) m.setAttribute('aria-expanded','false'); setTimeout(()=>{ if(!r.el.classList.contains('aberto')) r.el.querySelectorAll('.rd-it').forEach(b=>b.remove()); }, 420); }
+  else setTimeout(()=> r.el.remove(), 420);
+}
+/** Abre o leque. itens: [{rot, ic, cor, corOn, f}] · ang: ângulos em graus (0 = direita, 90 = cima). */
+function abrirRadial(el, itens, angs, raio, fab){
+  fecharRadial();
+  el.querySelectorAll('.rd-it').forEach(b=>b.remove());
+  itens.forEach((it, i)=>{
+    const b = document.createElement('button');
+    const a = angs[i] * Math.PI / 180;
+    b.className = 'rd-it'; b.type = 'button';
+    b.style.setProperty('--x', Math.round(Math.cos(a) * raio) + 'px');
+    b.style.setProperty('--y', Math.round(-Math.sin(a) * raio) + 'px');
+    b.style.setProperty('--d', (i * 60) + 'ms');
+    if(it.cor) b.style.setProperty('--c', it.cor);
+    if(it.corOn) b.style.setProperty('--c-on', it.corOn);
+    b.dataset.tip = it.rot; b.setAttribute('aria-label', it.rot);
+    b.innerHTML = icon(it.ic) + '<kbd>' + (i + 1) + '</kbd>';
+    b.onclick = ev=>{ ev.stopPropagation(); fecharRadial(); it.f(); };
+    el.appendChild(b);
+  });
+  RADIAL = { el, itens, fab };
+  requestAnimationFrame(()=>{ el.classList.add('aberto'); });
+  setTimeout(()=>{ if(RADIAL && RADIAL.el===el) el.classList.add('pronto'); }, 520);
+  const m = el.querySelector('.rd-main'); if(m) m.setAttribute('aria-expanded','true');
+}
+/** Opções de criar no dia: matriz nova (só onde tem matriz), post avulso e post já feito no MKT Hub. */
+function itensCriar(dia){
+  const l = [];
+  if(S.aba==='SEUBONÉ' && S.matrizSB){
+    const d = dia ? mzTipoDoDia(dia) : null;
+    l.push({ rot:'Matriz nova'+(d ? ' ('+(d.tipo || d.opcoes.join(' / '))+')' : ''), ic:'sparkle', cor:'var(--mz)', corOn:'#000', f:()=> criarCardMatriz(dia) });
+  }
+  l.push({ rot:'Post avulso', ic:'pencil', f:()=> openEdit(null, dia) });
+  l.push({ rot:'Post feito no MKT Hub', ic:'hub', cor:'var(--indigo)', corOn:'#fff', f:()=> openEdit(null, dia, {modo:'hub'}) });
+  return l;
+}
+function abrirCriarDia(dia, btn){
+  if(RADIAL && RADIAL.dia===dia){ fecharRadial(); return; }
+  const r = btn.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'radial'; el.style.setProperty('--m','30px');
+  el.style.left = (r.left + r.width/2) + 'px'; el.style.top = (r.top + r.height/2) + 'px';
+  el.innerHTML = '<button class="rd-main" type="button" aria-label="Fechar" aria-expanded="false">'+icon('plus')+'</button>';
+  el.querySelector('.rd-main').onclick = ev=>{ ev.stopPropagation(); fecharRadial(); };
+  document.body.appendChild(el);
+  const itens = itensCriar(dia);
+  // abre pra baixo e pra esquerda; perto do pé da tela, pra cima
+  const praCima = r.top > innerHeight - 150;
+  const angs = itens.length === 3 ? (praCima ? [180, 135, 90] : [180, 225, 270]) : (praCima ? [165, 105] : [195, 255]);
+  abrirRadial(el, itens, angs, 58, false);
+  RADIAL.dia = dia;
+}
+function ligaFab(){
+  const el = $('#fabCriar');
+  $('#fabMain').onclick = ev=>{
+    ev.stopPropagation();
+    if(RADIAL && RADIAL.el===el){ fecharRadial(); return; }
+    const itens = [
+      { rot:'Post avulso (sem dia, vai pro banco)', ic:'pencil', f:()=> openEdit(null, null) },
+      { rot:'Post feito no MKT Hub (sem dia)', ic:'hub', cor:'var(--indigo)', corOn:'#fff', f:()=> openEdit(null, null, {modo:'hub'}) },
+    ];
+    if(S.aba==='SEUBONÉ' && S.matrizSB) itens.push({ rot:'Matriz: preencher os dias vazios do mês', ic:'calmz', cor:'var(--mz)', corOn:'#000', f:gerarMatrizMes });
+    abrirRadial(el, itens, itens.length === 3 ? [180, 135, 90] : [165, 105], 76, true);
+  };
+}
+// fecha no clique fora, no Esc, ao rolar e ao redimensionar; 1, 2, 3 escolhem
+document.addEventListener('pointerdown', ev=>{ if(RADIAL && !RADIAL.el.contains(ev.target)) fecharRadial(); }, true);
+document.addEventListener('keydown', ev=>{
+  if(!RADIAL) return;
+  if(ev.key==='Escape'){ ev.stopImmediatePropagation(); ev.preventDefault(); fecharRadial(); return; }
+  if(/^[1-9]$/.test(ev.key) && !ev.ctrlKey && !ev.metaKey && !ev.altKey){
+    const it = RADIAL.itens[+ev.key - 1];
+    if(it){ ev.stopImmediatePropagation(); ev.preventDefault(); fecharRadial(); it.f(); }
+  }
+}, true);
+window.addEventListener('scroll', ()=>{ if(RADIAL && !RADIAL.fab) fecharRadial(); }, true);
+window.addEventListener('resize', ()=> fecharRadial());
+
+// ---- leque do topo: no toque, o 1º toque abre e o 2º escolhe; Esc fecha ----
+function ligaLeque(){
+  const lq = $('#leque');
+  let abriuEm = 0;
+  lq.addEventListener('pointerdown', ev=>{
+    if(ev.pointerType==='mouse' || lq.classList.contains('aberto')) return;
+    lq.classList.add('aberto'); abriuEm = Date.now();
+  });
+  document.addEventListener('pointerdown', ev=>{ if(!lq.contains(ev.target)) lq.classList.remove('aberto'); }, true);
+  lq.addEventListener('click', ev=>{
+    if(Date.now() - abriuEm < 450){ ev.stopPropagation(); ev.preventDefault(); return; }   // no toque, o 1º toque só abre o leque
+    setTimeout(()=> lq.classList.remove('aberto'), 0);
+  }, true);
+  lq.addEventListener('keydown', ev=>{ if(ev.key==='Escape'){ lq.classList.remove('aberto'); document.activeElement.blur(); } });
+}
+
+// ---- atalhos: os links que o time mais abre, no canto de baixo à esquerda ----
+const ATALHOS = [
+  { rot:'MKT Hub', url:'https://www.mkthub.space/', ic:'hub', cor:'var(--indigo)', x:0, y:-66 },
+  { rot:'Drive do time', url:'https://drive.google.com/drive/u/1/folders/0AKYL6zfAQ4UDUk9PVA', ic:'folder', cor:'var(--green)', corOn:'#000', x:47, y:-47 },
+  { rot:'Instagram', url:'https://www.instagram.com/', ic:'camera', cor:'var(--pink)', x:66, y:0 },
+  { rot:'SB Clips', url:'https://sbclips.space/', ic:'film', cor:'var(--orange)', corOn:'#000', x:31, y:-114 },
+  { rot:'App da Amplify', url:'https://main.d3hftfru0l307a.amplifyapp.com/', ic:'apps', cor:'var(--teal)', corOn:'#000', x:83, y:-83 },
+  { rot:'Área de membros da Carbone', url:'https://membros.carboneeducacao.com.br/concierge/inicio', ic:'capelo', cor:'#F2F2EC', corOn:'#000', x:114, y:-31 },
+];
+function montaAtalhos(){
+  const nav = $('#atalhos');
+  ATALHOS.forEach((a, i)=>{
+    const l = document.createElement('a');
+    l.className = 'at-it'; l.href = a.url; l.target = '_blank'; l.rel = 'noopener';
+    l.style.setProperty('--x', a.x+'px'); l.style.setProperty('--y', a.y+'px'); l.style.setProperty('--d', (i*0.04)+'s');
+    l.style.setProperty('--c', a.cor); if(a.corOn) l.style.setProperty('--c-on', a.corOn);
+    l.dataset.tip = a.rot; l.setAttribute('aria-label', a.rot+' (abre em outra aba)');
+    l.innerHTML = icon(a.ic);
+    nav.appendChild(l);
+  });
+  const main = $('#atMain');
+  main.onclick = ev=>{ ev.stopPropagation(); const ab = nav.classList.toggle('aberto'); main.setAttribute('aria-expanded', ab ? 'true' : 'false'); };
+  document.addEventListener('pointerdown', ev=>{ if(!nav.contains(ev.target)){ nav.classList.remove('aberto'); main.setAttribute('aria-expanded','false'); } }, true);
+  nav.addEventListener('keydown', ev=>{ if(ev.key==='Escape'){ nav.classList.remove('aberto'); document.activeElement.blur(); } });
+}
+
 $('#btnUso').onclick = abrirUsoPop;
 
 // ================= topo =================
@@ -2937,18 +3034,11 @@ $('#drBusca').addEventListener('input', ev=>{ S.busca = ev.target.value.trim().t
 dropZone($('#drawer'), ()=>null);
 
 // menu "mais" e balão de atalhos
-(function(){
-  const wrap = $('#maiswrap');
-  $('#btnMais').onclick = (ev)=>{ ev.stopPropagation(); fecharAjuda(); fecharUsoPop(); wrap.classList.toggle('open'); };
-  document.addEventListener('click', ev=>{ if(!wrap.contains(ev.target)) wrap.classList.remove('open'); });
-  // fecha o menu ao escolher uma ação (o próprio handler de cada botão faz o resto)
-  $('#maismenu').addEventListener('click', ()=> wrap.classList.remove('open'));
-})();
 function fecharAjuda(){ const p=document.getElementById('ajudapop'); if(p) p.remove(); }
 $('#btnAjuda').onclick = (ev)=>{
   ev.stopPropagation();
   if(document.getElementById('ajudapop')){ fecharAjuda(); return; }
-  $('#maiswrap').classList.remove('open'); fecharUsoPop();
+  fecharUsoPop(); fecharRadial();
   const r = ev.currentTarget.getBoundingClientRect();
   const p = document.createElement('div');
   p.className = 'ajudapop'; p.id = 'ajudapop';
@@ -2958,6 +3048,7 @@ $('#btnAjuda').onclick = (ev)=>{
     '<div><kbd>Alt</kbd> + arrasta: <b>copia</b> o card</div>'+
     '<div><kbd>Shift</kbd> + arrasta: <b>reajusta</b> a sequência</div>'+
     '<div><b>Clique</b> num card: abre as artes</div>'+
+    '<div><b>+</b> do dia: criar ali (<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> escolhem) · <b>+</b> do canto: criar sem dia</div>'+
     '<div><kbd>1</kbd> a <kbd>4</kbd>: troca de empresa · <kbd>[</kbd> <kbd>]</kbd>: anterior e próxima</div>'+
     '<div><kbd>Ctrl</kbd> + <kbd>Z</kbd>: desfaz · <kbd>Ctrl</kbd> + <kbd>,</kbd>: configurações</div>';
   document.body.appendChild(p);
@@ -3191,7 +3282,6 @@ document.addEventListener('keydown', ev=>{
   if(abertos.length) return abertos.forEach(o=>o.classList.remove('open'));
   if(document.getElementById('usopop')) return fecharUsoPop();
   if(document.getElementById('ajudapop')) return fecharAjuda();
-  if($('#maiswrap').classList.contains('open')) return $('#maiswrap').classList.remove('open');
   if(S.clip) return limparClip();
   if(S.selecao.size) return limparSelecao();
   if(S.drawer){ S.drawer=false; renderDrawer(); }
@@ -3352,13 +3442,14 @@ setInterval(()=>{
 function initIcons(){
   $('#mPrev').innerHTML = icon('chevL');
   $('#mNext').innerHTML = icon('chevR');
-  $('#btnMzGerar').innerHTML = icon('sparkle') + 'Matriz: preencher o mês';
-  $('#btnMzGerar').onclick = gerarMatrizMes;
-  $('#btnDrawer').innerHTML = icon('box') + 'Bancos <span class="n" id="drawerN">0</span>';
-  $('#btnDocs').innerHTML = icon('doc') + 'Docs';
-  $('#btnMais').innerHTML = icon('dots') + 'Mais';
+  $('#btnDrawer').innerHTML = icon('box');
+  $('#btnDocs').innerHTML = icon('doc') + '<span class="lq-dot"></span>';
+  $('#fabMain').innerHTML = icon('plus');
+  $('#atMain').innerHTML = icon('share');
+  $('#mzEditar').innerHTML = icon('pencil');
+  montaAtalhos(); ligaLeque(); ligaFab();
   $('#btnAjuda').innerHTML = icon('help');
-  $('#btnConfig').innerHTML = icon('gear') + 'Configurações…';
+  $('#btnConfig').innerHTML = icon('gear');
   desenhaBotaoModo(); $('#btnModo').onclick = trocarModo;
   $('#btnMute .ic-ring').innerHTML = icon('sino');
   $('#btnMute .ic-silent').innerHTML = icon('sinoOff');
