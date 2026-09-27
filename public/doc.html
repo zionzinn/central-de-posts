@@ -301,7 +301,6 @@
     <div class="gd-pres" id="pres"></div>
     <button class="gd-btn cinza" id="bMatriz" title="rever o que foi preenchido na matriz deste post (Ctrl+Alt+M)"></button>
     <button class="gd-btn" id="bLegenda" title="copia o texto limpo, com as quebras de linha certas, pronto pra colar no Instagram (Ctrl+Alt+C). Se tiver um trecho selecionado, copia só ele."></button>
-    <button class="gd-btn share" id="bClickup"></button>
     <button class="gd-x" id="bFechar" title="fechar e voltar pro painel (salva antes)"></button>
   </div>
 </header>
@@ -812,8 +811,6 @@ async function carregar(){
     LEITURA = true; page.contentEditable = 'false'; page.classList.add('leitura');
     faixa('lixeira', 'Este documento está na lixeira. Pra editar, restaure.', [{r:'Restaurar', forte:true, f: async ()=>{ await api('/api/docs/'+DOC_ID+'/restaurar',{method:'POST'}); location.reload(); }}], 'verm');
   }
-  $('#bClickup').disabled = !(D.post && D.post.taskId);
-  $('#bClickup').title = D.post && D.post.taskId ? 'manda a copy pra descrição da task no ClickUp (seção COPY no fim; o briefing que já está lá continua)' : 'este post ainda não tem task no ClickUp: cole ou crie a task no painel e volte aqui';
   $('#carregando').remove();
   presenca();
   // abre com o cursor no começo, igual abrir um documento
@@ -852,7 +849,7 @@ $('#titulo').addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key==='Esc
 $('#titulo').addEventListener('blur', ()=>{ if(!$('#titulo').value.trim()){ $('#titulo').value='Documento sem título'; ajustaTitulo(); mudou(); } });
 
 // ======================================================================
-// Texto limpo (legenda), contagem, markdown (ClickUp)
+// Texto limpo (legenda) e contagem
 // ======================================================================
 /** Texto puro com as quebras de linha certas: parágrafo = linha, lista vira "• " ou "1. ". */
 function textoPlano(root){
@@ -906,65 +903,6 @@ function desenhaContagem(){
 }
 $('#count').onclick = ()=> dialogoContagem();
 
-/** HTML da folha -> markdown (o ClickUp lê markdown na descrição). */
-function markdown(root){
-  const ehNegrito = el => /^(B|STRONG)$/.test(el.tagName) || /^(bold|[6-9]00)$/.test(el.style.fontWeight);
-  const ehItalico = el => /^(I|EM)$/.test(el.tagName) || el.style.fontStyle==='italic';
-  const ehRiscado = el => /^(S|STRIKE|DEL)$/.test(el.tagName) || /line-through/.test(el.style.textDecoration||el.style.textDecorationLine||'');
-  function envolve(txt, m){ const a=txt.match(/^\s*/)[0], z=txt.match(/\s*$/)[0], meio=txt.trim(); return meio ? a+m+meio+m+z : txt; }
-  function inline(n){
-    if(n.nodeType===3) return n.data.replace(/\n/g,' ').replace(/([*_~`\\])/g,'\\$1');
-    if(n.nodeType!==1) return '';
-    const t = n.tagName;
-    if(t==='BR') return '\n';
-    if(t==='IMG') return '![]('+n.getAttribute('src')+')';
-    let s = [...n.childNodes].map(inline).join('');
-    if(t==='A'){ const h=n.getAttribute('href')||''; return h && h!=='#' ? '['+s+']('+h+')' : s; }
-    if(ehNegrito(n)) s = envolve(s, '**');
-    if(ehItalico(n)) s = envolve(s, '*');
-    if(ehRiscado(n)) s = envolve(s, '~~');
-    return s;
-  }
-  const out = [];
-  function lista(el, prof){
-    let i = 1;
-    for(const li of el.children){
-      if(li.tagName!=='LI') continue;
-      const pre = '    '.repeat(prof) + (el.tagName==='OL' ? (i++)+'. ' : (el.classList.contains('chk') ? '- ['+(li.getAttribute('data-checked')==='1'?'x':' ')+'] ' : '- '));
-      const sub = [...li.childNodes].filter(c=>c.nodeType===1 && /^(UL|OL)$/.test(c.tagName));
-      const txt = [...li.childNodes].filter(c=>!sub.includes(c)).map(inline).join('').trim();
-      out.push(pre + txt);
-      sub.forEach(s=>lista(s, prof+1));
-    }
-  }
-  function bloco(n){
-    if(n.nodeType===3){ if(n.data.trim()) out.push(inline(n)); return; }
-    if(n.nodeType!==1) return;
-    const t = n.tagName;
-    if(t==='UL' || t==='OL'){ lista(n, 0); out.push(''); return; }
-    if(t==='HR'){ out.push('---', ''); return; }
-    if(t==='BLOCKQUOTE'){ const antes=out.length; [...n.childNodes].forEach(bloco); for(let k=antes;k<out.length;k++) if(out[k]) out[k]='> '+out[k]; return; }
-    if(t==='TABLE'){
-      const linhas = [...n.querySelectorAll('tr')].map(tr=>[...tr.children].map(td=>[...td.childNodes].map(inline).join(' ').replace(/\|/g,'\\|').replace(/\n/g,' ').trim()));
-      if(!linhas.length) return;
-      const nc = Math.max(...linhas.map(l=>l.length));
-      linhas.forEach((l,k)=>{ while(l.length<nc) l.push(''); out.push('| '+l.join(' | ')+' |'); if(k===0) out.push('|'+' --- |'.repeat(nc)); });
-      out.push(''); return;
-    }
-    const txt = [...n.childNodes].map(inline).join('');
-    if(!txt.trim()){ out.push(''); return; }
-    let pre = '';
-    if(n.classList.contains('title') || t==='H1') pre = '# ';
-    else if(n.classList.contains('subtitle') || t==='H2') pre = '## ';
-    else if(t==='H3') pre = '### ';
-    out.push(pre + txt.trim(), '');
-  }
-  [...root.childNodes].forEach(bloco);
-  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-}
-</script>
-<script>
-'use strict';
 // ======================================================================
 // Menus (barra de menus e listas da barra de ferramentas)
 // ======================================================================
@@ -1186,7 +1124,6 @@ const MENUS = {
       {r:'Microsoft Word (.docx)', f:baixarDocx}, {r:'Documento PDF (.pdf)', f:baixarPdf},
       {r:'Texto simples (.txt)', f:baixarTxt}, {r:'Página da web (.html)', f:baixarHtml}]},
     {r:'Copiar legenda pro Instagram', ic:'copiar', k:'Ctrl+Alt+C', f:copiarLegenda},
-    {r:'Mandar pro ClickUp', ic:'enviar', f:mandarClickup, dis:()=>!(D && D.post && D.post.taskId)},
     '-',
     {r:'Renomear', ic:'lapis', f:()=>{ $('#titulo').focus(); $('#titulo').select(); }},
     {r:'Histórico de versões', ic:'hist', k:'Ctrl+Alt+Shift+H', f:dialogoVersoes},
@@ -1498,8 +1435,8 @@ function montaLateral(){
     h += '<div class="sb-sub" style="margin-top:14px">Este post não veio da matriz.</div>';
   }
   if(p){
-    h += '<div class="sb-sec">Post no painel</div>'+row('Conta', p.contaNome)+row('Dia', p.date ? dataBr(p.date) : 'sem dia (banco)')+row('Título no painel', p.titulo)+row('Formato', p.formato)+row('Status no ClickUp', p.status)+row('Responsável', p.responsavel)+row('Observação', p.obs)+
-      (p.taskId ? '<div class="sb-row"><span class="l">Task</span><span class="v"><a href="https://app.clickup.com/t/'+esc(p.taskId)+'" target="_blank" rel="noopener">abrir no ClickUp</a></span></div>' : row('Task no ClickUp', ''));
+    h += '<div class="sb-sec">Post no painel</div>'+row('Conta', p.contaNome)+row('Dia', p.date ? dataBr(p.date) : 'sem dia (banco)')+row('Título no painel', p.titulo)+row('Formato', p.formato)+row('Status da task', p.status)+row('Responsável', p.responsavel)+row('Observação', p.obs)+
+      (linkDaTask(p) ? '<div class="sb-row"><span class="l">Task de produção</span><span class="v"><a href="'+esc(linkDaTask(p))+'" target="_blank" rel="noopener">abrir a task</a></span></div>' : row('Task de produção', ''));
   } else h += '<div class="sb-sub" style="margin-top:14px">O post deste documento foi excluído do painel. O texto continua aqui.</div>';
   $('#sideBody').innerHTML = h;
   $$('#sideBody .cp').forEach(x=> x.onclick = async ()=>{ await copiaTexto(x.dataset.v); toast('Copiado.'); });
@@ -1538,7 +1475,7 @@ $('#sideFechar').onclick = ()=> abreLateral();
 $('#bMatriz').onclick = ()=> abreLateral();
 
 // ======================================================================
-// Copiar legenda, mandar pro ClickUp, baixar, lixeira
+// Copiar legenda, baixar, lixeira
 // ======================================================================
 async function copiaTexto(t){
   try{ await navigator.clipboard.writeText(t); return true; }
@@ -1550,21 +1487,8 @@ async function copiarLegenda(){
   const ok = await copiaTexto(txt); const n = [...txt].length;
   toast((ok ? 'Legenda copiada' : 'Não consegui copiar')+(sel?' (só o trecho selecionado)':'')+' · '+n.toLocaleString('pt-BR')+' caracteres'+(n>LIMITE_IG?' · passou do limite de 2.200 do Instagram':''));
 }
-async function mandarClickup(){
-  if(!(D.post && D.post.taskId)) return toast('Este post ainda não tem task no ClickUp. Cole ou crie a task no painel e volte aqui.');
-  const md = markdown(page).replace(/​/g,'');
-  if(!md.trim()) return toast('O documento está vazio.');
-  const ok = await pergunta('Mandar a copy pro ClickUp?',
-    '<p style="margin-top:0">O texto vai pra <b>descrição da task</b> <i>'+esc(D.post.titulo||D.post.taskId)+'</i>, numa seção <b>COPY (escrita no B.O.N.E)</b> no fim. O briefing que já está lá continua igual.</p>'+
-    '<p>Se você já tinha mandado antes, a seção antiga é trocada por esta. Negrito, itálico, listas, links e tabelas vão junto; cor e fonte não (o ClickUp não guarda isso). No painel, Ctrl+Z desfaz.</p>', 'Mandar', 'Cancelar');
-  if(!ok) return;
-  await salvarAgora();
-  try{
-    const r = await api('/api/docs/'+DOC_ID+'/clickup', { method:'POST', body: JSON.stringify({ markdown: md, por: EU }) });
-    toast('Copy enviada pra descrição da task.', { r:'Abrir no ClickUp', href:r.url });
-    avisaPai('clickup');
-  }catch(e){ toast('Não foi: '+esc(e.message)); }
-}
+/** Link da task de produção: o que foi colado no painel (MKT Hub ou outro) ou, nos posts antigos, a task do ClickUp. */
+function linkDaTask(p){ return (p && (p.taskUrl || (p.taskId && /^[a-z0-9]+$/i.test(p.taskId) && !/^L[0-9a-f]{10}$/.test(p.taskId) ? 'https://app.clickup.com/t/'+p.taskId : ''))) || ''; }
 async function excluirDoc(){
   const ok = await pergunta('Mover pra lixeira?', 'O documento sai do card e da lista. Nada é apagado de verdade: dá pra restaurar pela lista de documentos (Excluídos).', 'Mover pra lixeira', 'Cancelar');
   if(!ok) return;
@@ -1747,8 +1671,6 @@ window.addEventListener('resize', ajustaTitulo);
 montaToolbar(); desenhaIndicadoresCor();
 $('#bLegenda').innerHTML = ic('copiar')+'<span class="rot">Copiar legenda</span>';
 $('#bLegenda').onclick = copiarLegenda;
-$('#bClickup').innerHTML = ic('enviar')+'<span class="rot">Mandar pro ClickUp</span>';
-$('#bClickup').onclick = mandarClickup;
 $('#bFechar').innerHTML = ic('x'); $('#bFechar').title = EMBUTIDO ? 'fechar e voltar pro painel (salva antes)' : 'fechar';
 $('#bFechar').onclick = fechar;
 $('#sideFechar').innerHTML = ic('x');

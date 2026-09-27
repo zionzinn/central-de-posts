@@ -26,7 +26,6 @@
     </div>
     <div class="topright">
       <div class="presenca" id="presenca"></div>
-      <button class="sync" id="btnRefresh" data-tip="Atualizar os status do ClickUp agora"></button>
       <button class="usocap ok" id="btnUso" aria-haspopup="dialog" hidden></button>
       <label class="mute" id="btnMute" data-tip="Silenciar os avisos (site e Windows)">
         <input type="checkbox" class="mute-chk" id="muteChk" aria-label="Silenciar avisos">
@@ -53,18 +52,13 @@
     <div class="acoes">
     <button class="act" id="btnDrawer" data-tip="Abrir os bancos: sem data, criativos, reutilizáveis e referências"></button>
     <button class="act" id="btnDocs" data-tip="Ver todos os documentos de copy do painel"></button>
-    <button class="act" id="btnRelatorio" data-tip="Copiar o relatório da semana: a sair, esperando a Maria e prontos"></button>
     <div class="maiswrap" id="maiswrap">
       <button class="act act-mais" id="btnMais" data-tip="Mais ações"></button>
       <div class="maismenu" id="maismenu">
         <button id="btnPauta" data-tip="Copiar o link ao vivo da pauta só desta conta (abre sem login)"></button>
         <button id="btnPautaTodas" data-tip="Copiar o link ao vivo da pauta com todas as contas (pro time)"></button>
-        <div class="msep" role="separator"></div>
+        <div class="msep" role="separator" id="sepMz"></div>
         <button id="btnMzGerar" data-tip="Criar o card da matriz em cada dia vazio do mês, com o tipo do dia"></button>
-        <button id="btnMzXlsx" data-tip="Baixar a matriz do mês numa planilha igual à do time"></button>
-        <div class="msep" role="separator"></div>
-        <button id="btnImportar" data-tip="Colar vários links do ClickUp e espalhar num dia da semana"></button>
-        <button id="btnExportar" data-tip="Gerar um arquivo HTML da semana pra outras pessoas verem"></button>
         <div class="msep" role="separator"></div>
         <button id="btnConfig">Configurações…</button>
       </div>
@@ -90,7 +84,6 @@
   <div class="grid" id="grid"></div>
 </main>
 
-<button id="aplicarBtn" class="aplicar-btn" data-tip="Gravar a data de confecção no ClickUp (só pendente e alterar)"></button>
 
 <div id="selbar">
   <button id="selLimpar" data-tip="Limpar seleção (Esc)" aria-label="Limpar seleção"></button>
@@ -109,15 +102,6 @@
   <div class="mhead">
     <div class="mtit" id="tTit"></div>
     <div class="mrow" id="tRow"></div>
-    <div id="alterBox" style="display:none; margin-top:10px">
-      <textarea id="alterTxt" placeholder="descreva a alteração… (vira comentário na task e ela vai pra ALTERAR)"
-        style="width:100%; min-height:64px; border:1.5px solid var(--hair); border-radius:8px; background:var(--surface-2); padding:10px 12px; font-size:13px; resize:vertical"></textarea>
-      <div style="display:flex; gap:8px; margin-top:8px; align-items:center">
-        <button class="mbtn critbtn" id="alterEnviar">Enviar pro ClickUp</button>
-        <button class="mbtn" id="alterCancelar">cancelar</button>
-        <span class="note" id="alterMsg"></span>
-      </div>
-    </div>
   </div>
   <div class="mtabs" id="tTabs">
     <button class="mtab on" data-t="arquivos">Arquivos</button>
@@ -141,20 +125,15 @@
     <!-- PASSO 1 (só post novo): como esse post vai nascer? -->
     <div class="escolha" id="eEscolha">
       <div class="eopcs">
-        <button type="button" class="eopc" data-modo="link">
-          <span class="eic" data-ic="link"></span>
-          <span class="etx"><b>Já tenho a task no ClickUp</b><small>Cole o link. Nome, status e responsável vêm sozinhos.</small></span>
-          <span class="ekey">1</span>
-        </button>
-        <button type="button" class="eopc" data-modo="clickup">
-          <span class="eic" data-ic="plus"></span>
-          <span class="etx"><b>Criar a task agora</b><small>O painel cria a task no ClickUp em PENDENTE, com responsável e briefing.</small></span>
-          <span class="ekey">2</span>
-        </button>
         <button type="button" class="eopc mz" data-modo="matriz" id="eOpcMz">
           <span class="eic" data-ic="sparkle"></span>
           <span class="etx"><b>Planejar na matriz</b><small id="eOpcMzSub">Card amarelo pra copywriter preencher. A task vem depois.</small></span>
-          <span class="ekey">3</span>
+          <span class="ekey">1</span>
+        </button>
+        <button type="button" class="eopc" data-modo="link">
+          <span class="eic" data-ic="link"></span>
+          <span class="etx"><b>Post avulso</b><small>Título, dia e o link da task de produção, se já tiver.</small></span>
+          <span class="ekey">2</span>
         </button>
       </div>
     </div>
@@ -166,7 +145,7 @@
     </div>
     <!-- guarda: campos que o caminho atual não usa ficam aqui, escondidos -->
     <div id="eGuarda" hidden>
-      <div id="eLinkWrap"><label>Link da task no ClickUp</label><input id="eTask" placeholder="https://app.clickup.com/t/..." autocomplete="off">
+      <div id="eLinkWrap"><label>Link da task de produção</label><input id="eTask" placeholder="https://… (MKT Hub ou outro sistema)" autocomplete="off">
         <p class="note ehint" id="eLinkHint">Sem o link ainda? Pode salvar assim e colar depois.</p></div>
       <div id="eContaWrap"><label>Conta</label><div class="echips" id="eContaChips"></div><select id="eConta" hidden></select></div>
       <div id="eDataWrap"><label>Dia do post</label>
@@ -175,11 +154,7 @@
         <select id="eFormato" hidden>
           <option value="">definir depois</option><option>reels</option><option>carrossel</option><option>estático</option><option>story</option><option>corte de podcast</option><option>vídeo médio</option><option>vídeo de anúncio</option>
         </select></div>
-      <div id="eTituloWrap"><label id="eTituloLbl">Título</label><input id="eTitulo" placeholder="ex.: Reels case cliente X" autocomplete="off">
-        <p class="note ehint" id="eCuNota">Nome no ClickUp: <b id="eCuNome">…</b></p></div>
-      <div id="eRespWrap"><label>Quem faz</label><div class="echips" id="eRespChips"></div><select id="eResp" hidden><option value="">sem responsável</option></select>
-        <p class="note ehint" id="eCuSub"></p></div>
-      <div id="eBriefWrap"><label>Briefing <span class="elbl2">vira a descrição da task</span></label><textarea id="eBrief" rows="4" placeholder="o que é o post, gancho, referências, o que não pode faltar…"></textarea></div>
+      <div id="eTituloWrap"><label id="eTituloLbl">Título</label><input id="eTitulo" placeholder="ex.: Reels case cliente X" autocomplete="off"></div>
       <div id="eGmWrap">
         <label class="echk"><input type="checkbox" id="eGm"><span>Este post tem <b>grande marca na capa</b> (GM)</span></label>
       </div>
@@ -187,7 +162,6 @@
       <div id="eDriveWrap"><label>Drive / referência</label><input id="eDrive" placeholder="https://drive.google.com/... ou link do Instagram"></div>
       <div id="eCollabWrap"><label>Collab <span class="elbl2">aparece também na aba da conta parceira</span></label><div id="eCollab" style="display:flex; gap:6px; flex-wrap:wrap"></div></div>
       <div id="eObsWrap"><label>Observação</label><textarea id="eObs" rows="2"></textarea></div>
-      <input type="checkbox" id="eCu" hidden>
     </div>
   </div>
   <div class="mfoot" id="eFoot">
@@ -200,25 +174,18 @@
 <!-- modal config -->
 <div class="ov" id="ovConfig"><div class="modal" style="position:relative">
   <button class="mclose" data-close="ovConfig">✕</button>
-  <div class="mhead"><div class="mtit">Conexão com o ClickUp</div></div>
+  <div class="mhead"><div class="mtit">Configurações</div></div>
   <div class="mbody">
     <div class="f">
       <div>
-        <label>Token pessoal da API</label>
-        <input type="password" id="cToken" placeholder="pk_...">
-      </div>
-      <p class="note">Onde pegar: ClickUp → seu avatar → <b>Settings</b> → <b>Apps</b> → <b>API Token</b> → Generate/Copy.<br>
-      O token fica salvo <b>somente neste computador</b> (config.json na pasta do painel). Não compartilhe e não cole em chats.</p>
-      <div id="cStatus" class="note"></div>
-      <div style="border-top:var(--bw) solid var(--hair); margin:8px 0 2px"></div>
-      <div>
-        <label>Senha de acesso (pra abrir pra Maria pelo túnel)</label>
+        <label>Senha de acesso</label>
         <input type="password" id="cSenha" placeholder="deixe em branco pra não mexer">
       </div>
       <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer; margin-top:2px">
         <input type="checkbox" id="cSemLogin" style="width:15px; height:15px"> desativar o login (acesso livre; só se o painel NÃO estiver exposto)
       </label>
       <p class="note">Com senha definida, quem abrir o link precisa dela pra entrar. <b>Nunca deixe o painel exposto sem senha.</b> <span id="cLoginState"></span></p>
+      <div id="cStatus" class="note"></div>
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
       <div class="wpp-tit">GM automático da SeuBoné (estrela a cada N dias)</div>
       <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer">
@@ -230,7 +197,7 @@
       </div>
       <p class="note">A estrela aparece sozinha a cada N dias contando <b>a partir da última grande marca que você marcou</b> (3 = "2 dias sem, 1 com"). Quando você marca um novo post como GM, as próximas se recalculam sozinhas a partir dele. O campo acima é só o ponto de partida (o último GM antes do sistema). Vale só na SeuBoné. <span id="gmEstado"></span></p>
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
-      <div class="wpp-tit">Aviso quando uma task vai pra APROVAR ou pra ALTERAR</div>
+      <div class="wpp-tit">Aviso quando uma task vai pra aprovar ou pra alterar</div>
       <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer">
         <input type="checkbox" id="nAtivo" style="width:15px; height:15px"> avisar (faixa no topo + título da aba piscando)
       </label>
@@ -242,25 +209,8 @@
         <button class="mbtn" id="nTestar">Testar o aviso</button>
         <span class="note" id="nEstado"></span>
       </div>
-      <p class="note">Entrou em <b>APROVAR</b>: aviso amarelo. Entrou em <b>ALTERAR</b> (pela pauta ou direto no ClickUp): aviso com o motivo e quem pediu. O que você mesmo move pelo painel não avisa.</p>
+      <p class="note">Entrou em <b>aprovar</b>: aviso amarelo. Entrou em <b>alterar</b>: aviso com o motivo e quem pediu. Os status das tasks voltam a chegar sozinhos quando o painel for ligado ao MKT Hub.</p>
       <p class="note">A notificação do Windows aparece no canto da tela e fica na central de notificações, mesmo com o painel minimizado ou atrás de outra janela. Precisa do painel <b>aberto em alguma aba</b>. Pra virar app com ícone na barra de tarefas: no Chrome, ícone de instalar na barra de endereço, ou menu <b>⋮ → Transmitir, salvar e compartilhar → Instalar página como app</b>.</p>
-      <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
-      <div class="wpp-tit">Também mandar no WhatsApp (opcional)</div>
-      <div id="cZapiEstado" class="note"></div>
-      <div class="wpp-grid">
-        <div><label>Instância (Z-API)</label><input type="password" id="zInst" placeholder="deixe em branco pra não mexer"></div>
-        <div><label>Token da instância</label><input type="password" id="zTok" placeholder="deixe em branco pra não mexer"></div>
-        <div><label>Client-Token (conta)</label><input type="password" id="zCli" placeholder="opcional, se a sua conta exigir"></div>
-        <div><label>Seu número com DDI</label><input type="text" id="zDest" placeholder="5584999999999"></div>
-      </div>
-      <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer; margin-top:8px">
-        <input type="checkbox" id="zLigado" style="width:15px; height:15px" checked> avisos ligados
-      </label>
-      <p class="note">Use a mesma instância que já roda no MKT Hub. Só avisa quando o status <b>muda</b> pra aprovar, uma vez por task. O painel precisa estar no ar pra detectar: se o Render dormir, o aviso sai quando ele acordar.</p>
-      <div style="display:flex; gap:8px; align-items:center; margin-top:6px">
-        <button class="mbtn" id="zTeste">Enviar mensagem de teste</button>
-        <span class="note" id="zMsg"></span>
-      </div>
     </div>
   </div>
   <div class="mfoot" style="display:flex; justify-content:space-between; gap:8px"><button class="mbtn" id="cLogout">Sair da sessão</button><button class="mbtn primary" id="cSave">Salvar</button></div>
@@ -277,7 +227,6 @@
   <div class="mfoot"><button class="mbtn primary" id="loginBtn" style="width:100%">Entrar</button></div>
 </div></div>
 
-<!-- relatório do dia (texto pra copiar) -->
 <!-- card da MATRIZ da SeuBoné: a copywriter preenche aqui -->
 <div class="ov" id="ovMz"><div class="modal" style="position:relative">
   <button class="mclose" data-close="ovMz">✕</button>
@@ -333,7 +282,7 @@
   <div class="mfoot">
     <button class="mbtn primary" id="mzSalvar">Salvar</button>
     <button class="mbtn mzcopy" id="mzCopy" data-tip="Salvar a matriz e abrir o documento da copy deste post"></button>
-    <button class="mbtn" id="mzEditar" data-tip="Editar o post: mudar a data ou colar o link da task do ClickUp">Editar post / colar task</button>
+    <button class="mbtn" id="mzEditar" data-tip="Editar o post: mudar a data ou colar o link da task">Editar post / colar task</button>
     <button class="mbtn critbtn" id="mzExcluir">Excluir card</button>
     <span class="note" id="mzMsg"></span>
   </div>
@@ -369,74 +318,6 @@
     <button class="mbtn primary" id="arqBaixar">1. Baixar .zip</button>
   </div>
 </div></div>
-<div class="ov" id="ovRelatorio"><div class="modal" style="max-width:580px; position:relative">
-  <button class="mclose" data-close="ovRelatorio">✕</button>
-  <div class="mhead"><div class="mtit">Relatório da semana</div></div>
-  <div class="mbody"><pre id="relTxt" class="reltxt"></pre></div>
-  <div class="mfoot" style="display:flex; justify-content:space-between; align-items:center; gap:8px">
-    <span id="relMsg" class="note"></span>
-    <button class="mbtn primary" id="relCopiar">Copiar</button>
-  </div>
-</div></div>
-
-<div class="ov" id="ovExportar"><div class="modal" style="max-width:480px; position:relative">
-  <button class="mclose" data-close="ovExportar">✕</button>
-  <div class="mhead"><div class="mtit">Exportar a semana</div></div>
-  <div class="mbody"><p class="note" id="expMsg"></p></div>
-  <div class="mfoot" style="display:flex; justify-content:flex-end; align-items:center; gap:8px">
-    <button class="mbtn primary" id="expBaixar">Baixar arquivo HTML</button>
-  </div>
-</div></div>
-
-<!-- revisão pra aplicar datas no ClickUp -->
-<div class="ov apl" id="ovAplicar"><div class="modal">
-  <button class="mclose" data-close="ovAplicar">✕</button>
-  <div class="mhead"><div class="mtit">Aplicar datas no ClickUp</div><span class="aplic-move">✥ arraste pra mover</span></div>
-  <div class="mbody">
-    <p class="note">Os cards do calendário ficaram apagados. Passe o mouse numa linha pra achar o post (ele acende no calendário). Marque os que quer gravar a data de confecção no ClickUp e clique aplicar. Os desmarcados continuam pendentes (nada é escrito neles).</p>
-    <div id="aplicList" class="aplic-list"></div>
-  </div>
-  <div class="mfoot" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap">
-    <label class="aplic-todos"><input type="checkbox" id="aplicTodos"> marcar/desmarcar todos</label>
-    <div style="display:flex; gap:8px; align-items:center; margin-left:auto">
-      <button class="mbtn" id="aplicLimpar" data-tip="Tirar todas as datas da fila sem gravar nada no ClickUp">Limpar tudo</button>
-      <button class="mbtn primary" id="aplicConfirmar">Aplicar selecionados</button>
-    </div>
-  </div>
-</div></div>
-
-<!-- importar em lote -->
-<div class="ov" id="ovImportar"><div class="modal" style="max-width:660px; position:relative">
-  <button class="mclose" data-close="ovImportar">✕</button>
-  <div class="mhead"><div class="mtit">Importar posts em lote</div></div>
-  <div class="mbody">
-    <p class="note">Cole os links das tasks do ClickUp, um por linha. O painel distribui cada link num dia da semana, na ordem em que você colou, e cria os posts. Linha vazia é ignorada; link repetido no mesmo dia não duplica.</p>
-    <textarea id="impLinks" placeholder="https://app.clickup.com/t/9013450208/86aj...&#10;https://app.clickup.com/t/9013450208/86aj...&#10;..."></textarea>
-    <div class="improw">
-      <label>Como decidir o dia<select id="impModo">
-        <option value="entrega">pela data de entrega da task (recomendado)</option>
-        <option value="ordem">na ordem em que colei</option>
-      </select></label>
-    </div>
-    <div class="improw">
-      <label>Conta<select id="impConta"></select></label>
-      <label>Dia da semana<select id="impDia">
-        <option value="0">domingo</option><option value="1">segunda</option><option value="2">terça</option>
-        <option value="3">quarta</option><option value="4">quinta</option><option value="5">sexta</option>
-        <option value="6">sábado</option></select></label>
-      <label class="soordem">A partir de<input type="date" id="impDe"></label>
-      <label class="soordem">Por dia<input type="number" id="impPorDia" min="1" max="10" value="1"></label>
-    </div>
-    <label class="impchk soordem"><input type="checkbox" id="impPular" checked> pular os dias que já têm post desta conta</label>
-    <div id="impPreview" class="imppreview"></div>
-  </div>
-  <div class="mfoot" style="display:flex; justify-content:flex-end; gap:8px; align-items:center">
-    <span class="note" id="impMsg"></span>
-    <button class="mbtn" id="impConferir">Conferir no ClickUp</button>
-    <button class="mbtn primary" id="impCriar">Criar posts</button>
-  </div>
-</div></div>
-
 <!-- perfil (nome + ícone + cor), sem login ainda: fica salvo neste navegador -->
 <div class="ov" id="ovPerfil">
   <div class="pfwrap">
@@ -473,7 +354,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.76'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.77'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -523,7 +404,7 @@ function corTexto(hex){
 // ================= estado =================
 const $ = s => document.querySelector(s);
 const S = {
-  contas:{}, abas:[], slots:[], referencias:[], duePendentes:[], hasToken:false, user:null,
+  contas:{}, abas:[], slots:[], referencias:[], temFonte:false,   // temFonte: tasks ligadas ao MKT Hub (v3.78)
   aba:'SEUBONÉ', mes:null, // "2026-07" = mês em FOCO (o que está sob os olhos no fluxo)
   meses:[], crescendo:false, abriuNoMes:false, gmCadencia:null, // janela de meses desenhados no fluxo contínuo
   assinatura:'', // retrato do que está na tela, pra atualização automática não redesenhar à toa
@@ -602,29 +483,22 @@ async function loadState(fresh, silencioso){
   // assinatura barata do que aparece na tela: se nada mudou, o modo silencioso não redesenha
   // v3.70: a assinatura cobre o post INTEIRO (formato, GM, obs, matriz...) e as referências: mudança
   // feita por outra pessoa aparece no próximo ciclo de 20 s. Antes só o poll de 90 s (removido) pegava isso.
-  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.referencias||[]) + '#' + (j.duePendentes||[]).join(',');
+  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.referencias||[]);
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], duePendentes:j.duePendentes||[], hasToken:j.hasToken, user:j.user, temSenha:j.temSenha, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], temFonte:!!j.temFonte, temSenha:j.temSenha, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   mostraUso(j.uso);
   checarAprovacoes(S.slots);
-  if(mudou || !silencioso) render(); else renderRefLabel();
+  if(mudou || !silencioso) render();
   const b = $('#banner');
   if(j.versao !== FRONT_VERSAO){
     b.innerHTML = '<b>O painel foi atualizado e o servidor ainda roda a versão antiga.</b> Feche a janela preta, abra o INICIAR.bat de novo e aperte Ctrl+F5 aqui.';
     b.classList.add('show');
     return;
   }
-  if(!S.hasToken){
-    b.innerHTML = 'Status ao vivo desligado: cole seu token do ClickUp em <b id="bcfg">configurações</b> pra ver status, comentários e artes.';
-    b.classList.add('show');
-    document.getElementById('bcfg').onclick = ()=> openConfig();
-  } else if(j.enriquecimento && j.enriquecimento.ok===false){
-    b.textContent = 'ClickUp indisponível agora (' + (j.enriquecimento.motivo||'') + '). Mostrando o último retrato salvo.';
-    b.classList.add('show');
-  } else b.classList.remove('show');
+  b.classList.remove('show');
 }
 
 // ================= helpers =================
@@ -634,12 +508,12 @@ function slotTitulo(s){
   if(isMatriz(s)) return s.matrizSB.tema || ((s.matrizSB.tipo || 'Em aberto') + ' · a preencher');
   if(s.titulo) return s.titulo;
   if(s.tituloCache) return s.tituloCache;
-  if(s.origem==='banco') return s.taskId ? (s.obs || 'Task do ClickUp') : ('Reutilizar: ' + (s.obs || 'vídeo'));
+  if(s.origem==='banco') return s.taskId ? (s.obs || 'Task') : ('Reutilizar: ' + (s.obs || 'vídeo'));
   const c = S.contas[s.conta];
   return (s.formato? s.formato.charAt(0).toUpperCase()+s.formato.slice(1) : 'Post') + ' · ' + (c?c.nome:'');
 }
 // ---- BANCO POR CATEGORIA (hoje só a CARBONE usa) ----
-// O item do banco é uma FONTE: uma task do ClickUp que rende vários posts (ex.: uma
+// O item do banco é uma FONTE: uma task que rende vários posts (ex.: uma
 // gravação de conselho com N cortes). Arrastar pro dia DUPLICA (cria post novo com o
 // mesmo link) e a fonte CONTINUA no banco. Ela só sai quando você clica em concluído.
 const DOWS = ['SEG','TER','QUA','QUI','SEX','SÁB','DOM'];
@@ -660,12 +534,9 @@ function usosDaFonte(s){
 
 // ---- VAGA: "falta criar post [formato] neste dia" ----
 // Card marcado a dedo pra reservar o dia antes do post existir. Some sozinho quando você
-// cola a task do ClickUp nele (aí o post existe, não falta mais criar).
+// cola o link da task nele (aí o post existe, não falta mais criar).
 const VAGA_FORMATOS = ['estático','carrossel','reels'];
 function isVaga(s){ return !!s.vaga && !s.taskId; }
-function vagaTitulo(s){
-  return 'FALTA CRIAR: ' + ((s.formato||'post').toUpperCase());
-}
 // No ClickUp, "completo" quer dizer que a arte ficou pronta; pra quem posta, isso é
 // PUBLICAR. O painel mostra os dois com o mesmo rótulo e a mesma cor. O status real no
 // ClickUp não muda: isso é só leitura.
@@ -709,7 +580,7 @@ function stInfo(s){
     if(ehPublicar(s)) return {label:'publicar', color:COR_PUBLICAR};
     return {label:s.statusCache.status, color:s.statusCache.color};
   }
-  if(s.taskId) return {label:'sincronizando', color:'#8C897C'};
+  if(s.taskId) return {label:'sem status', color:'#8C897C'};
   return {label:'sem task', color:'#8C897C'};
 }
 // ---- v3.65 card essencial: 6 cores de status ----
@@ -780,8 +651,6 @@ function isGm(s){
   if(s.gm==='nao') return false;
   return gmCadenciaDia(s.date);
 }
-/** GM veio da cadência (não de um clique manual)? Pra mostrar a estrela mais discreta. */
-function gmAuto(s){ return s.conta==='seubone' && !s.gm && gmCadenciaDia(s.date); }
 /** Marcar GM SEMPRE vira confirmação ('sim' = nova âncora, recalcula as próximas).
     Desligar só precisa gravar 'nao' quando a cadência previa GM ali; senão limpa. */
 function gmOverride(s, quer){
@@ -797,16 +666,11 @@ function refIcon(url){
   if(u.includes('drive.google')) return 'folder';
   return 'link';
 }
-/** URLs do ClickUp exigem o token: passam pelo proxy do servidor. */
-function proxied(u){
-  if(!u) return u;
-  try{
-    const h = new URL(u).hostname;
-    if(h === 'clickup.com' || h.endsWith('.clickup.com') || h.endsWith('clickup-attachments.com'))
-      return '/api/img?u='+encodeURIComponent(u);
-  }catch(e){}
-  return u;
-}
+/** Endereço da arte pra mostrar. v3.77: sem proxy (as artes do MKT Hub vêm assinadas, direto do armazenamento). */
+function proxied(u){ return u; }
+/** Link da task de produção do post: o que foi colado (MKT Hub ou outro) ou, nos posts antigos, a task do ClickUp. */
+function linkDaTask(s){ return (s && (s.taskUrl || (s.taskId && /^[a-z0-9]+$/i.test(s.taskId) && !/^L[0-9a-f]{10}$/.test(s.taskId) ? 'https://app.clickup.com/t/'+s.taskId : ''))) || ''; }
+function nomeConta(k){ return (S.contas[k] && S.contas[k].nome) || k; }
 function matchBusca(txt){ return !S.busca || (txt||'').toLowerCase().includes(S.busca); }
 function slotMatch(s){ return matchBusca([slotTitulo(s), s.obs, s.formato, s.angulo, s.linkRef, s.drive].join(' ')); }
 // angulos: lista base + os que ja foram usados (pra sugerir no datalist; o Zion pode escrever um novo)
@@ -819,23 +683,6 @@ function angulosConhecidos(){
 // ---- semanas do mês (SEMANA 1 = linha que contém o dia 1) ----
 function monthRows(){ // legado: mantido como apelido de rowsDoMes(S.mes)
   return rowsDoMes(S.mes);
-}
-function monthRowsAntigo(){
-  const [y,m] = S.mes.split('-').map(Number);
-  const first = new Date(y, m-1, 1);
-  const lead = (first.getDay()+6)%7;
-  const nDays = new Date(y, m, 0).getDate();
-  const rows = Math.ceil((lead+nDays)/7);
-  const out = [];
-  for(let w=0; w<rows; w++){
-    const week = [];
-    for(let d=0; d<7; d++){
-      const dnum = w*7 + d - lead + 1;
-      week.push(dnum>=1 && dnum<=nDays ? { dnum, date: S.mes+'-'+String(dnum).padStart(2,'0') } : { dnum:null, date:null });
-    }
-    out.push(week);
-  }
-  return out;
 }
 function weekIndexOf(dateStr){
   const rows = rowsDoMes(dateStr.slice(0,7));
@@ -851,34 +698,7 @@ function weekRange(week){
   return a.slice(5,7)===b.slice(5,7) ? d(a)+' a '+d(b)+' '+m(b) : d(a)+' '+m(a)+' a '+d(b)+' '+m(b);
 }
 
-// ---- entrega (2 dias ÚTEIS antes do post) ----
-function dueEsperadoStr(dateStr){
-  const [y,m,d] = dateStr.split('-').map(Number);
-  let dt = new Date(Date.UTC(y, m-1, d, 12));
-  let faltam = 2;
-  while(faltam > 0){
-    dt = new Date(dt.getTime() - 86400000);
-    const dow = dt.getUTCDay();
-    if(dow !== 0 && dow !== 6) faltam--;
-  }
-  return dt.toISOString().slice(0,10);
-}
-function msLocalDateStr(ms){
-  const d = new Date(ms);
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
 function brData(iso){ return iso.split('-').reverse().slice(0,2).join('/'); }
-function dueDivergente(s){
-  if(!s.taskId || !s.date || s.dueCache==null) return null;
-  if((S.duePendentes||[]).includes(s.taskId)) return null;
-  // só gerenciamos a data de confecção de pendente/alterar; nas outras não sinalizamos divergência
-  const st = (s.statusCache && s.statusCache.status) || '';
-  if(st!=='pendente' && st!=='alterar') return null;
-  const esperado = dueEsperadoStr(s.date);
-  const real = msLocalDateStr(s.dueCache);
-  return real !== esperado ? { real, esperado } : null;
-}
-
 // ---- divergência de CONTA (nome da task no ClickUp x conta escolhida no painel) ----
 // O painel NUNCA troca a conta sozinho: quem decide é você. Aqui só sinalizamos quando o
 // nome da task grita uma conta diferente da que está no card, pra nada passar batido.
@@ -911,15 +731,6 @@ async function corrigirConta(s, sugerida){
     toast('Movido pra '+nomeConta(sugerida)+' · Ctrl+Z desfaz');
   }catch(e){ toast(e.message, true); }
 }
-function entregaTexto(s){
-  if(!s.taskId) return 'sem task vinculada';
-  const div = dueDivergente(s);
-  if(div) return brData(div.real)+' <span style="color:var(--warn)">ajustada manualmente no ClickUp</span> (o padrão seria '+brData(div.esperado)+'). Vale a data do ClickUp.';
-  if((S.duePendentes||[]).includes(s.taskId)) return brData(dueEsperadoStr(s.date))+' (vai pro ClickUp quando você clicar em Aplicar datas)';
-  if(s.dueCache!=null) return brData(msLocalDateStr(s.dueCache))+' (2 dias úteis antes do post)';
-  return brData(dueEsperadoStr(s.date))+' (padrão: 2 dias úteis antes)';
-}
-
 // ---- filtro por situação ----
 const FILTRO_GRUPOS = {
   pendentes: ['pendente','solicitado form','backlog'],
@@ -937,16 +748,7 @@ function passaFiltro(s){
   if(f==='vagas') return isVaga(s);
   if(f==='matriz') return isMatriz(s);
   if(f==='sugestoes') return isSugestao(s);
-  if(f==='atrasados'){
-    if(s.postado) return false;
-    const hoje = hojeStr();
-    if(s.date && s.date < hoje) return true;
-    if(s.taskId && s.date && !['publicar','completo'].includes(st)){
-      const due = s.dueCache!=null ? msLocalDateStr(s.dueCache) : dueEsperadoStr(s.date);
-      if(due < hoje) return true;
-    }
-    return false;
-  }
+  if(f==='atrasados') return !s.postado && !!s.date && s.date < hojeStr();
   const fb = FILTRO_ALIAS[f] || f;
   if(BUCKETS[fb]) return !isMatriz(s) && !isVaga(s) && !isSugestao(s) && stBucket(s)===fb;
   return !s.postado && (FILTRO_GRUPOS[f]||[]).includes(st);
@@ -970,15 +772,6 @@ function renderSelbar(){
   const n = S.selecao.size;
   $('#selbar').classList.toggle('on', n>0);
   if(n) $('#selN').textContent = n+' selecionado'+(n>1?'s':'');
-}
-// botão "Aplicar datas no ClickUp" (canto inferior esquerdo): só aparece quando há mudança de data pendente
-function renderAplicar(){
-  const btn = $('#aplicarBtn'); if(!btn) return;
-  const n = (S.duePendentes||[]).length;
-  const mostra = n>0 && S.hasToken;
-  btn.classList.toggle('on', mostra);
-  btn.disabled = false;
-  if(mostra) btn.innerHTML = icon('zap')+'Aplicar '+n+' data'+(n>1?'s':'')+' no ClickUp';
 }
 function diasSel(){
   let n = parseInt($('#selDias').value, 10);
@@ -1037,13 +830,8 @@ function render(){
   // e o painel ficaria preso em "arrastando" (clique não abre, atualização para, rolagem automática solta).
   if(S.dragging){ S._renderDepois = true; return; }
   S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba);
-  { const sb = S.aba==='SEUBONÉ'; const g=$('#btnMzGerar'), x=$('#btnMzXlsx'); if(g) g.hidden=!sb; if(x) x.hidden=!sb; }
-  renderTabs(); renderLegend(); renderDrawer(); renderGrid(); renderRefLabel(); renderAplicar(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); }
-
-function renderRefLabel(){
-  const el = $('#refLabel');
-  if(el) el.textContent = S.lastSync ? 'Atualizado ' + S.lastSync.toTimeString().slice(0,5) : 'Atualizar';
-}
+  { const sb = S.aba==='SEUBONÉ'; const g=$('#btnMzGerar'), sp=$('#sepMz'); if(g) g.hidden=!sb; if(sp) sp.hidden=!sb; }
+  renderTabs(); renderLegend(); renderDrawer(); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); }
 
 function renderTabs(){
   const el = $('#tabs'); el.innerHTML='';
@@ -1132,7 +920,6 @@ function cardEl(s){
   if(!mz && !vaga && !sug) d.style.setProperty('--cc', bk.cor);   // v3.75: fundo tingido + barrinha na cor do status
   d.draggable = true; d.dataset.id = s.id;
   const resp = s.assigneeCache || s.responsavelManual || (s.matrizSB && s.matrizSB.responsavel) || '';
-  const div = dueDivergente(s);
   const cdiv = contaDivergente(s);
   const clb = (s.collab||[]);
   if(S.selecao.has(s.id)) d.classList.add('sel');
@@ -1142,11 +929,10 @@ function cardEl(s){
     (isGm(s) && !mz?'<span class="mk t-gm" title="Grande marca na capa">'+icon('star')+'</span>':'')+
     (clb.length?'<span class="mk t-clb" title="Collab: '+esc([s.conta].concat(clb).map(c=>S.contas[c]?S.contas[c].nome:c).join(' + '))+'">'+
       [s.conta].concat(clb).map(c=>'<span class="cdot" style="background:'+contaCor(c)+'"></span>').join('')+'</span>':'')+
-    (div?'<span class="mk t-due" title="Entrega ajustada manualmente no ClickUp: '+brData(div.real)+' (padrão seria '+brData(div.esperado)+'). Vale a do ClickUp.">'+icon('clock')+'</span>':'')+
-    (cdiv?'<span class="tagic t-cdiv" title="O nome da task no ClickUp diz '+esc(nomeConta(cdiv.sugerida))+', mas este post está em '+esc(nomeConta(s.conta))+'. Clique pra mover pra '+esc(nomeConta(cdiv.sugerida))+' (Ctrl+Z desfaz).">'+icon('alerta')+'</span>':'')+
+    (cdiv?'<span class="tagic t-cdiv" title="O nome da task diz '+esc(nomeConta(cdiv.sugerida))+', mas este post está em '+esc(nomeConta(s.conta))+'. Clique pra mover pra '+esc(nomeConta(cdiv.sugerida))+' (Ctrl+Z desfaz).">'+icon('alerta')+'</span>':'')+
     (!mz && s.matrizSB?'<span class="mk t-mz" title="Este post veio da matriz: clique pra ver tema, tese, gancho...">M</span>':'')+
     (s.docId?'<span class="mk t-doc" title="Tem documento de copy: clique pra abrir">'+icon('doc')+'</span>':'');
-  const parecer = (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'alt')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Alteração pedida')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:'')+(s.parecer.veredito!=='aprovado'?(s.parecer.clickup?' · foi pra ALTERAR no ClickUp':''):''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'pencil')+(s.parecer.veredito==='aprovado'?'APROVADO':'ALTERAR')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '');
+  const parecer = (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'alt')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Alteração pedida')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'pencil')+(s.parecer.veredito==='aprovado'?'APROVADO':'ALTERAR')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '');
   // selo da conta: nome por extenso na cor da marca. Só em aba com mais de uma conta.
   const contatag = multi?'<div class="contatag" style="background:'+cor+'; color:'+corTexto(cor)+'">'+esc(contaCurta(s.conta))+'</div>':'';
   if(mz){
@@ -1173,13 +959,13 @@ function cardEl(s){
   } else {
     d.innerHTML =
       (vaga?'<div class="vagatag">'+icon('alerta')+'Falta criar</div>':'')+
-      (sug?'<div class="vagatag sugtag" title="Ideia enviada pela pauta: cole a task pra virar post, ou apague">'+icon('sparkle')+'Sugestão'+(s.sugeridoPor?' · '+esc(s.sugeridoPor):'')+'</div>':'')+
+      (sug?'<div class="vagatag sugtag" title="Ideia enviada pela pauta: cole o link da task pra virar post, ou apague">'+icon('sparkle')+'Sugestão'+(s.sugeridoPor?' · '+esc(s.sugeridoPor):'')+'</div>':'')+
       parecer+ contatag+
       '<div class="tit">'+esc(vaga? cap(s.formato||'post') : (sug? String(slotTitulo(s)).replace(/^SUGESTÃO:\s*/i,'') : slotTitulo(s)))+'</div>'+
       // a obs da vaga aparece SEMPRE (é o "precisa ser sobre isso"); nos posts normais, só na visão Semana
       ((vaga || S.view==='semana') && s.obs ? '<div class="obsline">'+esc(s.obs)+'</div>' : '')+
       '<div class="meta">'+
-        (vaga||sug?'':'<span class="stx" style="--stc:'+bk.cor+'" title="'+esc(s.statusCache&&s.statusCache.status ? 'ClickUp: '+s.statusCache.status : (s.taskId?'sincronizando com o ClickUp':'sem task no ClickUp ainda'))+'"><i></i>'+esc(s.taskId||s.postado? bk.rot : 'Sem task')+'</span>')+
+        (vaga||sug?'':'<span class="stx" style="--stc:'+bk.cor+'" title="'+esc(s.statusCache&&s.statusCache.status ? 'Status: '+s.statusCache.status : (s.taskId?'Sem status ainda':'Sem link de task ainda'))+'"><i></i>'+esc(s.taskId||s.postado? bk.rot : 'Sem task')+'</span>')+
         alertas+
         (fonte&&usosDaFonte(s)?'<span class="usochip" title="Posts já gerados a partir desta fonte">'+usosDaFonte(s)+'x usada</span>':'')+
         avatar+
@@ -1224,7 +1010,7 @@ function cardEl(s){
   const qd = d.querySelector('.qdel');
   if(qd) qd.onclick = async ev=>{
     ev.stopPropagation();
-    if(!confirm('Excluir "'+slotTitulo(s)+'"?\n\n(A task do ClickUp NÃO é apagada. Ctrl+Z desfaz.)')) return;
+    if(!confirm('Excluir "'+slotTitulo(s)+'"?\n\n(Ctrl+Z desfaz.)')) return;
     try{
       await api('/api/slots/'+s.id, {method:'DELETE'});
       S.slots = S.slots.filter(x=>x.id!==s.id);
@@ -1273,12 +1059,12 @@ function dropZone(el, getDate){
     }
     const slot = S.slots.find(x=>x.id===id);
     if(!slot) return;
-    // FONTE DO BANCO: arrastar pro dia DUPLICA (post novo com o mesmo link do ClickUp) e a
+    // FONTE DO BANCO: arrastar pro dia DUPLICA (post novo com o mesmo link da task) e a
     // fonte CONTINUA no banco, porque uma task rende vários cortes. Só sai no botão concluído.
     if(isFonteBanco(slot) && novaData){
       try{
         await api('/api/slots', {method:'POST', body:JSON.stringify({
-          conta: slot.conta, date: novaData, taskId: slot.taskId || null, fonteId: slot.id,
+          conta: slot.conta, date: novaData, taskId: slot.taskId || null, taskUrl: slot.taskUrl || null, titulo: slot.titulo || slot.tituloCache || null, fonteId: slot.id,
           formato: slot.formato||'', angulo: slot.angulo||'', obs: slot.obs||'',
           drive: slot.drive||'', linkRef: slot.linkRef||''
         })});
@@ -1287,18 +1073,18 @@ function dropZone(el, getDate){
       }catch(e){ toast(e.message, true); }
       return;
     }
-    // ALT + arrastar: COPIA o card pro dia solto (card novo, mesma conta e conteudo, sem task do ClickUp)
+    // ALT + arrastar: COPIA o card pro dia solto (card novo, mesma conta e conteúdo, com o link da task)
     if(ev.altKey && novaData){
       try{
-        // igual ao Ctrl+C: a cópia leva a task do ClickUp junto
+        // igual ao Ctrl+C: a cópia leva o link da task junto
         await api('/api/slots', {method:'POST', body:JSON.stringify({
-          conta: slot.conta, date: novaData, taskId: slot.taskId||null, titulo: slot.titulo||null,
+          conta: slot.conta, date: novaData, taskId: slot.taskId||null, taskUrl: slot.taskUrl||null, titulo: slot.titulo||slot.tituloCache||null,
           formato: slot.formato||'', angulo: slot.angulo||'', obs: slot.obs||'', notas: slot.notas||'',
           gm: slot.gm||'', collab: slot.collab||[], drive: slot.drive||'', linkRef: slot.linkRef||'',
           vaga: isVaga(slot)
         })});
         await loadState();
-        toast('Copiado pro dia '+brData(novaData)+(slot.taskId?' com o link do ClickUp':'')+' · Ctrl+Z desfaz');
+        toast('Copiado pro dia '+brData(novaData)+(slot.taskId?' com o link da task':'')+' · Ctrl+Z desfaz');
       }catch(e){ toast(e.message, true); }
       return;
     }
@@ -1384,27 +1170,28 @@ async function saveRef(){
 
 async function guardarCriativo(){
   const url = $('#cvUrl').value.trim();
+  const nome = $('#cvNome').value.trim();
   const conta = $('#cvConta').value;
-  if(!/clickup\.com/.test(url)){ toast('Cole o link de uma task do ClickUp', true); $('#cvUrl').focus(); return; }
+  if(!/^https?:\/\//i.test(url)){ toast('Cole o link da task (começa com https://)', true); $('#cvUrl').focus(); return; }
   if(!conta){ toast('Escolha a conta antes de guardar o criativo', true); $('#cvConta').focus(); return; }
   try{
-    await api('/api/slots', {method:'POST', body:JSON.stringify({conta, taskUrl:url, origem:'criativo'})});
+    await api('/api/slots', {method:'POST', body:JSON.stringify({conta, taskUrl:url, titulo:nome||null, origem:'criativo'})});
     await loadState();
-    toast('Criativo guardado: nome, status e artes chegam sozinhos');
+    toast('Criativo guardado');
   }catch(e){ toast(e.message, true); }
 }
 
-/** Formulário de uma categoria do banco: link do ClickUp + conta + nota. */
+/** Formulário de uma categoria do banco: link da task + conta + nota. */
 function formBanco(cat){
   const contasAba = contasDaAba(S.aba);
   const form = document.createElement('div'); form.className='refform';
   const idU='bkU_'+cat.key, idC='bkC_'+cat.key, idN='bkN_'+cat.key, idB='bkB_'+cat.key;
   form.innerHTML =
-    '<input id="'+idU+'" placeholder="link da task do ClickUp" autocomplete="off">'+
+    '<input id="'+idU+'" placeholder="link da task (https://…)" autocomplete="off">'+
     '<input id="'+idN+'" placeholder="nota (opcional): do que é essa task" autocomplete="off">'+
     '<div class="rfrow">'+
       '<select id="'+idC+'" class="bkconta">'+
-        (contasAba.length>1 ? '<option value="" disabled selected>— escolha a conta —</option>' : '')+
+        (contasAba.length>1 ? '<option value="" disabled selected>escolha a conta</option>' : '')+
         contasAba.map(k=>'<option value="'+k+'">'+esc(S.contas[k].nome)+'</option>').join('')+
       '</select>'+
       '<button class="rfbtn" id="'+idB+'" style="flex:1">+ Guardar no banco</button>'+
@@ -1413,12 +1200,12 @@ function formBanco(cat){
     const url = form.querySelector('#'+idU).value.trim();
     const conta = form.querySelector('#'+idC).value;
     const nota = form.querySelector('#'+idN).value.trim();
-    if(!/clickup\.com/.test(url)){ toast('Cole o link de uma task do ClickUp', true); form.querySelector('#'+idU).focus(); return; }
+    if(!/^https?:\/\//i.test(url)){ toast('Cole o link da task (começa com https://)', true); form.querySelector('#'+idU).focus(); return; }
     if(!conta){ toast('Escolha a conta antes de guardar', true); form.querySelector('#'+idC).focus(); return; }
     try{
       await api('/api/slots', {method:'POST', body:JSON.stringify({conta, taskUrl:url, obs:nota, origem:'banco', cat:cat.key})});
       await loadState();
-      toast('Guardado em '+cat.nome+' · nome e status chegam sozinhos');
+      toast('Guardado em '+cat.nome);
     }catch(e){ toast(e.message, true); }
   };
   form.querySelector('#'+idB).onclick = salvar;
@@ -1431,7 +1218,7 @@ function formBanco(cat){
 async function concluirFonte(s){
   const usos = usosDaFonte(s);
   const aviso = usos? '\n\nJá saíram '+usos+' post(s) desta task. Eles continuam no calendário.' : '';
-  if(!confirm('Concluir "'+slotTitulo(s)+'" e tirar do banco?'+aviso+'\n\n(A task do ClickUp NÃO é apagada. Ctrl+Z desfaz.)')) return;
+  if(!confirm('Concluir "'+slotTitulo(s)+'" e tirar do banco?'+aviso+'\n\n(Ctrl+Z desfaz.)')) return;
   try{
     await api('/api/slots/'+s.id, {method:'DELETE'});
     await loadState();
@@ -1470,7 +1257,7 @@ function renderDrawer(){
       const doCat = reutV.filter(s=>(s.cat||'outros')===cat.key);
       body.appendChild(drawerSec(icon(cat.icone)+' '+esc(cat.nome)+' · banco', doCat.length, w=>{
         w.appendChild(formBanco(cat));
-        if(!doCat.length) w.insertAdjacentHTML('beforeend','<div class="dr-empty">cole o link da task do ClickUp. Arraste pro dia pra gerar um post, quantas vezes precisar. A task só sai daqui quando você clicar em concluído.</div>');
+        if(!doCat.length) w.insertAdjacentHTML('beforeend','<div class="dr-empty">cole o link da task. Arraste pro dia pra gerar um post, quantas vezes precisar. A task só sai daqui quando você clicar em concluído.</div>');
         doCat.forEach(s=>w.appendChild(cardEl(s)));
       }));
     });
@@ -1479,18 +1266,19 @@ function renderDrawer(){
     const form = document.createElement('div'); form.className='refform';
     const contasAba = contasDaAba(S.aba);
     form.innerHTML =
-      '<input id="cvUrl" placeholder="link da task do ClickUp (criativo pronto)" autocomplete="off">'+
+      '<input id="cvUrl" placeholder="link da task (criativo pronto)" autocomplete="off">'+
+      '<input id="cvNome" placeholder="nome do criativo" autocomplete="off">'+
       '<div class="rfrow">'+
         '<select id="cvConta" style="flex:1; border:1.5px solid var(--hair); border-radius:6px; background:var(--surface); padding:7px 9px; font-size:12px; color:var(--ink)">'+
           // aba com 2+ contas: começa vazio, você escolhe. Nada de cair na 1ª conta por acidente.
-          (contasAba.length>1 ? '<option value="" disabled selected>— escolha a conta —</option>' : '')+
+          (contasAba.length>1 ? '<option value="" disabled selected>escolha a conta</option>' : '')+
           contasAba.map(k=>'<option value="'+k+'">'+esc(S.contas[k].nome)+'</option>').join('')+
         '</select>'+
         '<button class="rfbtn" id="cvSave" style="flex:1">+ Guardar criativo</button>'+
       '</div>';
     w.appendChild(form);
     form.querySelector('#cvSave').onclick = guardarCriativo;
-    form.querySelector('#cvUrl').addEventListener('keydown', ev=>{ if(ev.key==='Enter') guardarCriativo(); });
+    ['#cvUrl','#cvNome'].forEach(k=> form.querySelector(k).addEventListener('keydown', ev=>{ if(ev.key==='Enter') guardarCriativo(); }));
     if(!criatV.length) w.insertAdjacentHTML('beforeend','<div class="dr-empty">cole o link de uma task com criativo pronto. Quando quiser usar, arrasta pro dia.</div>');
     criatV.forEach(s=>w.appendChild(cardEl(s)));
   }));
@@ -1544,7 +1332,7 @@ function abrirPopVaga(dateStr, btn){
       '<div class="vprow">'+VAGA_FORMATOS.map(f=>
         '<button data-conta="'+k+'" data-fmt="'+esc(f)+'">'+fmtIconSvg(f)+esc(f)+'</button>').join('')+
       '</div>').join('')+
-    '<div class="vphint">Clique no formato que falta. O card fica riscado no dia até você colar a task do ClickUp nele.</div>';
+    '<div class="vphint">Clique no formato que falta. O card fica riscado no dia até você colar o link da task nele.</div>';
   document.body.appendChild(pop);
   // posiciona colado no botão, sem sair da tela
   const r = btn.getBoundingClientRect();
@@ -1792,8 +1580,6 @@ let pendentesAprovar = [];     // o que entrou em aprovar/alterar e você ainda 
 const AVISA_TIPOS = { aprovar:{ selo:'PRA APROVAR', emoji:'🟡', titulo:'Pra aprovar' }, alterar:{ selo:'PRA ALTERAR', emoji:'✏️', titulo:'Pra alterar' } };
 function contaTipos(){ const c={aprovar:0, alterar:0}; pendentesAprovar.forEach(x=>{ c[x.tipo||'aprovar']++; }); return c; }
 function tituloAlerta(){ const c=contaTipos(); return [c.aprovar? '🟡 ('+c.aprovar+') PRA APROVAR':'', c.alterar? '✏️ ('+c.alterar+') PRA ALTERAR':''].filter(Boolean).join(' · '); }
-/** Depois de uma ação SUA (aprovar/alterar no painel), memoriza o status novo pra não se avisar da própria mudança. */
-function lembrarStatus(taskId, st){ if(statusConhecidos && taskId && st && st.status) statusConhecidos[taskId] = st.status; }
 let tituloOriginal = document.title, piscaTimer = null;
 
 /** Bipe curto gerado na hora, sem arquivo de som. */
@@ -1845,7 +1631,7 @@ function renderAlerta(){
 function limparAlerta(){ pendentesAprovar = []; renderAlerta(); }
 function abrirTaskDoAlerta(x){
   const s = S.slots.find(y=>y.id===x.id) || S.slots.find(y=>y.taskId===x.taskId);
-  if(!s){ if(x.taskId) window.open('https://app.clickup.com/t/'+x.taskId,'_blank'); return; }
+  if(!s) return;
   const aba = S.contas[s.conta] && S.contas[s.conta].aba;
   if(aba && aba!==S.aba){ S.aba=aba; S.filtroConta.clear(); render(); }
   if(s.date && S.view!=='semana'){ irParaMes(s.date.slice(0,7)); }
@@ -1961,7 +1747,9 @@ async function openTask(id){
   $('#ovTask').classList.add('open');
   tRowDraw(s);
   $('#tabObs').classList.toggle('temobs', !!s.notas);
-  selTab('arquivos');
+  // artes e comentários vêm da fonte das tasks (MKT Hub, v3.78). Sem ela, a folha abre nos detalhes.
+  document.querySelectorAll('#tTabs .mtab[data-t="arquivos"], #tTabs .mtab[data-t="comentarios"]').forEach(b=> b.hidden = !S.temFonte);
+  selTab(S.temFonte ? 'arquivos' : 'detalhes');
   loadTaskTab(s);
 }
 
@@ -1971,13 +1759,11 @@ function tRowDraw(s){
   $('#tTit').textContent = slotTitulo(s);
   const row = $('#tRow');
   const dateBr = s.date? s.date.split('-').reverse().join('/') : 'sem data';
-  const div = dueDivergente(s);
   row.innerHTML =
     (s.fixo?'<span class="fixopill" data-tip="Data fixa">'+icon('pin')+'</span>':'')+
     (isGm(s)?'<span class="gmpill">'+icon('star','s')+'GM</span>':'')+
     (s.aprovado?'<span class="aprpill" data-tip="Arte aprovada pela diretoria">'+icon('check','s')+'APR</span>':'')+
     '<span class="stpill" style="font-size:11px; background:'+st.color+'; color:'+corTexto(st.color)+'">'+esc(st.label)+'</span>'+
-    (div?'<span class="duebadge" data-tip="O padrão seria '+brData(div.esperado)+'">'+icon('clock','s')+'entrega '+brData(div.real)+' (manual)</span>':'')+
     '<span class="note">'+esc(S.contas[s.conta].nome)+' · '+dateBr+'</span>';
   const mk = (html, cls, tip) => {
     const b=document.createElement('button');
@@ -2003,11 +1789,11 @@ function tRowDraw(s){
     const b=document.createElement('button');
     b.className='mbtn'; b.style.background='var(--crit)'; b.style.color='#fff';
     b.innerHTML=icon('alerta','s')+'mover pra '+esc(nomeConta(cdiv.sugerida));
-    b.dataset.tip = 'O nome da task no ClickUp diz '+nomeConta(cdiv.sugerida)+', mas o post está em '+nomeConta(s.conta);
+    b.dataset.tip = 'O nome da task diz '+nomeConta(cdiv.sugerida)+', mas o post está em '+nomeConta(s.conta);
     b.onclick = ()=>{ closeOv('ovTask'); corrigirConta(s, cdiv.sugerida); };
     row.appendChild(b);
   }
-  if(s.taskId){ const a=document.createElement('a'); a.className='mbtn'; a.innerHTML=icon('external')+'ClickUp'; a.href='https://app.clickup.com/t/'+s.taskId; a.target='_blank'; row.appendChild(a); }
+  { const lk = linkDaTask(s); if(lk){ const a=document.createElement('a'); a.className='mbtn'; a.innerHTML=icon('external')+'Abrir a task'; a.href=lk; a.target='_blank'; a.rel='noopener'; row.appendChild(a); } }
   if(s.drive){ const a=document.createElement('a'); a.className='mbtn iconb'; a.innerHTML=icon('folder'); a.dataset.tip = s.drive.includes('instagram')? 'Abrir a referência' : 'Abrir o Drive'; a.href=s.drive; a.target='_blank'; row.appendChild(a); }
   if(s.linkRef){ const a=document.createElement('a'); a.className='mbtn iconb'; a.innerHTML=icon('link'); a.dataset.tip='Abrir o vídeo original'; a.href=s.linkRef; a.target='_blank'; row.appendChild(a); }
 
@@ -2049,45 +1835,8 @@ function tRowDraw(s){
   mk(icon('box')+'Copiar', 'iconb', 'Copiar pra colar em outro dia (ou Ctrl+C com o mouse no card)').onclick = ()=>{ setClip(s.id,'copiar'); closeOv('ovTask'); };
   mk(icon('ff')+'Recortar', 'iconb', 'Recortar pra mover pra outro dia (ou Ctrl+X com o mouse no card)').onclick = ()=>{ setClip(s.id,'recortar'); closeOv('ovTask'); };
 
-  // aprovação REAL no ClickUp (regra: Aprovar SÓ quando status = aprovar)
-  $('#alterBox').style.display = 'none';
-  if(s.taskId && S.hasToken){
-    if((s.statusCache && s.statusCache.status) === 'aprovar'){
-      const ok = mk(icon('check')+'Aprovar', 'okbtn', 'Aprovar a arte: a task vai pra PUBLICAR no ClickUp');
-      ok.onclick = async ()=>{
-        ok.disabled = true;
-        try{
-          const r = await api('/api/task/'+s.taskId+'/acao', {method:'POST', body:JSON.stringify({acao:'aprovar'})});
-          for(const x of S.slots) if(x.taskId===s.taskId){ x.statusCache = r.status; x.aprovado = true; }
-          lembrarStatus(s.taskId, r.status);
-          render(); tRowDraw(s);
-          toast('Aprovado: task foi pra PUBLICAR no ClickUp');
-        }catch(e){ ok.disabled = false; toast(e.message, true); }
-      };
-    }
-    const alt = mk(icon('msg')+'Alterar', 'critbtn', 'Pedir alteração: comenta e a task vai pra ALTERAR');
-    alt.onclick = ()=>{
-      const box = $('#alterBox');
-      box.style.display = box.style.display==='none' ? '' : 'none';
-      if(box.style.display===''){ $('#alterTxt').value=''; $('#alterMsg').textContent=''; $('#alterTxt').focus(); }
-    };
-    $('#alterCancelar').onclick = ()=>{ $('#alterBox').style.display='none'; };
-    $('#alterEnviar').onclick = async ()=>{
-      const txt = $('#alterTxt').value.trim();
-      if(!txt){ $('#alterTxt').focus(); return; }
-      $('#alterEnviar').disabled = true; $('#alterMsg').textContent = 'enviando…';
-      try{
-        const r = await api('/api/task/'+s.taskId+'/acao', {method:'POST', body:JSON.stringify({acao:'alterar', comentario:txt})});
-        for(const x of S.slots) if(x.taskId===s.taskId){ x.statusCache = r.status; x.aprovado = false; }
-        lembrarStatus(s.taskId, r.status);
-        $('#alterBox').style.display='none';
-        render(); tRowDraw(s);
-        toast('Alteração enviada: comentário publicado e task em ALTERAR');
-        loadTaskTab(s);
-      }catch(e){ $('#alterMsg').textContent = 'falhou: '+e.message; }
-      finally{ $('#alterEnviar').disabled = false; }
-    };
-  } else {
+  // arte aprovada: registro do painel (aprovar a task de produção é no sistema de tarefas)
+  {
     const ap = mk(s.aprovado? icon('check')+'APR' : icon('check')+'Aprovar arte', s.aprovado?'apron':'', s.aprovado?'Tirar a aprovação (registro local)':'Marcar a arte como aprovada (registro local)');
     ap.onclick = async ()=>{
       const antes = s.aprovado; s.aprovado = !antes; render(); tRowDraw(s);
@@ -2107,7 +1856,7 @@ function tRowDraw(s){
     if(!s.fixo){
       const emp = mk(icon('ff'), 'iconb', 'Empurrar +1 dia este post e todos os seguintes da conta');
       emp.onclick = async ()=>{
-        if(!confirm('Empurrar este post e todos os SEGUINTES da conta '+(S.contas[s.conta]?S.contas[s.conta].nome:'')+' em +1 dia?\n\nPosts com pino (data fixa) e já postados não se movem. As datas só vão pro ClickUp quando você clicar em Aplicar datas.')) return;
+        if(!confirm('Empurrar este post e todos os SEGUINTES da conta '+(S.contas[s.conta]?S.contas[s.conta].nome:'')+' em +1 dia?\n\nPosts com pino (data fixa) e já postados não se movem. Ctrl+Z desfaz.')) return;
         emp.disabled = true;
         try{
           const r = await api('/api/slots/'+s.id+'/empurrar', {method:'POST', body:JSON.stringify({dias:1})});
@@ -2148,7 +1897,7 @@ function tRowDraw(s){
   mk(icon('pencil'), 'iconb', 'Editar o post (conta, data, links, collab)').onclick = ()=>{ closeOv('ovTask'); openEdit(s.id); };
 }
 
-// ================= markdown (descrição igual ao ClickUp) =================
+// ================= markdown (descrição da task) =================
 function mdInline(t){
   t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
   t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank">$1</a>');
@@ -2217,8 +1966,7 @@ function digitandoNoModal(){
 async function loadTaskTab(s){
   tData = null;
   const body = $('#tBody'); body.innerHTML = '<div class="spin"></div>';
-  if(!s.taskId){ tData={}; drawTab(); return; }
-  if(!S.hasToken){ tData = {semToken:true}; drawTab(); return; }
+  if(!s.taskId || !S.temFonte){ tData = {semFonte:true}; drawTab(); return; }
   try{
     const [task, com] = await Promise.all([ api('/api/task/'+s.taskId), api('/api/task/'+s.taskId+'/comments') ]);
     tData = {task, ...com};
@@ -2234,12 +1982,12 @@ async function loadTaskTab(s){
           if(!digitandoNoModal()) drawTab();
         }).catch(()=>{});
     }
-  }catch(e){ body.innerHTML = '<div class="empty">Não consegui falar com o ClickUp: '+esc(e.message)+'</div>'; }
+  }catch(e){ body.innerHTML = '<div class="empty">Não consegui ler a task agora: '+esc(e.message)+'</div>'; }
 }
 let obsTimer = null;
 function desenharObs(body, s){
   body.innerHTML =
-    '<p class="note" style="margin-bottom:9px">Anotação livre deste post. Fica salva no painel e <b>não vai pro ClickUp</b>. Salva sozinho enquanto você escreve.</p>'+
+    '<p class="note" style="margin-bottom:9px">Anotação livre deste post. Fica salva no painel e salva sozinha enquanto você escreve.</p>'+
     '<textarea id="obsTxt" placeholder="escreva o que quiser: direcionamento, o que faltou, ideia pra próxima vez, combinado com a Maria…"></textarea>'+
     '<div class="obsfoot"><span id="obsMsg"></span>'+
       (s.obs? '<span class="note">obs curta do card: <b>'+esc(s.obs)+'</b></span>' : '')+
@@ -2282,16 +2030,16 @@ function fileCard(a, extra){
 function drawTab(){
   const cur = document.querySelector('#tTabs .mtab.on').dataset.t;
   const body = $('#tBody'); const s = S.taskSlot;
-  // OBSERVAÇÃO: caderno livre do post. Fica no painel (data.json), não vai pro ClickUp.
+  // OBSERVAÇÃO: caderno livre do post. Fica no painel (data.json).
   // Salva sozinho enquanto você escreve, sem botão.
   if(cur==='obs'){ desenharObs(body, s); return; }
-  if(tData && tData.semToken){
-    body.innerHTML='<div class="empty">Configure o token do ClickUp (engrenagem no topo) pra ver artes e comentários aqui.<br>A aba <b>Observação</b> funciona mesmo sem token.</div>';
+  if(tData && tData.semFonte && (cur==='arquivos' || cur==='comentarios')){
+    body.innerHTML='<div class="empty">Artes e comentários aparecem aqui quando o painel estiver ligado ao MKT Hub.<br>Por enquanto, use <b>Abrir a task</b> lá em cima.</div>';
     return;
   }
   if(cur==='arquivos'){
     const arqs = (tData && tData.arquivos)||[];
-    if(!s.taskId) body.innerHTML='<div class="empty">Este post ainda não tem task do ClickUp vinculada.<br>Use o lápis pra colar o link da task.</div>';
+    if(!s.taskId) body.innerHTML='<div class="empty">Este post ainda não tem task vinculada.<br>Use o lápis pra colar o link da task.</div>';
     else if(!arqs.length) body.innerHTML='<div class="empty">Nenhuma arte ainda: nada nos comentários nem nos anexos da task.</div>';
     else {
       const IMG_EXT=['png','jpg','jpeg','gif','webp','heic','bmp'];
@@ -2368,37 +2116,23 @@ function drawTab(){
   if(cur==='comentarios'){
     const cs = (tData && tData.comments)||[];
     if(!s.taskId){ body.innerHTML='<div class="empty">Sem task vinculada.</div>'; return; }
-    const composer = S.hasToken
-      ? '<div class="combox"><textarea id="cmTxt" placeholder="escreva um comentário… (publica na task do ClickUp e notifica como lá)"></textarea>'+
-        '<div class="cbrow"><button class="mbtn primary" id="cmSend">'+icon('msg')+'Comentar no ClickUp</button><span class="note" id="cmMsg"></span></div></div>'
-      : '';
+    const composer = '';
     body.innerHTML = composer + (cs.length? cs.map(c=>'<div class="comment"><div class="chead">'+
       '<span class="cava" style="background:'+esc(c.userColor||'#52514e')+'">'+esc(c.initials)+'</span>'+
       '<span class="cuser">'+esc(c.user)+'</span><span class="cdate">'+fmtDataHora(c.date)+'</span></div>'+
       (c.text?'<div class="ctext">'+esc(c.text)+'</div>':'')+
       (c.attachments.length?'<div class="catts">'+c.attachments.map(a=>fileCard(a,'')).join('')+'</div>':'')+
       '</div>').join('') : '<div class="empty">Sem comentários.</div>');
-    const send = $('#cmSend');
-    if(send) send.onclick = async ()=>{
-      const txt = $('#cmTxt').value.trim();
-      if(!txt){ $('#cmTxt').focus(); return; }
-      send.disabled = true; $('#cmMsg').textContent = 'publicando…';
-      try{
-        const r = await api('/api/task/'+s.taskId+'/comments', {method:'POST', body:JSON.stringify({texto:txt})});
-        tData = { ...tData, comments:r.comments, arquivos:r.arquivos };
-        toast('Comentário publicado no ClickUp');
-        drawTab();
-      }catch(e){ send.disabled = false; $('#cmMsg').textContent = 'falhou: '+e.message; }
-    };
   }
   if(cur==='detalhes'){
     const t = tData && tData.task;
-    const podeEditarDesc = !!(s.taskId && S.hasToken && t);
+    const lk = linkDaTask(s);
     body.innerHTML =
       '<dl class="kv">'+
       '<dt>Conta</dt><dd>'+esc(S.contas[s.conta].nome)+'</dd>'+
       '<dt>Data de postagem</dt><dd>'+(s.date? s.date.split('-').reverse().join('/') : 'sem data (banco)')+'</dd>'+
-      (s.date?'<dt>Entrega no ClickUp</dt><dd>'+entregaTexto(s)+'</dd>':'')+
+      (lk?'<dt>Task de produção</dt><dd><a href="'+esc(lk)+'" target="_blank" rel="noopener">'+esc(s.tituloCache || lk.replace(/^https?:\/\/(www\.)?/,''))+'</a></dd>':'')+
+      (s.statusCache && s.statusCache.status?'<dt>Status da task</dt><dd>'+esc(s.statusCache.status)+(S.temFonte?'':' <span class="note">(último recebido)</span>')+'</dd>':'')+
       (s.formato?'<dt>Formato</dt><dd>'+esc(s.formato)+'</dd>':'')+
       (s.angulo?'<dt>Ângulo</dt><dd>'+esc(s.angulo)+'</dd>':'')+
       (s.obs?'<dt>Observação</dt><dd>'+esc(s.obs)+'</dd>':'')+
@@ -2406,34 +2140,11 @@ function drawTab(){
       ((s.collab||[]).length?'<dt>Collab</dt><dd>'+esc([s.conta].concat(s.collab).map(c=>S.contas[c]?S.contas[c].nome:c).join(' + '))+'</dd>':'')+
       (s.aprovado?'<dt>Arte</dt><dd>aprovada pela diretoria</dd>':'')+
       (s.responsavelManual?'<dt>Responsável (planilha)</dt><dd>'+esc(s.responsavelManual)+'</dd>':'')+
-      (t && t.assignees && t.assignees.length?'<dt>Responsável (ClickUp)</dt><dd>'+esc(t.assignees.map(a=>a.nome).join(', '))+'</dd>':'')+
+      ((t && t.assignees && t.assignees.length) || s.assigneeCache?'<dt>Responsável</dt><dd>'+esc(t && t.assignees && t.assignees.length ? t.assignees.map(a=>a.nome).join(', ') : s.assigneeCache)+'</dd>':'')+
       '<dt>Origem</dt><dd>'+esc(s.origem)+'</dd>'+
       '</dl>'+
-      (t? '<div class="descbar"><b style="font-size:12.5px">Descrição da task</b>'+
-          (podeEditarDesc? '<button class="mbtn" id="descEdit" style="padding:4px 10px; font-size:11.5px">'+icon('pencil','s')+'editar (grava no ClickUp)</button>' : '')+
-          '</div><div class="desc" id="descBody">'+(t.descricao? mdToHtml(t.descricao) : '<span style="color:var(--ink-3)">sem descrição</span>')+'</div>'
+      (t? '<div class="descbar"><b style="font-size:12.5px">Descrição da task</b></div><div class="desc" id="descBody">'+(t.descricao? mdToHtml(t.descricao) : '<span style="color:var(--ink-3)">sem descrição</span>')+'</div>'
         : '');
-    const de = $('#descEdit');
-    if(de) de.onclick = ()=>{
-      $('#descBody').outerHTML =
-        '<textarea class="desced" id="descEd"></textarea>'+
-        '<div class="descbar"><button class="mbtn primary" id="descSave">Salvar no ClickUp</button>'+
-        '<button class="mbtn" id="descCancel">cancelar</button><span class="note" id="descMsg"></span></div>';
-      $('#descEd').value = t.descricao || '';
-      $('#descEd').focus();
-      de.style.display = 'none';
-      $('#descCancel').onclick = ()=> drawTab();
-      $('#descSave').onclick = async ()=>{
-        const texto = $('#descEd').value;
-        $('#descSave').disabled = true; $('#descMsg').textContent = 'salvando…';
-        try{
-          await api('/api/task/'+s.taskId+'/descricao', {method:'PATCH', body:JSON.stringify({texto})});
-          t.descricao = texto;
-          toast('Descrição salva no ClickUp');
-          drawTab();
-        }catch(e){ $('#descSave').disabled = false; $('#descMsg').textContent = 'falhou: '+e.message; }
-      };
-    };
   }
 }
 
@@ -2461,8 +2172,7 @@ function drawCollabChips(){
 // o resto fica em "Mais opções". Os <select> continuam existindo (escondidos) e os chips só mexem neles.
 let E_MODO = 'link';
 const E_LAYOUT = {
-  link:    { basico:['eLinkWrap','eContaWrap','eDataWrap'],                                   mais:['eTituloWrap','eFmtWrap','eGmWrap','eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
-  clickup: { basico:['eContaWrap','eFmtWrap','eTituloWrap','eRespWrap','eBriefWrap','eDataWrap'], mais:['eGmWrap','eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
+  link:    { basico:['eTituloWrap','eContaWrap','eDataWrap','eLinkWrap'],                     mais:['eFmtWrap','eGmWrap','eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
   edit:    { basico:['eContaWrap','eDataWrap','eLinkWrap','eTituloWrap','eFmtWrap','eGmWrap'],    mais:['eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
 };
 const E_NOMES = { eTituloWrap:'título', eFmtWrap:'formato', eGmWrap:'GM', eAnguloWrap:'ângulo', eDriveWrap:'drive', eCollabWrap:'collab', eObsWrap:'observação' };
@@ -2502,10 +2212,6 @@ function desenhaChipsFormato(){
   const ops = [...$('#eFormato').options].map(o=>({v:o.value, rot:o.value ? o.textContent : 'depois'}));
   chipsDoSelect('#eFmtChips', '#eFormato', ops);
 }
-function desenhaChipsResp(){
-  const ops = [...$('#eResp').options].map(o=>({v:o.value, rot:o.value ? o.textContent : 'ninguém'}));
-  chipsDoSelect('#eRespChips', '#eResp', ops);
-}
 /** Mostra os campos do caminho escolhido, na ordem certa. O que não é do caminho vai pra guarda. */
 function aplicaModo(m){
   const L = E_LAYOUT[m];
@@ -2516,10 +2222,8 @@ function aplicaModo(m){
   // aba com uma conta só (SeuBoné, Weevo): não pergunta a conta
   $('#eContaWrap').style.display = [...$('#eConta').options].filter(o=>o.value).length > 1 ? '' : 'none';
   syncGmVisibility();
-  $('#eCuNota').hidden = m!=='clickup';
   $('#eLinkHint').hidden = m!=='link';
-  $('#eTituloLbl').innerHTML = m==='clickup' ? 'Sobre o que é <span class="elbl2">vira o nome da task</span>' : 'Título no painel <span class="elbl2">vazio = usa o nome da task</span>';
-  $('#eTitulo').placeholder = m==='clickup' ? 'ex.: Case Porto 70 mil bonés' : 'ex.: Reels case cliente X';
+  $('#eTituloLbl').textContent = 'Título';
   resumoMais();
 }
 /** "Mais opções": diz o que tem dentro e abre sozinho se algum campo de lá já tem valor. */
@@ -2531,7 +2235,7 @@ function resumoMais(){
 }
 function temValorNoMais(){
   const ids = E_LAYOUT[E_MODO].mais;
-  const v = { eTituloWrap: $('#eTitulo').value, eFmtWrap: E_MODO==='link' && $('#eFormato').value, eGmWrap: $('#eGm').checked,
+  const v = { eTituloWrap: $('#eTitulo').value, eFmtWrap: $('#eFormato').value, eGmWrap: $('#eGm').checked,
     eAnguloWrap: $('#eAngulo').value, eDriveWrap: $('#eDrive').value, eCollabWrap: eCollabSel.size, eObsWrap: $('#eObs').value };
   return ids.some(id=> !!v[id]);
 }
@@ -2546,34 +2250,32 @@ function ePasso(n){
   $('#eEscolha').hidden = n!==1;
   $('#eForm').hidden = n!==2;
   $('#eFoot').hidden = n!==2;
-  $('#eVoltar').hidden = !(novo && n===2);
+  $('#eVoltar').hidden = !(novo && n===2 && !$('#eOpcMz').hidden);   // só tem pra onde voltar se existe o passo 1
 }
-const E_TITULOS = { link:'Colar a task do ClickUp', clickup:'Criar a task no ClickUp', edit:'Editar post' };
+const E_TITULOS = { link:'Novo post', edit:'Editar post' };
 function setModo(m){
   if(m==='matriz'){ const dia = $('#eDate').value || null; closeOv('ovEdit'); criarCardMatriz(dia); return; }
   E_MODO = m;
   aplicaModo(m);
   ePasso(2);
   $('#eTit').textContent = E_TITULOS[m] || 'Novo post';
-  $('#eCu').checked = m==='clickup';
-  $('#eSave').textContent = m==='clickup' ? 'Criar no ClickUp' : 'Salvar post';
-  $('#eMsg').textContent = (m==='clickup' && !S.hasToken) ? 'Sem token do ClickUp configurado: esse caminho não funciona ainda.' : '';
+  $('#eSave').textContent = 'Salvar post';
+  $('#eMsg').textContent = '';
   abreMais(temValorNoMais());
-  if(m==='clickup'){ atualizaCuNome(); desenhaChipsResp(); if(S.hasToken && !CU_OPCOES) carregarOpcoesCu(); }
-  const foco = m==='link' ? '#eTask' : ($('#eContaWrap').style.display!=='none' && !$('#eConta').value ? null : '#eTitulo');
+  const foco = '#eTitulo';
   if(foco) setTimeout(()=>{ const el=$(foco); if(el) el.focus(); }, 60);
 }
 document.querySelectorAll('#eEscolha .eopc').forEach(b=> b.onclick = ()=> setModo(b.dataset.modo));
 document.querySelectorAll('#eEscolha .eic').forEach(el=> el.innerHTML = icon(el.dataset.ic));
 $('#eVoltar').onclick = ()=>{ $('#eTit').textContent='Novo post'; ePasso(1); };
-$('#eSemDia').onclick = ()=>{ $('#eDate').value=''; eContexto(); atualizaCuNome(); };
+$('#eSemDia').onclick = ()=>{ $('#eDate').value=''; eContexto(); };
 $('#eDate').addEventListener('change', eContexto);
 $('#eConta').addEventListener('change', ()=>{ $('#eConta').classList.toggle('faltando', !$('#eConta').value); syncGmVisibility(); drawCollabChips(); eContexto(); resumoMais(); });
-// atalho: no passo 1, teclas 1/2/3 escolhem o caminho
+// atalho: no passo 1, teclas 1/2 escolhem o caminho
 document.addEventListener('keydown', ev=>{
   if(!$('#ovEdit').classList.contains('open') || $('#eEscolha').hidden) return;
   if(ev.ctrlKey || ev.metaKey || ev.altKey) return;
-  const mapa = {'1':'link','2':'clickup','3':'matriz'};
+  const mapa = {'1':'matriz','2':'link'};
   const m = mapa[ev.key]; if(!m) return;
   if(m==='matriz' && $('#eOpcMz').hidden) return;
   ev.preventDefault(); setModo(m);
@@ -2602,14 +2304,13 @@ function openEdit(id, dateStr, pre){
   $('#eFormato').value = s? (s.formato||'') : '';
   { let dl=document.getElementById('angulosLista'); if(!dl){ dl=document.createElement('datalist'); dl.id='angulosLista'; document.body.appendChild(dl); } dl.innerHTML=angulosConhecidos().map(a=>'<option value="'+esc(a)+'"></option>').join(''); }
   $('#eAngulo').value = s? (s.angulo||'') : (pre && pre.angulo || '');
-  $('#eTask').value = s && s.taskId? 'https://app.clickup.com/t/'+s.taskId : '';
+  $('#eTask').value = s ? linkDaTask(s) : '';
   $('#eDrive').value = s? (s.drive||'') : (pre && pre.drive || '');
   $('#eObs').value = s? (s.obs||'') : (pre && pre.obs || '');
   $('#eGm').checked = s? isGm(s) : false;
   $('#eDelete').style.display = s? '' : 'none';
-  $('#eBrief').value='';
   $('#eContaChips').classList.remove('faltando');
-  desenhaChipsConta(); desenhaChipsFormato(); desenhaChipsResp();
+  desenhaChipsConta(); desenhaChipsFormato();
   // o caminho "matriz" só existe na SeuBoné
   const temMz = !s && S.aba==='SEUBONÉ' && !!S.matrizSB;
   $('#eOpcMz').hidden = !temMz;
@@ -2629,44 +2330,13 @@ function openEdit(id, dateStr, pre){
   } else if(pre){
     setModo(pre.modo || 'link');                         // veio de uma referência: já sabe o caminho
     $('#eMsg').textContent = 'Criando post a partir de uma referência';
-  } else {
+  } else if(temMz){
     E_MODO = 'link';
     $('#eTit').textContent = 'Novo post';
     ePasso(1);
-  }
-  if(!s && S.hasToken) carregarOpcoesCu();
-  atualizaCuNome();
+  } else setModo('link');                                   // sem matriz na aba: só tem um caminho, vai direto pros campos
   $('#ovEdit').classList.add('open');
 }
-
-// ---- criar a task no ClickUp a partir do "Novo post" ----
-let CU_OPCOES = null;
-async function carregarOpcoesCu(fresh){
-  const sel = $('#eResp');
-  try{
-    CU_OPCOES = await api('/api/clickup/opcoes'+(fresh?'?fresh=1':''));
-    const atual = sel.value;
-    sel.innerHTML = '<option value="">sem responsável</option>' + CU_OPCOES.membros.map(m=>'<option value="'+m.id+'">'+esc(m.nome)+'</option>').join('');
-    sel.value = atual;
-    const perfil = PERFIL.get();  // se o seu username bate com alguém da lista, já sugere você
-    if(!sel.value && perfil && perfil.nome){ const eu = CU_OPCOES.membros.find(m=>m.nome.toLowerCase().startsWith(perfil.nome.toLowerCase())); if(eu) sel.value = String(eu.id); }
-    $('#eCuSub').textContent = '';
-    desenhaChipsResp();
-  }catch(e){ $('#eCuSub').textContent = 'não consegui ler a lista do ClickUp: '+e.message; }
-}
-function atualizaCuNome(){
-  const el = $('#eCuNome'); if(!el) return;
-  const conta = $('#eConta').value, fmt = $('#eFormato').value, tit = $('#eTitulo').value.trim();
-  el.textContent = [fmt?'['+fmt.toUpperCase()+']':null, conta?nomeConta(conta):null, tit||null].filter(Boolean).join(' - ') || 'Novo post (sem nome)';
-}
-/** Mesma regra do servidor: entrega = 2 dias úteis antes do dia do post. */
-function entregaPara(dateStr){
-  const [y,m,d]=dateStr.split('-').map(Number); let dt=new Date(Date.UTC(y,m-1,d,12)); let faltam=2;
-  while(faltam>0){ dt=new Date(dt.getTime()-86400000); const dow=dt.getUTCDay(); if(dow!==0&&dow!==6) faltam--; }
-  return dt.toISOString().slice(0,10);
-}
-$('#eCu').addEventListener('change', ()=>{ if($('#eCu').checked){ atualizaCuNome(); setTimeout(()=>$('#eBrief').focus(),50); } });
-['#eConta','#eFormato','#eTitulo','#eDate'].forEach(k=>{ const el=document.querySelector(k); el.addEventListener('input', atualizaCuNome); el.addEventListener('change', atualizaCuNome); });
 
 $('#eSave').onclick = async ()=>{
   if(!$('#eConta').value){
@@ -2680,24 +2350,13 @@ $('#eSave').onclick = async ()=>{
     gm: gmOverride({conta:$('#eConta').value, date:$('#eDate').value||null}, $('#eConta').value==='seubone' && $('#eGm').checked),
     collab: [...eCollabSel],
   };
-  const criarCu = !S.editing && E_MODO==='clickup' && S.hasToken;
-  if(!S.editing && E_MODO!=='link') body.taskUrl = '';   // no modo 2 o link colado não vale
-  $('#eSave').disabled = true; $('#eMsg').textContent = criarCu ? 'criando a task no ClickUp…' : '';
+  if(body.taskUrl && !/^https?:\/\//i.test(body.taskUrl) && !/^MKT-\d+$/i.test(body.taskUrl) && !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.taskUrl)){ $('#eMsg').textContent = 'O link da task começa com https://'; $('#eTask').focus(); return; }
+  $('#eSave').disabled = true; $('#eMsg').textContent = '';
   try{
-    let r;
-    if(criarCu){
-      r = await api('/api/clickup/criar', {method:'POST', body:JSON.stringify(Object.assign({}, body, { briefing: $('#eBrief').value.trim(), responsavel: $('#eResp').value || null }))});
-      closeOv('ovEdit'); await loadState();
-      const el = document.createElement('div');
-      el.innerHTML = 'Task criada no ClickUp: <b>'+esc(r.nome)+'</b>'+(r.responsavel?' · '+esc(r.responsavel):'')+' <a href="'+esc(r.url)+'" target="_blank" rel="noopener" style="color:inherit; font-weight:800; text-decoration:underline">abrir no ClickUp ↗</a>';
-      toast(el, false, 9000);
-    } else {
-      r = S.editing
-        ? await api('/api/slots/'+S.editing, {method:'PATCH', body:JSON.stringify(body)})
-        : await api('/api/slots', {method:'POST', body:JSON.stringify(body)});
-      closeOv('ovEdit'); await loadState();
-      toast('Salvo'+(r.entrega? ' · entrega no ClickUp: '+r.entrega.split('-').reverse().slice(0,2).join('/') : ''));
-    }
+    if(S.editing) await api('/api/slots/'+S.editing, {method:'PATCH', body:JSON.stringify(body)});
+    else await api('/api/slots', {method:'POST', body:JSON.stringify(body)});
+    closeOv('ovEdit'); await loadState();
+    toast('Salvo');
   }catch(e){ $('#eMsg').textContent = 'Erro: '+e.message; }
   finally{ $('#eSave').disabled = false; }
 };
@@ -3114,7 +2773,7 @@ function openMatriz(id){
   $('#mzStatus').value = mzStatus(s);
   $('#mzRegrasTxt').innerHTML = '<b>Regras da rotação</b><ol>'+cfg.regras.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ol><b>Antes de aprovar qualquer peça</b><ul>'+cfg.checklist.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>';
   $('#mzExcluir').hidden = !isMatriz(s);                 // card que já virou post normal se apaga pelo editor
-  $('#mzMsg').textContent = s.taskId ? 'Este post já tem task no ClickUp. Aqui fica o planejamento da matriz.' : '';
+  $('#mzMsg').textContent = s.taskId ? 'Este post já tem task de produção. Aqui fica o planejamento da matriz.' : '';
   mzDesenhaTipo(s, tipo);
   $('#mzCopy').innerHTML = $('#mzCopyTop').innerHTML = icon('doc') + (s.docId ? 'Abrir a copy' : 'Escrever a copy');
   // dia de tipo fixo: link discreto pra trocar o tipo mesmo assim
@@ -3173,7 +2832,7 @@ async function gerarMatrizMes(){
 }
 $('#eDelete').onclick = async ()=>{
   if(!S.editing) return;
-  if(!confirm('Excluir este post do painel? (a task do ClickUp não é apagada; Ctrl+Z desfaz)')) return;
+  if(!confirm('Excluir este post do painel? (Ctrl+Z desfaz)')) return;
   try{ await api('/api/slots/'+S.editing,{method:'DELETE'}); closeOv('ovEdit'); await loadState(); toast('Excluído · Ctrl+Z desfaz'); }
   catch(e){ $('#eMsg').textContent='Erro: '+e.message; }
 };
@@ -3185,21 +2844,9 @@ function atualizaLoginState(){
   el.style.color = S.temSenha? 'var(--ok)' : 'var(--warn)';
   el.style.fontWeight = '700';
 }
-function pintaZapi(z){
-  const el = $('#cZapiEstado'); if(!el) return;
-  if(!z){ el.textContent=''; return; }
-  el.className = 'note ' + (z.pronto && z.ligado ? 'on' : 'off');
-  el.textContent = !z.pronto ? 'Não configurado: os avisos não vão sair.'
-    : (z.ligado ? 'Ligado, avisando '+(z.destino||'') : 'Configurado, mas com os avisos DESLIGADOS.')
-      + (z.porAmbiente ? ' · credenciais vindo das variáveis do Render' : '');
-  $('#zLigado').checked = !!z.ligado;
-  if(z.destino && !$('#zDest').value) $('#zDest').placeholder = z.destino;
-}
 async function openConfig(){
-  $('#cStatus').textContent = S.user? ('Conectado como '+S.user.nome+' ('+S.user.email+')') : (S.hasToken? 'Token salvo.' : 'Sem token configurado.');
-  $('#cToken').value=''; $('#cSenha').value=''; $('#cSemLogin').checked=false;
-  ['#zInst','#zTok','#zCli','#zDest'].forEach(k=>{ $(k).value=''; });
-  $('#zMsg').textContent=''; $('#zMsg').className='note';
+  $('#cStatus').textContent = '';
+  $('#cSenha').value=''; $('#cSemLogin').checked=false;
   atualizaLoginState();
   $('#nAtivo').checked = ALERTA.ligado();
   $('#nSom').checked = ALERTA.som();
@@ -3211,36 +2858,21 @@ async function openConfig(){
   $('#gmPeriodo').value = gc.periodo || 3;
   pintaGm();
   $('#ovConfig').classList.add('open');
-  try{ const c = await api('/api/config'); pintaZapi(c.zapi); }catch(e){}
 }
 $('#btnConfig').onclick = openConfig;
 $('#cSave').onclick = async ()=>{
-  const t = $('#cToken').value.trim();
   const s = $('#cSenha').value;
   const semLogin = $('#cSemLogin').checked;
   const body = {};
-  if(t) body.token = t;
   if(semLogin) body.senha = '';
   else if(s) body.senha = s;
-  // WhatsApp: só manda o que foi preenchido, pra não apagar o que já está salvo
-  const z = {};
-  if($('#zInst').value.trim()) z.instancia = $('#zInst').value.trim();
-  if($('#zTok').value.trim()) z.token = $('#zTok').value.trim();
-  if($('#zCli').value.trim()) z.clientToken = $('#zCli').value.trim();
-  if($('#zDest').value.trim()) z.destino = $('#zDest').value.trim();
-  z.ligado = $('#zLigado').checked;
-  if(Object.keys(z).length > 1 || $('#zLigado').dataset.mexeu) body.zapi = z;
   if(!Object.keys(body).length){ $('#cStatus').textContent = 'Nada novo pra salvar.'; return; }
   $('#cStatus').textContent = 'Salvando…';
   try{
-    const r = await api('/api/config',{method:'POST', body:JSON.stringify(body)});
-    if(body.token && r.user) $('#cStatus').textContent = 'Conectado como '+r.user.nome+' ('+r.user.email+')';
-    else $('#cStatus').textContent = 'Salvo.';
-    $('#cToken').value=''; $('#cSenha').value=''; $('#cSemLogin').checked=false;
-    if(r.zapi) pintaZapi(r.zapi);
-    if('zapi' in body) toast(r.zapi && r.zapi.pronto ? 'WhatsApp configurado · mande um teste' : 'WhatsApp salvo, mas ainda faltam dados');
-    else if('senha' in body) toast(body.senha? 'Login ativado (guarde a senha)' : 'Login desativado');
-    else toast('ClickUp conectado');
+    await api('/api/config',{method:'POST', body:JSON.stringify(body)});
+    $('#cStatus').textContent = 'Salvo.';
+    $('#cSenha').value=''; $('#cSemLogin').checked=false;
+    toast(body.senha? 'Login ativado (guarde a senha)' : 'Login desativado');
     await loadState(true);
     atualizaLoginState();
   }catch(e){ $('#cStatus').textContent = 'Falhou: '+e.message; }
@@ -3296,16 +2928,6 @@ $('#nTestar').onclick = ()=>{
     if(!$('#nAtivo').checked) limparAlerta();
   });
 });
-$('#zLigado').addEventListener('change', ()=>{ $('#zLigado').dataset.mexeu = '1'; });
-$('#zTeste').onclick = async ()=>{
-  const btn = $('#zTeste'), msg = $('#zMsg');
-  btn.disabled = true; btn.textContent = 'enviando…'; msg.textContent=''; msg.className='note';
-  try{
-    await api('/api/zapi/teste', {method:'POST'});
-    msg.textContent = 'Enviado. Confira o seu WhatsApp.'; msg.className='note ok';
-  }catch(e){ msg.textContent = 'Não enviou: '+e.message; msg.className='note err'; }
-  finally{ btn.disabled=false; btn.textContent='Enviar mensagem de teste'; }
-};
 $('#cLogout').onclick = async ()=>{ try{ await api('/api/logout',{method:'POST'}); }catch(e){} location.reload(); };
 
 // ---- tela de login (aparece no 401) ----
@@ -3328,217 +2950,7 @@ async function fazerLogin(){
 $('#loginBtn').onclick = fazerLogin;
 $('#loginSenha').addEventListener('keydown', e=>{ if(e.key==='Enter') fazerLogin(); });
 
-// ---- relatório do dia (texto pra copiar no WhatsApp do time) ----
-function fmtDiaBr(iso){
-  const [y,m,d] = iso.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m-1, d, 12));
-  const dias = ['dom','seg','ter','qua','qui','sex','sáb'];
-  return String(d).padStart(2,'0')+'/'+String(m).padStart(2,'0')+' ('+dias[dt.getUTCDay()]+')';
-}
-// fim da janela de 7 dias corridos: hoje + 6 (segunda->domingo, terça->segunda seguinte, etc)
-function fimDaSemana(iso){
-  const [y,m,d] = iso.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m-1, d, 12));
-  dt.setUTCDate(dt.getUTCDate() + 6);
-  return dt.toISOString().slice(0,10);
-}
-// lista de datas ISO de 'a' ate 'z' (inclusive)
-function diasEntre(a,z){
-  const out=[]; const [y,m,d]=a.split('-').map(Number);
-  const dt=new Date(Date.UTC(y,m-1,d,12));
-  while(dt.toISOString().slice(0,10) <= z){ out.push(dt.toISOString().slice(0,10)); dt.setUTCDate(dt.getUTCDate()+1); }
-  return out;
-}
-// cabecalho de dia pro relatorio: "TER 15/07"
-function cabDia(iso){
-  const [y,m,d]=iso.split('-').map(Number);
-  const dt=new Date(Date.UTC(y,m-1,d,12));
-  const dias=['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
-  return dias[dt.getUTCDay()]+' '+String(d).padStart(2,'0')+'/'+String(m).padStart(2,'0');
-}
-function statusDe(s){ return (s.statusCache && s.statusCache.status) || ''; }
-function nomeConta(k){ return (S.contas[k] && S.contas[k].nome) || k; }
-function linkTask(s){ return s.taskId? 'https://app.clickup.com/t/'+s.taskId : '(sem link no ClickUp)'; }
-function gerarRelatorio(){
-  const hoje = hojeStr();
-  const fim = fimDaSemana(hoje);                 // domingo que fecha a semana
-  const naSemana = s => s.date && s.date>=hoje && s.date<=fim;
-  const pendAlt = s => { const st=statusDe(s); return st==='pendente'||st==='alterar'; };
-  const up = k => nomeConta(k).toUpperCase();
-  const porData = (a,z) => (a.date||'9')<(z.date||'9')?-1:(a.date||'9')>(z.date||'9')?1:0;
-  // cada item: CONTA · STATUS · responsável, e o link do ClickUp na linha de baixo (pra clicar)
-  const linhaPost = s => '- '+up(s.conta)+' · '+(statusDe(s)||'sem status').toUpperCase()+' · '+(((s.assigneeCache||'').trim())||'sem responsável')+'\n  '+linkTask(s);
-  const linhaAprov = s => '- '+up(s.conta)+' · '+(s.date? (s.date===hoje?'sai hoje':'sai '+s.date.split('-').reverse().slice(0,2).join('/')) : 'sem data')+'\n  '+linkTask(s);
-
-  // 1) precisa sair na semana (pendente/alterar), agrupado por dia, de hoje ate domingo
-  const pend = S.slots.filter(s=>!s.postado && pendAlt(s) && naSemana(s));
-  let corpoSair = ''; let totalSair = 0;
-  diasEntre(hoje, fim).forEach(dia=>{
-    const doDia = pend.filter(s=>s.date===dia).sort((a,z)=>up(a.conta)<up(z.conta)?-1:1);
-    if(!doDia.length) return;
-    totalSair += doDia.length;
-    corpoSair += (corpoSair?'\n\n':'') + cabDia(dia) + '\n' + doDia.map(linhaPost).join('\n');
-  });
-  if(!totalSair) corpoSair = '(nada pendente na semana)';
-
-  // 2) esperando a Maria (aprovar), na semana
-  const aprov = S.slots.filter(s=>!s.postado && statusDe(s)==='aprovar' && naSemana(s)).sort(porData);
-
-  // 3) prontos (publicar) na semana, por conta
-  const contasOrd = Object.keys(S.contas);
-  const prontos = {}; contasOrd.forEach(k=>prontos[k]=0);
-  S.slots.filter(s=>!s.postado && ehPublicar(s) && naSemana(s)).forEach(s=>{ if(prontos[s.conta]!=null) prontos[s.conta]++; });
-
-  // 4) FALTA CRIAR na semana: vagas sinalizadas a dedo, ainda sem task
-  const vagas = S.slots.filter(s=>isVaga(s) && naSemana(s)).sort(porData);
-  const linhaVaga = s => '- '+up(s.conta)+' · '+(s.formato||'post').toUpperCase()+' · '+(s.date===hoje?'para hoje':'para '+brData(s.date))+(s.obs? '\n  obs: '+s.obs : '');
-
-  const DIV = '=============================';
-  const bloco = (titulo, corpo) => DIV+'\n'+titulo+'\n'+DIV+'\n'+corpo;
-  let out = 'RELATÓRIO DA SEMANA · '+fmtDiaBr(hoje)+' a '+fmtDiaBr(fim)+'\n\n';
-  if(vagas.length) out += bloco('FALTA CRIAR NA SEMANA ('+vagas.length+')', vagas.map(linhaVaga).join('\n')) + '\n\n';
-  out += bloco('PRECISA SAIR NA SEMANA · pendente/alterar ('+totalSair+')', corpoSair);
-  out += '\n\n'+bloco('ESPERANDO A MARIA · aprovar ('+aprov.length+')', aprov.length? aprov.map(linhaAprov).join('\n') : '(nada esperando aprovação na semana)');
-  out += '\n\n'+bloco('PRONTOS PRA POSTAR NA SEMANA · publicar', contasOrd.map(k=>'- '+nomeConta(k)+': '+prontos[k]).join('\n'));
-  return out;
-}
-function openRelatorio(){
-  $('#relTxt').textContent = S.hasToken? gerarRelatorio()
-    : 'Conecte o ClickUp (em Mais › Configurações) pra ver os status e gerar o relatório do dia.';
-  $('#relMsg').textContent = '';
-  $('#ovRelatorio').classList.add('open');
-}
-$('#btnRelatorio').onclick = openRelatorio;
 $('#btnUso').onclick = abrirUsoPop;
-$('#btnExportar').onclick = exportarSemana;
-
-// ---- exportar a semana num arquivo HTML pra enviar (somente leitura) ----
-function baixarArquivo(nome, conteudo){
-  const blob = new Blob([conteudo], {type:'text/html;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=nome; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
-}
-async function exportarSemana(){
-  const hoje = hojeStr(), fim = fimDaSemana(hoje), contas = contasDaAba(S.aba);
-  const posts = S.slots.filter(s=> contas.includes(s.conta) && s.date && s.date>=hoje && s.date<=fim)
-    .sort((a,z)=> (a.date<z.date?-1:a.date>z.date?1: (nomeConta(a.conta)<nomeConta(z.conta)?-1:1)) );
-  if(!posts.length){ toast('Nenhum post na semana da aba atual pra exportar', true); return; }
-  // abre o modal na hora (feedback imediato); o download vira um clique direto no botão (confiável)
-  $('#expBaixar').style.display='none';
-  $('#expMsg').textContent = 'Montando o arquivo da semana… ('+posts.length+' post'+(posts.length>1?'s':'')+')';
-  $('#ovExportar').classList.add('open');
-  try{
-    const desc = {};
-    if(S.hasToken){
-      await Promise.all(posts.filter(p=>p.taskId).map(p=>
-        Promise.race([ api('/api/task/'+p.taskId).then(t=>{ desc[p.taskId]=t; }).catch(()=>{}), new Promise(r=>setTimeout(r,8000)) ])
-      ));
-    }
-    const html = montarHtmlSemana(posts, hoje, fim, desc);
-    const rotulo = (contas.length===1 ? nomeConta(contas[0]).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') : String(S.aba||'semana'));
-    const nome = 'planejamento-'+rotulo+'-'+hoje+'.html';
-    $('#expMsg').innerHTML = 'Pronto: <b>'+posts.length+' post'+(posts.length>1?'s':'')+'</b> da semana ('+esc(fmtDiaBr(hoje))+' a '+esc(fmtDiaBr(fim))+'). Clique pra baixar o arquivo e enviar pra quem quiser.';
-    const btn = $('#expBaixar'); btn.style.display=''; btn.textContent='Baixar arquivo HTML';
-    btn.onclick = ()=>{ baixarArquivo(nome, html); $('#expMsg').innerHTML='Arquivo <b>'+esc(nome)+'</b> baixado. Veja na pasta Downloads do seu PC e envie pra quem quiser.'; };
-  }catch(e){ $('#expMsg').textContent = 'Deu erro ao montar: '+(e && e.message || e); }
-}
-function montarHtmlSemana(posts, hoje, fim, desc){
-  const esc2 = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const limpaMd = s => String(s||'').replace(/\*\*/g,'').replace(/^#{1,6}\s?/gm,'').replace(/^\s*[\*\-]\s?/gm,'• ').replace(/\n{3,}/g,'\n\n').trim();
-  const stDe = p => (p.statusCache && p.statusCache.status) || (desc[p.taskId] && desc[p.taskId].status) || '';
-  const respDe = p => (desc[p.taskId] && (desc[p.taskId].assignees||[]).map(a=>a.nome).join(', ')) || p.assigneeCache || p.responsavelManual || '';
-  const stCor = p => (p.statusCache && p.statusCache.color) || (desc[p.taskId] && desc[p.taskId].color) || '#6b6a66';
-  const chips = p => {
-    let h=''; const st=stDe(p);
-    if(st) h+='<span class="pill" style="background:'+esc2(stCor(p))+'">'+esc2(st)+'</span>';
-    if(p.formato) h+='<span class="chip">'+esc2(p.formato)+'</span>';
-    if(p.angulo) h+='<span class="chip ang">'+esc2(p.angulo)+'</span>';
-    if(isGm(p)) h+='<span class="chip gm">GM</span>';
-    return h;
-  };
-  // grade de colunas por dia (igual a aba Semanas), cada card abre um <dialog> com os detalhes
-  const wdDia = iso => { const [y,m,d]=iso.split('-').map(Number); return ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'][new Date(Date.UTC(y,m-1,d,12)).getUTCDay()]; };
-  const inic = s => { s=String(s||'').trim(); if(!s) return ''; const ps=s.split(/\s+/); return ((ps[0][0]||'')+(ps.length>1?ps[ps.length-1][0]:'')).toUpperCase(); };
-  const porDia = {}; posts.forEach((p,i)=> (porDia[p.date]=porDia[p.date]||[]).push({p,i}));
-  const cols = diasEntre(hoje, fim).map(dia=>{
-    const arr = porDia[dia]||[];
-    const cards = arr.map(({p,i})=>{
-      const r = respDe(p);
-      return '<div class="card"'+(p.postado?' data-post="1"':'')+' style="border-left-color:'+contaCor(p.conta)+'" onclick="document.getElementById(\'d'+i+'\').showModal()">'+
-        '<div class="ct">'+esc2(slotTitulo(p))+'</div>'+
-        '<div class="cm">'+chips(p)+(r?'<span class="who" title="'+esc2(r)+'">'+esc2(inic(r))+'</span>':'')+'</div>'+
-      '</div>';
-    }).join('');
-    return '<div class="col'+(dia===hoje?' hoje':'')+'"><div class="colh"><span class="wd">'+wdDia(dia)+'</span><span class="dn">'+Number(dia.split('-')[2])+'</span></div>'+cards+'</div>';
-  }).join('');
-  const contasSet = [...new Set(posts.map(p=>p.conta))];
-  const corMarca = contasSet.length===1 ? contaCor(contasSet[0]) : '#FCC100';
-  const inicMarca = contasSet.length===1 ? (inic(nomeConta(contasSet[0]))||'SB') : 'SB';
-  const dialogs = posts.map((p,i)=>{
-    const resp=respDe(p), collab=(p.collab||[]).length?[p.conta].concat(p.collab).map(c=>nomeConta(c)).join(' + '):'';
-    const descr = desc[p.taskId] && desc[p.taskId].descricao ? limpaMd(desc[p.taskId].descricao) : '';
-    const link = p.taskId ? 'https://app.clickup.com/t/'+p.taskId : '';
-    return '<dialog id="d'+i+'" class="det"><form method="dialog"><button class="x" aria-label="fechar">✕</button></form>'+
-      '<h2><span class="dot" style="background:'+contaCor(p.conta)+'"></span>'+esc2(slotTitulo(p))+'</h2>'+
-      '<div class="drow"><b>'+esc2(nomeConta(p.conta))+'</b> · '+esc2(cabDia(p.date))+(p.postado?' · já postado':'')+'</div>'+
-      '<div class="dtags">'+chips(p)+'</div>'+
-      (resp?'<div class="drow"><b>Responsável:</b> '+esc2(resp)+'</div>':'')+
-      (collab?'<div class="drow"><b>Collab:</b> '+esc2(collab)+'</div>':'')+
-      (p.obs?'<div class="drow"><b>Obs:</b> '+esc2(p.obs)+'</div>':'')+
-      (descr?'<div class="drow" style="margin-bottom:2px"><b>Descrição:</b></div><div class="ddesc">'+esc2(descr)+'</div>':'')+
-      (link?'<a class="dlink" href="'+link+'" target="_blank">abrir no ClickUp →</a>':'')+
-    '</dialog>';
-  }).join('');
-  const contasNome = [...new Set(posts.map(p=>nomeConta(p.conta)))].join(', ');
-  return '<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
-   '<title>Planejamento da semana · '+esc2(contasNome)+'</title><style>'+
-   '*{box-sizing:border-box}body{margin:0;background:#0f0f0d;color:#efeee9;font:14px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif}'+
-   '.top{padding:16px 20px;border-bottom:1px solid #26261f;position:sticky;top:0;background:#0f0f0d;z-index:2}'+
-   '.brand{display:flex;align-items:center;gap:12px}'+
-   '.blogo{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#000;flex:none;letter-spacing:-.02em}'+
-   '.top h1{font-size:19px;margin:0 0 3px}.sub{color:#9a9995;font-size:12.5px}'+
-   '.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:9px;padding:16px 20px}'+
-   '@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}'+
-   '.col{background:#151513;border:1.5px solid #232320;border-radius:10px;min-height:320px;padding:8px;display:flex;flex-direction:column;gap:7px}'+
-   '.col.hoje{border:2px solid #FCC100}'+
-   '.colh{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:1px 3px 7px;border-bottom:1px solid #26261f}'+
-   '.colh .wd{font-size:10.5px;font-weight:800;letter-spacing:.05em;color:#8f8e89}'+
-   '.colh .dn{font-size:13px;font-weight:800;color:#cfcec9}'+
-   '.col.hoje .colh .dn{background:#FCC100;color:#000;border-radius:5px;padding:0 7px}'+
-   '.card{background:#1b1b18;border:1.5px solid #33332f;border-left:5px solid #888;border-radius:8px;padding:9px 10px;cursor:pointer;transition:transform .08s,border-color .08s}'+
-   '.card:hover{transform:translateY(-1px);border-color:#5a5952}.card[data-post="1"]{opacity:.55}'+
-   '.ct{font-weight:700;font-size:12.5px;line-height:1.3;margin-bottom:6px}'+
-   '.cm{display:flex;flex-wrap:wrap;gap:4px;align-items:center}'+
-   '.who{margin-left:auto;font-size:9px;font-weight:800;background:#2a2a27;color:#cfcec9;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex:none}'+
-   '.pill{font-size:9.5px;font-weight:800;text-transform:uppercase;padding:1px 6px;border-radius:4px;color:#000}'+
-   '.chip{font-size:10px;padding:1px 6px;border-radius:4px;background:#232320;border:1px solid #38382f;color:#cfcec9}'+
-   '.chip.ang{border-color:#FCC100;color:#FCC100}.chip.gm{border-color:#FCC100;background:rgba(252,193,0,.13);color:#FCC100}'+
-   '.vazio{color:#33332e;text-align:center;padding:6px;font-size:12px}'+
-   '.det{position:relative;background:#1b1b18;color:#efeee9;border:2px solid #000;border-radius:12px;max-width:600px;width:92%;box-shadow:8px 8px 0 rgba(0,0,0,.9);padding:20px 22px}'+
-   '.det::backdrop{background:rgba(0,0,0,.72)}'+
-   '.det .x{position:absolute;top:9px;right:12px;background:none;border:none;color:#9a9995;font-size:20px;cursor:pointer;line-height:1}'+
-   '.det h2{font-size:18px;margin:0 26px 8px 0;display:flex;align-items:center;gap:8px;line-height:1.25}'+
-   '.dot{width:11px;height:11px;border-radius:50%;flex:none}'+
-   '.drow{margin:7px 0;font-size:13.5px}.drow b{color:#cfcec9}'+
-   '.dtags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}'+
-   '.ddesc{white-space:pre-wrap;background:#141412;border:1px solid #262623;border-radius:8px;padding:10px 12px;margin-top:4px;font-size:13.5px;color:#deddd8}'+
-   '.dlink{display:inline-block;margin-top:12px;color:#7aa2ff;text-decoration:none;font-weight:600}'+
-   '@media print{body{background:#fff;color:#000}.top{position:static}.grid{overflow:visible;flex-wrap:wrap}.card{background:#fff}}'+
-   '</style></head><body>'+
-   '<div class="top"><div class="brand"><span class="blogo" style="background:'+corMarca+'">'+esc2(inicMarca)+'</span><div><h1>Planejamento da semana</h1><div class="sub">'+esc2(contasNome)+' · '+esc2(fmtDiaBr(hoje))+' a '+esc2(fmtDiaBr(fim))+' · '+posts.length+' post'+(posts.length>1?'s':'')+' · somente leitura · clique num card pra ver os detalhes</div></div></div></div>'+
-   '<div class="grid">'+cols+'</div>'+dialogs+
-   '</body></html>';
-}
-$('#relCopiar').onclick = async ()=>{
-  const txt = $('#relTxt').textContent;
-  try{ await navigator.clipboard.writeText(txt); $('#relMsg').textContent = 'Copiado! É só colar no WhatsApp.'; }
-  catch(e){
-    const r=document.createRange(); r.selectNodeContents($('#relTxt'));
-    const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r);
-    $('#relMsg').textContent = 'Selecionei o texto, aperte Ctrl+C.';
-  }
-};
 
 // ================= topo =================
 function shiftMes(d){
@@ -3560,131 +2972,13 @@ $('#mHoje').onclick = ()=>{
   if(S.view==='semana'){ S.mes = mesAtual(); S.semIdx = weekIndexOf(hojeStr()); loadState().catch(e=>toast(e.message,true)); return; }
   irParaMes(mesAtual(), true);
 };
-$('#btnRefresh').onclick = async ()=>{
-  const btn = $('#btnRefresh'); btn.classList.add('girando');
-  const el = $('#refLabel'); if(el) el.textContent='Atualizando…';
-  try{ await api('/api/sync',{method:'POST'}); await loadState(); toast('Status atualizados agora'); }
-  catch(e){ toast(e.message,true); renderRefLabel(); }
-  finally{ btn.classList.remove('girando'); }
-};
-// aplicar datas no ClickUp: abre a revisão pra escolher quais posts aplicar
-$('#aplicarBtn').onclick = ()=>{ if((S.duePendentes||[]).length) openAplicar(); };
-function renderAplicList(){
-  const wrap = $('#aplicList'); wrap.innerHTML='';
-  const cardDe = sid => [...document.querySelectorAll('.card')].find(c=>c.dataset.id===sid);
-  const vistos = new Set(); let n=0;
-  for(const id of (S.duePendentes||[])){
-    const s = S.slots.find(x=>x.taskId===id);
-    if(!s || vistos.has(id)) continue; vistos.add(id); n++;
-    const st = (s.statusCache && s.statusCache.status) || '';
-    const eleg = (st==='pendente'||st==='alterar'); // pré-marca só os que precisam da confecção
-    const novaConf = s.date? brData(dueEsperadoStr(s.date)) : '(sem data)';
-    const row = document.createElement('label');
-    row.className='aplic-row';
-    row.dataset.slot = s.id;
-    row.innerHTML =
-      '<input type="checkbox" data-id="'+id+'" '+(eleg?'checked':'')+'>'+
-      '<div class="aplic-info">'+
-        '<div class="aplic-top">'+esc(nomeConta(s.conta))+' · '+esc(slotTitulo(s))+
-          (st?'<span class="aplic-st">'+esc(st)+'</span>':'')+'</div>'+
-        '<div class="aplic-sub">confecção vai pra <b>'+novaConf+'</b> · <a href="https://app.clickup.com/t/'+id+'" target="_blank" onclick="event.stopPropagation()">abrir no ClickUp</a></div>'+
-      '</div>'+
-      '<button type="button" class="aplic-x" title="Tirar do slider: não quero mudar a data desta task">'+icon('x')+'</button>';
-    // hover na linha: o card correspondente volta a opacidade normal no calendario
-    const destaca = on => { const c = cardDe(s.id); if(c) c.classList.toggle('aplic-hi', on); };
-    row.addEventListener('mouseenter', ()=>destaca(true));
-    row.addEventListener('mouseleave', ()=>destaca(false));
-    // remover a linha do slider (descarta da fila; nao grava nada no ClickUp)
-    row.querySelector('.aplic-x').addEventListener('click', async ev=>{
-      ev.preventDefault(); ev.stopPropagation();
-      try{
-        await api('/api/aplicar-datas/descartar', {method:'POST', body:JSON.stringify({taskIds:[id]})});
-        S.duePendentes = (S.duePendentes||[]).filter(x=>x!==id);
-        const c = cardDe(s.id); if(c) c.classList.remove('aplic-hi');
-        renderAplicList(); renderAplicar();
-        toast('Tirado do slider: essa não muda a data');
-        if(!(S.duePendentes||[]).length) closeOv('ovAplicar');
-      }catch(e){ toast(e.message, true); }
-    });
-    wrap.appendChild(row);
-  }
-  if(!n) wrap.innerHTML='<div class="dr-empty">Nenhuma data pendente pra aplicar.</div>';
-}
-function openAplicar(){
-  document.querySelectorAll('.card.aplic-hi').forEach(c=>c.classList.remove('aplic-hi'));
-  renderAplicList(); $('#aplicTodos').checked=false;
-  const nFila = new Set(S.duePendentes||[]).size;
-  $('#aplicLimpar').textContent = nFila? ('Limpar tudo ('+nFila+')') : 'Limpar tudo';
-  // posiciona o painel flutuante (usa a ultima posicao da sessao, ou canto superior direito)
-  const modal = $('#ovAplicar .modal');
-  const pos = S.aplicPos || { left: Math.max(8, window.innerWidth - 400), top: 88 };
-  modal.style.left = pos.left+'px'; modal.style.top = pos.top+'px'; modal.style.right='auto'; modal.style.bottom='auto';
-  $('#ovAplicar').classList.add('open');
-}
-// espelha o abrir/fechar do painel na classe do body (escurece os cards); funciona pra qualquer forma de fechar (ESC, clique fora, X, aplicar)
-new MutationObserver(()=>{
-  const aberto = $('#ovAplicar').classList.contains('open');
-  document.body.classList.toggle('aplic-modo', aberto);
-  if(!aberto) document.querySelectorAll('.card.aplic-hi').forEach(c=>c.classList.remove('aplic-hi'));
-}).observe($('#ovAplicar'), {attributes:true, attributeFilter:['class']});
-// arrastar o painel de aplicar datas pela barra do titulo
-(function(){
-  const modal = $('#ovAplicar .modal'); const head = $('#ovAplicar .mhead'); if(!modal||!head) return;
-  let d=null;
-  head.addEventListener('mousedown', ev=>{
-    if(ev.target.closest('.mclose')) return;
-    const r = modal.getBoundingClientRect();
-    d = { dx: ev.clientX - r.left, dy: ev.clientY - r.top };
-    ev.preventDefault();
-  });
-  window.addEventListener('mousemove', ev=>{
-    if(!d) return;
-    let left = ev.clientX - d.dx, top = ev.clientY - d.dy;
-    left = Math.max(6, Math.min(left, window.innerWidth - modal.offsetWidth - 6));
-    top  = Math.max(6, Math.min(top, window.innerHeight - 44));
-    modal.style.left=left+'px'; modal.style.top=top+'px'; modal.style.right='auto'; modal.style.bottom='auto';
-    S.aplicPos = { left, top };
-  });
-  window.addEventListener('mouseup', ()=>{ d=null; });
-})();
-$('#aplicTodos').onchange = ()=> document.querySelectorAll('#aplicList input[type=checkbox]').forEach(c=> c.checked = $('#aplicTodos').checked);
-// LIMPAR TUDO: esvazia a fila de datas pendentes de uma vez. Não escreve nada no
-// ClickUp, só larga mão de gravar essas datas de confecção lá.
-$('#aplicLimpar').onclick = async ()=>{
-  const ids = [...new Set(S.duePendentes||[])];
-  if(!ids.length){ closeOv('ovAplicar'); return; }
-  if(!confirm('Tirar as '+ids.length+' datas da fila?\n\nNenhuma data é gravada no ClickUp e nenhum post do painel muda. É só limpar a lista.')) return;
-  const btn = $('#aplicLimpar'); btn.disabled = true; btn.textContent = 'limpando…';
-  try{
-    await api('/api/aplicar-datas/descartar', {method:'POST', body:JSON.stringify({taskIds: ids})});
-    S.duePendentes = [];
-    closeOv('ovAplicar');
-    await loadState();
-    toast('Fila limpa: '+ids.length+' data'+(ids.length>1?'s':'')+' fora, nada foi gravado no ClickUp');
-  }catch(e){ toast(e.message, true); }
-  finally{ btn.disabled = false; btn.textContent = 'Limpar tudo'; }
-};
-$('#aplicConfirmar').onclick = async ()=>{
-  const ids = [...document.querySelectorAll('#aplicList input[type=checkbox]:checked')].map(c=>c.dataset.id);
-  if(!ids.length){ toast('Marque pelo menos um post pra aplicar', true); return; }
-  const btn = $('#aplicConfirmar'); btn.disabled=true; const t0=btn.textContent; btn.textContent='aplicando…';
-  try{
-    const r = await api('/api/aplicar-datas', {method:'POST', body:JSON.stringify({taskIds:ids})});
-    closeOv('ovAplicar');
-    await loadState();
-    let msg = r.aplicadas+' data'+(r.aplicadas!==1?'s':'')+' gravada'+(r.aplicadas!==1?'s':'')+' no ClickUp';
-    if(r.erros) msg += ' · '+r.erros+' com erro (tenta de novo)';
-    toast(msg);
-  }catch(e){ toast(e.message,true); btn.disabled=false; btn.textContent=t0; }
-};
-
 // gavetas
 $('#btnDrawer').onclick = ()=>{ S.drawer = !S.drawer; renderDrawer(); };
 $('#drClose').onclick = ()=>{ S.drawer = false; renderDrawer(); };
 $('#drBusca').addEventListener('input', ev=>{ S.busca = ev.target.value.trim().toLowerCase(); renderDrawer(); });
 dropZone($('#drawer'), ()=>null);
 
-// menu "mais" (Importar, Exportar) e balão de atalhos
+// menu "mais" e balão de atalhos
 (function(){
   const wrap = $('#maiswrap');
   $('#btnMais').onclick = (ev)=>{ ev.stopPropagation(); fecharAjuda(); fecharUsoPop(); wrap.classList.toggle('open'); };
@@ -3732,142 +3026,6 @@ $('#selBanco').onclick = ()=> selBatch('banco');
 $('#selLimpar').onclick = limparSelecao;
 
 // Ctrl+Z: desfaz a última ação (fora de campos de texto)
-// ================= importar em lote =================
-// Feito pra distribuir um banco de tasks prontas numa sequência de dias (ex.: 75 posts,
-// um em cada domingo). Você cola os links, ele mostra exatamente onde cada um vai cair,
-// e só cria depois que você confere.
-function impLinksLimpos(){
-  return $('#impLinks').value.split(/[\r\n]+/).map(x=>x.trim()).filter(x=>x && /clickup\.com/.test(x));
-}
-/** Datas do dia da semana escolhido, a partir da data inicial, pulando as ocupadas se pedido. */
-function impDatas(quantos){
-  const porDia = Math.max(1, Math.min(10, Number($('#impPorDia').value)||1));
-  const alvoDow = Number($('#impDia').value);
-  const conta = $('#impConta').value;
-  const pular = $('#impPular').checked;
-  const base = $('#impDe').value || hojeStr();
-  const ocupados = new Set(S.slots.filter(x=>x.conta===conta && x.date).map(x=>x.date));
-  const datas = [];
-  let [y,m,d] = base.split('-').map(Number);
-  let cur = new Date(y, m-1, d);
-  // anda até o primeiro dia da semana pedido (inclusive o próprio dia base)
-  while(cur.getDay() !== alvoDow) cur.setDate(cur.getDate()+1);
-  let guarda = 0;
-  while(datas.length*porDia < quantos && guarda++ < 400){
-    const iso = cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0');
-    if(!(pular && ocupados.has(iso))) datas.push(iso);
-    cur.setDate(cur.getDate()+7);
-  }
-  return { datas, porDia };
-}
-let impLinhas = null; // resultado do "Conferir no ClickUp" (modo pela entrega)
-function impModo(){ return $('#impModo').value; }
-/** Conferência: lê a entrega de cada task no ClickUp e mostra onde cada post vai cair. */
-async function impConferir(){
-  const links = impLinksLimpos();
-  if(!links.length){ $('#impMsg').textContent='Cole pelo menos um link do ClickUp.'; return; }
-  const btn = $('#impConferir'); btn.disabled=true; btn.textContent='lendo o ClickUp…';
-  $('#impMsg').textContent='';
-  try{
-    const r = await api('/api/slots/importar/preview', {method:'POST',
-      body:JSON.stringify({links, dow: Number($('#impDia').value)})});
-    impLinhas = r.linhas;
-    impRender();
-  }catch(e){ $('#impMsg').textContent = 'Erro: '+e.message; }
-  finally{ btn.disabled=false; btn.textContent='Conferir no ClickUp'; }
-}
-$('#impConferir').onclick = impConferir;
-
-function impRender(){
-  const links = impLinksLimpos();
-  const el = $('#impPreview');
-  const porEntrega = impModo()==='entrega';
-  $('#impConferir').style.display = porEntrega ? '' : 'none';
-  document.querySelectorAll('.soordem').forEach(el=>{ el.style.display = porEntrega ? 'none' : ''; });
-  if(!links.length){ el.innerHTML = 'Cole os links acima pra ver onde cada post vai cair.'; impLinhas=null; return; }
-  if(!$('#impConta').value){ el.innerHTML = '<span class="aviso">Escolha a conta.</span>'; return; }
-
-  if(porEntrega){
-    // cada post cai no dia da semana escolhido a partir da ENTREGA da própria task
-    if(!impLinhas){
-      el.innerHTML = '<b>'+links.length+' link'+(links.length>1?'s':'')+'</b> · clique em <b>Conferir no ClickUp</b> pra eu ler a data de entrega de cada task e mostrar em que dia cada post vai cair. A ordem em que você colou não importa neste modo.';
-      return;
-    }
-    const ok = impLinhas.filter(l=>!l.erro);
-    const ruins = impLinhas.filter(l=>l.erro);
-    const dias = [...new Set(ok.map(l=>l.destino))].sort();
-    const choque = dias.filter(d=>ok.filter(l=>l.destino===d).length>1);
-    el.innerHTML =
-      '<b>'+ok.length+' post'+(ok.length!==1?'s':'')+'</b> em <b>'+dias.length+' dia'+(dias.length!==1?'s':'')+'</b>'+
-      (dias.length? ', de '+esc(cabDia(dias[0]))+' até '+esc(cabDia(dias[dias.length-1])) : '')+
-      (ruins.length? ' · <span class="aviso">'+ruins.length+' sem data de entrega, não vão ser criados</span>' : '')+
-      (choque.length? ' · <span class="aviso">'+choque.length+' dia(s) com mais de um post</span>' : '')+
-      '<table class="imptab"><thead><tr><th>Task</th><th>Entrega</th><th>Sai em</th></tr></thead><tbody>'+
-      impLinhas.map(l=>'<tr>'+
-        '<td class="tnome" title="'+esc(l.nome||l.taskId)+'">'+esc(l.nome||l.taskId)+'</td>'+
-        '<td>'+(l.entrega? esc(cabDia(l.entrega)) : '<span class="terro">—</span>')+'</td>'+
-        '<td>'+(l.erro? '<span class="terro">'+esc(l.erro)+'</span>' : '<span class="tdest">'+esc(cabDia(l.destino))+'</span>')+'</td>'+
-      '</tr>').join('')+'</tbody></table>';
-    return;
-  }
-  const { datas, porDia } = impDatas(links.length);
-  const usadas = datas.slice(0, Math.ceil(links.length/porDia));
-  const ult = usadas[usadas.length-1];
-  el.innerHTML =
-    '<b>'+links.length+' link'+(links.length>1?'s':'')+'</b> · '+porDia+' por dia · '+
-    '<b>'+usadas.length+' dia'+(usadas.length>1?'s':'')+'</b>, de '+esc(cabDia(usadas[0]))+' até '+esc(cabDia(ult))+
-    ' <span style="color:var(--ink-3)">('+esc(nomeConta($('#impConta').value))+')</span>'+
-    '<div class="impdias">'+usadas.slice(0,40).map(d=>'<span class="impdia">'+esc(brData(d))+'</span>').join('')+
-      (usadas.length>40?'<span class="impdia">+'+(usadas.length-40)+'</span>':'')+'</div>';
-}
-function abrirImportar(){
-  const sel = $('#impConta'); sel.innerHTML='';
-  const contas = contasDaAba(S.aba);
-  if(contas.length>1) sel.insertAdjacentHTML('beforeend','<option value="" disabled selected>— escolha a conta —</option>');
-  contas.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=S.contas[k].nome; sel.appendChild(o); });
-  sel.value = contas.length>1 ? '' : (contas[0]||'');
-  $('#impDe').value = hojeStr();
-  impLinhas = null;
-  $('#impMsg').textContent=''; $('#impCriar').disabled=false; $('#impCriar').textContent='Criar posts';
-  impRender();
-  $('#ovImportar').classList.add('open');
-  setTimeout(()=>$('#impLinks').focus(), 40);
-}
-$('#btnImportar').onclick = abrirImportar;
-['#impLinks','#impConta','#impDia','#impDe','#impPorDia','#impPular','#impModo'].forEach(sel=>{
-  const el = document.querySelector(sel);
-  const invalida = ()=>{ if(sel==='#impLinks' || sel==='#impDia' || sel==='#impModo') impLinhas=null; impRender(); };
-  el.addEventListener('input', invalida); el.addEventListener('change', invalida);
-});
-$('#impCriar').onclick = async ()=>{
-  const links = impLinksLimpos();
-  const conta = $('#impConta').value;
-  if(!conta){ $('#impMsg').textContent='Escolha a conta.'; return; }
-  if(!links.length){ $('#impMsg').textContent='Cole pelo menos um link do ClickUp.'; return; }
-  let itens;
-  if(impModo()==='entrega'){
-    if(!impLinhas){ $('#impMsg').textContent='Clique em "Conferir no ClickUp" antes de criar.'; return; }
-    itens = impLinhas.filter(l=>!l.erro).map(l=>({ taskUrl:l.link, date:l.destino }));
-    if(!itens.length){ $('#impMsg').textContent='Nenhuma task com data de entrega pra importar.'; return; }
-  } else {
-    const { datas, porDia } = impDatas(links.length);
-    itens = links.map((taskUrl, i)=>({ taskUrl, date: datas[Math.floor(i/porDia)] })).filter(x=>x.date);
-  }
-  const forasDoLote = impModo()==='entrega' && impLinhas ? impLinhas.filter(l=>l.erro).length : 0;
-  if(!confirm('Criar '+itens.length+' posts em '+new Set(itens.map(x=>x.date)).size+' dias, na conta '+nomeConta(conta)+'?'+
-    (forasDoLote? '\n\n'+forasDoLote+' task(s) ficam de fora por não ter data de entrega no ClickUp.' : '')+
-    '\n\nA data de entrega no ClickUp NÃO é alterada. Ctrl+Z desfaz o lote inteiro.')) return;
-  const btn = $('#impCriar'); btn.disabled=true; btn.textContent='criando…'; $('#impMsg').textContent='';
-  try{
-    const r = await api('/api/slots/importar', {method:'POST', body:JSON.stringify({conta, itens})});
-    closeOv('ovImportar');
-    await loadState();
-    toast(r.criados+' post'+(r.criados>1?'s':'')+' criado'+(r.criados>1?'s':'')+
-      (r.pulados? ' · '+r.pulados+' pulado(s)':'')+' · os nomes chegam do ClickUp em seguida · Ctrl+Z desfaz');
-  }catch(e){ $('#impMsg').textContent = 'Erro: '+e.message; }
-  finally{ btn.disabled=false; btn.textContent='Criar posts'; }
-};
-
 // ================= auto-scroll ao arrastar um card =================
 // Segurar um card e levar o mouse pra beira de cima (ou de baixo) rola a página sozinha,
 // pra você soltar num dia que está fora da tela. Durante o arrasto NATIVO do HTML5 o
@@ -4011,18 +3169,17 @@ async function colarNoDia(dateStr){
   const modo = S.clip.modo, dbr = dateStr.split('-').reverse().slice(0,2).join('/');
   try{
     if(modo==='copiar'){
-      // a cópia leva a TASK DO CLICKUP junto: copiar um post e perder o link dele
-      // obrigava a recolar a task na mão toda vez. O título manual só é copiado se
-      // existir de verdade; com task vinculada o nome vem do ClickUp sozinho.
+      // a cópia leva o LINK DA TASK junto: copiar um post e perder o link dele
+      // obrigava a recolar na mão toda vez. O nome vai junto também.
       await api('/api/slots', {method:'POST', body:JSON.stringify({
-        conta:s.conta, date:dateStr, taskId:s.taskId||null, titulo:s.titulo||null,
+        conta:s.conta, date:dateStr, taskId:s.taskId||null, taskUrl:s.taskUrl||null, titulo:s.titulo||s.tituloCache||null,
         formato:s.formato||'', angulo:s.angulo||'', obs:s.obs||'', notas:s.notas||'',
         gm:s.gm||'', collab:s.collab||[], drive:s.drive||'', linkRef:s.linkRef||'',
         vaga: isVaga(s)
       })});
       S.clip = null; // depois de colar, some com os botões "Colar aqui"
       await loadState();
-      toast('Colado em '+dbr+(s.taskId?' com o link do ClickUp':'')+' · Ctrl+Z desfaz');
+      toast('Colado em '+dbr+(s.taskId?' com o link da task':'')+' · Ctrl+Z desfaz');
     } else {
       if(s.date===dateStr){ toast('Esse post já está nesse dia', true); return; }
       S.clip = null;
@@ -4237,14 +3394,8 @@ setInterval(()=>{
 function initIcons(){
   $('#mPrev').innerHTML = icon('chevL');
   $('#mNext').innerHTML = icon('chevR');
-  $('#btnRefresh').innerHTML = icon('refresh') + '<span id="refLabel">Atualizar</span>';
-  $('#btnRelatorio').innerHTML = icon('list') + 'Relatório';
-  $('#btnExportar').innerHTML = icon('external') + 'Exportar a semana…';
-  $('#btnImportar').innerHTML = icon('plus') + 'Importar em lote…';
   $('#btnMzGerar').innerHTML = icon('sparkle') + 'Matriz: preencher o mês';
   $('#btnMzGerar').onclick = gerarMatrizMes;
-  $('#btnMzXlsx').innerHTML = icon('list') + 'Matriz: baixar planilha';
-  $('#btnMzXlsx').onclick = ()=>{ location.href = '/api/matriz-sb.xlsx?mes='+S.mes; };
   atualizaRotuloPauta();
   // link da pauta: com escopo (só a conta atual) ou geral (todas). O token muda conforme o escopo,
   // então o link de uma empresa não abre as outras nem dá pra "alargar" editando a URL.

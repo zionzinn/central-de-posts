@@ -2,10 +2,9 @@
 /*
  * B.O.N.E (Bora Organizar Nossas Entregas) - Grupo SB · v3.0 (neo brutal)
  * Servidor local (Node.js >= 18, sem dependências externas).
- * - data/data.json é o BANCO oficial (datas, posts, referências, fila de entregas)
- * - ClickUp: leitura ao vivo (status/artes/comentários) + escrita LIMITADA
- *   (entrega D-2 útil, descrição, comentários, aprovar->publicar / alterar->alterar)
- * - Sync em segundo plano: /api/state responde instantâneo
+ * - data/data.json é o BANCO oficial (datas, posts, matriz, documentos, referências)
+ * - v3.77: o ClickUp saiu (decisão 8). Cada post guarda só o LINK da task de produção;
+ *   a próxima fonte de status/artes é o MKT Hub (API só leitura, v3.78)
  * - Undo universal no servidor (Ctrl+Z no front)
  * - Backup diário automático em data/backups
  */
@@ -14,18 +13,17 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { Readable, pipeline } = require('node:stream');
+const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.76'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.77'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
 const DATA_FILE = path.join(DATA_DIR, 'data.json');
 const CONFIG_FILE = process.env.CONFIG_FILE || path.join(ROOT, 'config.json');
 const PUBLIC_DIR = path.join(ROOT, 'public');
-const CU_API = process.env.CU_API || 'https://api.clickup.com/api/v2';
 
 // ---------------- storage ----------------
 fs.mkdirSync(DATA_DIR, { recursive: true }); // garante a pasta de dados (útil na nuvem com disco novo)
@@ -36,11 +34,6 @@ if (!fs.existsSync(DATA_FILE)) {
 let db = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 // migrações leves (nunca destrutivas)
 if (!Array.isArray(db.referencias)) db.referencias = [];
-if (!db.dueSync || typeof db.dueSync !== 'object' || Array.isArray(db.dueSync)) db.dueSync = {};
-/** A task ainda tem um post com dia no painel? (se o post foi excluído, a data pendente dele não vale mais) */
-function temSlotComData(taskId) { return db.slots.some(s => s.taskId === taskId && s.date); }
-// último status já avisado por task, pra não repetir aviso quando o status oscila ou o servidor reinicia
-if (!db.avisos || typeof db.avisos !== 'object' || Array.isArray(db.avisos)) db.avisos = {};
 // matriz da SeuBoné: dias em que o card amarelo já foi gerado (pra não recriar o que você apagou ou arrastou)
 if (!db.matrizSBGeradas || typeof db.matrizSBGeradas !== 'object' || Array.isArray(db.matrizSBGeradas)) db.matrizSBGeradas = {};
 // cadência automática de GM (grande marca na capa) — só SeuBoné. ancora null = desligado até configurar.
@@ -111,8 +104,7 @@ function loadConfig() {
 }
 function saveConfig(cfg) { gravaAtomico(CONFIG_FILE, JSON.stringify(cfg, null, 2)); }
 let config = loadConfig();
-// nuvem: variáveis de ambiente sobrepõem o config.json (token/senha/secret sem ficar em arquivo)
-if (process.env.CU_TOKEN) config.token = String(process.env.CU_TOKEN).trim();
+// nuvem: variáveis de ambiente sobrepõem o config.json (senha/secret sem ficar em arquivo)
 if (process.env.CU_SENHA) config.senha = String(process.env.CU_SENHA);
 if (process.env.SB_SECRET) config.secret = String(process.env.SB_SECRET);
 if (!config.secret) { config.secret = crypto.randomBytes(32).toString('hex'); saveConfig(config); }
@@ -148,247 +140,36 @@ function pautaTokenOk(t, aba) {
   if (dado.length !== bom.length) return false;
   try { return crypto.timingSafeEqual(Buffer.from(dado), Buffer.from(bom)); } catch { return false; }
 }
-/** Vale pra qualquer token de pauta (geral ou de qualquer empresa). Usado só pelo proxy de imagem. */
-function pautaTokenQualquer(t) {
-  if (!t) return false;
-  if (pautaTokenOk(t, null)) return true;
-  return (db.abas || []).some(a => pautaTokenOk(t, a));
-}
 function contasDaAbaSrv(aba) { return Object.entries(db.contas || {}).filter(([, c]) => c.aba === aba).map(([k]) => k); }
-/** Chave estável de um arquivo de arte (id do anexo, senão o nome). */
-function arteChave(f) { return String((f && (f.id || f.name)) || ''); }
-/** Aplica a curadoria do painel: tira as ocultas e ordena como você deixou (desconhecidas vão pro fim, na ordem original). */
-function curarArtes(arquivos, slot) {
-  const ocultas = new Set(slot.artesOcultas || []);
-  const ordem = slot.artesOrdem || [];
-  const pos = k => { const i = ordem.indexOf(k); return i < 0 ? 1e6 : i; };
-  return (arquivos || []).filter(f => !ocultas.has(arteChave(f)))
-    .map((f, i) => ({ f, i })).sort((a, b) => (pos(arteChave(a.f)) - pos(arteChave(b.f))) || (a.i - b.i)).map(x => x.f);
-}
-/** Mexe numa task a partir da pauta: comenta (notifica o time) e troca o status.
-    É o mesmo efeito dos botões do painel. Lança erro se não conseguir falar com o ClickUp. */
-async function pautaMoverClickUp(taskId, { status, comentario, desc, aprovado }) {
-  if (!config.token) throw Object.assign(new Error('sem token do ClickUp'), { code: 'NO_TOKEN' });
-  let statusAntes = '';
-  try { const t0 = await cuFetch(`/task/${taskId}`, { fresh: true }); statusAntes = (t0.status && t0.status.status) || ''; } catch {}
-  pushUndo({
-    tipo: 'status', desc, taskId, statusAntes,
-    slots: db.slots.filter(s => s.taskId === taskId).map(s => ({ id: s.id, aprovado: s.aprovado, statusCache: s.statusCache ? { ...s.statusCache } : null })),
-  });
-  await cuWrite(`/task/${taskId}/comment`, 'POST', { comment_text: comentario, notify_all: true });
-  cuCache.delete(`/task/${taskId}/comment`);
-  await cuWrite(`/task/${taskId}`, 'PUT', { status });
-  cuCache.delete(`/task/${taskId}`);
-  let st = { status, color: (db.statusColors && db.statusColors[status]) || '#87909e' };
-  try { const task = await cuFetch(`/task/${taskId}`, { fresh: true }); st = { status: normStatus(task.status?.status), color: statusColor(task) }; } catch {}
-  for (const s of db.slots) if (s.taskId === taskId) { s.statusCache = st; s.aprovado = !!aprovado; s.atualizadoEm = new Date().toISOString(); }
-  db.avisos[taskId] = st.status; // a gente mesmo moveu: não é pra avisar de novo (WhatsApp)
-  return st;
-}
-/** Pedido de alteração pela pauta: comentário + ALTERAR. */
-function alterarNoClickUp(taskId, texto, autor) {
-  return pautaMoverClickUp(taskId, {
-    status: 'alterar', aprovado: false, desc: 'pedido de alteração pela pauta (status alterar)',
-    comentario: 'ALTERAÇÃO SOLICITADA (pela pauta, por ' + autor + '): ' + texto,
-  });
-}
-/** Aprovação pela pauta: só vai pra PUBLICAR se a task está em APROVAR (arte pronta, esperando o ok).
-    Em qualquer outro status a aprovação fica registrada aqui e como comentário na task, sem mover:
-    mover pra PUBLICAR um post que ainda está em criação pularia a produção. */
-async function aprovarNoClickUp(taskId, texto, autor) {
-  if (!config.token) throw Object.assign(new Error('sem token do ClickUp'), { code: 'NO_TOKEN' });
-  let atual = '';
-  try { const t0 = await cuFetch(`/task/${taskId}`, { fresh: true }); atual = normStatus(t0.status && t0.status.status); } catch {}
-  const coment = 'APROVADO (pela pauta, por ' + autor + ')' + (texto ? ': ' + texto : '');
-  if (atual === 'aprovar') {
-    const st = await pautaMoverClickUp(taskId, { status: 'publicar', aprovado: true, desc: 'aprovação pela pauta (status publicar)', comentario: coment });
-    return { movido: true, status: st };
-  }
-  // não está esperando aprovação: registra o ok na task (o time vê), mas deixa o status como está
-  try { await cuWrite(`/task/${taskId}/comment`, 'POST', { comment_text: coment + ' · registrado; a task ainda está em ' + (atual || 'status desconhecido').toUpperCase() + ', não foi movida', notify_all: true }); cuCache.delete(`/task/${taskId}/comment`); } catch {}
-  return { movido: false, status: null, motivo: 'a task está em ' + (atual || 'status desconhecido').toUpperCase() + ', não em APROVAR' };
-}
-const IMG_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'heic', 'bmp']);
-/** Capa pra lista da pauta: primeira imagem visível, só do que já está em cache (nunca espera o ClickUp). */
-function capaDoSlot(slot) {
-  if (!slot.taskId) return null;
-  const hit = cuCache.get(`/task/${slot.taskId}`);
-  if (!hit || !hit.data) return null;
-  const imgs = curarArtes(taskFiles(hit.data), slot).filter(f => IMG_EXTS.has(String(f.ext || '').toLowerCase()) || f.thumb);
-  if (!imgs.length) return { capa: null, n: 0 };
-  return { capa: imgs[0].thumb || imgs[0].url, n: imgs.length };
-}
-
-// ---------------- ClickUp ----------------
-const cuCache = new Map(); // key -> {t, data}
-// cache de IMAGENS proxiadas (artes): memória, LRU, com teto total e por item. Render free tem ~512MB, então é comedido.
-const IMG_CACHE_MAX = 120 * 1024 * 1024, IMG_CACHE_ITEM_MAX = 6 * 1024 * 1024;
-const imgCache = new Map(); let imgCacheBytes = 0;
-/** Baixa (uma vez) as imagens pro cache, sem bloquear ninguém. Só hosts do ClickUp; ignora erros. */
-const aquecendo = new Set();
-function aquecerImagens(urls) {
-  for (const u of (urls || []).slice(0, 12)) {
-    if (!u) continue;
-    const chave = u.split('?')[0];
-    if (imgCache.has(chave) || aquecendo.has(chave)) continue;
-    let host = ''; try { host = new URL(u).hostname; } catch { continue; }
-    if (!(host === 'clickup.com' || host.endsWith('.clickup.com') || host.endsWith('clickup-attachments.com') || (process.env.IMG_HOST_EXTRA && host === process.env.IMG_HOST_EXTRA))) continue;
-    aquecendo.add(chave);
-    (async () => {
-      try {
-        const assinado = host.endsWith('clickup-attachments.com');
-        const hh = assinado ? {} : (config.token ? { Authorization: config.token } : {});
-        let r = await fetch(u, { headers: hh, redirect: 'follow' }).catch(() => null);
-        if (!(r && r.ok)) r = await fetch(u, { headers: assinado ? (config.token ? { Authorization: config.token } : {}) : {}, redirect: 'follow' }).catch(() => null);
-        if (!(r && r.ok)) return;
-        const tipo = r.headers.get('content-type') || '';
-        if (!/^image\//i.test(tipo)) return;
-        const buf = Buffer.from(await r.arrayBuffer());
-        if (buf.length <= IMG_CACHE_ITEM_MAX) imgCachePut(chave, buf, tipo);
-      } catch {} finally { aquecendo.delete(chave); }
-    })();
-  }
-}
-function imgCachePut(chave, buf, type) {
-  const old = imgCache.get(chave); if (old) { imgCacheBytes -= old.buf.length; imgCache.delete(chave); }
-  while (imgCacheBytes + buf.length > IMG_CACHE_MAX && imgCache.size) { const k = imgCache.keys().next().value; imgCacheBytes -= imgCache.get(k).buf.length; imgCache.delete(k); }
-  imgCache.set(chave, { buf, type, etag: crypto.createHash('md5').update(buf).digest('hex').slice(0, 16), t: Date.now() });
-  imgCacheBytes += buf.length;
-}
-const CACHE_MS = 60_000;
-
-async function cuFetch(pathname, { fresh = false } = {}) {
-  if (!config.token) throw Object.assign(new Error('sem token'), { code: 'NO_TOKEN' });
-  const hit = cuCache.get(pathname);
-  if (!fresh && hit && Date.now() - hit.t < CACHE_MS) return hit.data;
-  const ctrl = new AbortController();
-  const to = setTimeout(() => ctrl.abort(), 12_000);
-  try {
-    const res = await fetch(CU_API + pathname, {
-      headers: { Authorization: config.token, 'Content-Type': 'application/json' },
-      signal: ctrl.signal,
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw Object.assign(new Error(`ClickUp ${res.status}: ${body.slice(0, 200)}`), { code: 'CU_' + res.status });
-    }
-    const data = await res.json();
-    cuCache.set(pathname, { t: Date.now(), data });
-    return data;
-  } finally { clearTimeout(to); }
-}
-
-/** Cache "instantâneo": devolve o que tiver (mesmo velho) e renova em segundo plano. */
-async function cuFetchStale(pathname) {
-  const hit = cuCache.get(pathname);
-  if (hit) {
-    if (Date.now() - hit.t > CACHE_MS) cuFetch(pathname, { fresh: true }).catch(() => {});
-    return { data: hit.data, cachedAt: hit.t };
-  }
-  const data = await cuFetch(pathname);
-  return { data, cachedAt: Date.now() };
-}
-
-/** Escrita no ClickUp (PUT/POST), sem cache. */
-async function cuWrite(pathname, method, body) {
-  if (!config.token) throw Object.assign(new Error('sem token'), { code: 'NO_TOKEN' });
-  const ctrl = new AbortController();
-  const to = setTimeout(() => ctrl.abort(), 15_000);
-  try {
-    const res = await fetch(CU_API + pathname, {
-      method,
-      headers: { Authorization: config.token, 'Content-Type': 'application/json' },
-      body: body != null ? JSON.stringify(body) : undefined,
-      signal: ctrl.signal,
-    });
-    if (!res.ok) {
-      const t = await res.text().catch(() => '');
-      throw Object.assign(new Error(`ClickUp ${res.status}: ${t.slice(0, 200)}`), { code: 'CU_' + res.status });
-    }
-    return await res.json().catch(() => ({}));
-  } finally { clearTimeout(to); }
-}
-
-// ---------------- criar task no ClickUp a partir do painel ----------------
-// Lista onde os posts vivem no ClickUp (House Quatro5). Pode ser trocada por CU_LISTA no ambiente.
-const CU_LISTA = process.env.CU_LISTA || config.listaClickUp || '901321051391';
-const CU_STATUS_NOVA = process.env.CU_STATUS_NOVA || 'pendente'; // status em que a task nasce
-// quem pode ser responsável (o resto da lista fica escondido). Troque por CU_RESPONSAVEIS no ambiente: "Nome A, Nome B".
-const RESPONSAVEIS = (process.env.CU_RESPONSAVEIS || 'Samuel Melo, Zion, Anny Beatriz, Klenio Braz').split(',').map(x => x.trim()).filter(Boolean);
-/** "Zion" casa com "Zion Alves"; "Samuel Melo" casa com "Samuel"; sem acento e sem caixa. */
-function casaNome(nome, alvo) { const a = semAcento(nome), b = semAcento(alvo); return !!a && !!b && (a === b || a.startsWith(b) || b.startsWith(a)); }
+/** Sem acento, minúsculo e com espaço simples (comparar nomes e títulos). */
 function semAcento(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
-let cuOpcoesCache = { t: 0, dados: null };
-/** Membros da lista + campos "Empresa Tag" e "Formato SKILL" (com as opções), pro formulário do painel.
-    Lido do ClickUp e guardado 10 min: se alguém criar uma empresa nova lá, aparece aqui sozinha. */
-async function cuOpcoes(fresh) {
-  if (!fresh && cuOpcoesCache.dados && Date.now() - cuOpcoesCache.t < 10 * 60e3) return cuOpcoesCache.dados;
-  if (!config.token) throw Object.assign(new Error('sem token'), { code: 'NO_TOKEN' });
-  const [mem, fld, lst] = await Promise.all([
-    cuWrite(`/list/${CU_LISTA}/member`, 'GET'),
-    cuWrite(`/list/${CU_LISTA}/field`, 'GET'),
-    cuWrite(`/list/${CU_LISTA}`, 'GET').catch(() => ({})),
-  ]);
-  // nome EXATO do status inicial na lista (lá ele é "pendente " com espaço no fim; mandar diferente dá erro)
-  const stNova = ((lst && lst.statuses) || []).find(x => semAcento(x.status) === semAcento(CU_STATUS_NOVA));
-  const campo = nome => (fld.fields || []).find(f => semAcento(f.name) === semAcento(nome)) || null;
-  const opcoes = f => f ? ((f.type_config && f.type_config.options) || []).map(o => ({ id: o.id, nome: String(o.label || o.name || '').trim() })).filter(o => o.nome) : [];
-  const fe = campo('Empresa Tag'), ff = campo('Formato SKILL');
-  const dados = {
-    lista: CU_LISTA, nomeLista: (lst && lst.name) || '', statusNova: stNova ? stNova.status : null,
-    membros: (mem.members || []).map(m => ({ id: m.id, nome: m.username || m.email || String(m.id), email: m.email || '', cor: m.color || '' }))
-      .filter(m => RESPONSAVEIS.some(r => casaNome(m.nome, r)))
-      .sort((a, b) => RESPONSAVEIS.findIndex(r => casaNome(a.nome, r)) - RESPONSAVEIS.findIndex(r => casaNome(b.nome, r))),
-    responsaveis: RESPONSAVEIS,
-    empresa: fe ? { id: fe.id, opcoes: opcoes(fe) } : null,
-    formato: ff ? { id: ff.id, opcoes: opcoes(ff) } : null,
-  };
-  cuOpcoesCache = { t: Date.now(), dados };
-  return dados;
-}
-/** Opção do "Empresa Tag" que corresponde a uma conta do painel (pelo nome, sem acento/espaço). */
-function opcaoEmpresa(op, conta) {
-  if (!op) return null;
-  const nome = semAcento((db.contas[conta] && db.contas[conta].nome) || conta);
-  return op.opcoes.find(o => semAcento(o.nome) === nome) || op.opcoes.find(o => semAcento(o.nome).replace(/\s/g, '') === nome.replace(/\s/g, '')) || null;
-}
-/** Opção do "Formato SKILL" pro formato do painel (reels -> Vídeo, story -> Stories, etc.). */
-function opcaoFormato(op, formato) {
-  if (!op || !formato) return null;
-  const alvo = { reels: 'video', video: 'video', carrossel: 'carrossel', 'estatico': 'estatico', story: 'stories', stories: 'stories', capa: 'capa de reels',
-    'corte de podcast': 'video', 'video medio': 'video', 'video de anuncio': 'video ads' }[semAcento(formato)] || semAcento(formato);
-  return op.opcoes.find(o => semAcento(o.nome) === alvo) || null;
-}
-/** Cria a task na lista do ClickUp com os mesmos campos que o time usa lá. Nada é obrigatório. */
-async function criarTaskClickUp(b) {
-  const op = await cuOpcoes(false);
-  const contaNome = (db.contas[b.conta] && db.contas[b.conta].nome) || b.conta || '';
-  const fmt = String(b.formato || '').trim();
-  const titulo = String(b.titulo || '').trim();
-  // nome no padrão da lista: "[FORMATO] - Empresa - Título"
-  const name = [fmt ? '[' + fmt.toUpperCase() + ']' : null, contaNome || null, titulo || null].filter(Boolean).join(' - ') || 'Novo post (sem nome)';
-  const custom_fields = [];
-  const oe = opcaoEmpresa(op.empresa, b.conta); if (oe) custom_fields.push({ id: op.empresa.id, value: [oe.id] });
-  const of = opcaoFormato(op.formato, fmt); if (of) custom_fields.push({ id: op.formato.id, value: [of.id] });
-  const body = { name, markdown_description: String(b.briefing || '').trim() || undefined, custom_fields };
-  const resp = b.responsavel ? Number(b.responsavel) : null;
-  if (resp && op.membros.some(m => m.id === resp)) body.assignees = [resp];
-  // entrega (due date) desligada por enquanto: a task nasce sem data no ClickUp
-  if (op.statusNova) body.status = op.statusNova;
-  let task;
-  try { task = await cuWrite(`/list/${CU_LISTA}/task`, 'POST', body); }
-  catch (e) {
-    // status com nome diferente na lista? cria sem status (fica no padrão da lista) em vez de falhar
-    if (body.status && /status/i.test(e.message)) { delete body.status; task = await cuWrite(`/list/${CU_LISTA}/task`, 'POST', body); }
-    else throw e;
+// quem pode aparecer no "Quem faz" da matriz. Troque por RESPONSAVEIS no ambiente: "Nome A, Nome B".
+const RESPONSAVEIS = (process.env.RESPONSAVEIS || process.env.CU_RESPONSAVEIS || 'Samuel Melo, Zion, Anny Beatriz, Klenio Braz').split(',').map(x => x.trim()).filter(Boolean);
+/**
+ * Link da task de produção (v3.77). Aceita qualquer endereço http. O id é o que identifica a task no card:
+ * MKT Hub (MKT-1234), ClickUp antigo (app.clickup.com/t/ID) ou, pra outro sistema, um código curto do próprio link.
+ */
+function taskDoLink(link) {
+  const u = String(link || '').trim();
+  if (!u) return { taskId: null, taskUrl: null };
+  // MKT Hub: o id (uuid) é o que se guarda; o código MKT-0001 é só o que se mostra (doc da API v1)
+  const uuid = u.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  const mkt = u.match(/MKT-\d+/i);
+  if (!/^https?:\/\//i.test(u)) {
+    if (uuid && uuid[0].length === u.length) return { taskId: uuid[0].toLowerCase(), taskUrl: null };
+    return mkt && mkt[0].length === u.length ? { taskId: mkt[0].toUpperCase(), taskUrl: null } : { taskId: null, taskUrl: null };
   }
-  return { task, name, empresaTag: oe ? oe.nome : null, formatoSkill: of ? of.nome : null, responsavel: body.assignees ? op.membros.find(m => m.id === resp).nome : null };
+  if (uuid) return { taskId: uuid[0].toLowerCase(), taskUrl: u };
+  if (mkt) return { taskId: mkt[0].toUpperCase(), taskUrl: u };
+  const cu = taskIdFromUrl(u);
+  if (cu) return { taskId: cu, taskUrl: u };
+  return { taskId: 'L' + crypto.createHash('sha1').update(u).digest('hex').slice(0, 10), taskUrl: u };
 }
 
 // ---------------- MATRIZ DE CONTEÚDO DA SEUBONÉ ----------------
 // Cada dia do mês da SeuBoné nasce com um card AMARELO da matriz: o tipo do dia (Case, Educação...)
 // vem da rotação A/B e a copywriter preenche formato, ângulo, tese, gancho... As regras moram em
-// lib/matriz-seubone.js. O card só vira "post normal" quando alguém cola a task do ClickUp nele.
+// lib/matriz-seubone.js. O card só vira "post normal" quando alguém cola o link da task de produção nele.
 const MZ = require('./lib/matriz-seubone.js');
 const MZ_CONTA = 'seubone';
 /** Dia já tem post da SeuBoné (próprio ou collab)? Então a matriz não põe card ali. */
@@ -443,89 +224,6 @@ function autoMatrizSB() {
     if (n) console.log('[matriz SeuBoné] ' + n + ' card(s) criado(s) nos dias vazios');
   } catch (e) { console.log('[matriz SeuBoné] falhou:', e.message); }
 }
-// --- .xlsx sem dependência: um ZIP (stored) com os XMLs mínimos que Excel e Google Sheets aceitam ---
-const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
-function crc32(buf) { let c = 0xFFFFFFFF; for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
-function zipStored(arquivos) { // [{nome, dados:Buffer}]
-  const locais = [], centrais = []; let off = 0;
-  const u16 = n => { const b = Buffer.alloc(2); b.writeUInt16LE(n); return b; }, u32 = n => { const b = Buffer.alloc(4); b.writeUInt32LE(n >>> 0); return b; };
-  for (const a of arquivos) {
-    const nome = Buffer.from(a.nome), dados = a.dados, crc = crc32(dados);
-    const cab = Buffer.concat([u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(0), u16(0x21), u32(crc), u32(dados.length), u32(dados.length), u16(nome.length), u16(0), nome]);
-    locais.push(cab, dados);
-    centrais.push(Buffer.concat([u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(0), u16(0x21), u32(crc), u32(dados.length), u32(dados.length), u16(nome.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(off), nome]));
-    off += cab.length + dados.length;
-  }
-  const cd = Buffer.concat(centrais);
-  const fim = Buffer.concat([u32(0x06054b50), u16(0), u16(0), u16(arquivos.length), u16(arquivos.length), u32(cd.length), u32(off), u16(0)]);
-  return Buffer.concat([...locais, cd, fim]);
-}
-const xmlEsc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-function colLetra(n) { let s = ''; n++; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
-/** Célula: string, número, {f:'fórmula'}, ou null. Estilo: 0 normal, 1 cabeçalho, 2 título, 3 editável (amarelo), 4 percentual. */
-function xCell(ref, v, st) {
-  const s = st ? ` s="${st}"` : '';
-  if (v == null || v === '') return st ? `<c r="${ref}"${s}/>` : '';
-  if (typeof v === 'number') return `<c r="${ref}"${s}><v>${v}</v></c>`;
-  if (typeof v === 'object' && v.f) return `<c r="${ref}"${s}><f>${xmlEsc(v.f)}</f></c>`;
-  return `<c r="${ref}" t="inlineStr"${s}><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
-}
-/** Planilha a partir de linhas [[célula|{v,s}]]; larguras por coluna; validações [{ref, lista}]. */
-function xSheet(linhas, larguras, validacoes, congelar) {
-  let rows = '';
-  linhas.forEach((ln, ri) => {
-    const cells = ln.map((c, ci) => { const v = c && typeof c === 'object' && 'v' in c ? c.v : c; const st = c && typeof c === 'object' && 's' in c ? c.s : 0; return xCell(colLetra(ci) + (ri + 1), v, st); }).join('');
-    rows += `<row r="${ri + 1}">${cells}</row>`;
-  });
-  const cols = larguras ? '<cols>' + larguras.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('') + '</cols>' : '';
-  const dv = validacoes && validacoes.length ? `<dataValidations count="${validacoes.length}">` + validacoes.map(v => `<dataValidation type="list" allowBlank="1" showDropDown="0" sqref="${v.ref}"><formula1>"${xmlEsc(v.lista.join(','))}"</formula1></dataValidation>`).join('') + '</dataValidations>' : '';
-  const views = congelar ? `<sheetViews><sheetView workbookViewId="0"><pane ySplit="${congelar}" topLeftCell="A${congelar + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` : '';
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${views}${cols}<sheetData>${rows}</sheetData>${dv}</worksheet>`;
-}
-function xlsxMontar(abas) { // [{nome, xml}]
-  const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${abas.map((a, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`;
-  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
-  const wb = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><calcPr fullCalcOnLoad="1"/><sheets>${abas.map((a, i) => `<sheet name="${xmlEsc(a.nome)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`;
-  const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${abas.map((a, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${abas.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
-  // estilos: 0 normal, 1 cabeçalho (preto/amarelo), 2 título, 3 editável (amarelo claro), 4 percentual, 5 texto com quebra
-  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0%"/></numFmts><fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font><font><b/><sz val="13"/><name val="Arial"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1E1E19"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2B3"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf></cellXfs></styleSheet>`;
-  const arquivos = [
-    { nome: '[Content_Types].xml', dados: Buffer.from(ct) }, { nome: '_rels/.rels', dados: Buffer.from(rels) },
-    { nome: 'xl/workbook.xml', dados: Buffer.from(wb) }, { nome: 'xl/_rels/workbook.xml.rels', dados: Buffer.from(wbRels) }, { nome: 'xl/styles.xml', dados: Buffer.from(styles) },
-    ...abas.map((a, i) => ({ nome: `xl/worksheets/sheet${i + 1}.xml`, dados: Buffer.from(a.xml) })),
-  ];
-  return zipStored(arquivos);
-}
-/** Planilha da matriz da SeuBoné de um mês, com as MESMAS colunas da planilha do time
-    (aba do mês) + a aba "Tipos de conteúdo" de referência. Card de post normal entra só com o tipo do dia. */
-function matrizSBXlsx(mes) {
-  const posts = db.slots.filter(s => s.conta === MZ_CONTA && s.date && s.date.startsWith(mes)).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-  const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-  const cab = ['#', 'Semana', 'Data', 'Dia', 'Objetivo', 'Etapa de funil', 'Nível de consciência', 'Tipo de conteúdo', 'Formato', 'Emoção alvo', 'CTA', 'Métrica primária', 'Métrica secundária', 'Pauta quente', 'Ângulo', 'Tema', 'Tese em uma frase', 'Gancho escolhido', 'Descrição (o que fazer)', 'Refs visuais / inserts', 'Responsável', 'Status', 'Observações', 'Task no ClickUp'];
-  const linhas = [[{ v: 'Matriz SeuBoné · ' + mes.split('-').reverse().join('/'), s: 2 }], ['Gerada pelo B.O.N.E. Amarelo = a copywriter preenche; o resto sai do tipo de conteúdo.'], [], cab.map(c => ({ v: c, s: 1 }))];
-  posts.forEach((s, i) => {
-    const mz = s.matrizSB || {};
-    const dia = MZ.tipoDoDia(s.date);
-    const tipo = mz.tipo || dia.tipo || '';
-    const t = MZ.TIPOS[tipo] || {};
-    const y = v => ({ v: v || '', s: 3 }), w = v => ({ v: v || '', s: 5 });
-    const status = s.postado ? 'Postado' : (mz.status || (s.taskId ? 'Em produção' : 'Não iniciado'));
-    linhas.push([i + 1, dia.semana, s.date.split('-').reverse().slice(0, 2).join('/'), DIAS[new Date(s.date + 'T12:00:00Z').getUTCDay()],
-      t.objetivo || '', t.funil || '', t.consciencia || '', dia.tipo ? tipo : y(tipo), y(mz.formato), t.emocao || '', t.cta || '', w(t.metrica1), w(t.metrica2),
-      y(mz.pautaQuente), y(mz.angulo), y(mz.tema || (s.taskId ? (s.titulo || s.tituloCache || '') : '')), y(mz.tese), y(mz.gancho), y(mz.descricao), y(mz.refs),
-      y(mz.responsavel || s.assigneeCache || ''), y(status), y(mz.obs || (dia.opcoes && !tipo ? 'Em aberto: ' + dia.opcoes.join(' / ') : '')), s.taskId ? 'https://app.clickup.com/t/' + s.taskId : '']);
-  });
-  const H = 4, N = Math.max(posts.length, 1);
-  const ref = col => `${col}${H + 1}:${col}${H + Math.max(N, 60)}`;
-  const validacoes = [{ ref: ref('H'), lista: Object.keys(MZ.TIPOS) }, { ref: ref('U'), lista: RESPONSAVEIS }, { ref: ref('V'), lista: MZ.STATUS }];
-  const matrizXml = xSheet(linhas, [4, 8, 7, 5, 11, 10, 20, 14, 30, 11, 26, 30, 34, 26, 30, 32, 44, 44, 60, 40, 14, 14, 32, 30], validacoes, H);
-  const tip = [[{ v: 'Tipos de conteúdo · SeuBoné', s: 2 }], [], ['Tipo', 'Objetivo', 'Etapa de funil', 'Nível de consciência', 'Emoção alvo', 'CTA', 'Métrica primária', 'Métrica secundária', 'Quando entra', 'O que é', 'Formatos', 'Ângulos'].map(c => ({ v: c, s: 1 }))];
-  for (const [nome, t] of Object.entries(MZ.TIPOS)) tip.push([nome, t.objetivo, t.funil, t.consciencia, t.emocao, t.cta, { v: t.metrica1, s: 5 }, { v: t.metrica2, s: 5 }, t.quando, { v: t.oQueE, s: 5 }, { v: t.formatos.join(' · '), s: 5 }, { v: t.angulos.join(' · '), s: 5 }]);
-  const tipXml = xSheet(tip, [14, 10, 10, 20, 11, 30, 30, 34, 26, 40, 60, 60], [], 3);
-  const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-  return xlsxMontar([{ nome: MESES_PT[+mes.slice(5) - 1] + ' ' + mes.slice(0, 4), xml: matrizXml }, { nome: 'Tipos de conteúdo', xml: tipXml }]);
-}
-
 // ---------------- app instalável (PWA) ----------------
 // O manifesto e o ícone são SERVIDOS PELO CÓDIGO, não como arquivos na pasta public.
 // Motivo prático: a rotina de sincronizar com a pasta da nuvem copia server.js e
@@ -546,221 +244,6 @@ const MANIFESTO = {
   ],
 };
 
-// ---------------- WhatsApp (Z-API) ----------------
-// Avisa quando uma task entra em APROVAR. Credenciais vêm do ambiente (Render) ou do
-// config.json (uso local); o ambiente sempre ganha. As chaves NUNCA voltam pro navegador.
-function zapiCfg() {
-  const c = config.zapi || {};
-  return {
-    instancia: (process.env.ZAPI_INSTANCIA || c.instancia || '').trim(),
-    token: (process.env.ZAPI_TOKEN || c.token || '').trim(),
-    clientToken: (process.env.ZAPI_CLIENT_TOKEN || c.clientToken || '').trim(),
-    destino: String(process.env.ZAPI_DESTINO || c.destino || '').replace(/\D/g, ''),
-    // desligada por padrão: o Zion escolheu usar a notificação do computador. Só liga
-    // com ZAPI_LIGADO=1 no ambiente ou marcando o checkbox nas configurações.
-    ligado: process.env.ZAPI_LIGADO ? process.env.ZAPI_LIGADO !== '0' : c.ligado === true,
-  };
-}
-function zapiPronto() {
-  const z = zapiCfg();
-  return !!(z.instancia && z.token && z.destino);
-}
-/** Manda uma mensagem de texto. Devolve {ok, detalhe} e NUNCA derruba o sync. */
-async function zapiEnviar(texto) {
-  const z = zapiCfg();
-  if (!zapiPronto()) return { ok: false, detalhe: 'WhatsApp não configurado' };
-  const base = process.env.ZAPI_API || 'https://api.z-api.io';
-  const url = `${base}/instances/${z.instancia}/token/${z.token}/send-text`;
-  const ctrl = new AbortController();
-  const to = setTimeout(() => ctrl.abort(), 15_000);
-  try {
-    const headers = { 'Content-Type': 'application/json' };
-    if (z.clientToken) headers['Client-Token'] = z.clientToken;
-    const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ phone: z.destino, message: texto }), signal: ctrl.signal });
-    const corpo = await r.text().catch(() => '');
-    if (!r.ok) return { ok: false, detalhe: 'Z-API HTTP ' + r.status + ': ' + corpo.slice(0, 200) };
-    return { ok: true, detalhe: corpo.slice(0, 200) };
-  } catch (e) {
-    return { ok: false, detalhe: String(e && e.message || e) };
-  } finally { clearTimeout(to); }
-}
-/** Status que geram aviso quando a task ENTRA neles. */
-const AVISA_STATUS = new Set(['aprovar', 'alterar']);
-/** Texto do aviso de uma task que entrou em aprovar ou alterar. */
-function textoAviso(slot, nome, status) {
-  const conta = (db.contas[slot.conta] && db.contas[slot.conta].nome) || slot.conta;
-  const quando = slot.date ? slot.date.split('-').reverse().join('/') : 'sem data';
-  const motivo = status === 'alterar' && slot.parecer && slot.parecer.veredito === 'alterar' && Date.now() - (slot.parecer.quando || 0) < 3 * 3600e3
-    ? '\n"' + slot.parecer.motivo + '" (' + slot.parecer.por + ')' : '';
-  return [
-    (status === 'alterar' ? '✏️ *PRA ALTERAR* · ' : '🟡 *PRA APROVAR* · ') + conta + motivo,
-    nome || '(sem nome)',
-    'Post do dia ' + quando,
-    'https://app.clickup.com/t/' + slot.taskId,
-  ].join('\n');
-}
-/** Dispara os avisos das tasks que ACABARAM de entrar em aprovar ou alterar. */
-async function avisarAprovar(transicoes) {
-  if (!transicoes.length || !zapiPronto() || !zapiCfg().ligado) return;
-  for (const t of transicoes.slice(0, 12)) { // teto por ciclo, pra nunca virar enxurrada
-    const r = await zapiEnviar(textoAviso(t.slot, t.nome, t.status || 'aprovar'));
-    if (r.ok) { db.avisos[t.taskId] = t.status || 'aprovar'; }
-    else console.log('[whatsapp] falhou:', r.detalhe);
-  }
-  saveDb();
-}
-
-function normStatus(s) { return (s || '').trim().toLowerCase(); }
-function statusColor(task) {
-  const raw = task?.status?.color || '';
-  if (raw && raw.startsWith('#')) return raw;
-  const name = normStatus(task?.status?.status);
-  return db.statusColors[name] || '#87909e';
-}
-
-async function mapLimit(items, limit, fn) {
-  const out = new Array(items.length);
-  let i = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (i < items.length) { const idx = i++; out[idx] = await fn(items[idx]).catch(e => ({ __err: String(e && e.message || e) })); }
-  });
-  await Promise.all(workers);
-  return out;
-}
-
-/** Atualiza cache de nome/status/responsável/entrega dos slots com taskId. */
-async function enrichSlots(slotList, { fresh = false } = {}) {
-  if (!config.token) return { ok: false, motivo: 'sem token' };
-  const now = Date.now();
-  const ids = [...new Set(slotList.filter(s => s.taskId).map(s => s.taskId))]
-    .filter(id => fresh || !enrichAt.has(id) || now - enrichAt.get(id) > CACHE_MS);
-  if (!ids.length) return { ok: true, atualizados: 0 };
-  const results = await mapLimit(ids, 6, id => cuFetch(`/task/${id}`, { fresh }));
-  let n = 0, avisosMudou = false;
-  const novasAprovacoes = [];
-  results.forEach((task, i) => {
-    const id = ids[i];
-    if (!task || task.__err) return;
-    enrichAt.set(id, Date.now());
-    const st = { status: normStatus(task.status?.status), color: statusColor(task) };
-    const assignee = (task.assignees || []).map(a => a.username).join(', ');
-    const due = task.due_date ? Number(task.due_date) : null;
-    // ENTROU em aprovar agora? Só avisa se a gente JÁ CONHECIA um status anterior diferente
-    // disso. Sem essa trava, um restart do servidor mandaria aviso de tudo que já estava
-    // em aprovar. E db.avisos impede repetir quando o status vai e volta.
-    // vale pra APROVAR e pra ALTERAR (alguém mandou voltar, pela pauta ou direto no ClickUp)
-    if (AVISA_STATUS.has(st.status) && db.avisos[id] !== st.status) {
-      const antes = db.slots.find(s => s.taskId === id && s.statusCache && s.statusCache.status);
-      const anterior = antes ? antes.statusCache.status : null;
-      if (anterior && anterior !== st.status) {
-        const slot = db.slots.find(s => s.taskId === id);
-        if (slot) novasAprovacoes.push({ taskId: id, slot, nome: task.name || '', status: st.status });
-      } else if (!anterior) {
-        db.avisos[id] = st.status; // primeira vez que vemos: registra sem avisar
-        avisosMudou = true;
-      }
-    }
-    if (!AVISA_STATUS.has(st.status) && db.avisos[id]) { delete db.avisos[id]; avisosMudou = true; }
-    // v3.70: só grava o que MUDOU de verdade. Antes todo post sincronizado ganhava um carimbo
-    // novo de atualizadoEm a cada 75 s, o data.json mudava sempre e o start.js fazia 1 commit
-    // por ciclo (1.152/dia), o que estourou os 5 GB de banda do Render em 24/09/2026.
-    for (const s of db.slots) {
-      if (s.taskId !== id) continue;
-      const titulo = task.name || s.tituloCache;
-      const resp = assignee || s.assigneeCache;
-      const velho = s.statusCache || {};
-      const mudou = s.tituloCache !== titulo || velho.status !== st.status || velho.color !== st.color
-        || s.assigneeCache !== resp || (s.dueCache ?? null) !== due;
-      if (!mudou) continue;
-      s.tituloCache = titulo;
-      s.statusCache = st;
-      s.assigneeCache = resp;
-      s.dueCache = due; // entrega REAL no ClickUp (detecta ajuste manual)
-      s.atualizadoEm = new Date().toISOString();
-      n++;
-    }
-  });
-  if (n || avisosMudou) saveDb();
-  if (novasAprovacoes.length) avisarAprovar(novasAprovacoes).catch(() => {});
-  return { ok: true, atualizados: n };
-}
-const enrichAt = new Map();
-
-// ---------------- sync em segundo plano (ClickUp "instantâneo") ----------------
-const SYNC_MS = 75_000;
-let sync = { rodando: false, at: null, erro: null };
-
-function mesesJanela() {
-  const set = new Set();
-  const d = new Date();
-  for (let i = -1; i <= 2; i++) {
-    const x = new Date(d.getFullYear(), d.getMonth() + i, 1);
-    set.add(x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'));
-  }
-  return set;
-}
-const TETO_POR_CICLO = 55; // deixa folga no limite do ClickUp (100 req/min) pro uso normal do painel
-let rodizioQuente = 0, rodizioFrio = 0;
-/** Fatia rotativa de um array, pra tudo entrar em algum ciclo sem estourar o teto. */
-function fatiaRotativa(lista, quantas, cursor) {
-  if (quantas <= 0) return { fatia: [], cursor };
-  if (lista.length <= quantas) return { fatia: lista, cursor: 0 };
-  const fatia = [];
-  for (let i = 0; i < quantas; i++) fatia.push(lista[(cursor + i) % lista.length]);
-  return { fatia, cursor: (cursor + quantas) % lista.length };
-}
-/**
- * O que vai no proximo ciclo de sync.
- * Buscar as ~95 tasks toda vez dava 76 req/min e raspava o teto do ClickUp (100/min): o que
- * estourava falhava calado e ficava desatualizado. Agora a JANELA QUENTE (semana passada ate
- * 2 semanas a frente, mais os posts sem data) tem prioridade, o resto entra em rodizio, e o
- * TETO e absoluto: nunca sai mais que TETO_POR_CICLO tasks por ciclo, nem que a janela quente
- * sozinha passe disso.
- */
-function slotsPraSync() {
-  const janela = mesesJanela();
-  const agora = Date.now();
-  const iso = ms => new Date(ms).toISOString().slice(0, 10);
-  const de = iso(agora - 7 * 86400000), ate = iso(agora + 14 * 86400000);
-  const candidatos = db.slots.filter(s => s.taskId && (!s.date || janela.has(s.date.slice(0, 7))));
-  const quentes = candidatos.filter(s => !s.date || (s.date >= de && s.date <= ate));
-  const frios = candidatos.filter(s => s.date && (s.date < de || s.date > ate));
-  // a janela quente sozinha ja estoura? entao ela tambem entra em rodizio
-  if (quentes.length >= TETO_POR_CICLO) {
-    const r = fatiaRotativa(quentes, TETO_POR_CICLO, rodizioQuente);
-    rodizioQuente = r.cursor;
-    return r.fatia;
-  }
-  const r = fatiaRotativa(frios, TETO_POR_CICLO - quentes.length, rodizioFrio);
-  rodizioFrio = r.cursor;
-  return quentes.concat(r.fatia);
-}
-async function backgroundSync() {
-  if (sync.rodando || !config.token) return;
-  sync.rodando = true;
-  try {
-    const r = await enrichSlots(slotsPraSync(), { fresh: true });
-    sync.at = Date.now();
-    sync.erro = r && r.ok === false ? (r.motivo || 'falha') : null;
-  } catch (e) { sync.erro = String(e && e.message || e); }
-  sync.rodando = false;
-}
-setInterval(backgroundSync, SYNC_MS);
-setTimeout(backgroundSync, 400);
-
-// pré-busca de comentários/artes em rodízio (modal abre na hora)
-let prefetchIdx = 0;
-setInterval(() => {
-  if (!config.token) return;
-  const ids = [...new Set(slotsPraSync().map(s => s.taskId))];
-  if (!ids.length) return;
-  const id = ids[prefetchIdx++ % ids.length];
-  const key = `/task/${id}/comment`;
-  const hit = cuCache.get(key);
-  if (hit && Date.now() - hit.t < 5 * 60_000) return;
-  cuFetch(key, { fresh: true }).catch(() => {});
-}, 8_000);
-
 // ---------------- desfazer (Ctrl+Z): pilha no servidor ----------------
 const undoStack = [];
 function pushUndo(entry) {
@@ -771,169 +254,9 @@ function copiaSlot(s) { return JSON.parse(JSON.stringify(s)); }
 function undoSlots(desc, antes, criados) {
   pushUndo({ tipo: 'slots', desc, antes: (antes || []).map(copiaSlot), criados: criados || [] });
 }
-/** ms -> "AAAA-MM-DD" no fuso da máquina (a entrega do ClickUp é um instante). */
-function isoLocal(ms) {
-  const d = new Date(Number(ms));
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-/** Primeiro `dow` (0=domingo) a partir de `iso`, INCLUINDO o próprio dia se já for esse. */
-function proximoDiaDaSemana(iso, dow) {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  let volta = 0;
-  while (dt.getDay() !== dow && volta++ < 8) dt.setDate(dt.getDate() + 1);
-  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
-}
 function addDiaISO(iso, n) {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d + n, 12)).toISOString().slice(0, 10);
-}
-
-// ---------------- entrega no ClickUp: 2 dias ÚTEIS antes do post ----------------
-// Post na SEGUNDA -> pronto na QUINTA anterior (sáb/dom não contam).
-function dueMsFor(dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  let dt = new Date(Date.UTC(y, m - 1, d, 12));
-  let faltam = 2;
-  while (faltam > 0) {
-    dt = new Date(dt.getTime() - 86_400_000);
-    const dow = dt.getUTCDay();
-    if (dow !== 0 && dow !== 6) faltam--;
-  }
-  return dt.getTime();
-}
-function dueStrFor(dateStr) { return new Date(dueMsFor(dateStr)).toISOString().slice(0, 10); }
-/** Agenda atualização da entrega (fila com retry; a última data alterada vence). */
-function queueDue(slot) {
-  if (!slot.taskId || !slot.date) return null;
-  db.dueSync[slot.taskId] = dueMsFor(slot.date);
-  saveDb();
-  return dueStrFor(slot.date);
-}
-let flushing = false;
-async function flushDueQueue() {
-  if (flushing || !config.token) return;
-  flushing = true;
-  try {
-    for (const [taskId, ms] of Object.entries(db.dueSync)) {
-      try {
-        await cuWrite(`/task/${taskId}`, 'PUT', { due_date: ms, due_date_time: false });
-        delete db.dueSync[taskId];
-        for (const s of db.slots) if (s.taskId === taskId) s.dueCache = ms;
-        saveDb();
-        cuCache.delete(`/task/${taskId}`);
-      } catch (e) {
-        if (e.code === 'NO_TOKEN') break;
-        // outros erros: fica na fila, tenta no próximo ciclo
-      }
-    }
-  } finally { flushing = false; }
-}
-
-// ---------------- comentários / arquivos ----------------
-function naturalCompare(a, b) {
-  return String(a).localeCompare(String(b), 'pt-BR', { numeric: true, sensitivity: 'base' });
-}
-/** Nome-base pra agrupar versões: "arte 2 (1).png", "arte 2_v3.png", "ARTE 2.png" -> "arte 2" */
-function fileBaseKey(name) {
-  let s = String(name || '').toLowerCase().trim();
-  s = s.replace(/\.[a-z0-9]{2,5}$/i, '');
-  s = s.replace(/\s*[\(\[]\d+[\)\]]\s*$/, '');
-  s = s.replace(/[\s_-]v\d+$/i, '');
-  return s.replace(/\s+/g, ' ').trim();
-}
-function slideOrder(name) {
-  const m = String(name || '').match(/(\d+)/);
-  return m ? parseInt(m[1], 10) : 999;
-}
-function nameFromUrl(u) {
-  try { return decodeURIComponent((new URL(u).pathname.split('/').pop() || '')); } catch { return ''; }
-}
-function attToFile(a) {
-  const name = a.title || a.name || nameFromUrl(a.url_w_query || a.url || '') || 'arquivo';
-  return {
-    id: a.id || '',
-    name,
-    url: a.url_w_query || a.url || a.url_w_host || '',
-    thumb: a.thumbnail_medium || a.thumbnail_small || a.thumbnail_large || '',
-    thumbL: a.thumbnail_large || a.thumbnail_medium || '',   // versão grande: nítida na tela, muito mais leve que a original
-    ext: String(a.extension || name.split('.').pop() || '').toLowerCase(),
-  };
-}
-/** Bloco de IMAGEM colada no comentário (formato real do ClickUp: piece.image). */
-function imageBlockToFile(im) {
-  const name = im.title || im.name || nameFromUrl(im.url) || 'imagem';
-  return {
-    id: im.id || ('img|' + im.url),
-    name,
-    url: im.url,
-    thumb: im.thumbnail_url || im.thumbnail_medium || im.thumbnail_small || im.url,
-    thumbL: im.thumbnail_large || im.thumbnail_url || '',
-    ext: String(name.split('.').pop() || 'png').toLowerCase(),
-  };
-}
-/** Anexos pendurados direto na TASK (toda arte de comentário também aparece aqui). */
-function taskFiles(task) {
-  return ((task && task.attachments) || []).map(a => ({
-    ...attToFile(a),
-    date: Number(a.date) || 0,
-    user: (a.user && a.user.username) || '',
-  }));
-}
-
-function parseComments(raw, extras = []) {
-  const comments = (raw.comments || []).map(c => {
-    const atts = [];
-    for (const piece of (Array.isArray(c.comment) ? c.comment : [])) {
-      if (!piece) continue;
-      if (piece.attachment) atts.push(attToFile(piece.attachment));
-      if (piece.image && piece.image.url) atts.push(imageBlockToFile(piece.image));
-    }
-    atts.sort((x, y) => naturalCompare(x.name, y.name));
-    return {
-      id: c.id,
-      user: c.user?.username || '?',
-      initials: c.user?.initials || (c.user?.username || '?').slice(0, 2).toUpperCase(),
-      userColor: c.user?.color || '#52514e',
-      date: Number(c.date) || 0,
-      text: c.comment_text || '',
-      attachments: atts,
-      resolved: !!c.resolved,
-    };
-  });
-  comments.sort((a, b) => b.date - a.date);
-
-  // candidatos: comentários + anexos da task; dedupe por id e por URL sem query
-  const porId = new Map();
-  for (const c of comments) {
-    for (const a of c.attachments) {
-      const k = a.id || (a.name.toLowerCase() + '|' + c.date);
-      if (!porId.has(k)) porId.set(k, { ...a, date: c.date, user: c.user });
-    }
-  }
-  for (const f of extras) {
-    const k = f.id || (f.name.toLowerCase() + '|' + f.date);
-    if (!porId.has(k)) porId.set(k, f);
-  }
-  const vistos = new Set();
-  const unicos = [];
-  for (const f of porId.values()) {
-    const uk = (f.url || '').split('?')[0] || (f.name + '|' + f.date);
-    if (vistos.has(uk)) continue;
-    vistos.add(uk);
-    unicos.push(f);
-  }
-  // agrupa por NOME-BASE: fica a versão mais recente, conta versões
-  const byBase = new Map();
-  for (const f of unicos) {
-    const k = fileBaseKey(f.name) || f.name.toLowerCase();
-    const prev = byBase.get(k);
-    if (!prev || (f.date || 0) > (prev.date || 0)) byBase.set(k, { ...f, versions: (prev?.versions || 0) + 1 });
-    else prev.versions++;
-  }
-  const arquivos = [...byBase.values()].sort((x, y) =>
-    (slideOrder(fileBaseKey(x.name)) - slideOrder(fileBaseKey(y.name))) || naturalCompare(x.name, y.name));
-  return { comments, arquivos };
 }
 
 // ---------------- planilha (APOSENTADA; código dormente de propósito) ----------------
@@ -1051,7 +374,7 @@ function aovivoBroadcast(evt, obj, exceto) { for (const [id, r] of aovivoSSE) { 
 setInterval(() => { const t = Date.now(); for (const [id, p] of aovivo) { if (t - p.visto > 40000 && !aovivoSSE.has(id)) { aovivo.delete(id); aovivoBroadcast('saiu', { id }); } } }, 20000);
 
 // Documentos (a copy do post, editor estilo Docs em public/doc.html). Rotas em lib/docs.js.
-const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, cuFetch, cuWrite, cuCache, pushUndo, MZ, backupAgora, usoInvalida: () => USO.invalida() });
+const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo, MZ, backupAgora, usoInvalida: () => USO.invalida() });
 
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
@@ -1076,9 +399,8 @@ const server = http.createServer(async (req, res) => {
     }
     // PORTEIRO: com senha configurada, todo /api (menos login/logout) exige cookie válido.
     // Estáticos (a própria tela de login) passam sempre.
-    // Rotas públicas da pauta (validam o próprio token) e o proxy de imagem quando vem com token de pauta.
-    const rotaPublica = p === '/api/login' || p === '/api/logout' || p === '/api/pauta' || p === '/api/pauta/task' || p === '/api/pauta/obs' || p === '/api/pauta/sugestao' || p === '/api/pauta/parecer'
-      || (p === '/api/img' && pautaTokenQualquer(u.searchParams.get('pt')));
+    // Rotas públicas da pauta (validam o próprio token).
+    const rotaPublica = p === '/api/login' || p === '/api/logout' || p === '/api/pauta' || p === '/api/pauta/obs' || p === '/api/pauta/sugestao' || p === '/api/pauta/parecer';
     if (config.senha && p.startsWith('/api/') && !rotaPublica) {
       if (!validAuthToken(parseCookies(req.headers.cookie).sb_auth)) return json(res, 401, { erro: 'login', precisaLogin: true });
     }
@@ -1097,14 +419,14 @@ const server = http.createServer(async (req, res) => {
       const slots = db.slots.filter(s => s.date && s.date.startsWith(mes) && (!contasOk || contasOk.includes(s.conta))).map(s => ({
         id: s.id, conta: s.conta, date: s.date,
         titulo: s.titulo || s.tituloCache || '', formato: s.formato || '', angulo: s.angulo || '', gm: s.gm || '',
-        postado: !!s.postado, vaga: !!s.vaga, taskId: s.taskId || null, origem: s.origem || '',
+        postado: !!s.postado, vaga: !!s.vaga, taskId: s.taskId || null, taskUrl: s.taskUrl || null, origem: s.origem || '',
         obs: s.origem === 'banco' ? (s.obs || '') : '',
         notas: s.notas || '',   // observações do post (as do painel + as que chegam pela pauta)
         sugestao: !!s.sugestao, sugeridoPor: s.sugeridoPor || '',
         parecer: s.parecer || null,                       // aprovado/reprovado pela pauta, com motivo
         matrizSB: s.matrizSB || null,                     // card da matriz (SeuBoné): tipo, tema, tese, gancho...
-        ...(() => { const c = capaDoSlot(s); return c ? { capa: c.capa, nArtes: c.n } : {}; })(),
         statusCache: s.statusCache ? { status: s.statusCache.status, color: s.statusCache.color } : null,
+        responsavel: s.assigneeCache || s.responsavelManual || '',
       }));
       const gc = db.gmCadencia || {};
       const gmAncoras = [...new Set([
@@ -1112,36 +434,7 @@ const server = http.createServer(async (req, res) => {
         ...db.slots.filter(s => s.conta === 'seubone' && s.gm === 'sim' && s.date).map(s => s.date),
       ])].sort();
       res.setHeader('Cache-Control', 'no-store');
-      return json(res, 200, { mes, escopo: aba, contas: db.contas, abas: aba ? [aba] : db.abas, gmCadencia: { ativo: !!gc.ativo, periodo: gc.periodo || 3 }, gmAncoras, slots, matrizTipos: MZ.TIPOS, geradoEm: Date.now() });
-    }
-    // detalhe de UMA task pra pauta: só se ela pertence a um post dentro do escopo do link
-    if (p === '/api/pauta/task' && req.method === 'GET') {
-      const aba = u.searchParams.get('aba') || null;
-      if (aba && !(db.abas || []).includes(aba)) return json(res, 401, { erro: 'link inválido' });
-      if (!pautaTokenOk(u.searchParams.get('token'), aba)) return json(res, 401, { erro: 'link inválido' });
-      const id = String(u.searchParams.get('id') || '');
-      if (!/^[a-z0-9]+$/i.test(id)) return json(res, 400, { erro: 'id inválido' });
-      const contasOk = aba ? contasDaAbaSrv(aba) : null;
-      const dono = db.slots.find(s => s.taskId === id && s.date && (!contasOk || contasOk.includes(s.conta)));
-      if (!dono) return json(res, 403, { erro: 'fora do escopo deste link' });
-      if (!config.token) return json(res, 200, { semClickUp: true });
-      try {
-        const [{ data: task }, comRes] = await Promise.all([
-          cuFetchStale(`/task/${id}`),
-          cuFetchStale(`/task/${id}/comment`).catch(() => ({ data: { comments: [] } })),
-        ]);
-        const arquivos = curarArtes(parseComments(comRes.data || { comments: [] }, taskFiles(task)).arquivos, dono);
-        // aquece o cache das artes em segundo plano: quem abriu o card vê a próxima na hora
-        aquecerImagens(arquivos.filter(f => IMG_EXTS.has(String(f.ext || '').toLowerCase()) || f.thumb).map(f => f.thumbL || f.thumb || f.url));
-        res.setHeader('Cache-Control', 'no-store');
-        return json(res, 200, {
-          nome: task.name, status: normStatus(task.status?.status), cor: statusColor(task),
-          responsaveis: (task.assignees || []).map(a => a.username),
-          due: task.due_date ? Number(task.due_date) : null,
-          descricao: task.markdown_description || task.text_content || '',
-          arquivos: arquivos.map(f => ({ name: f.name, ext: f.ext, url: f.url, thumb: f.thumb || '', thumbL: f.thumbL || '' })),
-        });
-      } catch (e) { return json(res, 502, { erro: 'não consegui ler a task agora' }); }
+      return json(res, 200, { mes, escopo: aba, contas: db.contas, abas: aba ? [aba] : db.abas, gmCadencia: { ativo: !!gc.ativo, periodo: gc.periodo || 3 }, gmAncoras, slots, matrizTipos: MZ.TIPOS, temFonte: false, geradoEm: Date.now() });
     }
     // observação vinda pela pauta: ANEXA no caderno do post (nunca apaga o que já estava), com nome e hora
     if (p === '/api/pauta/obs' && req.method === 'POST') {
@@ -1161,15 +454,13 @@ const server = http.createServer(async (req, res) => {
       saveDb();
       return json(res, 200, { ok: true, notas: slot.notas });
     }
-    // parecer pela pauta: aprovado ou reprovado (com motivo), em qualquer post, pronto ou não.
-    // Fica gravado no post (selo no card do painel), cai nas observações e mexe no ClickUp:
-    // alteração -> comentário + ALTERAR; aprovado -> comentário + PUBLICAR (só se a task estava em APROVAR).
+    // parecer pela pauta: aprovado ou alteração (com motivo), em qualquer post, pronto ou não.
+    // v3.77: fica gravado no post (selo no card do painel) e cai nas observações. Não mexe em sistema nenhum.
     if (p === '/api/pauta/parecer' && req.method === 'POST') {
       const b = await readBody(req);
       const aba = b.aba || null;
       if (aba && !(db.abas || []).includes(aba)) return json(res, 401, { erro: 'link inválido' });
       if (!pautaTokenOk(b.token, aba)) return json(res, 401, { erro: 'link inválido' });
-      // 'reprovado' (nome antigo) vira 'alterar': pedido de alteração, que também vai pro ClickUp
       const veredito = b.veredito === 'aprovado' ? 'aprovado' : ((b.veredito === 'alterar' || b.veredito === 'reprovado') ? 'alterar' : '');
       if (!veredito) return json(res, 400, { erro: 'veredito inválido' });
       const motivo = String(b.motivo || '').replace(/[<>]/g, '').trim().slice(0, 1500);
@@ -1179,26 +470,14 @@ const server = http.createServer(async (req, res) => {
       const slot = db.slots.find(s => s.id === String(b.id || '') && s.date && (!contasOk || contasOk.includes(s.conta)));
       if (!slot) return json(res, 403, { erro: 'post fora do escopo deste link' });
       const quando = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' });
-      // alteração: além de registrar aqui, comenta na task e manda pra ALTERAR no ClickUp (igual ao botão do painel)
-      // aprovação: task em APROVAR vai pra PUBLICAR (igual ao botão do painel)
-      let clickup = false, clickupErro = '';
-      if (!slot.taskId) clickupErro = 'este post ainda não tem task no ClickUp';
-      else if (veredito === 'alterar') {
-        try { await alterarNoClickUp(slot.taskId, motivo, nome); clickup = true; } catch (e) { clickupErro = e.code === 'NO_TOKEN' ? 'painel sem token do ClickUp' : (e.message || 'falha no ClickUp'); }
-      } else {
-        try { const r = await aprovarNoClickUp(slot.taskId, motivo, nome); clickup = r.movido; if (!r.movido) clickupErro = r.motivo; }
-        catch (e) { clickupErro = e.code === 'NO_TOKEN' ? 'painel sem token do ClickUp' : (e.message || 'falha no ClickUp'); }
-      }
-      slot.parecer = { veredito, motivo, por: nome, quando: Date.now(), clickup, clickupErro: clickup ? '' : clickupErro };
-      const alvo = veredito === 'alterar' ? 'ALTERAR' : 'PUBLICAR';
-      const linha = (veredito === 'aprovado' ? '✅ Aprovado por ' : '✏️ Alteração pedida por ') + nome + ', ' + quando + ' (pela pauta)' + (motivo ? ': ' + motivo : '')
-        + (clickup ? ' · task foi pra ' + alvo + ' no ClickUp' : ' · não foi pra ' + alvo + ' (' + clickupErro + ')');
+      slot.parecer = { veredito, motivo, por: nome, quando: Date.now() };
+      const linha = (veredito === 'aprovado' ? '✅ Aprovado por ' : '✏️ Alteração pedida por ') + nome + ', ' + quando + ' (pela pauta)' + (motivo ? ': ' + motivo : '');
       slot.notas = (slot.notas ? slot.notas.replace(/\s+$/, '') + '\n\n' : '') + linha;
       saveDb();
-      return json(res, 200, { ok: true, parecer: slot.parecer, notas: slot.notas, clickup, clickupErro, status: slot.statusCache || null });
+      return json(res, 200, { ok: true, parecer: slot.parecer, notas: slot.notas });
     }
     // sugestão de post num dia vazio, vinda pela pauta: vira um card "SUGESTÃO" naquele dia (sem task).
-    // Você aceita colando a task nele (a marca de sugestão cai sozinha) ou apaga.
+    // Você aceita colando o link da task nele (a marca de sugestão cai sozinha) ou apaga.
     if (p === '/api/pauta/sugestao' && req.method === 'POST') {
       const b = await readBody(req);
       const aba = b.aba || null;
@@ -1233,7 +512,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === '/pauta' && req.method === 'GET') return serveStatic(res, 'pauta.html');
 
-    // ---------- estado (INSTANTÂNEO: nunca espera o ClickUp) ----------
+    // ---------- estado ----------
     if (p === '/api/state' && req.method === 'GET') {
       const month = u.searchParams.get('month'); // "2026-07"
       let slots = db.slots;
@@ -1243,19 +522,13 @@ const server = http.createServer(async (req, res) => {
         const lo = isoDe(Date.now() - 7 * 86_400_000), hi = isoDe(Date.now() + 10 * 86_400_000);
         slots = slots.filter(s => !s.date || s.date.startsWith(month) || (s.date >= lo && s.date <= hi));
       }
-      if (u.searchParams.get('fresh') === '1') backgroundSync();
-      const enriquecimento = config.token
-        ? { ok: !sync.erro, motivo: sync.erro || undefined, at: sync.at }
-        : { ok: false, motivo: 'sem token' };
       const corpo = JSON.stringify({
         versao: VERSAO,
-        contas: db.contas, abas: db.abas, statusColors: db.statusColors,
+        contas: db.contas, abas: db.abas,
         slots, referencias: db.referencias,
-        hasToken: !!config.token, user: config.user || null, enriquecimento,
+        temFonte: false,                                  // v3.78: true quando o MKT Hub estiver ligado (status, artes e comentários das tasks)
         temSenha: !!config.senha,
-        zapiPronto: zapiPronto() && zapiCfg().ligado,
         gmCadencia: db.gmCadencia,
-        duePendentes: Object.keys(db.dueSync).filter(temSlotComData), // post excluído não deixa data fantasma pra aplicar
         uso: USO.curto(),
         matrizSB: { conta: MZ_CONTA, tipos: MZ.TIPOS, semanas: MZ.SEMANAS, ancora: MZ.ANCORA, status: MZ.STATUS, obrigatorios: MZ.OBRIGATORIOS, regras: MZ.REGRAS, checklist: MZ.CHECKLIST, responsaveis: RESPONSAVEIS, glossario: MZ.GLOSSARIO },
       });
@@ -1269,13 +542,8 @@ const server = http.createServer(async (req, res) => {
     // ---------- uso de banda do mês (v3.72) ----------
     if (p === '/api/uso' && req.method === 'GET') return json(res, 200, USO.resumo());
 
-    if (p === '/api/sync' && req.method === 'POST') {
-      await backgroundSync();
-      return json(res, 200, { ok: !sync.erro, motivo: sync.erro || undefined, at: sync.at });
-    }
-
     // ---------- criar post (calendário, banco ou criativo) ----------
-    // matriz da SeuBoné: preencher os dias vazios de um mês (botão) e baixar a planilha no formato do time
+    // matriz da SeuBoné: preencher os dias vazios de um mês (botão)
     if (p === '/api/matriz-sb/gerar' && req.method === 'POST') {
       const b = await readBody(req);
       if (!/^\d{4}-\d{2}$/.test(String(b.mes || ''))) return json(res, 400, { erro: 'mês inválido' });
@@ -1283,52 +551,16 @@ const server = http.createServer(async (req, res) => {
       if (criados.length) undoSlots('gerar matriz da SeuBoné (' + criados.length + ' card' + (criados.length === 1 ? '' : 's') + ')', [], criados);
       return json(res, 200, { ok: true, criados: criados.length });
     }
-    if (p === '/api/matriz-sb.xlsx' && req.method === 'GET') {
-      const mes = u.searchParams.get('mes') || '';
-      if (!/^\d{4}-\d{2}$/.test(mes)) return json(res, 400, { erro: 'mês inválido' });
-      const buf = matrizSBXlsx(mes);
-      res.writeHead(200, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="matriz-seubone-${mes}.xlsx"`, 'Content-Length': buf.length });
-      return res.end(buf);
-    }
-    // opções pro formulário "criar task no ClickUp": membros da lista e as etiquetas de empresa/formato
-    if (p === '/api/clickup/opcoes' && req.method === 'GET') {
-      try { return json(res, 200, await cuOpcoes(u.searchParams.get('fresh') === '1')); }
-      catch (e) { return json(res, e.code === 'NO_TOKEN' ? 400 : 502, { erro: e.code === 'NO_TOKEN' ? 'painel sem token do ClickUp' : e.message }); }
-    }
-    // cria a task no ClickUp E o post no painel, de uma vez. Se o ClickUp falhar, nada é criado aqui.
-    if (p === '/api/clickup/criar' && req.method === 'POST') {
-      const b = await readBody(req);
-      if (!b.conta || !db.contas[b.conta]) return json(res, 400, { erro: 'escolha a conta (é ela que vira o Empresa Tag)' });
-      let cu;
-      try { cu = await criarTaskClickUp(b); }
-      catch (e) { return json(res, e.code === 'NO_TOKEN' ? 400 : 502, { erro: e.code === 'NO_TOKEN' ? 'painel sem token do ClickUp' : ('ClickUp não criou a task: ' + e.message) }); }
-      const slot = {
-        id: 's' + crypto.randomBytes(4).toString('hex'),
-        conta: b.conta, date: b.date || null, taskId: cu.task.id,
-        titulo: b.titulo || null, formato: b.formato || '', angulo: b.angulo || '', obs: b.obs || '',
-        notas: '', gm: (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '',
-        collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
-        drive: b.drive || '', linkRef: '', aprovado: false, postado: false, fixo: false,
-        responsavelManual: '', origem: 'painel', cat: '', fonteId: '',
-        tituloCache: cu.task.name || cu.name, statusCache: cu.task.status ? { status: normStatus(cu.task.status.status), color: statusColor(cu.task) } : null,
-        assigneeCache: cu.responsavel || null, dueCache: cu.task.due_date ? Number(cu.task.due_date) : null, atualizadoEm: new Date().toISOString(),
-      };
-      db.avisos[slot.taskId] = slot.statusCache ? slot.statusCache.status : 'novo'; // criada por aqui: sem aviso
-      undoSlots('criar task no ClickUp', [], [slot.id]);
-      db.slots.push(slot); saveDb();
-      cuCache.delete(`/task/${slot.taskId}`);
-      return json(res, 200, { ok: true, slot, taskId: slot.taskId, url: cu.task.url || ('https://app.clickup.com/t/' + slot.taskId), nome: cu.task.name || cu.name, empresaTag: cu.empresaTag, formatoSkill: cu.formatoSkill, responsavel: cu.responsavel, entrega: null });
-    }
-
     if (p === '/api/slots' && req.method === 'POST') {
       const b = await readBody(req);
       if (!b.conta || !db.contas[b.conta]) return json(res, 400, { erro: 'conta inválida' });
+      const lk = b.taskUrl ? taskDoLink(b.taskUrl) : { taskId: b.taskId || null, taskUrl: null };
       const slot = {
         id: 's' + crypto.randomBytes(4).toString('hex'),
         conta: b.conta, date: b.date || null,
-        taskId: b.taskUrl ? taskIdFromUrl(b.taskUrl) : (b.taskId || null),
+        taskId: lk.taskId, taskUrl: lk.taskUrl,
         titulo: b.titulo || null, formato: b.formato || '', angulo: b.angulo || '', obs: b.obs || '',
-        notas: typeof b.notas === 'string' ? b.notas : '', // caderno livre do post (só do painel, não vai pro ClickUp)
+        notas: typeof b.notas === 'string' ? b.notas : '', // caderno livre do post (só do painel)
         gm: (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '',
         collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
         drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: false, fixo: false,
@@ -1343,91 +575,13 @@ const server = http.createServer(async (req, res) => {
       if (slot.matrizSB) { slot.origem = 'matriz'; if (slot.date) db.matrizSBGeradas[slot.date] = true; }
       undoSlots(slot.vaga ? 'sinalizar falta criar' : (slot.matrizSB ? 'novo card da matriz' : 'novo post'), [], [slot.id]);
       db.slots.push(slot); saveDb();
-      // Se o post nasce com task, ESPERA o nome/status do ClickUp antes de responder (teto de
-      // 4s). Antes isso era disparado e esquecido, então o card nascia como "sincronizando" e
-      // só ganhava nome no próximo ciclo de fundo, até 75s depois. Se o ClickUp demorar mais
-      // que o teto, responde assim mesmo e o nome chega no ciclo seguinte.
-      if (slot.taskId) {
-        await Promise.race([
-          enrichSlots([slot]).catch(() => {}),
-          new Promise(r => setTimeout(r, 4000)),
-        ]);
-      }
-      const entrega = queueDue(slot);
-      return json(res, 200, { ok: true, slot, entrega });
-    }
-
-    // ---------- PRÉVIA DA IMPORTAÇÃO: lê a ENTREGA de cada task e calcula o dia da postagem ----------
-    // As tasks já nascem no ClickUp com a data em que precisam estar PRONTAS (sexta, no caso
-    // do Zion). O post não sai nesse dia: sai no primeiro dia-da-semana escolhido a partir
-    // dela (domingo). Assim a ordem não depende de como os links foram colados: cada post cai
-    // onde a própria task manda.
-    if (p === '/api/slots/importar/preview' && req.method === 'POST') {
-      if (!config.token) return json(res, 400, { erro: 'sem token do ClickUp: não dá pra ler a data de entrega das tasks' });
-      const b = await readBody(req);
-      const links = Array.isArray(b.links) ? b.links.slice(0, 400) : [];
-      const dow = Number.isInteger(b.dow) ? b.dow : 0; // 0 = domingo
-      if (!links.length) return json(res, 400, { erro: 'nenhum link' });
-      const ids = links.map(l => taskIdFromUrl(l) || String(l).trim());
-      const tasks = await mapLimit([...new Set(ids)], 6, id => cuFetch(`/task/${id}`).then(t => ({ id, t })).catch(e => ({ id, erro: String(e.message || e) })));
-      const porId = new Map(tasks.map(x => [x.id, x]));
-      const linhas = ids.map((id, i) => {
-        const r = porId.get(id);
-        if (!r || r.erro || !r.t) return { taskId: id, link: links[i], erro: 'task não encontrada no ClickUp' };
-        const due = r.t.due_date ? Number(r.t.due_date) : null;
-        if (!due) return { taskId: id, link: links[i], nome: r.t.name || '', erro: 'task sem data de entrega' };
-        const entrega = isoLocal(due);
-        return { taskId: id, link: links[i], nome: r.t.name || '', status: normStatus(r.t.status?.status),
-                 entrega, destino: proximoDiaDaSemana(entrega, dow) };
-      });
-      return json(res, 200, { ok: true, linhas });
-    }
-
-    // ---------- IMPORTAR EM LOTE: vários links do ClickUp viram posts de uma vez ----------
-    // Pensado pra distribuir um banco de tasks prontas por uma sequência de dias (ex.: 75
-    // posts, um em cada domingo). Um único registro de undo pro lote inteiro, então Ctrl+Z
-    // desfaz a importação de uma vez, e não post por post.
-    if (p === '/api/slots/importar' && req.method === 'POST') {
-      const b = await readBody(req);
-      if (!b.conta || !db.contas[b.conta]) return json(res, 400, { erro: 'conta inválida' });
-      const itens = Array.isArray(b.itens) ? b.itens : [];
-      if (!itens.length) return json(res, 400, { erro: 'nada pra importar' });
-      if (itens.length > 400) return json(res, 400, { erro: 'lote grande demais (máximo 400 por vez)' });
-      const criados = [];
-      const pulados = [];
-      for (const it of itens) {
-        const date = /^\d{4}-\d{2}-\d{2}$/.test(it.date || '') ? it.date : null;
-        const taskId = it.taskUrl ? taskIdFromUrl(it.taskUrl) : (it.taskId || null);
-        if (!date) { pulados.push({ item: it, motivo: 'data inválida' }); continue; }
-        // não duplica: mesma task no mesmo dia e na mesma conta já existe
-        if (taskId && db.slots.some(x => x.taskId === taskId && x.date === date && x.conta === b.conta)) {
-          pulados.push({ item: it, motivo: 'já existe nesse dia' }); continue;
-        }
-        criados.push({
-          id: 's' + crypto.randomBytes(4).toString('hex'),
-          conta: b.conta, date, taskId,
-          titulo: it.titulo || null, formato: it.formato || '', angulo: it.angulo || '', obs: it.obs || '',
-          notas: '', gm: '', collab: [], drive: '', linkRef: '', cat: '', fonteId: '',
-          aprovado: false, postado: false, fixo: false, responsavelManual: '', origem: 'importado',
-          tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: null,
-        });
-      }
-      if (!criados.length) return json(res, 200, { ok: true, criados: 0, pulados: pulados.length, detalhes: pulados });
-      undoSlots('importar ' + criados.length + ' posts', [], criados.map(s => s.id));
-      db.slots.push(...criados); saveDb();
-      // nome e status chegam em segundo plano: são muitos, não dá pra segurar a resposta
-      enrichSlots(criados).catch(() => {});
-      // De propósito NÃO chama queueDue: as tasks importadas já têm no ClickUp a data de
-      // entrega que o Zion definiu. Enfileirar aqui encheria o "Aplicar datas" com 75 linhas
-      // propondo mudar justamente o que ele acabou de configurar.
-      return json(res, 200, { ok: true, criados: criados.length, pulados: pulados.length, detalhes: pulados });
+      return json(res, 200, { ok: true, slot });
     }
 
     // ---------- EMPURRAR / REAJUSTAR: este post + todos os seguintes da conta ----------
     // DELTA PURO: a base e todos os posts seguintes da MESMA conta (data >= base) andam
     // EXATAMENTE o mesmo tanto de dias. Fixos (pino) e postados não se movem. Sem desvio
-    // esperto: mantém o espaçamento e é previsível (arrastou +1, todo mundo +1). NÃO grava
-    // no ClickUp: a data de confecção só vai pro ClickUp no botão "Aplicar datas".
+    // esperto: mantém o espaçamento e é previsível (arrastou +1, todo mundo +1).
     const mEmp = p.match(/^\/api\/slots\/([a-z0-9]+)\/empurrar$/i);
     if (mEmp && req.method === 'POST') {
       const base = db.slots.find(s => s.id === mEmp[1]);
@@ -1438,51 +592,10 @@ const server = http.createServer(async (req, res) => {
       const mover = db.slots.filter(s => s.conta === base.conta && s.date && s.date >= base.date && !s.postado && !s.fixo);
       if (mover.length) {
         undoSlots('reajustar ' + mover.length + ' post' + (mover.length > 1 ? 's' : ''), mover);
-        for (const s of mover) {
-          s.date = addDiaISO(s.date, dias);
-          if (s.taskId) db.dueSync[s.taskId] = dueMsFor(s.date); // registra a mudança (aplica depois)
-        }
+        for (const s of mover) s.date = addDiaISO(s.date, dias);
         saveDb();
       }
       return json(res, 200, { ok: true, movidos: mover.length });
-    }
-
-    // ---------- APLICAR DATAS NO CLICKUP (revisão: aplica SÓ os taskIds escolhidos) ----------
-    // O Zion abre a revisão, marca os posts que quer, e só esses têm a data de confecção
-    // (entrega = 2 dias úteis antes do post) gravada no ClickUp. Os não escolhidos ficam na fila.
-    if (p === '/api/aplicar-datas' && req.method === 'POST') {
-      if (!config.token) return json(res, 400, { erro: 'sem token do ClickUp configurado' });
-      const b = await readBody(req);
-      // lista escolhida no painel; sem lista = aplica tudo que está na fila (compat)
-      const pedidos = Array.isArray(b.taskIds) ? b.taskIds : Object.keys(db.dueSync);
-      const alvos = pedidos.filter(id => db.dueSync[id] != null && temSlotComData(id)).map(id => [id, db.dueSync[id]]);
-      const resultados = await mapLimit(alvos, 6, async ([taskId, ms]) => {
-        try {
-          await cuWrite(`/task/${taskId}`, 'PUT', { due_date: ms, due_date_time: false });
-          return { taskId, ms, ok: true };
-        } catch (e) { return { taskId, ok: false }; }
-      });
-      let aplicadas = 0, erros = 0;
-      for (const x of resultados) {
-        if (x.ok) {
-          delete db.dueSync[x.taskId];
-          for (const s of db.slots) if (s.taskId === x.taskId) s.dueCache = x.ms;
-          cuCache.delete(`/task/${x.taskId}`);
-          aplicadas++;
-        } else erros++; // erro: fica na fila pra tentar de novo
-      }
-      saveDb();
-      return json(res, 200, { ok: true, aplicadas, erros });
-    }
-
-    // ---------- DESCARTAR da fila: tira a task do slider sem gravar no ClickUp ----------
-    if (p === '/api/aplicar-datas/descartar' && req.method === 'POST') {
-      const b = await readBody(req);
-      const ids = Array.isArray(b.taskIds) ? b.taskIds : [];
-      let descartadas = 0;
-      for (const id of ids) { if (db.dueSync[id] != null) { delete db.dueSync[id]; descartadas++; } }
-      if (descartadas) saveDb();
-      return json(res, 200, { ok: true, descartadas });
     }
 
     // ---------- LOTE da seleção: mover N dias / banco / collab ----------
@@ -1512,13 +625,7 @@ const server = http.createServer(async (req, res) => {
       if (validos.length) {
         undoSlots((op === 'banco' ? 'enviar ' : 'mover ') + validos.length + ' post' + (validos.length > 1 ? 's' : '') +
           (op === 'banco' ? ' pro banco' : (' (' + (dias > 0 ? '+' : '') + dias + ' dia' + (Math.abs(dias) > 1 ? 's' : '') + ')')), validos);
-        for (const s of validos) {
-          if (op === 'banco') s.date = null;
-          else {
-            s.date = addDiaISO(s.date, dias);
-            if (s.taskId) db.dueSync[s.taskId] = dueMsFor(s.date);
-          }
-        }
+        for (const s of validos) s.date = op === 'banco' ? null : addDiaISO(s.date, dias);
         saveDb();
       }
       return json(res, 200, { ok: true, movidos: validos.length, pulados });
@@ -1532,9 +639,7 @@ const server = http.createServer(async (req, res) => {
         for (const id of e.criados || []) db.slots = db.slots.filter(s => s.id !== id);
         for (const cp of e.antes || []) {
           const i = db.slots.findIndex(s => s.id === cp.id);
-          const atual = i >= 0 ? db.slots[i] : null;
           if (i >= 0) db.slots[i] = cp; else db.slots.push(cp);
-          if (cp.taskId && cp.date && (!atual || atual.date !== cp.date)) db.dueSync[cp.taskId] = dueMsFor(cp.date);
         }
         saveDb();
         return json(res, 200, { ok: true, desfeito: e.desc });
@@ -1546,32 +651,6 @@ const server = http.createServer(async (req, res) => {
           if (i >= 0) db.referencias[i] = cp; else db.referencias.unshift(cp);
         }
         saveDb();
-        return json(res, 200, { ok: true, desfeito: e.desc });
-      }
-      if (e.tipo === 'status') {
-        if (e.statusAntes) {
-          try { await cuWrite(`/task/${e.taskId}`, 'PUT', { status: e.statusAntes }); }
-          catch (err) { undoStack.push(e); return json(res, 500, { erro: 'não consegui devolver o status no ClickUp: ' + (err.message || err) }); }
-          cuCache.delete(`/task/${e.taskId}`);
-        }
-        for (const cp of e.slots || []) {
-          const s = db.slots.find(x => x.id === cp.id);
-          if (s) { s.aprovado = cp.aprovado; s.statusCache = cp.statusCache; }
-        }
-        saveDb();
-        enrichSlots(db.slots.filter(s => s.taskId === e.taskId), { fresh: true }).catch(() => {});
-        return json(res, 200, { ok: true, desfeito: e.desc });
-      }
-      if (e.tipo === 'descricao') {
-        try {
-          await cuWrite(`/task/${e.taskId}`, 'PUT', { markdown_description: e.textoAntes });
-        } catch (err) {
-          if (err.code === 'CU_400') {
-            try { await cuWrite(`/task/${e.taskId}`, 'PUT', { description: e.textoAntes }); }
-            catch (e2) { undoStack.push(e); return json(res, 500, { erro: 'não consegui devolver a descrição: ' + (e2.message || e2) }); }
-          } else { undoStack.push(e); return json(res, 500, { erro: 'não consegui devolver a descrição: ' + (err.message || err) }); }
-        }
-        cuCache.delete(`/task/${e.taskId}`);
         return json(res, 200, { ok: true, desfeito: e.desc });
       }
       return json(res, 200, { ok: false, motivo: 'ação sem undo' });
@@ -1607,7 +686,6 @@ const server = http.createServer(async (req, res) => {
         'collab' in b ? (Array.isArray(b.collab) && b.collab.length ? 'marcar collab' : 'tirar collab') :
         'formato' in b && Object.keys(b).length === 1 ? 'mudar formato' : 'editar post';
       undoSlots(descUndo, [slot]);
-      const dataMudou = 'date' in b && (b.date || null) !== slot.date;
       if (trocaConta) slot.conta = b.conta; // ANTES do collab: collab não pode conter a própria conta
       if ('date' in b) slot.date = b.date || null;
       for (const k of ['titulo', 'formato', 'obs', 'drive', 'linkRef', 'angulo', 'notas']) if (k in b) slot[k] = b[k] || '';
@@ -1632,70 +710,19 @@ const server = http.createServer(async (req, res) => {
       if ('collab' in b) slot.collab = Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== slot.conta) : [];
       // trocou de conta sem mandar collab: tira a nova conta própria do collab (ninguém faz collab consigo)
       if (trocaConta) slot.collab = (slot.collab || []).filter(c => c !== slot.conta);
-      let taskMudou = false;
       if ('taskUrl' in b) {
-        const tid = taskIdFromUrl(b.taskUrl);
-        taskMudou = tid !== slot.taskId;
-        slot.taskId = tid; if (tid) { slot.statusCache = null; slot.tituloCache = null; enrichSlots([slot], { fresh: true }).catch(() => {}); }
+        const lk = taskDoLink(b.taskUrl);
+        const antes = slot.taskUrl || (slot.taskId ? 'https://app.clickup.com/t/' + slot.taskId : '');
+        if (lk.taskUrl !== antes || lk.taskId !== slot.taskId) {
+          const trocou = lk.taskId !== slot.taskId;
+          slot.taskId = lk.taskId; slot.taskUrl = lk.taskUrl;
+          if (trocou) { slot.statusCache = null; slot.tituloCache = null; slot.assigneeCache = null; slot.dueCache = null; }
+        }
         // colou a task: o post foi criado, então a vaga cai sozinha (Ctrl+Z devolve tudo junto)
-        if (tid) { slot.vaga = false; slot.sugestao = false; }
+        if (slot.taskId) { slot.vaga = false; slot.sugestao = false; }
       }
       saveDb();
-      const entrega = (dataMudou || taskMudou) ? queueDue(slot) : null;
-      return json(res, 200, { ok: true, slot, entrega });
-    }
-
-    // ---------- proxy de mídia do ClickUp (URLs de lá exigem o token) ----------
-    if (p === '/api/img' && req.method === 'GET') {
-      const raw = u.searchParams.get('u') || '';
-      let dec; try { dec = decodeURIComponent(raw); } catch { dec = raw; }
-      let host = ''; try { host = new URL(dec).hostname; } catch {}
-      const okHost = host === 'clickup.com' || host.endsWith('.clickup.com') || host.endsWith('clickup-attachments.com') || (process.env.IMG_HOST_EXTRA && host === process.env.IMG_HOST_EXTRA);
-      if (!okHost) return json(res, 403, { erro: 'domínio não permitido' });
-      const range = req.headers.range;
-      // Anexos do ClickUp hoje sao URLs ASSINADAS (S3): mandar o header Authorization QUEBRA elas (S3 recusa auth duplicada).
-      // Ja a API (clickup.com) EXIGE o token. Entao: sem token pro host de anexo assinado, com token pra API; se falhar, tenta o modo oposto.
-      const comToken = () => { const hh = {}; if (config.token) hh.Authorization = config.token; if (range) hh.Range = range; return hh; };
-      const semToken = () => { const hh = {}; if (range) hh.Range = range; return hh; };
-      const assinado = host.endsWith('clickup-attachments.com');
-      // CACHE EM MEMÓRIA: a mesma arte é vista por várias pessoas; depois da primeira, sai daqui na hora.
-      // Chave = URL sem a assinatura (a assinatura muda, a imagem não). Só cacheia sem Range e até IMG_CACHE_ITEM_MAX.
-      const chaveImg = dec.split('?')[0];
-      if (!range) {
-        const hit = imgCache.get(chaveImg);
-        if (hit) {
-          imgCache.delete(chaveImg); imgCache.set(chaveImg, hit); // LRU: vai pro fim
-          const etag = '"' + hit.etag + '"';
-          if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, 'Cache-Control': 'public, max-age=86400' }); USO.resposta(0); return res.end(); }
-          res.writeHead(200, { 'Content-Type': hit.type, 'Content-Length': hit.buf.length, 'Cache-Control': 'public, max-age=86400', ETag: etag, 'X-Img-Cache': 'hit' });
-          USO.resposta(hit.buf.length); return res.end(hit.buf);
-        }
-      }
-      const bom = r => r && (r.ok || r.status === 206) && r.body;
-      let up = await fetch(dec, { headers: assinado ? semToken() : comToken(), redirect: 'follow' }).catch(() => null);
-      if (!bom(up)) {
-        const up2 = await fetch(dec, { headers: assinado ? comToken() : semToken(), redirect: 'follow' }).catch(() => null);
-        if (bom(up2)) up = up2;
-      }
-      if (!bom(up)) { res.writeHead((up && up.status) || 502); return res.end(); }
-      const tipo = up.headers.get('content-type') || 'application/octet-stream';
-      const tam = Number(up.headers.get('content-length') || 0);
-      const cacheavel = !range && up.status === 200 && /^image\//i.test(tipo) && (!tam || tam <= IMG_CACHE_ITEM_MAX);
-      if (cacheavel) {
-        const buf = Buffer.from(await up.arrayBuffer());
-        if (buf.length <= IMG_CACHE_ITEM_MAX) imgCachePut(chaveImg, buf, tipo);
-        const etag = '"' + crypto.createHash('md5').update(buf).digest('hex').slice(0, 16) + '"';
-        res.writeHead(200, { 'Content-Type': tipo, 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=86400', ETag: etag, 'X-Img-Cache': 'miss' });
-        USO.resposta(buf.length); return res.end(buf);
-      }
-      const h2 = { 'Content-Type': tipo, 'Cache-Control': 'public, max-age=3600', 'Accept-Ranges': 'bytes' };
-      for (const k of ['content-range', 'content-length']) { const v = up.headers.get(k); if (v) h2[k] = v; }
-      res.writeHead(up.status === 206 ? 206 : 200, h2); USO.resposta(+up.headers.get('content-length') || 0);
-      // v3.70: pipeline em vez de .pipe(). Com .pipe(), vídeo do ClickUp cortado no meio soltava
-      // um 'error' sem dono e DERRUBAVA o servidor inteiro; e quem fechava o vídeo no meio deixava
-      // a conexão com o ClickUp presa por minutos. O pipeline fecha os dois lados nos dois casos.
-      pipeline(Readable.fromWeb(up.body), res, () => {});
-      return;
+      return json(res, 200, { ok: true, slot });
     }
 
     // ---------- banco de referências (geral, sem conta) ----------
@@ -1732,124 +759,6 @@ const server = http.createServer(async (req, res) => {
       if ('nota' in b) ref.nota = (b.nota || '').trim();
       saveDb();
       return json(res, 200, { ok: true, ref });
-    }
-
-    // ---------- task: leitura instantânea ----------
-    const mTask = p.match(/^\/api\/task\/([a-z0-9]+)$/i);
-    if (mTask && req.method === 'GET') {
-      const fresh = u.searchParams.get('fresh') === '1';
-      const { data: task, cachedAt } = fresh
-        ? { data: await cuFetch(`/task/${mTask[1]}`, { fresh: true }), cachedAt: Date.now() }
-        : await cuFetchStale(`/task/${mTask[1]}`);
-      return json(res, 200, {
-        id: task.id, name: task.name,
-        status: normStatus(task.status?.status), color: statusColor(task),
-        assignees: (task.assignees || []).map(a => ({ nome: a.username, initials: (a.initials || a.username.slice(0, 2)).toUpperCase(), cor: a.color || '#52514e' })),
-        descricao: task.markdown_description || task.text_content || '',
-        url: task.url || `https://app.clickup.com/t/${task.id}`,
-        due: task.due_date ? Number(task.due_date) : null,
-        atualizado: task.date_updated ? Number(task.date_updated) : null,
-        _cachedAt: cachedAt,
-      });
-    }
-
-    // ---------- AÇÃO de aprovação: aprovar->publicar | alterar->comentário+alterar ----------
-    const mAcao = p.match(/^\/api\/task\/([a-z0-9]+)\/acao$/i);
-    if (mAcao && req.method === 'POST') {
-      const b = await readBody(req);
-      const acao = b.acao;
-      if (acao !== 'aprovar' && acao !== 'alterar') return json(res, 400, { erro: 'ação inválida' });
-      let statusAntes = '';
-      try {
-        const t0 = await cuFetch(`/task/${mAcao[1]}`, { fresh: true });
-        statusAntes = (t0.status && t0.status.status) || '';
-      } catch {}
-      if (acao === 'aprovar' && normStatus(statusAntes) !== 'aprovar') {
-        return json(res, 409, { erro: 'só dá pra aprovar task que está no status APROVAR (agora: "' + (normStatus(statusAntes) || 'desconhecido') + '")' });
-      }
-      pushUndo({
-        tipo: 'status',
-        desc: acao === 'aprovar' ? 'aprovação (status publicar)' : 'pedido de alteração (status alterar)',
-        taskId: mAcao[1],
-        statusAntes,
-        slots: db.slots.filter(s => s.taskId === mAcao[1]).map(s => ({ id: s.id, aprovado: s.aprovado, statusCache: s.statusCache ? { ...s.statusCache } : null })),
-      });
-      if (acao === 'alterar') {
-        const texto = String(b.comentario || '').trim();
-        if (!texto) return json(res, 400, { erro: 'descreva a alteração' });
-        await cuWrite(`/task/${mAcao[1]}/comment`, 'POST', { comment_text: 'ALTERAÇÃO SOLICITADA: ' + texto, notify_all: true });
-        cuCache.delete(`/task/${mAcao[1]}/comment`);
-      }
-      const novoStatus = acao === 'aprovar' ? 'publicar' : 'alterar';
-      await cuWrite(`/task/${mAcao[1]}`, 'PUT', { status: novoStatus });
-      cuCache.delete(`/task/${mAcao[1]}`);
-      let st = { status: novoStatus, color: db.statusColors[novoStatus] || '#87909e' };
-      try {
-        const task = await cuFetch(`/task/${mAcao[1]}`, { fresh: true });
-        st = { status: normStatus(task.status?.status), color: statusColor(task) };
-      } catch {}
-      db.avisos[mAcao[1]] = st.status; // fui eu que movi: nada de aviso
-      for (const s of db.slots) {
-        if (s.taskId === mAcao[1]) {
-          s.statusCache = st;
-          if (acao === 'aprovar') s.aprovado = true;
-          if (acao === 'alterar') s.aprovado = false;
-          s.atualizadoEm = new Date().toISOString();
-        }
-      }
-      saveDb();
-      return json(res, 200, { ok: true, status: st, aprovado: acao === 'aprovar' });
-    }
-
-    // ---------- descrição (grava no ClickUp) ----------
-    const mDesc = p.match(/^\/api\/task\/([a-z0-9]+)\/descricao$/i);
-    if (mDesc && req.method === 'PATCH') {
-      const b = await readBody(req);
-      const texto = String(b.texto ?? '');
-      try {
-        const { data: t0 } = await cuFetchStale(`/task/${mDesc[1]}`);
-        pushUndo({ tipo: 'descricao', desc: 'editar descrição da task', taskId: mDesc[1], textoAntes: (t0 && (t0.markdown_description || t0.text_content)) || '' });
-      } catch {}
-      try {
-        await cuWrite(`/task/${mDesc[1]}`, 'PUT', { markdown_description: texto });
-      } catch (e) {
-        if (e.code === 'CU_400') await cuWrite(`/task/${mDesc[1]}`, 'PUT', { description: texto });
-        else throw e;
-      }
-      cuCache.delete(`/task/${mDesc[1]}`);
-      return json(res, 200, { ok: true });
-    }
-
-    // ---------- comentários: leitura (2 fontes de artes) e escrita ----------
-    const mCom = p.match(/^\/api\/task\/([a-z0-9]+)\/comments$/i);
-    if (mCom && req.method === 'GET') {
-      const fresh = u.searchParams.get('fresh') === '1';
-      const [comRes, taskRes] = await Promise.all([
-        fresh ? cuFetch(`/task/${mCom[1]}/comment`, { fresh: true }).then(d => ({ data: d, cachedAt: Date.now() }))
-              : cuFetchStale(`/task/${mCom[1]}/comment`),
-        (fresh ? cuFetch(`/task/${mCom[1]}`, { fresh: true }).then(d => ({ data: d }))
-               : cuFetchStale(`/task/${mCom[1]}`)).catch(() => ({ data: null })),
-      ]);
-      return json(res, 200, { ...parseComments(comRes.data, taskFiles(taskRes.data)), _cachedAt: comRes.cachedAt });
-    }
-    if (mCom && req.method === 'POST') {
-      const b = await readBody(req);
-      const texto = String(b.texto || '').trim();
-      if (!texto) return json(res, 400, { erro: 'comentário vazio' });
-      await cuWrite(`/task/${mCom[1]}/comment`, 'POST', { comment_text: texto, notify_all: true });
-      cuCache.delete(`/task/${mCom[1]}/comment`);
-      const raw = await cuFetch(`/task/${mCom[1]}/comment`, { fresh: true });
-      const t = await cuFetchStale(`/task/${mCom[1]}`).catch(() => ({ data: null }));
-      return json(res, 200, { ok: true, ...parseComments(raw, taskFiles(t.data)), _cachedAt: Date.now() });
-    }
-
-    // ---------- config ----------
-    // ---------- teste do WhatsApp: manda uma mensagem agora e devolve o que a Z-API respondeu ----------
-    if (p === '/api/zapi/teste' && req.method === 'POST') {
-      if (!zapiPronto()) return json(res, 400, { erro: 'faltam dados: instância, token e número de destino' });
-      const r = await zapiEnviar('✅ Teste do B.O.N.E. Se você recebeu isto, os avisos de "pra aprovar" vão chegar aqui.');
-      if (!r.ok) return json(res, 502, { erro: r.detalhe });
-      return json(res, 200, { ok: true, detalhe: r.detalhe });
     }
 
     // ---------- cadência automática de GM (SeuBoné) ----------
@@ -1920,44 +829,12 @@ const server = http.createServer(async (req, res) => {
       return res.end(buf);
     }
 
-    if (p === '/api/config' && req.method === 'GET') {
-      const z = zapiCfg();
-      return json(res, 200, { hasToken: !!config.token, user: config.user || null, temSenha: !!config.senha,
-        zapi: { pronto: zapiPronto(), ligado: z.ligado, porAmbiente: !!process.env.ZAPI_TOKEN,
-                destino: z.destino ? ('•••• ' + z.destino.slice(-4)) : '' } });
-    }
+    if (p === '/api/config' && req.method === 'GET') return json(res, 200, { temSenha: !!config.senha });
     if (p === '/api/config' && req.method === 'POST') {
       const b = await readBody(req);
       // senha de acesso (login pro túnel): seta/troca/remove sem precisar mexer no token
       if ('senha' in b) { config.senha = String(b.senha || '').trim(); saveConfig(config); }
-      if ('token' in b) {
-        const token = (b.token || '').trim();
-        if (!token) return json(res, 400, { erro: 'token vazio' });
-        const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 10_000);
-        let user;
-        try {
-          const r = await fetch(CU_API + '/user', { headers: { Authorization: token }, signal: ctrl.signal });
-          if (!r.ok) return json(res, 401, { erro: 'token recusado pelo ClickUp (HTTP ' + r.status + ')' });
-          user = (await r.json()).user;
-        } finally { clearTimeout(to); }
-        config.token = token; // preserva secret e senha (não sobrescreve o config inteiro)
-        config.user = { nome: user.username, email: user.email };
-        saveConfig(config);
-        cuCache.clear(); enrichAt.clear();
-        backgroundSync();
-      }
-      if ('zapi' in b && b.zapi && typeof b.zapi === 'object') {
-        const z = config.zapi || {};
-        for (const k of ['instancia', 'token', 'clientToken', 'destino']) {
-          if (k in b.zapi) z[k] = String(b.zapi[k] || '').trim();
-        }
-        if ('ligado' in b.zapi) z.ligado = !!b.zapi.ligado;
-        config.zapi = z; saveConfig(config);
-      }
-      const zc = zapiCfg();
-      return json(res, 200, { ok: true, user: config.user || null, temSenha: !!config.senha,
-        zapi: { pronto: zapiPronto(), ligado: zc.ligado, porAmbiente: !!process.env.ZAPI_TOKEN,
-                destino: zc.destino ? ('•••• ' + zc.destino.slice(-4)) : '' } });
+      return json(res, 200, { ok: true, temSenha: !!config.senha });
     }
 
     // planilha aposentada: endpoint fica dormente por segurança
@@ -1971,9 +848,48 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(405); res.end();
   } catch (e) {
     const msg = String(e && e.message || e);
-    json(res, e.code === 'NO_TOKEN' ? 428 : 500, { erro: msg, code: e.code || null });
+    json(res, 500, { erro: msg, code: e.code || null });
   }
 });
+
+// ---------------- limpeza da v3.77 (uma vez só) ----------------
+// Pedido do Zion em 27/09/2026: tirar as tasks de catálogo da SeuBoné que ainda não foram postadas e deixar só a
+// matriz nesses dias. As removidas ficam guardadas 30 dias em db.removidosV377 (dá pra devolver) e o histórico do
+// GitHub dos dados tem o antes. Também some o que era só do ClickUp: fila de datas pendentes e memória de avisos.
+function limpezaV377() {
+  try {
+    if (!db.migracoes || typeof db.migracoes !== 'object') db.migracoes = {};
+    if (db.removidosV377 && Date.now() > Date.parse(db.removidosV377.ate || 0)) { delete db.removidosV377; saveDb(); }
+    if (db.migracoes.v377) return;
+    backupAgora('antes da limpeza v3.77 (catálogo e ClickUp)');
+    const hoje = hojeRecife();
+    const ehCatalogo = s => s.conta === MZ_CONTA && !s.postado && !(s.matrizSB && !s.taskId)
+      && /catalogo/.test(semAcento((s.titulo || '') + ' ' + (s.tituloCache || '')));
+    const alvo = db.slots.filter(ehCatalogo);
+    if (alvo.length) {
+      db.removidosV377 = {
+        em: new Date().toISOString(), ate: new Date(Date.now() + 30 * 86400000).toISOString(),
+        motivo: 'tasks de catálogo da SeuBoné ainda não postadas (pedido do Zion em 27/09/2026)',
+        slots: alvo.map(copiaSlot),
+      };
+      const fora = new Set(alvo.map(s => s.id));
+      db.slots = db.slots.filter(s => !fora.has(s.id));
+    }
+    // matriz no lugar, de hoje em diante, só nos dias que ficaram vazios
+    let matriz = 0;
+    for (const d of [...new Set(alvo.map(s => s.date).filter(d => d && d >= hoje))].sort()) {
+      if (temPostSeubone(d)) continue;
+      db.slots.push(novoSlotMatriz(d, MZ.novoParaDia(d)));
+      db.matrizSBGeradas[d] = true;
+      matriz++;
+    }
+    delete db.dueSync; delete db.avisos; delete db.statusColors;   // restos do ClickUp
+    // só os números: as cópias completas ficam 30 dias em db.removidosV377 e no backup (cada KB aqui vai pro GitHub a cada gravação)
+    db.migracoes.v377 = { em: new Date().toISOString(), catalogoRemovidos: alvo.length, matrizCriada: matriz };
+    saveDb();
+    console.log('[v3.77] ' + alvo.length + ' task(s) de catálogo tirada(s), ' + matriz + ' card(s) da matriz no lugar');
+  } catch (e) { console.log('[v3.77] limpeza falhou:', e.message); }
+}
 
 // ---------------- backup diário automático ----------------
 function backupDiario() {
@@ -1990,6 +906,7 @@ function backupDiario() {
 }
 backupDiario();
 setInterval(backupDiario, 6 * 3600_000);
+limpezaV377();                                    // antes da matriz do dia: os dias que ficarem vazios ganham o card dela
 autoMatrizSB();                                   // depois do backup do dia
 setInterval(autoMatrizSB, 3600_000);
 

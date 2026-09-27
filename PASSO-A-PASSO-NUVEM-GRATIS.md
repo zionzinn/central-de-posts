@@ -1,5 +1,11 @@
 # Painel 24/7 de graça (PC desligado)
 
+> **Atualização v3.77 (27/09/2026):** o ClickUp saiu do painel, junto com Relatório, Exportar, Importar em lote e Aplicar datas.
+> O painel não lê mais `CU_TOKEN`, `CU_LISTA`, `CU_STATUS_NOVA`, `IMG_HOST_EXTRA` nem as `ZAPI_*` do aviso pelo WhatsApp:
+> as que existirem no Render podem ser apagadas.
+> `CU_SENHA` continua: é a senha de entrada do painel. As tasks de produção vão ser lidas do MKT Hub com a variável
+> `MKH_CHAVE` (chave de nível leitura criada em Ajustes do Hub), a partir da v3.78.
+
 Seu painel v3.39 sobe pra nuvem **sem alterar uma linha do server.js**. Tudo que ele já faz
 continua igual: arrastar, Semana/Mês, Produção, Relatório, Exportar, Bancos, GM/BP, undo,
 artes dos comentários e o "Aplicar datas no ClickUp".
@@ -62,7 +68,7 @@ os 134 posts voltaram, com a alteração feita segundos antes.
 
     | Chave | Valor |
     |---|---|
-    | `CU_TOKEN` | seu token do ClickUp (o mesmo do config.json) |
+    | `CU_TOKEN` | não precisa mais (v3.77: o ClickUp saiu do painel) |
     | `CU_SENHA` | a senha de entrada do painel (você e a Maria usam essa) |
     | `SB_SECRET` | qualquer texto aleatório longo, ex.: `sb-9f3k2p8x-natal-2026` |
     | `GH_TOKEN` | o token do GitHub da Parte 2 (`github_pat_...`) |
@@ -97,8 +103,8 @@ tem cerca de 730, então um único serviço ligado direto cabe na franquia.
   como oficial. Recomendo o online, senão os dois calendários divergem.
 - **Backup**: cada alteração vira um commit no `central-posts-dados`. Pra ver ou restaurar
   uma versão antiga, entre no repositório → arquivo `data.json` → **History**.
-- **Segurança**: token do ClickUp e senha ficam nas variáveis do Render, nunca no código
-  nem no repositório. Os dois repositórios são privados.
+- **Segurança**: senha, segredo e chaves (como a `MKH_CHAVE` do MKT Hub) ficam nas variáveis do Render,
+  nunca no código, no repositório ou colados em chat. Os dois repositórios são privados.
 
 ## Quando você atualizar o painel no PC (nova versão v3.23, v3.24...)
 

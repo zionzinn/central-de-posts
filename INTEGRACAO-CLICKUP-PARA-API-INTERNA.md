@@ -1,5 +1,9 @@
 # B.O.N.E × ClickUp: tudo que o painel lê e escreve, pra virar API interna
 
+> **Histórico desde a v3.77 (27/09/2026):** o ClickUp saiu do painel (nenhuma leitura nem escrita). Este documento fica como
+> registro do que o painel usava. A integração nova é com a API v1 do MKT Hub, só leitura: o painel lê status (`etapa.slug` e
+> `status_clickup`), artes (URL assinada, direto do armazenamento do Hub) e comentários, e guarda o `id` da tarefa em cada post.
+
 Versão do painel de referência: **3.63** (`server.js` + `public/index.html` + `public/pauta.html`).
 Público deste documento: o time que vai construir o sistema interno e a API que substitui o ClickUp como fonte de dados do B.O.N.E.
 

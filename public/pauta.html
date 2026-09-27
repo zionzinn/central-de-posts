@@ -260,7 +260,7 @@
   <div class="rodape" id="rodape"></div>
 </div>
 
-<!-- detalhe do post: abre aqui dentro, sem mandar ninguém pro ClickUp -->
+<!-- detalhe do post: abre aqui dentro, sem mandar ninguém pra outro sistema -->
 <div class="ov" id="ovPost">
   <div class="modal" id="modal">
     <div class="mhead" id="mhead"></div>
@@ -310,7 +310,8 @@ const FILTROS = {
   diasSem: { rotulo:'dias sem post', dias:true, vazio:'Todos os dias do mês têm post.' },
 };
 function qs(extra){ return 'token='+encodeURIComponent(token)+(ESCOPO?'&aba='+encodeURIComponent(ESCOPO):'')+(extra||''); }
-function img(u){ return '/api/img?u='+encodeURIComponent(u)+'&pt='+encodeURIComponent(token); }
+// v3.77: sem proxy. As artes do MKT Hub (v3.78) vêm com URL assinada, direto do armazenamento: não passam pelo servidor.
+function img(u){ return u; }
 function hojeStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function lerHash(){ const h=decodeURIComponent(location.hash.slice(1)); const [aba,mes]=h.split('/'); return {aba:aba||null, mes:/^\d{4}-\d{2}$/.test(mes||'')?mes:null}; }
 function gravarHash(){ try{ history.replaceState(null,'','#'+encodeURIComponent(ST.aba)+'/'+ST.mes); }catch(e){} }
@@ -347,16 +348,17 @@ function stInfo(s){
   if(ehSugestao(s)) return {label:'sugestão', color:'#C77DFF'};
   if(s.postado) return {label:'postado', color:'#2FD06A'};
   if(s.statusCache){ if(ehPublicar(s)) return {label:'publicar', color:'#ee5e99'}; return {label:s.statusCache.status, color:s.statusCache.color||'#8C897C'}; }
-  if(s.taskId) return {label:'sincronizando', color:'#8C897C'};
+  if(s.taskId) return {label:'sem status', color:'#8C897C'};
   return {label:'sem task', color:'#8C897C'};
 }
 function ehPronto(s){ return !!s.postado || ehPublicar(s); }
+function linkDaTask(s){ return s.taskUrl || (s.taskId && /^[a-z0-9]+$/i.test(s.taskId) && !/^L[0-9a-f]{10}$/.test(s.taskId) ? 'https://app.clickup.com/t/'+s.taskId : ''); }
 function titulo(s){
   if(s.vaga && !s.taskId) return 'FALTA CRIAR: '+((s.formato||'post').toUpperCase());
   if(ehMatriz(s)) return s.matrizSB.tema || ((s.matrizSB.tipo||'Slot em aberto')+' (a preencher)');
   if(ehSugestao(s)) return String(s.titulo||'Sugestão').replace(/^SUGESTÃO:\s*/i,'');
   if(s.titulo) return s.titulo;
-  if(s.origem==='banco') return s.taskId ? (s.obs||'Task do ClickUp') : ('Reutilizar: '+(s.obs||'vídeo'));
+  if(s.origem==='banco') return s.taskId ? (s.obs||'Task') : ('Reutilizar: '+(s.obs||'vídeo'));
   const c=ST.dados.contas[s.conta];
   return (s.formato? s.formato.charAt(0).toUpperCase()+s.formato.slice(1) : 'Post')+' · '+(c?c.nome:'');
 }
@@ -368,7 +370,7 @@ function dow(iso){ const [y,m,d]=iso.split('-').map(Number); return new Date(Dat
 function segundaDe(iso){ const [y,m,d]=iso.split('-').map(Number); const dt=new Date(Date.UTC(y,m-1,d,12)); const off=(dt.getUTCDay()+6)%7; dt.setUTCDate(dt.getUTCDate()-off); return dt.toISOString().slice(0,10); }
 function brDia(iso){ return iso.slice(8,10)+'/'+iso.slice(5,7); }
 function brData(iso){ return iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4); }
-/** Descrição do ClickUp em blocos legíveis: parágrafos com respiro, títulos destacados, listas de verdade, negrito. */
+/** Descrição da task em blocos legíveis: parágrafos com respiro, títulos destacados, listas de verdade, negrito. */
 function mdLeve(t){
   const inl = x => esc(x).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/__(.+?)__/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>');
   const lines = String(t||'').replace(/\r/g,'').replace(/\\n/g,'\n').split('\n');
@@ -503,28 +505,29 @@ function abrirPost(id){
     (s.formato?'<span class="chip">'+esc(s.formato)+'</span>':'')+(s.angulo?'<span class="chip">ângulo: '+esc(s.angulo)+'</span>':'')+'</div>';
   const pr = s.parecer && s.parecer.veredito ? s.parecer : null;
   $('#mbody').innerHTML=
-    '<div class="sec" id="martes"'+(s.taskId?'':' hidden')+'><div class="stit">artes <span class="n" id="martesN"></span></div><div class="artes" id="martesG"><span class="carreg">…</span></div></div>'+
+    '<div class="sec" id="martes"'+(s.taskId&&ST.dados.temFonte?'':' hidden')+'><div class="stit">artes <span class="n" id="martesN"></span></div><div class="artes" id="martesG"><span class="carreg">…</span></div></div>'+
     '<div class="meta"><div><span>dia do post</span><b>'+brData(s.date)+' · '+DOWS[dow(s.date)]+'</b></div>'+
       (isGm(s)?'<div><span>capa</span><b style="color:var(--sb)">★ grande marca</b></div>':'')+
-      '<div id="mresp"><span>responsável</span><b class="carreg">…</b></div><div id="mdue"><span>entrega</span><b class="carreg">…</b></div></div>'+
-    (ehMatriz(s) ? '' : '<div class="sec"><div class="stit">descrição</div><div class="desc" id="mdesc"><span class="carreg">'+(s.taskId?'lendo a task…':'este post ainda não tem task no ClickUp')+'</span></div></div>')+
+      '<div id="mresp"><span>responsável</span><b>'+esc(s.responsavel||(s.matrizSB&&s.matrizSB.responsavel)||'sem responsável')+'</b></div></div>'+
+    (ehMatriz(s) || !(s.taskId && ST.dados.temFonte) ? '' : '<div class="sec"><div class="stit">descrição</div><div class="desc" id="mdesc"><span class="carreg">lendo a task…</span></div></div>')+
     (s.matrizSB ? '<div class="sec"><div class="stit">planejamento da matriz</div><div class="desc">'+mdLeve(matrizTexto(s))+'</div></div>' : '')+
     // parecer: aprova (-> PUBLICAR) ou pede alteração (-> ALTERAR), pronto ou não. Fica no card do painel e nas observações.
     '<div class="sec parecer-sec"><div class="stit">seu parecer</div>'+
       '<div id="parecerAtual" class="parecer-atual'+(pr?(' '+(pr.veredito==='aprovado'?'ok':'alt')):' vazio')+'">'+(pr
-        ? (pr.veredito==='aprovado'?'✓ Aprovado':'✎ Alteração pedida')+' por '+esc(pr.por||'alguém')+(pr.motivo?': '+esc(pr.motivo):'')+(pr.clickup?' <span class="cu">· task foi pra '+(pr.veredito==='aprovado'?'PUBLICAR':'ALTERAR')+' no ClickUp</span>':(pr.clickupErro?' <span class="cu">· não foi pro ClickUp ('+esc(pr.clickupErro)+')</span>':''))+' <button type="button" class="mudar" id="prMudar">mudar</button>'
+        ? (pr.veredito==='aprovado'?'✓ Aprovado':'✎ Alteração pedida')+' por '+esc(pr.por||'alguém')+(pr.motivo?': '+esc(pr.motivo):'')+' <button type="button" class="mudar" id="prMudar">mudar</button>'
         : 'ainda sem parecer')+'</div>'+
       '<form class="obsform" id="prform"'+(pr?' hidden':'')+'>'+
         '<div class="obsrow prbtns"><button type="button" class="prbtn ok" data-v="aprovado">✓ aprovar</button><button type="button" class="prbtn alt" data-v="alterar">✎ pedir alteração</button></div>'+
         '<textarea id="prMotivo" placeholder="o que precisa mudar? (obrigatório ao pedir alteração; opcional ao aprovar)" maxlength="1500"></textarea>'+
-        '<p class="nota">Pedir alteração comenta na task e manda ela pra <b>ALTERAR</b> no ClickUp. Aprovar manda pra <b>PUBLICAR</b> (se a task já estava esperando aprovação; se ainda está em produção, fica só registrado). O time é avisado nos dois casos.</p>'+
+        '<p class="nota">O parecer fica gravado no post, aparece no painel do time e entra nas observações.</p>'+
         '<div class="obsrow"><input id="prNome" maxlength="40" placeholder="seu nome" autocomplete="name"><button type="submit" class="obsenviar" id="prEnviar" disabled>enviar parecer</button></div>'+
         '<div class="obsmsg" id="prMsg"></div>'+
       '</form></div>'+
     '<div class="sec"><div class="stit">observações <span class="n" id="mnotasN"></span></div><div class="notas" id="mnotas"></div>'+
       '<form class="obsform" id="obsform"><textarea id="obsTxt" placeholder="deixe uma observação sobre este post (cai direto na aba Observação do painel)" maxlength="1500"></textarea>'+
       '<div class="obsrow"><input id="obsNome" maxlength="40" placeholder="seu nome" autocomplete="name"><button type="submit" class="obsenviar" id="obsEnviar">enviar observação</button></div><div class="obsmsg" id="obsMsg"></div></form></div>';
-  $('#mfoot').innerHTML = s.taskId ? '<a href="https://app.clickup.com/t/'+esc(s.taskId)+'" target="_blank" rel="noopener">'+ICO.link+' ver no ClickUp (se você tiver acesso)</a>' : '';
+  const lk = linkDaTask(s);
+  $('#mfoot').innerHTML = lk ? '<a href="'+esc(lk)+'" target="_blank" rel="noopener">'+ICO.link+' abrir a task (se você tiver acesso)</a>' : '';
   try{ $('#obsNome').value = localStorage.getItem('pauta.nome')||''; $('#prNome').value = localStorage.getItem('pauta.nome')||''; }catch(e){}
   atualizaNotas(s);
   $('#obsform').onsubmit = ev=>{ ev.preventDefault(); enviarObs(s); };
@@ -534,8 +537,7 @@ function abrirPost(id){
   $('#prform').onsubmit = ev=>{ ev.preventDefault(); enviarParecer(s); };
   const mudar=$('#prMudar'); if(mudar) mudar.onclick=()=>{ $('#prform').hidden=false; $('#parecerAtual').classList.add('mudando'); };
   $('#ovPost').classList.add('open');
-  if(s.taskId) carregarTask(s);
-  else { const r=$('#mresp b'), d=$('#mdue b'); if(r){ r.textContent=(s.matrizSB&&s.matrizSB.responsavel)||'sem responsável'; r.className=''; } if(d){ d.textContent='sem task ainda'; d.className=''; } }
+  if(s.taskId && ST.dados.temFonte) carregarTask(s);
 }
 function atualizaNotas(s){
   const el=$('#mnotas'), n=$('#mnotasN'); if(!el) return;
@@ -547,12 +549,9 @@ async function carregarTask(s){
   try{
     const r=await fetch('/api/pauta/task?'+qs('&id='+encodeURIComponent(s.taskId)),{cache:'no-store'});
     const t=await r.json();
-    if(!r.ok || t.semClickUp){ $('#mdesc').innerHTML='<span class="carreg">'+esc(t.erro||'sem conexão com o ClickUp agora')+'</span>'; $('#martes').hidden=true; $('#mresp b').textContent='?'; $('#mdue b').textContent='?'; return; }
+    if(!r.ok){ $('#mdesc').innerHTML='<span class="carreg">'+esc(t.erro||'não consegui ler a task agora')+'</span>'; $('#martes').hidden=true; return; }
     if(ST.aberto!==s.id) return;   // fechou/trocou enquanto carregava
-    $('#mresp b').textContent = (t.responsaveis||[]).join(', ') || 'sem responsável';
-    $('#mresp b').className='';
-    $('#mdue b').textContent = t.due ? new Date(t.due).toLocaleDateString('pt-BR') : 'sem data';
-    $('#mdue b').className='';
+    if((t.responsaveis||[]).length) $('#mresp b').textContent = t.responsaveis.join(', ');
     $('#mdesc').innerHTML = mdLeve(t.descricao||'');
     const arts=(t.arquivos||[]);
     const g=$('#martesG'); g.innerHTML='';
@@ -572,7 +571,7 @@ async function carregarTask(s){
             '<div class="vnome" id="vnome"></div>'+
           '</div>'+
           (imgs.length>1?'<div class="vstrip" id="vstrip">'+imgs.map((f,i)=>'<button type="button" class="vth" data-i="'+i+'" title="'+esc(f.name)+'"><img loading="lazy" src="'+esc(img(f.thumb||f.url))+'" alt=""></button>').join('')+'</div>':'');
-        // no card vai a versão GRANDE do ClickUp (nítida e leve); a original só na tela cheia.
+        // no card vai a versão GRANDE (nítida e leve); a original só na tela cheia.
         const srcCard=f=>img(f.thumbL||f.url);
         const pre=i=>{ const f=imgs[(i+imgs.length)%imgs.length]; if(f && !f._pre){ f._pre=1; const im=new Image(); im.src=srcCard(f); } };
         const mostra=i=>{
@@ -623,13 +622,10 @@ async function enviarParecer(s){
     s.parecer=j.parecer; s.notas=j.notas;
     atualizaNotas(s);
     const at=$('#parecerAtual'); at.className='parecer-atual '+(v==='aprovado'?'ok':'alt');
-    const alvo = v==='alterar' ? 'ALTERAR' : 'PUBLICAR';
-    at.innerHTML=(v==='aprovado'?'✓ Aprovado':'✎ Alteração pedida')+' por '+esc(nome||'alguém')+(motivo?': '+esc(motivo):'')+(j.clickup?' <span class="cu">· task foi pra '+alvo+' no ClickUp</span>':'')+' <button type="button" class="mudar" id="prMudar">mudar</button>';
+    at.innerHTML=(v==='aprovado'?'✓ Aprovado':'✎ Alteração pedida')+' por '+esc(nome||'alguém')+(motivo?': '+esc(motivo):'')+' <button type="button" class="mudar" id="prMudar">mudar</button>';
     $('#prMudar').onclick=()=>{ $('#prform').hidden=false; };
     $('#prform').hidden=true; $('#prMotivo').value='';
-    if(!j.clickup){ msg.textContent = v==='aprovado' ? 'Aprovação registrada. A task não foi pra PUBLICAR: '+(j.clickupErro||'sem detalhe')+'.' : 'Registrado aqui, mas não foi pro ClickUp: '+(j.clickupErro||'sem detalhe')+'.'; msg.className='obsmsg '+(v==='aprovado'?'':'err'); }
-    else { msg.textContent=''; }
-    if(j.status){ s.statusCache=j.status; }
+    msg.textContent = v==='aprovado' ? 'Aprovação registrada. O time já vê no painel.' : 'Pedido de alteração registrado. O time já vê no painel.'; msg.className='obsmsg ok';
     render(); // selo na lista
   }catch(e){ msg.textContent='Não deu: '+e.message; msg.className='obsmsg err'; btn.disabled=false; }
 }
@@ -650,7 +646,7 @@ function abrirSugestao(dia){
       '<div class="obsrow"><input id="sugNome" maxlength="40" placeholder="seu nome" autocomplete="name"><button type="submit" class="obsenviar" id="sugEnviar">enviar sugestão</button></div>'+
       '<div class="obsmsg" id="sugMsg"></div>'+
     '</form>'+
-    '<p class="nota">A sugestão vira um card roxo neste dia, no painel do time e aqui na pauta. O time transforma em post colando a task, ou apaga.</p>';
+    '<p class="nota">A sugestão vira um card roxo neste dia, no painel do time e aqui na pauta. O time transforma em post colando o link da task, ou apaga.</p>';
   $('#mfoot').innerHTML='';
   try{ $('#sugNome').value = localStorage.getItem('pauta.nome')||''; }catch(e){}
   $('#sugform').onsubmit = ev=>{ ev.preventDefault(); enviarSugestao(dia); };
