@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.82'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.83'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -33,7 +33,7 @@ if (!fs.existsSync(DATA_FILE)) {
 }
 let db = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 // migrações leves (nunca destrutivas)
-if (!Array.isArray(db.referencias)) db.referencias = [];
+if (!Array.isArray(db.banco)) db.banco = [];   // v3.83: banco de cada empresa (lib/banco.js); as referências gerais saem na migração
 // matriz da SeuBoné: dias em que o card amarelo já foi gerado (pra não recriar o que você apagou ou arrastou)
 if (!db.matrizSBGeradas || typeof db.matrizSBGeradas !== 'object' || Array.isArray(db.matrizSBGeradas)) db.matrizSBGeradas = {};
 // cadência automática de GM (grande marca na capa) — só SeuBoné. ancora null = desligado até configurar.
@@ -373,6 +373,29 @@ const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, un
 const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/docs.js').limpaHtml });
 // v3.82: login pelo Zoho (liga só com ZOHO_CLIENT_ID e ZOHO_CLIENT_SECRET; sem elas, senha opcional como antes)
 const AUTH = require('./lib/auth.js')({ json, parseCookies, segredo: config.secret });
+/** Post novo a partir do que veio da tela (e do banco, v3.83). Não grava: quem chama põe em db.slots. */
+function montaSlot(b) {
+  const lk = b.taskUrl ? taskDoLink(b.taskUrl) : { taskId: b.taskId || null, taskUrl: null };
+  const slot = {
+    id: 's' + crypto.randomBytes(4).toString('hex'),
+    conta: b.conta, date: b.date || null,
+    taskId: lk.taskId, taskUrl: lk.taskUrl,
+    titulo: b.titulo || null, formato: b.formato || '', angulo: b.angulo || '', obs: b.obs || '',
+    notas: typeof b.notas === 'string' ? b.notas : '', // caderno livre do post (só do painel)
+    gm: (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '',
+    collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
+    drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: false, fixo: false,
+    responsavelManual: String(b.responsavelManual || '').slice(0, 80), origem: 'painel',   // v3.83: sem "criativo" e "banco" (o banco antigo saiu)
+    ...(b.matrizSB ? { matrizSB: MZ.limpa(Object.assign({ tipo: b.date ? (MZ.tipoDoDia(b.date).tipo || '') : '' }, b.matrizSB)) } : {}),
+    tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: null,
+  };
+  // VAGA = "falta criar este post". Só faz sentido sem task: se já tem task, não falta criar.
+  if (b.vaga && !slot.taskId) slot.vaga = true;
+  if (slot.matrizSB) { slot.origem = 'matriz'; if (slot.date) db.matrizSBGeradas[slot.date] = true; }
+  return slot;
+}
+// v3.83: banco de cada empresa (Reutilizar, Drive de conteúdos, Referência de posts, Cortes de podcasts)
+const rotaBanco = require('./lib/banco.js')({ db, saveDb, readBody, json, pushUndo, montaSlot });
 /** Com login: só ADMIN passa. Sem login (PC local), todo mundo. Devolve true se barrou. */
 function soAdmin(req, res) {
   if (req.eu && req.eu.papel !== 'admin') { json(res, 403, { erro: 'só ADMIN (Zion ou Maria) pode fazer isso' }); return true; }
@@ -425,6 +448,7 @@ const server = http.createServer(async (req, res) => {
     // ---------- tarefas e relógio (v3.80) ----------
     if (p.startsWith('/api/tarefas') && await rotaTarefas(req, res, p, u)) return;
     if (p.startsWith('/api/tempo') && await rotaTempo(req, res, p, u)) return;
+    if (p.startsWith('/api/banco') && await rotaBanco(req, res, p)) return;
     // ---------- MKT Hub (v3.81): status, artes e comentários das tasks de produção ----------
     if (p === '/api/hub/eu' && soAdmin(req, res)) return;     // v3.82: teste da chave do Hub é configuração (ADMIN)
     if ((p.startsWith('/api/hub') || p.startsWith('/api/task/')) && await rotaHub(req, res, p, u)) return;
@@ -443,7 +467,7 @@ const server = http.createServer(async (req, res) => {
       const corpo = JSON.stringify({
         versao: VERSAO,
         contas: db.contas, abas: db.abas,
-        slots: rotaHub.sobrepoe(slots), referencias: db.referencias,   // v3.81: status, título e responsável do Hub por cima (sem gravar)
+        slots: rotaHub.sobrepoe(slots), banco: db.banco,   // v3.81: status do Hub por cima dos posts (sem gravar); v3.83: banco de cada empresa
         tarefas: rotaTarefas.publicas(),                  // v3.80: tarefas abertas (matriz e copy), com os posts de cada uma
         temFonte: rotaHub.ligado(),                       // v3.81: true com a chave do MKT Hub (artes e comentários das tasks)
         temSenha: !!config.senha,
@@ -476,25 +500,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/slots' && req.method === 'POST') {
       const b = await readBody(req);
       if (!b.conta || !db.contas[b.conta]) return json(res, 400, { erro: 'conta inválida' });
-      const lk = b.taskUrl ? taskDoLink(b.taskUrl) : { taskId: b.taskId || null, taskUrl: null };
-      const slot = {
-        id: 's' + crypto.randomBytes(4).toString('hex'),
-        conta: b.conta, date: b.date || null,
-        taskId: lk.taskId, taskUrl: lk.taskUrl,
-        titulo: b.titulo || null, formato: b.formato || '', angulo: b.angulo || '', obs: b.obs || '',
-        notas: typeof b.notas === 'string' ? b.notas : '', // caderno livre do post (só do painel)
-        gm: (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '',
-        collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
-        drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: false, fixo: false,
-        responsavelManual: String(b.responsavelManual || '').slice(0, 80), origem: ['criativo', 'banco'].includes(b.origem) ? b.origem : 'painel',
-        ...(b.matrizSB ? { matrizSB: MZ.limpa(Object.assign({ tipo: b.date ? (MZ.tipoDoDia(b.date).tipo || '') : '' }, b.matrizSB)) } : {}),
-        cat: typeof b.cat === 'string' ? b.cat : '', // categoria dentro do banco (ex.: conselho, corte-reels, outros)
-        fonteId: typeof b.fonteId === 'string' ? b.fonteId : '', // id do item do banco que gerou este post
-        tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: null,
-      };
-      // VAGA = "falta criar este post". Só faz sentido sem task: se já tem task, não falta criar.
-      if (b.vaga && !slot.taskId) slot.vaga = true;
-      if (slot.matrizSB) { slot.origem = 'matriz'; if (slot.date) db.matrizSBGeradas[slot.date] = true; }
+      const slot = montaSlot(b);
       undoSlots(slot.vaga ? 'sinalizar falta criar' : (slot.matrizSB ? 'novo card da matriz' : 'novo post'), [], [slot.id]);
       db.slots.push(slot); saveDb();
       return json(res, 200, { ok: true, slot });
@@ -566,15 +572,7 @@ const server = http.createServer(async (req, res) => {
         saveDb();
         return json(res, 200, { ok: true, desfeito: e.desc });
       }
-      if (e.tipo === 'referencias') {
-        for (const id of e.criados || []) db.referencias = db.referencias.filter(r => r.id !== id);
-        for (const cp of e.antes || []) {
-          const i = db.referencias.findIndex(r => r.id === cp.id);
-          if (i >= 0) db.referencias[i] = cp; else db.referencias.unshift(cp);
-        }
-        saveDb();
-        return json(res, 200, { ok: true, desfeito: e.desc });
-      }
+      if (e.tipo === 'banco') { rotaBanco.desfaz(e); return json(res, 200, { ok: true, desfeito: e.desc }); }   // v3.83
       return json(res, 200, { ok: false, motivo: 'ação sem undo' });
     }
 
@@ -644,41 +642,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---------- banco de referências (geral, sem conta) ----------
-    if (p === '/api/referencias' && req.method === 'POST') {
-      const b = await readBody(req);
-      const url2 = (b.url || '').trim();
-      if (!/^https?:\/\//i.test(url2)) return json(res, 400, { erro: 'cole um link válido (http...)' });
-      const ref = {
-        id: 'r' + crypto.randomBytes(4).toString('hex'),
-        url: url2,
-        nota: (b.nota || '').trim(),
-        criadoEm: new Date().toISOString(),
-      };
-      pushUndo({ tipo: 'referencias', desc: 'nova referência', antes: [], criados: [ref.id] });
-      db.referencias.unshift(ref); saveDb();
-      return json(res, 200, { ok: true, ref });
-    }
-    const mRef = p.match(/^\/api\/referencias\/([a-z0-9]+)$/i);
-    if (mRef && (req.method === 'PATCH' || req.method === 'DELETE')) {
-      const ref = db.referencias.find(r => r.id === mRef[1]);
-      if (!ref) return json(res, 404, { erro: 'referência não existe' });
-      if (req.method === 'DELETE') {
-        pushUndo({ tipo: 'referencias', desc: 'excluir referência', antes: [{ ...ref }], criados: [] });
-        db.referencias = db.referencias.filter(r => r.id !== ref.id); saveDb();
-        return json(res, 200, { ok: true });
-      }
-      pushUndo({ tipo: 'referencias', desc: 'editar referência', antes: [{ ...ref }], criados: [] });
-      const b = await readBody(req);
-      if ('url' in b) {
-        const u2 = (b.url || '').trim();
-        if (!/^https?:\/\//i.test(u2)) return json(res, 400, { erro: 'link inválido' });
-        ref.url = u2;
-      }
-      if ('nota' in b) ref.nota = (b.nota || '').trim();
-      saveDb();
-      return json(res, 200, { ok: true, ref });
-    }
-
     // ---------- cadência automática de GM (SeuBoné) ----------
     if (p === '/api/gm-cadencia' && req.method === 'POST') {
       if (soAdmin(req, res)) return;                     // v3.82: GM automático é do ADMIN
@@ -832,6 +795,7 @@ function faxinaTarefas() { try { rotaTempo.poda(); rotaTarefas.faxina(); } catch
 faxinaTarefas();
 setInterval(faxinaTarefas, 6 * 3600_000);
 limpezaV377();                                    // antes da matriz do dia: os dias que ficarem vazios ganham o card dela
+rotaBanco.migra(backupAgora, m => console.log(m)); // v3.83: o banco antigo sai (guardado 30 dias em removidosV383)
 autoMatrizSB();                                   // depois do backup do dia
 setInterval(autoMatrizSB, 3600_000);
 

@@ -56,7 +56,7 @@
     <div class="leque" id="leque" role="group" aria-label="Bancos, configurações e documentos">
       <button class="lq lq-c" id="btnConfig" data-tip="Configurações (Ctrl+,)" aria-label="Configurações"></button>
       <button class="lq lq-d" id="btnDocs" data-tip="Documentos de copy" aria-label="Documentos"></button>
-      <button class="lq lq-b" id="btnDrawer" data-tip="Bancos: sem data, criativos, reutilizáveis e referências" aria-label="Bancos"></button>
+      <button class="lq lq-b" id="btnDrawer" data-tip="Banco da empresa: Drive, referências, cortes e o que reutilizar" aria-label="Banco da empresa"></button>
       <span class="lq-n" id="drawerN" aria-hidden="true"></span>
     </div>
     <button class="ico ico-help" id="btnAjuda" data-tip="Ver os atalhos do mouse e do teclado"></button>
@@ -70,7 +70,7 @@
 <div class="usoaviso" id="usoAviso" hidden></div>
 
 <aside class="drawer" id="drawer">
-  <div class="dr-head"><b id="drTitle">Bancos</b><span>arraste pro calendário</span><button class="dr-close" id="drClose" data-tip="Fechar (Esc)">✕</button></div>
+  <div class="dr-head"><b id="drTitle">Banco</b><span>arraste pro calendário</span><button class="dr-close" id="drClose" data-tip="Fechar (Esc)">✕</button></div>
   <div class="dr-search"><input id="drBusca" placeholder="buscar em tudo…" autocomplete="off"></div>
   <div class="dr-body" id="drBody"></div>
 </aside>
@@ -393,10 +393,11 @@
 <script src="/js/cronometro.js"></script>
 <script src="/js/tarefas.js"></script>
 <script src="/js/tempo.js"></script>
+<script src="/js/banco.js"></script>
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.82'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.83'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -419,6 +420,7 @@ const ICONS = {
   doc:'<path d="M6.5 3.5h8l4 4v12a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z"/><path d="M14.5 3.5v4h4M8.5 12h7M8.5 15.5h7M8.5 8.5h3"/>',
   sparkle:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/><path d="M19 16l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z"/>',
   bookmark:'<path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4-6 4V4.5a1 1 0 0 1 1-1z"/>',
+  mic:'<rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5M8.5 20.5h7"/>',
   target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>',
   undo:'<path d="M8 5L3.5 9.5 8 14"/><path d="M3.5 9.5H14a6 6 0 1 1 0 12h-2.5"/>',
   chevL:'<path d="M14.5 5.5L8 12l6.5 6.5"/>',
@@ -453,13 +455,13 @@ function corTexto(hex){
 // ================= estado =================
 const $ = s => document.querySelector(s);
 const S = {
-  contas:{}, abas:[], slots:[], referencias:[], temFonte:false,   // temFonte: tasks ligadas ao MKT Hub (v3.78)
+  contas:{}, abas:[], slots:[], banco:[], temFonte:false,   // temFonte: tasks ligadas ao MKT Hub (v3.78)
   aba:'SEUBONÉ', mes:null, // "2026-07" = mês em FOCO (o que está sob os olhos no fluxo)
   meses:[], crescendo:false, abriuNoMes:false, gmCadencia:null, // janela de meses desenhados no fluxo contínuo
   assinatura:'', // retrato do que está na tela, pra atualização automática não redesenhar à toa
   filtroConta:new Set(),
   editing:null, taskSlot:null, dragging:false, lastSync:null,
-  drawer:false, busca:'', editingRef:null,
+  drawer:false, busca:'', bancoEdit:null,
   view:'mes', semIdx:0,
   filtro:'todos', selecao:new Set(),
   tarefas:[],   // v3.80: tarefas abertas da copywriter (matriz e copy), com os posts de cada uma
@@ -534,10 +536,10 @@ async function loadState(fresh, silencioso){
   // assinatura barata do que aparece na tela: se nada mudou, o modo silencioso não redesenha
   // v3.70: a assinatura cobre o post INTEIRO (formato, GM, obs, matriz...) e as referências: mudança
   // feita por outra pessoa aparece no próximo ciclo de 20 s. Antes só o poll de 90 s (removido) pegava isso.
-  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.referencias||[]) + '#' + JSON.stringify(j.tarefas||[]);
+  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.banco||[]) + '#' + JSON.stringify(j.tarefas||[]);
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   contaNaTela();                                        // v3.82: nome da conta no perfil e o que cada papel vê
@@ -565,25 +567,8 @@ function slotTitulo(s){
   const c = S.contas[s.conta];
   return (s.formato? s.formato.charAt(0).toUpperCase()+s.formato.slice(1) : 'Post') + ' · ' + (c?c.nome:'');
 }
-// ---- BANCO POR CATEGORIA (hoje só a CARBONE usa) ----
-// O item do banco é uma FONTE: uma task que rende vários posts (ex.: uma
-// gravação de conselho com N cortes). Arrastar pro dia DUPLICA (cria post novo com o
-// mesmo link) e a fonte CONTINUA no banco. Ela só sai quando você clica em concluído.
 const DOWS = ['SEG','TER','QUA','QUI','SEX','SÁB','DOM'];
 const DOWS_TIT = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];   // cabeçalho da grade (caixa normal, padrão Apple)
-const BANCO_CATS = {
-  'CARBONE': [
-    { key:'conselho',    nome:'Conselho',          icone:'users' },
-    { key:'corte-reels', nome:'Corte Reels',       icone:'film' },
-    { key:'outros',      nome:'Outros conteúdos',  icone:'box' },
-  ],
-};
-function catsDaAba(aba){ return BANCO_CATS[aba] || null; }
-function isFonteBanco(s){ return s.origem==='banco' && !s.date; }
-/** Quantos posts já nasceram DESTA fonte (só os gerados por arrasto, não qualquer task igual). */
-function usosDaFonte(s){
-  return S.slots.filter(x=>x.fonteId===s.id).length;
-}
 
 // ---- VAGA: "falta criar post [formato] neste dia" ----
 // Card marcado a dedo pra reservar o dia antes do post existir. Some sozinho quando você
@@ -712,13 +697,6 @@ function gmOverride(s, quer){
   return gmCadenciaDia(s.date) ? 'nao' : '';
 }
 function fmtDataHora(ms){ return new Date(ms).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
-function refIcon(url){
-  const u=(url||'').toLowerCase();
-  if(u.includes('instagram')) return 'image';
-  if(u.includes('tiktok')||u.includes('youtube')||u.includes('youtu.be')) return 'film';
-  if(u.includes('drive.google')) return 'folder';
-  return 'link';
-}
 /** Endereço da arte pra mostrar. v3.77: sem proxy (as artes do MKT Hub vêm assinadas, direto do armazenamento). */
 function proxied(u){ return u; }
 /** Link da task de produção do post: o que foi colado (MKT Hub ou outro) ou, nos posts antigos, a task do ClickUp. */
@@ -1039,10 +1017,9 @@ function cardEl(s){
   const d = document.createElement('div');
   const vaga = isVaga(s);
   const sug = isSugestao(s);
-  const fonte = isFonteBanco(s);
   const mz = isMatriz(s);
   const bk = BUCKETS[stBucket(s)];
-  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(vaga?' vaga':'')+(sug?' sugestao':'')+(fonte?' fonte':'')+(mz?' mz':'')+(multi?' temconta':'');
+  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(vaga?' vaga':'')+(sug?' sugestao':'')+(mz?' mz':'')+(multi?' temconta':'');
   if(multi) d.style.setProperty('--corconta', cor);
   if(!mz && !vaga && !sug) d.style.setProperty('--cc', bk.cor);   // v3.75: fundo tingido + barrinha na cor do status
   d.draggable = true; d.dataset.id = s.id;
@@ -1095,14 +1072,12 @@ function cardEl(s){
       '<div class="meta">'+
         (vaga||sug?'':'<span class="stx" style="--stc:'+bk.cor+'" title="'+esc(s.statusCache&&s.statusCache.status ? 'Status: '+s.statusCache.status : (s.taskId?'Sem status ainda':'Sem link de task ainda'))+'"><i></i>'+esc(s.taskId||s.postado? bk.rot : 'Sem task')+'</span>')+
         alertas+
-        (fonte&&usosDaFonte(s)?'<span class="usochip" title="Posts já gerados a partir desta fonte">'+usosDaFonte(s)+'x usada</span>':'')+
         avatar+
       '</div>'+
       // na vaga, o botão de check dá BAIXA (já criei) em vez de marcar postado
       (vaga? '<button class="qvaga" title="Já criei este post: dar baixa na sinalização">'+icon('check')+'</button>'
-       : fonte? '<button class="qfonte" title="Concluído: tirar esta task do banco">'+icon('check')+'</button>'
-           : (s.postado?'<div class="pcheck" title="Clique pra desmarcar postado">'+icon('check')+'</div>':'<button class="qpost" title="Marcar postado">'+icon('check')+'</button>'))+
-      (fonte?'':'<button class="qdel bin mini" title="Excluir este post do painel">'+BIN_SVG+'</button>');
+       : (s.postado?'<div class="pcheck" title="Clique pra desmarcar postado">'+icon('check')+'</div>':'<button class="qpost" title="Marcar postado">'+icon('check')+'</button>'))+
+      '<button class="qdel bin mini" title="Excluir este post do painel">'+BIN_SVG+'</button>';
   }
   d.addEventListener('dragstart', ev=>{
     S.dragging=true; d.classList.add('dragging');
@@ -1129,8 +1104,6 @@ function cardEl(s){
   if(cd && cdiv) cd.onclick = ev=>{ ev.stopPropagation(); corrigirConta(s, cdiv.sugerida); };
   const qv = d.querySelector('.qvaga');
   if(qv) qv.onclick = ev=>{ ev.stopPropagation(); baixarVaga(s); };
-  const qf = d.querySelector('.qfonte');
-  if(qf) qf.onclick = ev=>{ ev.stopPropagation(); concluirFonte(s); };
   const qp = d.querySelector('.qpost');
   if(qp) qp.onclick = ev=>{ ev.stopPropagation(); togglePostado(s); };
   const pc = d.querySelector('.pcheck');
@@ -1178,29 +1151,10 @@ function dropZone(el, getDate){
       }catch(e){ toast(e.message, true); }
       return;
     }
-    // referência: cria post com o link preenchido
-    if(id.startsWith('ref:')){
-      const ref = S.referencias.find(r=>r.id===id.slice(4));
-      if(!ref || !novaData) return;
-      openEdit(null, novaData, { drive: ref.url, obs: ref.nota || '' });
-      return;
-    }
+    // v3.83: item do banco da empresa: vira post no dia (Reutilizar sai do banco; o resto fica e conta o uso)
+    if(id.startsWith('bk:')){ if(novaData) bancoUsar(id.slice(3), novaData, ev); return; }
     const slot = S.slots.find(x=>x.id===id);
     if(!slot) return;
-    // FONTE DO BANCO: arrastar pro dia DUPLICA (post novo com o mesmo link da task) e a
-    // fonte CONTINUA no banco, porque uma task rende vários cortes. Só sai no botão concluído.
-    if(isFonteBanco(slot) && novaData){
-      try{
-        await api('/api/slots', {method:'POST', body:JSON.stringify({
-          conta: slot.conta, date: novaData, taskId: slot.taskId || null, taskUrl: slot.taskUrl || null, titulo: slot.titulo || slot.tituloCache || null, fonteId: slot.id,
-          formato: slot.formato||'', angulo: slot.angulo||'', obs: slot.obs||'',
-          drive: slot.drive||'', linkRef: slot.linkRef||''
-        })});
-        await loadState();
-        toast('Post gerado em '+brData(novaData)+' · a task continua no banco · Ctrl+Z desfaz');
-      }catch(e){ toast(e.message, true); }
-      return;
-    }
     // ALT + arrastar: COPIA o card pro dia solto (card novo, mesma conta e conteúdo, com o link da task)
     if(ev.altKey && novaData){
       try{
@@ -1250,192 +1204,7 @@ function drawerSec(titulo, n, fill){
   return sec;
 }
 
-function refEl(r){
-  const d = document.createElement('div');
-  d.className='ref'; d.draggable=true;
-  d.innerHTML =
-    '<div class="ic-wrap">'+icon(refIcon(r.url))+'</div>'+
-    '<div class="rb"><div class="rn">'+esc(r.nota || 'Referência')+'</div>'+
-    '<div class="ru">'+esc(r.url.replace(/^https?:\/\/(www\.)?/,''))+'</div></div>'+
-    '<div class="ra">'+
-      '<a href="'+esc(r.url)+'" target="_blank" title="Abrir link">'+icon('external','s')+'</a>'+
-      '<button data-a="edit" title="Editar">'+icon('pencil','s')+'</button>'+
-      '<button data-a="del" class="bin mini" title="Excluir a referência">'+BIN_SVG+'</button>'+
-    '</div>';
-  d.addEventListener('dragstart', ev=>{ S.dragging=true; d.classList.add('dragging'); ev.dataTransfer.setData('text/plain','ref:'+r.id); ev.dataTransfer.effectAllowed='move'; });
-  d.addEventListener('dragend', ()=>{ S.dragging=false; d.classList.remove('dragging'); });
-  d.querySelector('[data-a=edit]').onclick = ()=>{
-    S.editingRef = r.id;
-    $('#rfUrl').value = r.url; $('#rfNota').value = r.nota||'';
-    $('#rfSave').textContent='Salvar edição'; $('#rfCancel').style.display='';
-    $('#rfUrl').focus();
-  };
-  d.querySelector('[data-a=del]').onclick = async ()=>{
-    if(!confirm('Excluir esta referência? (Ctrl+Z desfaz)')) return;
-    try{ await api('/api/referencias/'+r.id,{method:'DELETE'}); S.referencias = S.referencias.filter(x=>x.id!==r.id); renderDrawer(); toast('Referência excluída'); }
-    catch(e){ toast(e.message,true); }
-  };
-  return d;
-}
-
-async function saveRef(){
-  const url = $('#rfUrl').value.trim(), nota = $('#rfNota').value.trim();
-  if(!url){ $('#rfUrl').focus(); return; }
-  try{
-    if(S.editingRef){
-      const r = await api('/api/referencias/'+S.editingRef,{method:'PATCH', body:JSON.stringify({url, nota})});
-      const i = S.referencias.findIndex(x=>x.id===S.editingRef);
-      if(i>=0) S.referencias[i] = r.ref;
-      toast('Referência atualizada');
-    } else {
-      const r = await api('/api/referencias',{method:'POST', body:JSON.stringify({url, nota})});
-      S.referencias.unshift(r.ref);
-      toast('Referência guardada');
-    }
-    S.editingRef = null; renderDrawer();
-  }catch(e){ toast(e.message, true); }
-}
-
-async function guardarCriativo(){
-  const url = $('#cvUrl').value.trim();
-  const nome = $('#cvNome').value.trim();
-  const conta = $('#cvConta').value;
-  if(!/^https?:\/\//i.test(url)){ toast('Cole o link da task (começa com https://)', true); $('#cvUrl').focus(); return; }
-  if(!conta){ toast('Escolha a conta antes de guardar o criativo', true); $('#cvConta').focus(); return; }
-  try{
-    await api('/api/slots', {method:'POST', body:JSON.stringify({conta, taskUrl:url, titulo:nome||null, origem:'criativo'})});
-    await loadState();
-    toast('Criativo guardado');
-  }catch(e){ toast(e.message, true); }
-}
-
-/** Formulário de uma categoria do banco: link da task + conta + nota. */
-function formBanco(cat){
-  const contasAba = contasDaAba(S.aba);
-  const form = document.createElement('div'); form.className='refform';
-  const idU='bkU_'+cat.key, idC='bkC_'+cat.key, idN='bkN_'+cat.key, idB='bkB_'+cat.key;
-  form.innerHTML =
-    '<input id="'+idU+'" placeholder="link da task (https://…)" autocomplete="off">'+
-    '<input id="'+idN+'" placeholder="nota (opcional): do que é essa task" autocomplete="off">'+
-    '<div class="rfrow">'+
-      '<select id="'+idC+'" class="bkconta">'+
-        (contasAba.length>1 ? '<option value="" disabled selected>escolha a conta</option>' : '')+
-        contasAba.map(k=>'<option value="'+k+'">'+esc(S.contas[k].nome)+'</option>').join('')+
-      '</select>'+
-      '<button class="rfbtn" id="'+idB+'" style="flex:1">+ Guardar no banco</button>'+
-    '</div>';
-  const salvar = async ()=>{
-    const url = form.querySelector('#'+idU).value.trim();
-    const conta = form.querySelector('#'+idC).value;
-    const nota = form.querySelector('#'+idN).value.trim();
-    if(!/^https?:\/\//i.test(url)){ toast('Cole o link da task (começa com https://)', true); form.querySelector('#'+idU).focus(); return; }
-    if(!conta){ toast('Escolha a conta antes de guardar', true); form.querySelector('#'+idC).focus(); return; }
-    try{
-      await api('/api/slots', {method:'POST', body:JSON.stringify({conta, taskUrl:url, obs:nota, origem:'banco', cat:cat.key})});
-      await loadState();
-      toast('Guardado em '+cat.nome);
-    }catch(e){ toast(e.message, true); }
-  };
-  form.querySelector('#'+idB).onclick = salvar;
-  form.querySelector('#'+idU).addEventListener('keydown', ev=>{ if(ev.key==='Enter') salvar(); });
-  form.querySelector('#'+idN).addEventListener('keydown', ev=>{ if(ev.key==='Enter') salvar(); });
-  return form;
-}
-
-/** Tira a fonte do banco de vez (concluída). Ctrl+Z desfaz. */
-async function concluirFonte(s){
-  const usos = usosDaFonte(s);
-  const aviso = usos? '\n\nJá saíram '+usos+' post(s) desta task. Eles continuam no calendário.' : '';
-  if(!confirm('Concluir "'+slotTitulo(s)+'" e tirar do banco?'+aviso+'\n\n(Ctrl+Z desfaz.)')) return;
-  try{
-    await api('/api/slots/'+s.id, {method:'DELETE'});
-    await loadState();
-    toast('Concluído e fora do banco · Ctrl+Z desfaz');
-  }catch(e){ toast(e.message, true); }
-}
-
-function renderDrawer(){
-  document.body.classList.toggle('drawer-open', S.drawer);
-  $('#drawer').classList.toggle('open', S.drawer);
-  const semData = slotsVisiveis().filter(s=>!s.date && s.origem!=='banco' && s.origem!=='criativo');
-  const criat   = slotsVisiveis().filter(s=>!s.date && s.origem==='criativo');
-  const reut    = slotsVisiveis().filter(s=>!s.date && s.origem==='banco');
-  const total   = semData.length + criat.length + reut.length + S.referencias.length;
-  const dn = $('#drawerN'); if(dn) dn.textContent = total ? total : '';
-  if(!S.drawer) return;
-
-  const semDataV = semData.filter(slotMatch);
-  const criatV   = criat.filter(slotMatch);
-  const reutV    = reut.filter(slotMatch);
-  const refsV    = S.referencias.filter(r=>matchBusca(r.url+' '+(r.nota||'')));
-
-  const body = $('#drBody'); body.innerHTML='';
-
-  body.appendChild(drawerSec(icon('calendar')+' Sem data · '+esc(nomeAba(S.aba)), semDataV.length, w=>{
-    w.insertAdjacentHTML('afterbegin', '<button class="novobanco" id="novoBanco">+ criar post no banco (sem data)</button>');
-    w.querySelector('#novoBanco').onclick = ()=> openEdit(null, null);
-    if(!semDataV.length) w.insertAdjacentHTML('beforeend','<div class="dr-empty">vazio · arraste um card do calendário pra cá pra tirar ele da agenda</div>');
-    semDataV.forEach(s=>w.appendChild(cardEl(s)));
-  }));
-
-  const cats = catsDaAba(S.aba);
-  if(cats){
-    // aba com banco por categoria: entra uma seção por categoria, no lugar de CRIATIVOS/REUTILIZÁVEIS
-    cats.forEach(cat=>{
-      const doCat = reutV.filter(s=>(s.cat||'outros')===cat.key);
-      body.appendChild(drawerSec(icon(cat.icone)+' '+esc(cat.nome)+' · banco', doCat.length, w=>{
-        w.appendChild(formBanco(cat));
-        if(!doCat.length) w.insertAdjacentHTML('beforeend','<div class="dr-empty">cole o link da task. Arraste pro dia pra gerar um post, quantas vezes precisar. A task só sai daqui quando você clicar em concluído.</div>');
-        doCat.forEach(s=>w.appendChild(cardEl(s)));
-      }));
-    });
-  }
-  if(!cats) body.appendChild(drawerSec(icon('sparkle')+' Criativos · '+esc(nomeAba(S.aba)), criatV.length, w=>{
-    const form = document.createElement('div'); form.className='refform';
-    const contasAba = contasDaAba(S.aba);
-    form.innerHTML =
-      '<input id="cvUrl" placeholder="link da task (criativo pronto)" autocomplete="off">'+
-      '<input id="cvNome" placeholder="nome do criativo" autocomplete="off">'+
-      '<div class="rfrow">'+
-        '<select id="cvConta" style="flex:1; border:1.5px solid var(--hair); border-radius:6px; background:var(--surface); padding:7px 9px; font-size:12px; color:var(--ink)">'+
-          // aba com 2+ contas: começa vazio, você escolhe. Nada de cair na 1ª conta por acidente.
-          (contasAba.length>1 ? '<option value="" disabled selected>escolha a conta</option>' : '')+
-          contasAba.map(k=>'<option value="'+k+'">'+esc(S.contas[k].nome)+'</option>').join('')+
-        '</select>'+
-        '<button class="rfbtn" id="cvSave" style="flex:1">+ Guardar criativo</button>'+
-      '</div>';
-    w.appendChild(form);
-    form.querySelector('#cvSave').onclick = guardarCriativo;
-    ['#cvUrl','#cvNome'].forEach(k=> form.querySelector(k).addEventListener('keydown', ev=>{ if(ev.key==='Enter') guardarCriativo(); }));
-    if(!criatV.length) w.insertAdjacentHTML('beforeend','<div class="dr-empty">cole o link de uma task com criativo pronto. Quando quiser usar, arrasta pro dia.</div>');
-    criatV.forEach(s=>w.appendChild(cardEl(s)));
-  }));
-
-  if(!cats) body.appendChild(drawerSec(icon('refresh')+' Reutilizáveis · '+esc(nomeAba(S.aba)), reutV.length, w=>{
-    if(!reutV.length) w.innerHTML='<div class="dr-empty">nenhum conteúdo reutilizável nesta aba</div>';
-    reutV.forEach(s=>w.appendChild(cardEl(s)));
-  }));
-
-  body.appendChild(drawerSec(icon('bookmark')+' Referências · geral', refsV.length, w=>{
-    const form = document.createElement('div'); form.className='refform';
-    form.innerHTML =
-      '<input id="rfUrl" placeholder="link do post (Instagram, TikTok...)" autocomplete="off">'+
-      '<input id="rfNota" placeholder="nota: por que essa referência é boa?" autocomplete="off">'+
-      '<div class="rfrow"><button class="rfbtn" id="rfSave">+ Guardar referência</button>'+
-      '<button class="rfcancel" id="rfCancel" style="display:none">cancelar</button></div>';
-    w.appendChild(form);
-    form.querySelector('#rfSave').onclick = saveRef;
-    form.querySelector('#rfCancel').onclick = ()=>{ S.editingRef=null; renderDrawer(); };
-    form.querySelector('#rfNota').addEventListener('keydown', ev=>{ if(ev.key==='Enter') saveRef(); });
-    if(S.editingRef){
-      const r = S.referencias.find(x=>x.id===S.editingRef);
-      if(r){ form.querySelector('#rfUrl').value=r.url; form.querySelector('#rfNota').value=r.nota||'';
-        form.querySelector('#rfSave').textContent='Salvar edição'; form.querySelector('#rfCancel').style.display=''; }
-    }
-    if(!refsV.length) w.insertAdjacentHTML('beforeend','<div class="dr-empty">guarde links de posts que te inspiraram. Arraste uma referência pro calendário pra virar post.</div>');
-    refsV.forEach(r=>w.appendChild(refEl(r)));
-  }));
-}
+// (v3.83: o banco de cada empresa e a gaveta estão em js/banco.js)
 
 // ================= grade (mês / semana) =================
 // ---- popover de sinalizar "falta criar" num dia ----
@@ -1881,7 +1650,7 @@ function tRowDraw(s){
     row.appendChild(b);
   }
   { const lk = linkDaTask(s); if(lk){ const a=document.createElement('a'); a.className='mbtn'; a.innerHTML=icon('external')+'Abrir a task'; a.href=lk; a.target='_blank'; a.rel='noopener'; row.appendChild(a); } }
-  if(s.drive){ const a=document.createElement('a'); a.className='mbtn iconb'; a.innerHTML=icon('folder'); a.dataset.tip = s.drive.includes('instagram')? 'Abrir a referência' : 'Abrir o Drive'; a.href=s.drive; a.target='_blank'; row.appendChild(a); }
+  if(s.drive){ const o=bancoOrigem(s.drive), a=document.createElement('a'); a.className='mbtn iconb'; a.innerHTML=icon(o.nome==='Drive'?'folder':o.icone); a.dataset.tip = o.nome==='Drive' ? 'Abrir o Drive' : 'Abrir o link ('+o.nome+')'; a.href=s.drive; a.target='_blank'; a.rel='noopener'; row.appendChild(a); }
   if(s.linkRef){ const a=document.createElement('a'); a.className='mbtn iconb'; a.innerHTML=icon('link'); a.dataset.tip='Abrir o vídeo original'; a.href=s.linkRef; a.target='_blank'; row.appendChild(a); }
 
   // postado
@@ -3635,7 +3404,7 @@ function initIcons(){
     renderAlerta();   // mudo esconde tudo; ao destravar, mostra o que ficou guardado
     toast(ALERTA.mudo() ? 'Avisos silenciados (site e Windows)' : 'Avisos ligados de novo');
   });
-  $('#drTitle').innerHTML = icon('box') + 'Bancos';
+  $('#drTitle').innerHTML = icon('box') + 'Banco';
   atualizaRotuloMover();
   $('#selCollab').innerHTML = icon('users') + 'Collab';
   $('#selBanco').innerHTML = icon('box') + 'Banco';

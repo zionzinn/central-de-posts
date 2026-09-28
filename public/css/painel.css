@@ -336,7 +336,22 @@ body.drawer-open main,body.drawer-open .banner{margin-right:360px}
 .refform .rfbtn{flex:1; border:0; background:var(--sb); color:var(--on-sb); font-weight:600; font-size:12.5px; border-radius:999px; padding:7px 0; transition:filter var(--t)}
 .refform .rfbtn:hover{filter:brightness(1.06)}
 .refform .rfcancel{border:0; background:var(--fill-3); color:var(--ink-2); font-size:12.5px; border-radius:999px; padding:7px 12px}
-.refform select.bkconta{flex:1; border:0; border-radius:10px; background:var(--fill-3); padding:7px 10px; font-size:12.5px; color:var(--ink)}
+/* v3.83: banco de cada empresa: de onde é o link, quantas vezes virou post, Concluído, escolha da conta e Sem dia */
+.ref .ru b{font-weight:600; color:var(--ink-2)}
+.ref .rb .usochip{display:inline-block; margin-top:5px}
+.ref .ra button.bk-ok:hover{background:color-mix(in srgb, var(--green) 20%, transparent); color:var(--green)}
+.bk-escolhe{width:auto; min-width:190px; display:flex; flex-direction:column; gap:2px; padding:8px; animation:popin .16s cubic-bezier(.2,.8,.2,1) both}
+.bk-escolhe h4{margin:2px 6px 6px; font-size:12px; color:var(--ink-2)}
+.bk-escolhe button{display:flex; align-items:center; gap:9px; border:0; background:transparent; color:var(--ink); font-size:13px; font-weight:500; text-align:left; padding:8px 10px; border-radius:9px; cursor:pointer; transition:background var(--t)}
+.bk-escolhe button:hover,.bk-escolhe button:focus-visible{background:var(--fill-3); outline:none}
+.bk-escolhe button i{width:10px; height:10px; border-radius:50%; flex:none}
+.dr-sec.semdia{border-top:1px solid var(--sep); padding-top:14px}
+.dr-head b{white-space:nowrap}
+.refform .bk-add{display:flex; gap:6px}
+.refform .bk-add input{flex:1; min-width:0}
+.refform .bk-mais{flex:none; width:36px; border:0; border-radius:10px; background:var(--sb); color:var(--on-sb); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:filter var(--t)}
+.refform .bk-mais:hover{filter:brightness(1.06)}
+.refform .bk-mais .ic{width:16px; height:16px; stroke-width:2.2}
 .novobanco{width:100%; border:1px dashed var(--hair); border-radius:10px; padding:8px 0; font-size:12px; font-weight:500; color:var(--ink-2); background:transparent; margin-bottom:3px;
   transition:border-color var(--t), color var(--t)}
 .novobanco:hover{border-color:var(--sb); color:var(--sb-ink)}
@@ -550,7 +565,6 @@ html[data-modo="claro"] .card.mz{background:color-mix(in srgb, var(--mz) 9%, var
 .mzn{font-size:10.5px; font-weight:600; color:var(--ink-3); font-variant-numeric:tabular-nums}
 
 /* fonte do banco (task que rende vários posts): cara de "estoque" */
-.card.fonte{--cc:var(--gray); background:var(--fill-4); border:1px dashed var(--hair)}
 .usochip{font-size:10px; font-weight:600; padding:1px 7px; border-radius:999px; background:var(--sb); color:var(--on-sb); border:0}
 /* popover de sinalizar "falta criar" */
 .vagapop{position:fixed; z-index:70; width:268px;
