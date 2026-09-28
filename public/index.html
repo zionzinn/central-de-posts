@@ -175,6 +175,12 @@
   <div class="mhead"><div class="mtit">Configurações</div></div>
   <div class="mbody">
     <div class="f">
+      <div class="f" id="cContaBloco" hidden>
+        <div class="wpp-tit">Sua conta</div>
+        <div class="hubestado ok" id="cConta"></div>
+        <p class="note">O acesso é pelo login do Zoho: só entra quem está na lista da equipe. <b>ADMIN</b> (Zion e Maria) aprova matriz e copy, vê o tempo de todo mundo e mexe no GM automático.</p>
+      </div>
+      <div class="f" id="cSenhaBloco">
       <div>
         <label>Senha de acesso</label>
         <input type="password" id="cSenha" placeholder="deixe em branco pra não mexer">
@@ -184,6 +190,8 @@
       </label>
       <p class="note">Com senha definida, quem abrir o link precisa dela pra entrar. <b>Nunca deixe o painel exposto sem senha.</b> <span id="cLoginState"></span></p>
       <div id="cStatus" class="note"></div>
+      </div>
+      <div class="f" id="cHubBloco">
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
       <div class="wpp-tit">MKT Hub (tasks de produção)</div>
       <div class="hubestado" id="hubEstado">…</div>
@@ -192,6 +200,8 @@
         <span class="note" id="hubMsg"></span>
       </div>
       <p class="note">O painel só <b>lê</b> o Hub: etapa, título e responsável das tasks ligadas aos posts, artes e comentários. A chave fica só na variável <b>MKH_CHAVE</b> do Render (nível leitura), nunca aqui.</p>
+      </div>
+      <div class="f" id="cGmBloco">
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
       <div class="wpp-tit">GM automático da SeuBoné (estrela a cada N dias)</div>
       <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer">
@@ -202,6 +212,7 @@
         <div><label>A cada quantos dias</label><input type="number" id="gmPeriodo" min="1" max="30" value="3"></div>
       </div>
       <p class="note">A estrela aparece sozinha a cada N dias contando <b>a partir da última grande marca que você marcou</b> (3 = "2 dias sem, 1 com"). Quando você marca um novo post como GM, as próximas se recalculam sozinhas a partir dele. O campo acima é só o ponto de partida (o último GM antes do sistema). Vale só na SeuBoné. <span id="gmEstado"></span></p>
+      </div>
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
       <div class="wpp-tit">Aviso quando uma matriz ou copy vai pra aprovar ou pra alterar</div>
       <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer">
@@ -337,6 +348,7 @@
       <div class="pf-preview" id="pfPreview"></div>
       <label class="pf-lbl" for="pfNome">username</label>
       <input class="pf-input" id="pfNome" maxlength="24" placeholder="COMO TE CHAMAM?" autocomplete="off" spellcheck="false">
+      <p class="pf-conta" id="pfConta" hidden></p>
       <label class="pf-lbl">ícone</label>
       <div class="pf-grid" id="pfIcones"></div>
       <label class="pf-lbl">cor</label>
@@ -344,9 +356,10 @@
       <div class="pf-acoes">
         <button type="button" class="pf-tempo" id="pfTempo">Meu tempo</button>
         <button type="button" class="pf-depois" id="pfDepois">depois</button>
+        <button type="button" class="pf-depois" id="pfSair" hidden>Sair</button>
         <button type="button" class="pf-salvar" id="pfSalvar">SALVAR</button>
       </div>
-      <p class="pf-nota">Aparece no seu cursor e na barra de quem está online. Fica salvo neste navegador.</p>
+      <p class="pf-nota" id="pfNota">Aparece no seu cursor e na barra de quem está online. Fica salvo neste navegador.</p>
     </div>
   </div>
 </div>
@@ -383,7 +396,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.81'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.82'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -507,7 +520,8 @@ function mesAtual(){ return hojeStr().slice(0,7); }
 async function api(path, opts={}){
   const r = await fetch(path, {headers:{'Content-Type':'application/json'}, ...opts});
   const j = await r.json().catch(()=>({}));
-  if(!r.ok) throw Object.assign(new Error(j.erro||('HTTP '+r.status)), {status:r.status});
+  if(r.status===401 && j.zoho) irProLogin();          // v3.82: sessão do Zoho acabou: volta pra tela de entrada
+  if(!r.ok) throw Object.assign(new Error(j.erro||('HTTP '+r.status)), {status:r.status, zoho:!!j.zoho});
   return j;
 }
 async function loadState(fresh, silencioso){
@@ -523,9 +537,10 @@ async function loadState(fresh, silencioso){
   const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.referencias||[]) + '#' + JSON.stringify(j.tarefas||[]);
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, temSenha:j.temSenha, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, referencias:j.referencias||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
+  contaNaTela();                                        // v3.82: nome da conta no perfil e o que cada papel vê
   mostraUso(j.uso);
   checarAprovacoes(S.slots);
   if(mudou || !silencioso) render();
@@ -2868,6 +2883,14 @@ function atualizaLoginState(){
 }
 async function openConfig(){
   $('#cStatus').textContent = '';
+  // v3.82: com o Zoho, a senha antiga não vale mais (some); MKT Hub e GM automático são do ADMIN
+  $('#cContaBloco').hidden = !S.eu;
+  $('#cSenhaBloco').hidden = !!S.zoho;
+  $('#cSave').hidden = !!S.zoho;
+  $('#cHubBloco').hidden = !souAdmin();
+  $('#cGmBloco').hidden = !souAdmin();
+  $('#cLogout').textContent = S.zoho ? 'Sair' : 'Sair da sessão';
+  if(S.eu) $('#cConta').innerHTML = '<i></i><span>Você entrou como <b>'+esc(S.eu.nome)+'</b> · '+(S.eu.papel==='admin'?'ADMIN':'Usuário')+' · '+esc(S.eu.email)+'</span>';
   $('#cSenha').value=''; $('#cSemLogin').checked=false;
   atualizaLoginState();
   $('#nAtivo').checked = ALERTA.ligado();
@@ -2970,10 +2993,37 @@ $('#nTestar').onclick = ()=>{
     if(!$('#nAtivo').checked) limparAlerta();
   });
 });
-$('#cLogout').onclick = async ()=>{ try{ await api('/api/logout',{method:'POST'}); }catch(e){} location.reload(); };
+// ---- conta (v3.82): com o login do Zoho, o painel sabe quem é cada um ----
+/** Com o Zoho ligado: vai pra tela de entrada, guardando a aba aberta (o #) pra voltar nela depois. */
+function irProLogin(){
+  if(S.saindo) return; S.saindo = true;
+  try{ if(location.hash.length>1) sessionStorage.setItem('bone.volta', location.hash); }catch(e){}
+  location.href = '/login';
+}
+function souAdmin(){ return !S.eu || S.eu.papel==='admin'; }   // sem login (PC local), todo mundo pode tudo, como antes
+/** Chamado a cada leitura do estado: perfil com o nome da conta e o que aparece pra cada papel. */
+function contaNaTela(){
+  if(S.eu) PERFIL.daConta(S.eu);
+  document.body.classList.toggle('logado', !!S.eu);
+  document.body.classList.toggle('admin', !!S.eu && S.eu.papel==='admin');
+  if(!S._perfilVisto){
+    S._perfilVisto = true;
+    // primeira vez neste navegador, sem login: pede nome, ícone e cor (dá pra pular). Com login, o nome já vem da conta.
+    if(!S.eu && !PERFIL.get() && !PERFIL.pulou()) setTimeout(()=>{ if(!document.querySelector('.ov.open')) openPerfil(); }, 900);
+  }
+}
+/** Sair: salva o relógio ligado e o que ficou na fila ANTES de fechar a sessão (senão o tempo ficaria sem dono). */
+async function sair(){
+  if(S.saindo) return; S.saindo = true;
+  try{ if(CRON.estado()) await CRON.parar(); await CRON.enviarFila(); }catch(e){}
+  try{ await api('/api/logout',{method:'POST'}); }catch(e){}
+  if(S.zoho) location.href = '/login'; else location.reload();
+}
+$('#cLogout').onclick = sair;
 
-// ---- tela de login (aparece no 401) ----
+// ---- tela de login por senha (sem o Zoho: o PC local com senha) ----
 function mostrarLogin(){
+  if(S.zoho){ irProLogin(); return; }
   $('#ovLogin').classList.add('open');
   setTimeout(()=>{ const el=$('#loginSenha'); if(el) el.focus(); }, 60);
 }
@@ -3420,6 +3470,8 @@ const PERFIL = {
   chave:'sb.perfil',
   get(){ try{ const p=JSON.parse(localStorage.getItem(this.chave)||'null'); return (p && p.nome) ? p : null; }catch(e){ return null; } },
   set(p){ try{ localStorage.setItem(this.chave, JSON.stringify(p)); }catch(e){} },
+  /** v3.82: com login, o nome é o da conta do Zoho (ícone e cor continuam do navegador). O doc da copy lê daqui. */
+  daConta(eu){ const p = this.get(); if(p && p.nome===eu.nome) return; this.set({ nome:eu.nome, icone:(p&&p.icone)||'', cor:(p&&p.cor)||'' }); },
   pulou(){ try{ return localStorage.getItem(this.chave+'.pulou')==='1'; }catch(e){ return false; } },
   marcaPulou(){ try{ localStorage.setItem(this.chave+'.pulou','1'); }catch(e){} },
 };
@@ -3492,7 +3544,14 @@ function avPdot(p, eu){
 // ---- modal de perfil (nome + ícone + cor) ----
 function openPerfil(){
   const pf = PERFIL.get() || { nome:'', icone:'', cor:'' };
-  $('#pfNome').value = pf.nome || '';   // sem perfil: campo vazio, pra pessoa pôr o nome dela (não o bicho)
+  $('#pfNome').value = S.eu ? S.eu.nome : (pf.nome || '');   // sem perfil: campo vazio, pra pessoa pôr o nome dela (não o bicho)
+  // v3.82: com login, o nome é o da conta (não edita) e aparece o e-mail, o papel e o Sair
+  $('#pfNome').readOnly = !!S.eu;
+  $('#pfConta').hidden = !S.eu;
+  if(S.eu) $('#pfConta').textContent = S.eu.email+' · '+(S.eu.papel==='admin'?'ADMIN':'Usuário');
+  $('#pfDepois').hidden = !!S.eu; $('#pfSair').hidden = !S.eu;
+  $('#pfNota').textContent = S.eu ? 'O nome vem da sua conta do Zoho. Ícone e cor aparecem pra quem está online e ficam salvos neste navegador.'
+    : 'Aparece no seu cursor e na barra de quem está online. Fica salvo neste navegador.';
   S._pfIcone = pf.icone || AV.icone || PERFIL_ICONES[0];
   S._pfCor = pf.cor || AV.cor || PERFIL_CORES[0];
   const grid = $('#pfIcones'); grid.innerHTML='';
@@ -3501,7 +3560,7 @@ function openPerfil(){
   PERFIL_CORES.forEach(c=>{ const b=document.createElement('button'); b.type='button'; b.className='pf-cor'+(c===S._pfCor?' on':''); b.style.background=c; b.onclick=()=>{ S._pfCor=c; cores.querySelectorAll('.pf-cor').forEach(x=>x.classList.toggle('on', x===b)); pfPreview(); }; cores.appendChild(b); });
   pfPreview();
   $('#ovPerfil').classList.add('open');
-  setTimeout(()=>$('#pfNome').focus(), 60);
+  if(!S.eu) setTimeout(()=>$('#pfNome').focus(), 60);
 }
 function pfPreview(){
   const nome = $('#pfNome').value.trim() || 'seu nome';
@@ -3509,7 +3568,7 @@ function pfPreview(){
   pv.innerHTML = '<span class="pdot ico" style="background:'+S._pfCor+'">'+esc(S._pfIcone)+'</span><span class="pf-pvnome" style="background:'+S._pfCor+'">'+esc(S._pfIcone)+' '+esc(nome)+'</span>';
 }
 async function salvarPerfil(){
-  const nome = $('#pfNome').value.replace(/[<>]/g,'').trim().slice(0,24);
+  const nome = S.eu ? S.eu.nome : $('#pfNome').value.replace(/[<>]/g,'').trim().slice(0,24);
   if(!nome){ toast('Escolhe um nome', true); $('#pfNome').focus(); return; }
   const pf = { nome, icone:S._pfIcone||'', cor:S._pfCor||'' };
   PERFIL.set(pf);
@@ -3598,16 +3657,19 @@ document.addEventListener('keydown', ev=>{
 });
 initIcons();
 S.mes = mesAtual();
+// v3.82: quem entrou pelo Zoho volta pra aba que estava aberta antes do login
+try{ const v = sessionStorage.getItem('bone.volta'); sessionStorage.removeItem('bone.volta'); if(v && !location.hash) history.replaceState(null, '', v); }catch(e){}
 try{ const h = decodeURIComponent(location.hash.slice(1)); if(h) S.aba = h; }catch(e){}
-loadState().catch(e=>{ toast('Erro ao carregar: '+e.message, true); });
-try{ aovivoIniciar(); }catch(e){}
+loadState().catch(e=>{ toast('Erro ao carregar: '+e.message, true); })
+  .then(()=>{ if(!S.saindo){ try{ aovivoIniciar(); }catch(e){} } });
 // perfil: salvar / depois / preview ao vivo / Enter salva. Na primeira vez sem perfil, abre sozinho (dá pra pular).
 $('#pfSalvar').onclick = salvarPerfil;
 $('#pfTempo').onclick = ()=>{ $('#ovPerfil').classList.remove('open'); abrirTempo(); };
 $('#pfDepois').onclick = ()=>{ PERFIL.marcaPulou(); $('#ovPerfil').classList.remove('open'); };
+$('#pfSair').onclick = sair;
 $('#pfNome').addEventListener('input', pfPreview);
 $('#pfNome').addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); salvarPerfil(); } });
-if(!PERFIL.get() && !PERFIL.pulou()) setTimeout(()=>{ if(!document.querySelector('.ov.open')) openPerfil(); }, 900);
+// (v3.82: o perfil da primeira vez abre em contaNaTela, depois da primeira leitura, já sabendo se tem login)
 // v3.70: o poll antigo de 90 s saiu. Ele baixava o estado e redesenhava TUDO mesmo sem mudança,
 // com a aba escondida e com o documento aberto; o poll de 20 s (podeAtualizarSozinho) já cobre.
 </script>

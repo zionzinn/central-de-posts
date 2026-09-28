@@ -21,10 +21,13 @@ function tpPeriodo(per) {
   return [tfSoma(hoje, -89), hoje];
 }
 /** opts.tarefa: abre já filtrado na empresa e na pessoa da tarefa. */
+/** v3.82: com login, o Usuário vê só o próprio tempo (o servidor já manda só o dele); ADMIN vê todo mundo e exporta. */
+function tpSoEu() { return !!S.eu && S.eu.papel !== 'admin'; }
 function abrirTempo(opts) {
   opts = opts || {};
   if (opts.tarefa) { TP.aba = opts.tarefa.aba; TP.por = opts.tarefa.por; TP.per = opts.tarefa.de <= hojeStr() && hojeStr() <= opts.tarefa.ate ? 'semana' : 'mes'; }
   else if (TP.por === null) TP.por = tfEu() || '';
+  if (tpSoEu()) TP.por = S.eu.nome;
   TP.lancar = false; TP.editando = null;
   $('#ovTempo').classList.add('open');
   tpCarrega();
@@ -38,7 +41,7 @@ async function tpCarrega() {
     if (n !== TP.pede) return;
     TP.dados = d;
     // a pessoa escolhida não tem nada registrado ainda: mostra todo mundo em vez de uma tela vazia
-    if (TP.por && !d.pessoas.some(p => tfChave(p) === tfChave(TP.por)) && d.pessoas.length) { TP.por = ''; return tpCarrega(); }
+    if (!tpSoEu() && TP.por && !d.pessoas.some(p => tfChave(p) === tfChave(TP.por)) && d.pessoas.length) { TP.por = ''; return tpCarrega(); }
     tpDesenha();
   } catch (e) { $('#tpBody').innerHTML = '<p class="note">Não consegui carregar: ' + esc(e.message) + '</p>'; }
   finally { if (n === TP.pede) $('#tpBody').classList.remove('carregando'); }
@@ -78,7 +81,7 @@ function tpDesenha() {
   const chip = (on, attr, rot) => '<button class="echip' + (on ? ' on' : '') + '" ' + attr + '>' + rot + '</button>';
   let h = '<div class="tp-filtros">' +
     '<div class="echips">' + TP_PERIODOS.map(([k, r]) => chip(TP.per === k, 'data-per="' + k + '"', r)).join('') + '</div>' +
-    '<div class="echips">' + chip(!TP.por, 'data-por=""', 'Todo mundo') + d.pessoas.map(p => chip(tfChave(TP.por) === tfChave(p), 'data-por="' + esc(p) + '"', esc(p))).join('') + '</div>' +
+    (tpSoEu() ? '' : '<div class="echips">' + chip(!TP.por, 'data-por=""', 'Todo mundo') + d.pessoas.map(p => chip(tfChave(TP.por) === tfChave(p), 'data-por="' + esc(p) + '"', esc(p))).join('') + '</div>') +
     '<div class="echips">' + chip(!TP.aba, 'data-aba=""', 'Todas as empresas') + S.abas.map(a => chip(TP.aba === a, 'data-aba="' + esc(a) + '"', esc(nomeAba(a)))).join('') + '</div>' +
   '</div>';
   // números de destaque
@@ -139,7 +142,8 @@ function tpDesenha() {
   } else h += '<p class="note tp-nada">Nenhuma sessão nesse período.</p>';
   $('#tpBody').innerHTML = h;
   // rodapé: exportar pro Hub
-  $('#tpFoot').innerHTML = '<button class="mbtn primary" id="tpCsv"' + (d.linhas.length ? '' : ' disabled') + '>' + icon('share') + 'Exportar pro MKT Hub (CSV)</button>' +
+  $('#tpFoot').innerHTML = tpSoEu() ? '<span class="note">O tempo de todo mundo e a exportação pro MKT Hub ficam com os ADMIN (Zion e Maria).</span>'
+    : '<button class="mbtn primary" id="tpCsv"' + (d.linhas.length ? '' : ' disabled') + '>' + icon('share') + 'Exportar pro MKT Hub (CSV)</button>' +
     '<span class="note">uma linha por dia, pessoa, empresa e atividade, com as horas: é só lançar no Hub</span>';
   tpLiga();
   tpContaAnima();
@@ -153,7 +157,8 @@ function tpFormLancar() {
     '<div class="tp-lc"><span class="tf-lbl">Dia</span><input type="date" id="tpLDia" value="' + hoje + '" min="' + tfSoma(hoje, -13) + '" max="' + hoje + '"></div>' +
     '<div class="tp-lc"><span class="tf-lbl">Minutos</span><input type="number" id="tpLMin" min="1" max="480" placeholder="ex.: 45"></div>' +
     '<div class="tp-lc"><span class="tf-lbl">Tarefa</span><select id="tpLTarefa"></select></div>' +
-    '<div class="tp-lc"><span class="tf-lbl">Quem</span><input id="tpLPor" maxlength="24" value="' + esc(eu) + '"></div>' +
+    '<div class="tp-lc"><span class="tf-lbl">Quem</span><input id="tpLPor" maxlength="24" value="' + esc(eu) + '"' + (tpSoEu() ? ' readonly' : '') + (S.equipe && !tpSoEu() ? ' list="tfEquipe2"' : '') + '>' +
+      (S.equipe && !tpSoEu() ? '<datalist id="tfEquipe2">' + S.equipe.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist>' : '') + '</div>' +
     '<div class="tp-lcb"><button class="mbtn" id="tpLCancela">Cancelar</button><button class="mbtn primary" id="tpLSalva">Lançar</button></div>' +
   '</div>';
 }
@@ -171,7 +176,7 @@ function tpLiga() {
   b.querySelectorAll('[data-salva]').forEach(x => x.onclick = () => tpSalvaSessao(x.dataset.salva));
   const ed = $('#tpEdMin'); if (ed) ed.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); tpSalvaSessao(TP.editando); } if (ev.key === 'Escape') { ev.stopPropagation(); TP.editando = null; tpDesenha(); } });
   b.querySelectorAll('[data-apaga]').forEach(x => x.onclick = () => tpApagaSessao(x.dataset.apaga));
-  $('#tpCsv').onclick = tpExportaCsv;
+  const csv = $('#tpCsv'); if (csv) csv.onclick = tpExportaCsv;
   // dica por barra (mouse e teclado)
   const g = $('#tpGraf');
   if (g) {

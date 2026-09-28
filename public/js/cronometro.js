@@ -69,7 +69,8 @@
         let r;
         try { r = await fetch('/api/tempo/sessao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reg) }); }
         catch (e) { break; }                                   // sem internet: tenta depois
-        if (!r.ok && r.status !== 400) break;                  // 401 (login) ou servidor fora: tenta depois
+        if (!r.ok && r.status !== 400 && r.status !== 409) break;   // 401 (login) ou servidor fora: tenta depois
+        if (r.status === 409) continue;                        // v3.82: sessão de outra conta da equipe: fica até ela entrar
         const j = await r.json().catch(() => ({}));
         const resto = (ls.get(FILA) || []).filter(x => x.id !== reg.id);
         ls.set(FILA, resto.length ? resto : null);

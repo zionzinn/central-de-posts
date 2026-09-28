@@ -25,6 +25,8 @@ const TF_ICON_STOP = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" 
 function tfEu() { const p = PERFIL.get(); return p ? p.nome : ''; }
 function tfChave(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); }
 function tfSouDona(t) { return !!tfEu() && tfChave(tfEu()) === tfChave(t.por); }
+/** Quem aprova: com login (v3.82), só ADMIN (Zion e Maria); sem login (PC local), quem não é a dona da tarefa. */
+function tfPodeAprovar(t) { return S.eu ? S.eu.papel === 'admin' : !tfSouDona(t); }
 function tfK(t) { return t.tipo === 'matriz' ? 'm' : 'c'; }
 function tfPorId(id) { return (S.tarefas || []).find(t => t.id === id) || null; }
 function tfDaAba(aba, tipo) { return (S.tarefas || []).filter(t => t.aba === aba && t.tipo === tipo); }
@@ -121,9 +123,9 @@ function tfCardHtml(aba, tipo) {
       '<span class="tc-l1"><span class="tc-ic">' + icon(T.icone) + '</span><b>' + T.nome + '</b><span class="tc-per">nenhuma tarefa aberta</span></span>' +
       '<span class="tc-l2"><span class="tc-cta">' + icon('plus') + 'Criar tarefa de ' + T.nome.toLowerCase() + '</span></span></button></div>';
   }
-  const c = tfConta(t), dona = tfSouDona(t), pct = n => c.total ? (n / c.total * 100).toFixed(1) : 0;
+  const c = tfConta(t), dona = tfSouDona(t), aprova = tfPodeAprovar(t), pct = n => c.total ? (n / c.total * 100).toFixed(1) : 0;
   const chips = [];
-  if (c.enviado) chips.push('<span class="tc-chip env"><i></i>' + c.enviado + (dona ? ' em aprovação' : ' pra aprovar') + '</span>');
+  if (c.enviado) chips.push('<span class="tc-chip env"><i></i>' + c.enviado + (aprova && !dona ? ' pra aprovar' : ' em aprovação') + '</span>');
   if (c.alterar) chips.push('<span class="tc-chip alt"><i></i>' + c.alterar + ' pra alterar</span>');
   if (tipo === 'copy' && c.liberada) chips.push('<span class="tc-chip lib"><i></i>' + c.liberada + ' liberada' + (c.liberada > 1 ? 's' : '') + '</span>');
   return '<div class="tcard" style="--tc:' + T.cor + '" data-id="' + t.id + '">' +
@@ -290,7 +292,7 @@ function tfDesenha() {
   const modal = $('#ovTarefa .modal');
   modal.style.setProperty('--tc', T.cor);
   modal.classList.toggle('copy', tipo === 'copy');
-  const dona = t ? tfSouDona(t) : true;
+  const dona = t ? tfSouDona(t) : true, aprova = t ? tfPodeAprovar(t) : false;
   if (t && TF.det && TF.sel === null) TF.sel = tfSelecaoInicial(t);
   const sel = tfSel();
   // ---- cabeçalho ----
@@ -310,7 +312,8 @@ function tfDesenha() {
         '<button class="echip' + (de === segEsta && ate === tfSoma(segEsta, 6) ? ' on' : '') + '" data-sem="' + segEsta + '">Esta semana</button>' +
         '<button class="echip' + (de === segProx && ate === tfSoma(segProx, 6) ? ' on' : '') + '" data-sem="' + segProx + '">Próxima semana</button>' +
         '<input type="date" id="tfDe" value="' + de + '" aria-label="começo"><span class="tf-a">a</span><input type="date" id="tfAte" value="' + ate + '" aria-label="fim"></div></div>' +
-      '<div class="tf-campo"><span class="tf-lbl">Quem faz</span><input id="tfPor" class="tf-inp" maxlength="24" value="' + esc(por || '') + '" placeholder="nome" autocomplete="off"></div>' +
+      '<div class="tf-campo"><span class="tf-lbl">Quem faz</span><input id="tfPor" class="tf-inp" maxlength="24" value="' + esc(por || '') + '" placeholder="nome" autocomplete="off"' + (S.equipe ? ' list="tfEquipe"' : '') + '>' +
+        (S.equipe ? '<datalist id="tfEquipe">' + S.equipe.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist>' : '') + '</div>' +
       '<span class="tf-cfgmsg" id="tfCfgMsg"></span>' +
     '</div>';
   let corpo = cfg;
@@ -324,8 +327,8 @@ function tfDesenha() {
       '</div>';
     const ss = tfSlots(t);
     corpo += '<div class="tf-lhead"><b>Posts do período</b><span class="tf-n">' + ss.length + '</span>' +
-      (dona ? '<span class="tf-dica">marque o que está pronto e mande pra aprovação</span>' : '<span class="tf-dica">aprove ou peça alteração em cada um</span>') + '</div>' +
-      '<div class="tf-itens" id="tfItens">' + (ss.length ? ss.map(s => tfLinha(s, t, dona)).join('') : '<div class="tf-vazio">Nenhum post nesse período' + (tipo === 'matriz' ? ' com card da matriz' : '') + '.</div>') + '</div>';
+      (dona ? '<span class="tf-dica">marque o que está pronto e mande pra aprovação</span>' : aprova ? '<span class="tf-dica">aprove ou peça alteração em cada um</span>' : '<span class="tf-dica">quem aprova: Zion ou Maria (ADMIN)</span>') + '</div>' +
+      '<div class="tf-itens" id="tfItens">' + (ss.length ? ss.map(s => tfLinha(s, t, dona, aprova)).join('') : '<div class="tf-vazio">Nenhum post nesse período' + (tipo === 'matriz' ? ' com card da matriz' : '') + '.</div>') + '</div>';
   } else {
     const l = tfItensPrevia(tipo, aba, de, ate);
     corpo += '<div class="tf-lhead"><b>Posts nesse período</b><span class="tf-n">' + l.length + '</span></div>' +
@@ -339,7 +342,7 @@ function tfDesenha() {
     const ss = tfSlots(t);
     const esperando = ss.filter(s => (tfAprov(s, tfK(t)) || {}).st === 'enviado');
     if (dona) pe += '<button class="bt-aprovar" id="tfEnviar"' + (sel.size ? '' : ' disabled') + '><span class="bt-txt"><span>Mandar pra aprovação' + (sel.size ? ' (' + sel.size + ')' : '') + '</span></span></button>';
-    else if (esperando.length) pe += '<button class="bt-aprovar" id="tfAprovarTudo" data-n="' + esperando.length + '"><span class="bt-txt"><span>Aprovar tudo (' + esperando.length + ')</span></span></button>';
+    if (aprova && esperando.length) pe += '<button class="bt-aprovar" id="tfAprovarTudo" data-n="' + esperando.length + '"><span class="bt-txt"><span>Aprovar tudo (' + esperando.length + ')</span></span></button>';
     pe += '<button class="mbtn" id="tfVerTempo">' + icon('clock') + 'Ver o tempo</button>';
     pe += '<button class="mbtn" id="tfArquivar" data-tip="Tira a tarefa da faixa (o tempo dela continua no relatório)">' + icon('check') + 'Concluir tarefa</button>';
     pe += '<span class="note" id="tfMsg"></span>';
@@ -349,7 +352,7 @@ function tfDesenha() {
   tfLigaFolha(t, novo, dona);
   tfPintaFolhaRelogio();
 }
-function tfLinha(s, t, dona) {
+function tfLinha(s, t, dona, aprova) {
   const k = tfK(t), a = tfAprov(s, k), est = tfEstado(s, t);
   const tempo = tfTempoPost(s.id, t);
   let prog = '';
@@ -364,10 +367,10 @@ function tfLinha(s, t, dona) {
   const porque = est.cod === 'espera' ? 'a matriz deste post ainda não foi aprovada' : est.cod === 'fazer' ? (t.tipo === 'matriz' ? 'falta preencher campos da matriz' : 'o documento ainda não tem texto') : est.cod === 'enviado' ? 'já está em aprovação' : est.cod === 'aprovado' ? 'já foi aprovada' : '';
   const chk = dona ? '<label class="ti-chk" title="' + esc(podeMarcar ? 'mandar este pra aprovação' : porque) + '"><input type="checkbox" data-sel="' + s.id + '"' + (tfSel().has(s.id) ? ' checked' : '') + (podeMarcar ? '' : ' disabled') + '></label>' : '';
   let acoes = '';
-  if (!dona && a && a.st === 'enviado') {
+  if (aprova && a && a.st === 'enviado') {
     acoes = '<button class="bt-aprovar mini" data-aprova="' + s.id + '"><span class="bt-txt"><span>Aprovar</span></span></button>' +
       '<button class="bt-edit alterar" data-rot="Pedir alteração" style="--w:136px" data-alt="' + s.id + '" aria-label="Pedir alteração">' + icon('pencil') + '</button>';
-  } else if (a && (a.st === 'aprovado' || a.st === 'alterar') && !dona) {
+  } else if (a && (a.st === 'aprovado' || a.st === 'alterar') && aprova) {
     acoes = '<button class="ti-desf" data-reabre="' + s.id + '" title="Voltar pra esperando aprovação">desfazer</button>';
   }
   // copy aprovada: o post segue pra produção. A task de arte ou vídeo nasce no MKT Hub e é ligada aqui
@@ -384,7 +387,7 @@ function tfLinha(s, t, dona) {
   const aberto = TF.exp.has(s.id);
   const notas = [];
   if (a && a.st === 'alterar' && a.nota) notas.push('<div class="ti-nota alt">' + icon('pencil') + '<span><b>' + esc(a.ap || 'Pedido') + ':</b> ' + esc(a.nota) + '</span></div>');
-  if (a && a.st === 'enviado' && a.pedido && !dona) notas.push('<div class="ti-nota">' + icon('undo') + '<span><b>Você tinha pedido:</b> ' + esc(a.pedido) + '</span></div>');
+  if (a && a.st === 'enviado' && a.pedido && aprova) notas.push('<div class="ti-nota">' + icon('undo') + '<span><b>Você tinha pedido:</b> ' + esc(a.pedido) + '</span></div>');
   if (a && a.st === 'aprovado' && a.ap) notas.push('<div class="ti-nota ok">' + icon('check') + '<span>Aprovada por <b>' + esc(a.ap) + '</b>' + (a.apEm ? ' em ' + fmtDataHora(Date.parse(a.apEm)) : '') + (k === 'm' ? ' · a copy deste post está liberada' : '') + '</span></div>');
   const ligBox = TF.ligar === s.id ? tfLigarHtml(s) : '';
   const altBox = TF.alt === s.id ? '<div class="ti-altbox"><textarea id="tfAltTxt" rows="2" maxlength="500" placeholder="O que precisa mudar? (ela vê isso no card)"></textarea><div><button class="mbtn" data-altcancela="1">Cancelar</button><button class="mbtn primary" data-altmanda="' + s.id + '">Mandar pedido</button></div></div>' : '';
@@ -692,7 +695,7 @@ function tfChecaAvisos(slots) {
     const s = slots.find(x => x.id === id); if (!s) continue;
     const a = s.aprov[k], nome = k === 'm' ? 'Matriz' : 'Copy', minha = !!eu && tfChave(a.por) === eu;
     const base = { id, k, conta: nomeConta(s.conta), titulo: nome + ' · ' + slotTitulo(s), data: s.date };
-    if (a.st === 'enviado' && !minha) novos.push(Object.assign({ tipo: 'aprovar', por: a.por }, base));
+    if (a.st === 'enviado' && !minha && (!S.eu || S.eu.papel === 'admin')) novos.push(Object.assign({ tipo: 'aprovar', por: a.por }, base));
     else if (a.st === 'alterar' && minha) novos.push(Object.assign({ tipo: 'alterar', motivo: a.nota, por: a.ap }, base));
     else if (a.st === 'aprovado' && minha) toast((a.ap || 'Alguém') + ' aprovou a ' + nome.toLowerCase() + ' de ' + brData(s.date) + (k === 'm' ? ' · pode fazer a copy' : ''));
   }

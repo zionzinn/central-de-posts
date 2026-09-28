@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.81'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.82'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -113,7 +113,8 @@ if (!config.secret) { config.secret = crypto.randomBytes(32).toString('hex'); sa
 // ---------------- login (senha de acesso; ativa só quando o Zion define uma senha) ----------------
 function parseCookies(h) {
   const o = {};
-  (h || '').split(';').forEach(c => { const i = c.indexOf('='); if (i > 0) o[c.slice(0, i).trim()] = decodeURIComponent(c.slice(i + 1).trim()); });
+  // v3.82: cookie malformado não derruba mais a requisição (agora o login do Zoho lê cookie em todo pedido)
+  (h || '').split(';').forEach(c => { const i = c.indexOf('='); if (i > 0) { const v = c.slice(i + 1).trim(); let d = v; try { d = decodeURIComponent(v); } catch (e) {} o[c.slice(0, i).trim()] = d; } });
   return o;
 }
 function makeAuthToken() {
@@ -366,10 +367,17 @@ setInterval(() => { const t = Date.now(); for (const [id, p] of aovivo) { if (t 
 // Documentos (a copy do post, editor estilo Docs em public/doc.html). Rotas em lib/docs.js.
 const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo, MZ, backupAgora, usoInvalida: () => USO.invalida() });
 // v3.80: tarefas da copywriter (matriz e copy por empresa, com aprovação post a post) e o relógio delas
-const rotaTempo = require('./lib/tempo.js')({ db, saveDb, readBody, json });
+const rotaTempo = require('./lib/tempo.js')({ db, saveDb, readBody, json, equipe: () => AUTH.ligado() ? AUTH.usuarios().map(u => u.nome) : [] });
 const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, undoSlots, tempo: rotaTempo });
 // v3.81: MKT Hub (só leitura; chave só na variável MKH_CHAVE). Sem chave, fica desligado.
 const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/docs.js').limpaHtml });
+// v3.82: login pelo Zoho (liga só com ZOHO_CLIENT_ID e ZOHO_CLIENT_SECRET; sem elas, senha opcional como antes)
+const AUTH = require('./lib/auth.js')({ json, parseCookies, segredo: config.secret });
+/** Com login: só ADMIN passa. Sem login (PC local), todo mundo. Devolve true se barrou. */
+function soAdmin(req, res) {
+  if (req.eu && req.eu.papel !== 'admin') { json(res, 403, { erro: 'só ADMIN (Zion ou Maria) pode fazer isso' }); return true; }
+  return false;
+}
 
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
@@ -380,7 +388,23 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Length': 2 });
       USO.resposta(2); return res.end(req.method === 'HEAD' ? undefined : 'ok');
     }
-    // ---------- login (só ativa quando há senha configurada) ----------
+    // ---------- login pelo Zoho (v3.82) ----------
+    req.eu = AUTH.sessao(req);                               // quem está logado (null sem login do Zoho)
+    if ((p.startsWith('/auth/') || p === '/api/eu' || p === '/api/logout') && await AUTH(req, res, p, u)) return;
+    if (AUTH.ligado()) {
+      // livre sem login: a própria tela de entrada, o ping do cron e o que a tela de entrada usa
+      const livre = p === '/login' || p === '/api/ping' || p.startsWith('/fonts/') || p === '/icone.png' || p === '/manifest.webmanifest' || p === '/favicon.png';
+      if (!req.eu && !livre) {
+        if (p.startsWith('/api/')) return json(res, 401, { erro: 'login', precisaLogin: true, zoho: true });
+        // link direto de uma página (ex.: um documento aberto em outra aba): volta pra ela depois do login
+        const pagina = req.method === 'GET' && p !== '/' && (/\.html$/i.test(p) || !/\.[a-z0-9]{2,5}$/i.test(p));
+        const volta = pagina ? AUTH.lembraVolta(req, p + u.search) : null;
+        res.writeHead(302, Object.assign({ Location: '/login', 'Cache-Control': 'no-store' }, volta ? { 'Set-Cookie': volta } : {})); return res.end();
+      }
+      if (p === '/login' && req.eu) { res.writeHead(302, { Location: '/', 'Cache-Control': 'no-store' }); return res.end(); }
+      if (p === '/api/login') return json(res, 403, { erro: 'o login agora é pelo Zoho', zoho: true });
+    } else if (p === '/login') { res.writeHead(302, { Location: '/', 'Cache-Control': 'no-store' }); return res.end(); }
+    // ---------- login por senha (só sem o Zoho: o PC local; ativa quando há senha configurada) ----------
     if (p === '/api/login' && req.method === 'POST') {
       const b = await readBody(req);
       if (!config.senha) return json(res, 200, { ok: true, semSenha: true });
@@ -388,14 +412,11 @@ const server = http.createServer(async (req, res) => {
       res.setHeader('Set-Cookie', `sb_auth=${makeAuthToken()}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${90 * 24 * 3600}`);
       return json(res, 200, { ok: true });
     }
-    if (p === '/api/logout' && req.method === 'POST') {
-      res.setHeader('Set-Cookie', 'sb_auth=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
-      return json(res, 200, { ok: true });
-    }
+
     // PORTEIRO: com senha configurada, todo /api (menos login/logout) exige cookie válido.
     // Estáticos (a própria tela de login) passam sempre.
     const rotaPublica = p === '/api/login' || p === '/api/logout';
-    if (config.senha && p.startsWith('/api/') && !rotaPublica) {
+    if (!AUTH.ligado() && config.senha && p.startsWith('/api/') && !rotaPublica) {
       if (!validAuthToken(parseCookies(req.headers.cookie).sb_auth)) return json(res, 401, { erro: 'login', precisaLogin: true });
     }
 
@@ -405,6 +426,7 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith('/api/tarefas') && await rotaTarefas(req, res, p, u)) return;
     if (p.startsWith('/api/tempo') && await rotaTempo(req, res, p, u)) return;
     // ---------- MKT Hub (v3.81): status, artes e comentários das tasks de produção ----------
+    if (p === '/api/hub/eu' && soAdmin(req, res)) return;     // v3.82: teste da chave do Hub é configuração (ADMIN)
     if ((p.startsWith('/api/hub') || p.startsWith('/api/task/')) && await rotaHub(req, res, p, u)) return;
 
     // ---------- estado ----------
@@ -425,6 +447,8 @@ const server = http.createServer(async (req, res) => {
         tarefas: rotaTarefas.publicas(),                  // v3.80: tarefas abertas (matriz e copy), com os posts de cada uma
         temFonte: rotaHub.ligado(),                       // v3.81: true com a chave do MKT Hub (artes e comentários das tasks)
         temSenha: !!config.senha,
+        eu: req.eu || null, zoho: AUTH.ligado(),          // v3.82: quem está logado e se o login é pelo Zoho
+        equipe: AUTH.ligado() ? AUTH.usuarios().map(x => x.nome) : undefined,   // nomes pro "quem faz" (60 bytes)
         gmCadencia: db.gmCadencia,
         uso: USO.curto(),
         matrizSB: { conta: MZ_CONTA, tipos: MZ.TIPOS, semanas: MZ.SEMANAS, ancora: MZ.ANCORA, status: MZ.STATUS, obrigatorios: MZ.OBRIGATORIOS, regras: MZ.REGRAS, checklist: MZ.CHECKLIST, responsaveis: RESPONSAVEIS, glossario: MZ.GLOSSARIO },
@@ -432,8 +456,9 @@ const server = http.createServer(async (req, res) => {
       // v3.72: o painel pergunta a cada 20 s; se nada mudou, a resposta é um 304 de ~0,3 KB em vez de ~17 KB.
       // O navegador guarda a última resposta e devolve ela pro painel sozinho (nada muda no front).
       const etag = 'W/"' + crypto.createHash('md5').update(corpo).digest('hex').slice(0, 20) + '"';
-      if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, 'Cache-Control': 'no-cache', Vary: 'Accept-Encoding' }); USO.resposta(0); return res.end(); }
-      return jsonTexto(res, 200, corpo, { ETag: etag, 'Cache-Control': 'no-cache' });
+      // v3.82: a resposta tem quem está logado: "private" (nenhum cache no caminho guarda pra outra pessoa)
+      if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, 'Cache-Control': 'private, no-cache', Vary: 'Accept-Encoding' }); USO.resposta(0); return res.end(); }
+      return jsonTexto(res, 200, corpo, { ETag: etag, 'Cache-Control': 'private, no-cache' });
     }
 
     // ---------- uso de banda do mês (v3.72) ----------
@@ -656,6 +681,7 @@ const server = http.createServer(async (req, res) => {
 
     // ---------- cadência automática de GM (SeuBoné) ----------
     if (p === '/api/gm-cadencia' && req.method === 'POST') {
+      if (soAdmin(req, res)) return;                     // v3.82: GM automático é do ADMIN
       const b = await readBody(req);
       const c = db.gmCadencia;
       if ('ativo' in b) c.ativo = !!b.ativo;
@@ -671,7 +697,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/ao-vivo' && req.method === 'GET') {
       const id = (u.searchParams.get('id') || Math.random().toString(36).slice(2, 10)).slice(0, 24);
       // perfil escolhido pela pessoa (nome + ícone + cor). Sem perfil, cai no bicho aleatório só como quebra-galho.
-      const pf = aovivoPerfilLimpo({ nome: u.searchParams.get('nome'), icone: u.searchParams.get('icone'), cor: u.searchParams.get('cor') });
+      const pf = aovivoPerfilLimpo({ nome: req.eu ? req.eu.nome : u.searchParams.get('nome'), icone: u.searchParams.get('icone'), cor: u.searchParams.get('cor') });
       const conta = String(u.searchParams.get('conta') || '').slice(0, 40) || null;
       let peer = aovivo.get(id);
       if (!peer) { peer = { id, nome: pf.nome || aovivoNomeLivre(), icone: pf.icone || '', cor: pf.cor || aovivoCorLivre(), conta, visto: Date.now() }; aovivo.set(id, peer); }
@@ -702,7 +728,7 @@ const server = http.createServer(async (req, res) => {
       const b = await readBody(req);
       const peer = aovivo.get(String(b.id || ''));
       if (!peer) return json(res, 200, { ok: false, reentrar: true });
-      const pf = aovivoPerfilLimpo(b);
+      const pf = aovivoPerfilLimpo(req.eu ? Object.assign({}, b, { nome: req.eu.nome }) : b);
       if (pf.nome) peer.nome = pf.nome;
       peer.icone = pf.icone || '';
       if (pf.cor) peer.cor = pf.cor;
@@ -724,6 +750,7 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/config' && req.method === 'GET') return json(res, 200, { temSenha: !!config.senha });
     if (p === '/api/config' && req.method === 'POST') {
+      if (soAdmin(req, res)) return;
       const b = await readBody(req);
       // senha de acesso (login pro túnel): seta/troca/remove sem precisar mexer no token
       if ('senha' in b) { config.senha = String(b.senha || '').trim(); saveConfig(config); }
@@ -737,6 +764,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---------- static ----------
+    if (req.method === 'GET' && p === '/login') return serveStatic(res, 'login.html');   // v3.82: tela de entrada (Zoho)
     if (req.method === 'GET') return serveStatic(res, p === '/' ? 'index.html' : p);
     res.writeHead(405); res.end();
   } catch (e) {
