@@ -16,12 +16,12 @@ const TF_TIPOS = {
   matriz: { nome: 'Matriz', k: 'm', cor: 'var(--mz)', icone: 'calmz',
     exp: 'Preencha a matriz de cada post do período: formato, ângulo, pauta quente, tema, tese, gancho, descrição e quem faz. Dê play no relógio quando começar: o painel anota sozinho em qual post você está. Terminou, mande pra aprovação. O Zion aprova post a post e cada matriz aprovada já libera a copy daquele post.' },
   copy: { nome: 'Copy', k: 'c', cor: 'var(--blue)', icone: 'doc',
-    exp: 'Escreva a copy de cada post do período no documento dele. Na SeuBoné, a copy de um post libera quando a matriz dele é aprovada. Dê play no relógio quando começar: o painel anota sozinho em qual documento você está. Terminou, mande pra aprovação. Copy aprovada segue pra produção (arte ou vídeo no MKT Hub).' },
+    exp: 'Escreva a copy de cada post do período no documento dele. Não precisa esperar a matriz ser aprovada: o post só avisa quando ela ainda não foi. Dê play no relógio quando começar: o painel anota sozinho em qual documento você está. Terminou, mande pra aprovação. Copy aprovada segue pra produção (arte ou vídeo no MKT Hub).' },
 };
 // v3.84: com a chave do MKT Hub de nível completa, a tarefa vai pro Hub (mãe + uma subtarefa por post) e a aprovação é lá
 const TF_EXP_HUB = {
   matriz: 'Preencha a matriz de cada post do período: formato, ângulo, pauta quente, tema, tese, gancho, descrição e quem faz. Dê play no relógio quando começar: o painel anota sozinho em qual post você está. Terminou, mande pro MKT Hub: cada post vira uma subtarefa (com a matriz e o seu tempo) dentro da tarefa mãe do período. A aprovação é lá, e cada matriz aprovada libera a copy daquele post.',
-  copy: 'Escreva a copy de cada post do período no documento dele. Na SeuBoné, a copy de um post libera quando a matriz dele é aprovada. Dê play no relógio quando começar: o painel anota sozinho em qual documento você está. Terminou, mande pro MKT Hub: cada post vira uma subtarefa (com o texto e o seu tempo) dentro da tarefa mãe do período. A aprovação é lá; copy aprovada segue pra produção.',
+  copy: 'Escreva a copy de cada post do período no documento dele. Não precisa esperar a matriz ser aprovada: o post só avisa quando ela ainda não foi. Dê play no relógio quando começar: o painel anota sozinho em qual documento você está. Terminou, mande pro MKT Hub: cada post vira uma subtarefa (com o texto e o seu tempo) dentro da tarefa mãe do período. A aprovação é lá; copy aprovada segue pra produção.',
 };
 const TF_DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const TF_ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.8v12.4a.8.8 0 0 0 1.2.7l9.6-6.2a.8.8 0 0 0 0-1.4L9.7 5.1a.8.8 0 0 0-1.2.7z"/></svg>';
@@ -64,7 +64,6 @@ function tfEstado(s, t) {
   if (a && a.st === 'enviado' && a.hub) return { cod: 'enviado', rot: a.pend ? 'no Hub · Pendente' : 'em aprovação no Hub', cor: 'var(--orange)' };
   if (a && a.st === 'enviado') return { cod: 'enviado', rot: 'em aprovação', cor: 'var(--orange)' };
   if (a && a.st === 'alterar') return { cod: 'alterar', rot: 'pra alterar', cor: 'var(--red)' };
-  if (t.tipo === 'copy' && s.matrizSB) { const am = tfAprov(s, 'm'); if (!am || am.st !== 'aprovado') return { cod: 'espera', rot: 'esperando a matriz', cor: 'var(--gray)' }; }
   if (tfPronto(s, t)) return { cod: 'pronto', rot: 'pronta pra mandar', cor: 'var(--blue)' };
   return { cod: 'fazer', rot: 'a fazer', cor: 'var(--gray)' };
 }
@@ -412,8 +411,8 @@ function tfHubHtml(t, dona, aprova) {
   }
   const maes = (h.maes || []).slice().reverse();
   maes.forEach((m, i) => {
-    if (m.estado === 'sumiu') {                                        // apagada no Hub: os posts voltaram pra mandar de novo
-      html += '<div class="tf-hub velha"><span class="ti-et" style="--c:var(--gray)"><i></i>' + esc(m.codigo || 'tarefa mãe') + ' foi apagada no Hub: os posts dela voltaram pra mandar de novo</span></div>';
+    if (m.estado === 'sumiu' || m.estado === 'arquivada') {           // apagada ou arquivada no Hub: os posts voltaram pra mandar de novo
+      html += '<div class="tf-hub velha"><span class="ti-et" style="--c:var(--gray)"><i></i>' + esc(m.codigo || 'tarefa mãe') + (m.estado === 'arquivada' ? ' foi arquivada' : ' foi apagada') + ' no Hub: os posts sem aprovação voltaram pra mandar de novo</span></div>';
       return;
     }
     if (i > 0 && m.estado === 'aprovada') {                           // rodada antiga aprovada: 1 linha discreta
@@ -470,6 +469,13 @@ async function tfMandaHub(t) {
   const ids = [...tfSel()]; if (!ids.length || tfHubIndo(t)) return;
   const b = $('#tfEnviar'); if (b) b.disabled = true;
   try {
+    // v3.85: o tempo que está no relógio desta tarefa vai junto: para e salva antes de mandar (senão o briefing sai sem ele)
+    const e = CRON.estado();
+    if (e && e.tarefaId === t.id) {
+      const rel = await CRON.parar();
+      if (rel && rel.curto) toast('O relógio tinha menos de 30 s: esse pedaço não conta');
+      else if (rel && rel.reg) toast('Relógio parado e salvo: ' + CRON.fmtLongo(rel.reg.seg) + (rel.pendente ? ' (sem conexão agora: vai quando voltar)' : ', vai no briefing do Hub'));
+    }
     const r = await api('/api/tarefas/' + t.id + '/hub', { method: 'POST', body: JSON.stringify({ slots: ids, quem: tfEu() }) });
     TF.sel = new Set();
     tfHubAtualiza(t.id, r.hub);
@@ -490,10 +496,12 @@ function tfLinha(s, t, dona, aprova) {
     const d = TF.det && TF.det.docs ? TF.det.docs[s.id] : null;
     prog = '<span class="ti-prog">' + (d ? (d.palavras ? d.palavras + ' palavras' : 'doc vazio') : (s.docId ? '…' : 'sem doc')) + '</span>';
   }
+  // v3.85: a copy não espera a matriz (sem trava); o post só avisa quando a matriz dele ainda não foi aprovada
+  const mzPend = t.tipo === 'copy' && !!s.matrizSB && !(a && a.st === 'aprovado') && (tfAprov(s, 'm') || {}).st !== 'aprovado';
   // v3.84: o que já está no Hub pode ir de novo (atualiza o briefing da subtarefa), menos o que foi aprovado
   const reenviaHub = S.hubEscrita && noHub && a.st === 'enviado';
   const podeMarcar = dona && (est.cod === 'pronto' || est.cod === 'alterar' || reenviaHub);
-  const porque = est.cod === 'espera' ? 'a matriz deste post ainda não foi aprovada' : est.cod === 'fazer' ? (t.tipo === 'matriz' ? 'falta preencher campos da matriz' : 'o documento ainda não tem texto') : est.cod === 'enviado' ? 'já está em aprovação' : est.cod === 'aprovado' ? 'já foi aprovada' : '';
+  const porque = est.cod === 'fazer' ? (t.tipo === 'matriz' ? 'falta preencher campos da matriz' : 'o documento ainda não tem texto') : est.cod === 'enviado' ? 'já está em aprovação' : est.cod === 'aprovado' ? 'já foi aprovada' : '';
   const chk = dona ? '<label class="ti-chk" title="' + esc(reenviaHub ? 'mandar de novo pro Hub (atualiza o briefing da subtarefa)' : podeMarcar ? (S.hubEscrita ? 'mandar este pro MKT Hub' : 'mandar este pra aprovação') : porque) + '"><input type="checkbox" data-sel="' + s.id + '"' + (tfSel().has(s.id) ? ' checked' : '') + (podeMarcar ? '' : ' disabled') + '></label>' : '';
   let acoes = '';
   if (noHub) {
@@ -532,7 +540,7 @@ function tfLinha(s, t, dona, aprova) {
       '<span class="ti-dia">' + tfDia(s.date) + '</span>' +
       '<button class="ti-tit" data-abre="' + s.id + '" title="Abrir ' + (t.tipo === 'matriz' ? 'o card da matriz' : 'o documento da copy') + '">' + esc(slotTitulo(s)) + '</button>' +
       (contasDaAba(t.aba).length > 1 ? '<span class="ti-conta">' + esc(contaCurta(s.conta)) + '</span>' : '') +
-      prog +
+      prog + (t.tipo !== 'copy' ? '' : mzPend ? '<span class="ti-mzp" title="A matriz deste post ainda não foi aprovada. Não trava: dá pra escrever e mandar a copy.">matriz não aprovada</span>' : '<span class="ti-mzp" aria-hidden="true"></span>') +
       '<span class="ti-tempo" data-tempo="' + s.id + '">' + (tempo ? CRON.fmtLongo(tempo) : '') + '</span>' +
       '<span class="ti-st" style="--stc:' + est.cor + '"><i></i>' + est.rot + '</span>' +
       acoes +
@@ -754,7 +762,8 @@ async function tfArquivar(t) {
   catch (err) { toast(err.message, true); }
 }
 async function tfExcluir(t) {
-  if (!confirm('Excluir a tarefa de ' + TF_TIPOS[t.tipo].nome.toLowerCase() + ' de ' + brData(t.de) + ' a ' + brData(t.ate) + '?\n\n(As aprovações ficam nos posts e o tempo continua no relatório.)')) return;
+  const noHub = t.hub && (t.hub.maes || []).some(m => m.estado !== 'aprovada' && m.estado !== 'sumiu' && m.estado !== 'arquivada');
+  if (!confirm('Excluir a tarefa de ' + TF_TIPOS[t.tipo].nome.toLowerCase() + ' de ' + brData(t.de) + ' a ' + brData(t.ate) + '?\n\n(As aprovações ficam nos posts e o tempo continua no relatório.' + (noHub ? ' Os posts que estão no MKT Hub sem aprovação voltam pra mandar de novo; no Hub nada muda.' : '') + ')')) return;
   const e = CRON.estado();
   if (e && e.tarefaId === t.id) await tfParar();
   try { await api('/api/tarefas/' + t.id, { method: 'DELETE' }); closeOv('ovTarefa'); await loadState(); toast('Tarefa excluída'); }

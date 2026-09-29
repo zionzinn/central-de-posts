@@ -219,7 +219,9 @@ function tpLigaLancar() {
     if (!(min >= 1 && min <= 480)) { toast('Minutos de 1 a 480', true); $('#tpLMin').focus(); return; }
     if (!dia) { toast('Escolha o dia', true); return; }
     if (!por) { toast('Diga quem fez', true); return; }
-    const reg = { id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), ini: Math.floor(Date.parse(dia + 'T12:00:00-03:00') / 1000), seg: min * 60, atv, aba: $('#tpLAba').value, tarefaId: $('#tpLTarefa').value, por, manual: 1 };
+    // v3.85: meio-dia do dia escolhido; se for hoje e ainda não deu meio-dia, agora (antes, de manhã, o lançamento de hoje era recusado)
+    const ini = Math.floor(Math.min(Date.parse(dia + 'T12:00:00-03:00'), Date.now()) / 1000);
+    const reg = { id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), ini, seg: min * 60, atv, aba: $('#tpLAba').value, tarefaId: $('#tpLTarefa').value, por, manual: 1 };
     try { await api('/api/tempo/sessao', { method: 'POST', body: JSON.stringify(reg) }); TP.lancar = false; toast(min + ' min lançados'); tpCarrega(); loadState(false, true); }
     catch (e) { toast(e.message, true); }
   };

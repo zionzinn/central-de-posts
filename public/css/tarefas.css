@@ -118,6 +118,7 @@ html[data-modo="claro"] :is(.tf-per input[type=date],.tp-lancar input,.tp-lancar
 .ti-pbar{width:40px; height:5px; border-radius:3px; background:var(--fill-3); overflow:hidden; flex:none}
 .ti-pbar i{display:block; height:100%; background:var(--tc)}
 .ti-tempo{width:58px; flex:none; text-align:right; font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.ti-mzp{flex:none; width:118px; font-size:11px; font-weight:560; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}   /* v3.85: só avisa, não trava (vaga fixa: as colunas não andam) */
 .ti-st{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:560; color:var(--ink-2); width:134px; flex:none; white-space:nowrap}
 .ti-st i{width:8px; height:8px; border-radius:50%; background:var(--stc); flex:none}
 .ti-exp{width:26px; height:26px; border-radius:50%; border:0; padding:0; flex:none; display:grid; place-items:center; background:transparent; color:var(--ink-3); cursor:pointer}
@@ -195,7 +196,7 @@ a.ti-sub:hover{background:var(--fill-2); color:var(--ink)}
 .tf-vazio{padding:18px; text-align:center; color:var(--ink-3); font-size:13px}
 .tffoot{flex-wrap:wrap; padding-top:4px}
 .tffoot .bin{margin-left:auto}
-@media (max-width:720px){ .ti-prog,.ti-tempo{display:none} .ti-st{width:auto} .tf-rel{flex-wrap:wrap} }
+@media (max-width:720px){ .ti-prog,.ti-tempo,.ti-mzp{display:none} .ti-st{width:auto} .tf-rel{flex-wrap:wrap} }
 
 /* ---------- folha de Tempo ---------- */
 .modal.tpmodal{width:min(920px,100%)}
