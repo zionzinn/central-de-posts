@@ -608,11 +608,11 @@ function tfLigaLigar(t) {
 async function tfLigaTask(sid, ref, cod) {
   if (!sid || !ref) return;
   try {
-    await api('/api/slots/' + sid, { method: 'PATCH', body: JSON.stringify({ taskUrl: ref }) });
+    const r = await api('/api/slots/' + sid, { method: 'PATCH', body: JSON.stringify({ taskUrl: ref }) });
     TF.ligar = null;
     await loadState();
     tfDesenha();
-    toast('Task de produção ligada: ' + cod + ' · Ctrl+Z desfaz');
+    if (r && r.aviso) toast(r.aviso, true, 9000); else toast('Task de produção ligada: ' + cod + ' · Ctrl+Z desfaz');
   } catch (e) { toast(e.message, true); }
 }
 

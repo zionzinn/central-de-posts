@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.85'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.86'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -399,6 +399,21 @@ function montaSlot(b) {
 }
 // v3.83: banco de cada empresa (Reutilizar, Drive de conteúdos, Referência de posts, Cortes de podcasts)
 const rotaBanco = require('./lib/banco.js')({ db, saveDb, readBody, json, pushUndo, montaSlot });
+/**
+ * v3.86: colou o link (ou o código MKT, ou o uuid) de uma tarefa do MKT Hub num post: acha a tarefa NA HORA (na memória
+ * ou perguntando ao Hub; vale subtarefa), pra o post já nascer com título, etapa e responsável. Link de outro sistema
+ * não passa por aqui. Devolve { t } (achou), { aviso } (não achou ou o Hub não respondeu) ou null (não é do Hub).
+ */
+async function ligaHub(texto) {
+  const u = String(texto || '').trim();
+  if (!u || !rotaHub.ligado()) return null;
+  const nu = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(u) || /^MKT-\d+$/i.test(u);
+  if (!nu && !/^https?:\/\/([a-z0-9-]+\.)*mkthub\./i.test(u)) return null;
+  const r = await rotaHub.resolveLink(u).catch(e => ({ erro: e.message }));
+  if (r && r.id) return { t: r };
+  if (r && r.erro) return { aviso: 'Não consegui falar com o MKT Hub agora (' + r.erro + '). O link ficou salvo: o título e a etapa aparecem quando o Hub responder.' };
+  return { aviso: 'Não achei essa tarefa no MKT Hub. O link ficou salvo, mas confira (dá pra colar o código dela, tipo MKT-0412).' };
+}
 /** Com login: só ADMIN passa. Sem login (PC local), todo mundo. Devolve true se barrou. */
 function soAdmin(req, res) {
   if (req.eu && req.eu.papel !== 'admin') { json(res, 403, { erro: 'só ADMIN (Zion ou Maria) pode fazer isso' }); return true; }
@@ -505,10 +520,12 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/slots' && req.method === 'POST') {
       const b = await readBody(req);
       if (!b.conta || !db.contas[b.conta]) return json(res, 400, { erro: 'conta inválida' });
+      const lig = b.taskUrl ? await ligaHub(b.taskUrl) : null;                 // v3.86: a tarefa do Hub já na hora
       const slot = montaSlot(b);
+      if (lig && lig.t) { slot.taskId = lig.t.id; slot.taskUrl = lig.t.url || slot.taskUrl; slot.vaga = false; }
       undoSlots(slot.vaga ? 'sinalizar falta criar' : (slot.matrizSB ? 'novo card da matriz' : 'novo post'), [], [slot.id]);
       db.slots.push(slot); saveDb();
-      return json(res, 200, { ok: true, slot });
+      return json(res, 200, { ok: true, slot: rotaHub.sobrepoe([slot])[0], aviso: (lig && lig.aviso) || undefined });
     }
 
     // ---------- EMPURRAR / REAJUSTAR: este post + todos os seguintes da conta ----------
@@ -598,6 +615,8 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { ok: true });
       }
       const b = await readBody(req);
+      // v3.86: colou uma tarefa do Hub: acha ela antes de mexer no post (pra ele já ter título, etapa e responsável)
+      const lig = 'taskUrl' in b && b.taskUrl ? await ligaHub(b.taskUrl) : null;
       // troca de conta: só aceita conta que existe. Conta inválida = erro claro, não silêncio.
       if ('conta' in b && b.conta !== slot.conta && !db.contas[b.conta]) {
         return json(res, 400, { erro: 'conta inválida: ' + b.conta });
@@ -639,6 +658,7 @@ const server = http.createServer(async (req, res) => {
       if (trocaConta) slot.collab = (slot.collab || []).filter(c => c !== slot.conta);
       if ('taskUrl' in b) {
         const lk = taskDoLink(b.taskUrl);
+        if (lig && lig.t) { lk.taskId = lig.t.id; lk.taskUrl = lig.t.url || lk.taskUrl; }   // o id de verdade (e o link que o Hub dá)
         const antes = slot.taskUrl || (slot.taskId ? 'https://app.clickup.com/t/' + slot.taskId : '');
         if (lk.taskUrl !== antes || lk.taskId !== slot.taskId) {
           const trocou = lk.taskId !== slot.taskId;
@@ -649,7 +669,7 @@ const server = http.createServer(async (req, res) => {
         if (slot.taskId) { slot.vaga = false; slot.sugestao = false; }
       }
       saveDb();
-      return json(res, 200, { ok: true, slot });
+      return json(res, 200, { ok: true, slot: rotaHub.sobrepoe([slot])[0], aviso: (lig && lig.aviso) || undefined });
     }
 
     // ---------- banco de referências (geral, sem conta) ----------

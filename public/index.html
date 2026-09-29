@@ -406,7 +406,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.85'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.86'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2166,10 +2166,13 @@ $('#eSave').onclick = async ()=>{
   if(body.taskUrl && !/^https?:\/\//i.test(body.taskUrl) && !/^MKT-\d+$/i.test(body.taskUrl) && !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.taskUrl)){ $('#eMsg').textContent = 'O link da task começa com https://'; $('#eTask').focus(); return; }
   $('#eSave').disabled = true; $('#eMsg').textContent = '';
   try{
-    if(S.editing) await api('/api/slots/'+S.editing, {method:'PATCH', body:JSON.stringify(body)});
-    else await api('/api/slots', {method:'POST', body:JSON.stringify(body)});
+    const r = S.editing ? await api('/api/slots/'+S.editing, {method:'PATCH', body:JSON.stringify(body)})
+      : await api('/api/slots', {method:'POST', body:JSON.stringify(body)});
     closeOv('ovEdit'); await loadState();
-    toast('Salvo');
+    // v3.86: colou uma tarefa do MKT Hub: o servidor já achou ela (título e etapa no card); se não achou, diz o porquê
+    const t = r && r.slot && r.slot.hub ? r.slot : null;
+    if(r && r.aviso) toast(r.aviso, true, 9000);
+    else toast(t ? 'Salvo · ligado a ' + t.hub.codigo + ': ' + (t.tituloCache || '') + (t.statusCache && t.statusCache.nome ? ' (' + t.statusCache.nome + ')' : '') : 'Salvo');
   }catch(e){ $('#eMsg').textContent = 'Erro: '+e.message; }
   finally{ $('#eSave').disabled = false; }
 };
@@ -2692,7 +2695,8 @@ async function hubPintaEstado(){
     el.className = 'hubestado '+(!h.ligado ? 'off' : h.erro ? 'erro' : 'ok');
     el.innerHTML = !h.ligado ? '<i></i>Desligado: falta a variável <b>MKH_CHAVE</b> no Render.'
       : h.erro ? '<i></i>Ligado, mas a última leitura falhou: '+esc(h.erro)
-      : '<i></i>Ligado · '+h.tarefas+' tasks na memória'+(h.syncEm ? ' · última leitura '+fmtDataHora(Date.parse(h.syncEm)) : ' · primeira leitura em andamento');
+      : !h.completa ? '<i></i>Ligado · lendo o Hub pela primeira vez: '+h.tarefas+' tarefas até agora (vai sozinho, algumas voltas)'
+      : '<i></i>Ligado · '+h.tarefas+' tarefas na memória'+(h.syncEm ? ' · última leitura '+fmtDataHora(Date.parse(h.syncEm)) : '');
   }catch(e){ el.className = 'hubestado erro'; el.textContent = 'Não consegui ver: '+e.message; }
 }
 /** v3.84: a matriz e a copy vão pro Hub? (chave de nível completa) e os pontos de cada tarefa criada lá. */
