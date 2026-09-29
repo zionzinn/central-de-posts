@@ -1784,9 +1784,12 @@ async function cliqueRelogioDoc(){
 function avisoAprovacao(){
   const a = D && D.post ? D.post.aprov : null;
   if(!a) return;
-  if(a.st === 'alterar') faixa('aprov', '<b>'+esc(a.ap || 'Pedido')+' pediu alteração nesta copy:</b> '+esc(a.nota || ''), [], 'verm');
+  // v3.84: a copy que foi pro MKT Hub é aprovada lá (subtarefa dentro da tarefa mãe COPY do período)
+  const hub = a.hub ? ' no MKT Hub' : '', sub = a.sub ? ' (subtarefa <b>'+esc(a.sub)+'</b>)' : '';
+  if(a.st === 'alterar') faixa('aprov', '<b>'+esc(a.ap || 'Pedido')+' pediu alteração nesta copy'+hub+':</b> '+esc(a.nota || '')+(a.hub ? ' Ajuste aqui e mande de novo pela tarefa de copy.' : ''), [], 'verm');
+  else if(a.st === 'enviado' && a.hub) faixa('aprov', 'Esta copy está no MKT Hub'+sub+(a.pend ? ': falta mover a tarefa mãe pra Aprovação lá.' : ', em aprovação.')+' Mudou o texto? Mande de novo pela tarefa de copy pra atualizar o Hub.', [], 'azul');
   else if(a.st === 'enviado') faixa('aprov', 'Esta copy está em aprovação desde '+fmtQuando(a.em)+'.', [], 'azul');
-  else if(a.st === 'aprovado') faixa('aprov', 'Copy aprovada'+(a.ap ? ' por <b>'+esc(a.ap)+'</b>' : '')+'.', [], 'verde');
+  else if(a.st === 'aprovado') faixa('aprov', 'Copy aprovada'+(a.ap ? ' por <b>'+esc(a.ap)+'</b>' : '')+hub+'.', [], 'verde');
 }
 
 // ======================================================================

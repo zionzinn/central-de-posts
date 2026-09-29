@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.83'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.84'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -368,9 +368,12 @@ setInterval(() => { const t = Date.now(); for (const [id, p] of aovivo) { if (t 
 const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo, MZ, backupAgora, usoInvalida: () => USO.invalida() });
 // v3.80: tarefas da copywriter (matriz e copy por empresa, com aprovação post a post) e o relógio delas
 const rotaTempo = require('./lib/tempo.js')({ db, saveDb, readBody, json, equipe: () => AUTH.ligado() ? AUTH.usuarios().map(u => u.nome) : [] });
-const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, undoSlots, tempo: rotaTempo });
-// v3.81: MKT Hub (só leitura; chave só na variável MKH_CHAVE). Sem chave, fica desligado.
+const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, undoSlots, tempo: rotaTempo, hubLigado: () => rotaHub.ligado(), hubEscrita: () => rotaHubEnvio.escrita() });
+// v3.81: MKT Hub (leitura; chave só na variável MKH_CHAVE). Sem chave, fica desligado.
 const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/docs.js').limpaHtml });
+// v3.84: a tarefa de matriz ou copy vira no Hub uma tarefa mãe com uma subtarefa por post (só com a chave de nível completa)
+const rotaHubEnvio = require('./lib/hubenvio.js')({ db, saveDb, readBody, json, hub: rotaHub, tempo: rotaTempo, itens: rotaTarefas.itens, soAdmin, gravaJa: () => gravarAgora() });
+rotaTarefas.hubPublico = rotaHubEnvio.publico;
 // v3.82: login pelo Zoho (liga só com ZOHO_CLIENT_ID e ZOHO_CLIENT_SECRET; sem elas, senha opcional como antes)
 const AUTH = require('./lib/auth.js')({ json, parseCookies, segredo: config.secret });
 /** Post novo a partir do que veio da tela (e do banco, v3.83). Não grava: quem chama põe em db.slots. */
@@ -445,7 +448,8 @@ const server = http.createServer(async (req, res) => {
 
     // ---------- documentos (copy) ----------
     if (p.startsWith('/api/docs') && await rotaDocs(req, res, p, u)) return;
-    // ---------- tarefas e relógio (v3.80) ----------
+    // ---------- tarefas e relógio (v3.80); mandar a tarefa pro MKT Hub (v3.84, antes: a /hub de cada tarefa é de lá) ----------
+    if ((/^\/api\/tarefas\/t[0-9a-f]{8}\/hub$/.test(p) || p === '/api/hub/escrita' || p === '/api/hub/config') && await rotaHubEnvio(req, res, p, u)) return;
     if (p.startsWith('/api/tarefas') && await rotaTarefas(req, res, p, u)) return;
     if (p.startsWith('/api/tempo') && await rotaTempo(req, res, p, u)) return;
     if (p.startsWith('/api/banco') && await rotaBanco(req, res, p)) return;
@@ -470,6 +474,7 @@ const server = http.createServer(async (req, res) => {
         slots: rotaHub.sobrepoe(slots), banco: db.banco,   // v3.81: status do Hub por cima dos posts (sem gravar); v3.83: banco de cada empresa
         tarefas: rotaTarefas.publicas(),                  // v3.80: tarefas abertas (matriz e copy), com os posts de cada uma
         temFonte: rotaHub.ligado(),                       // v3.81: true com a chave do MKT Hub (artes e comentários das tasks)
+        hubEscrita: rotaHubEnvio.escrita(),               // v3.84: true com a chave de nível completa (a tarefa vai pro Hub)
         temSenha: !!config.senha,
         eu: req.eu || null, zoho: AUTH.ligado(),          // v3.82: quem está logado e se o login é pelo Zoho
         equipe: AUTH.ligado() ? AUTH.usuarios().map(x => x.nome) : undefined,   // nomes pro "quem faz" (60 bytes)
@@ -565,9 +570,15 @@ const server = http.createServer(async (req, res) => {
       if (!e) return json(res, 200, { ok: false, motivo: 'nada pra desfazer' });
       if (e.tipo === 'slots') {
         for (const id of e.criados || []) db.slots = db.slots.filter(s => s.id !== id);
+        // v3.84: a aprovação do que foi pro MKT Hub não volta no Ctrl+Z (quem manda nela é o Hub); o resto volta como era
+        const noHub = (x, k) => !!(x && x.aprov && x.aprov[k] && x.aprov[k].hub);
         for (const cp of e.antes || []) {
           const i = db.slots.findIndex(s => s.id === cp.id);
-          if (i >= 0) db.slots[i] = cp; else db.slots.push(cp);
+          if (i >= 0) {
+            const atual = db.slots[i];
+            for (const k of ['m', 'c']) if (noHub(atual, k) || noHub(cp, k)) { const ap = Object.assign({}, cp.aprov); if (atual.aprov && atual.aprov[k]) ap[k] = atual.aprov[k]; else delete ap[k]; cp.aprov = ap; }
+            db.slots[i] = cp;
+          } else db.slots.push(cp);
         }
         saveDb();
         return json(res, 200, { ok: true, desfeito: e.desc });

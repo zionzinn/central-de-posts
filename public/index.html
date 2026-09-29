@@ -193,13 +193,22 @@
       </div>
       <div class="f" id="cHubBloco">
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
-      <div class="wpp-tit">MKT Hub (tasks de produção)</div>
+      <div class="wpp-tit">MKT Hub</div>
       <div class="hubestado" id="hubEstado">…</div>
       <div style="display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap">
         <button class="mbtn" id="hubTestar">Testar conexão com o MKT Hub</button>
         <span class="note" id="hubMsg"></span>
       </div>
-      <p class="note">O painel só <b>lê</b> o Hub: etapa, título e responsável das tasks ligadas aos posts, artes e comentários. A chave fica só na variável <b>MKH_CHAVE</b> do Render (nível leitura), nunca aqui.</p>
+      <p class="note">O painel <b>lê</b> do Hub a etapa, o título e o responsável das tasks ligadas aos posts, as artes e os comentários. A chave fica só na variável <b>MKH_CHAVE</b> do Render, nunca aqui.</p>
+      <div class="hub-escrita" id="hubEscritaBloco">
+        <div class="wpp-tit hub-subtit">Matriz e copy no MKT Hub</div>
+        <div class="hubestado" id="hubEscritaEstado">…</div>
+        <div class="wpp-grid hub-pontos" id="hubPontos" hidden>
+          <div><label for="hubPtMae">Pontos da tarefa mãe</label><input type="number" id="hubPtMae" min="1" max="100" inputmode="numeric"></div>
+          <div><label for="hubPtSub">Pontos de cada subtarefa (post)</label><input type="number" id="hubPtSub" min="1" max="100" inputmode="numeric"></div>
+        </div>
+        <p class="note" id="hubEscritaNota"></p>
+      </div>
       </div>
       <div class="f" id="cGmBloco">
       <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
@@ -226,7 +235,7 @@
         <button class="mbtn" id="nTestar">Testar o aviso</button>
         <span class="note" id="nEstado"></span>
       </div>
-      <p class="note">Matriz ou copy mandada <b>pra aprovação</b>: aviso pra quem aprova. <b>Pedido de alteração</b>: aviso pra quem fez, com a nota e quem pediu. Vem das tarefas de Matriz e Copy (faixa de cima).</p>
+      <p class="note">Matriz ou copy mandada <b>pra aprovação</b>: aviso pra quem aprova. <b>Pedido de alteração</b>: aviso pra quem fez, com a nota e quem pediu. Vem das tarefas de Matriz e Copy (faixa de cima). O que foi pro MKT Hub é aprovado lá: o aviso de aprovar é o do Hub, e o pedido de alteração feito lá também chega aqui.</p>
       <p class="note">A notificação do Windows aparece no canto da tela e fica na central de notificações, mesmo com o painel minimizado ou atrás de outra janela. Precisa do painel <b>aberto em alguma aba</b>. Pra virar app com ícone na barra de tarefas: no Chrome, ícone de instalar na barra de endereço, ou menu <b>⋮ → Transmitir, salvar e compartilhar → Instalar página como app</b>.</p>
     </div>
   </div>
@@ -397,7 +406,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.83'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.84'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -539,7 +548,7 @@ async function loadState(fresh, silencioso){
   const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.banco||[]) + '#' + JSON.stringify(j.tarefas||[]);
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, hubEscrita:!!j.hubEscrita, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   contaNaTela();                                        // v3.82: nome da conta no perfil e o que cada papel vê
@@ -2672,6 +2681,7 @@ async function openConfig(){
   $('#gmPeriodo').value = gc.periodo || 3;
   pintaGm();
   hubPintaEstado();
+  if(souAdmin()) hubPintaEscrita();
   $('#ovConfig').classList.add('open');
 }
 /** v3.81: como está a ligação com o MKT Hub (sem mostrar a chave, que nunca sai do servidor). */
@@ -2685,12 +2695,38 @@ async function hubPintaEstado(){
       : '<i></i>Ligado · '+h.tarefas+' tasks na memória'+(h.syncEm ? ' · última leitura '+fmtDataHora(Date.parse(h.syncEm)) : ' · primeira leitura em andamento');
   }catch(e){ el.className = 'hubestado erro'; el.textContent = 'Não consegui ver: '+e.message; }
 }
+/** v3.84: a matriz e a copy vão pro Hub? (chave de nível completa) e os pontos de cada tarefa criada lá. */
+async function hubPintaEscrita(){
+  const el = $('#hubEscritaEstado'), nota = $('#hubEscritaNota'), pts = $('#hubPontos');
+  try{
+    const h = await api('/api/hub/escrita?fresh=1');
+    S.hubEscrita = !!h.escrita;
+    el.className = 'hubestado '+(h.escrita ? 'ok' : h.ligado && h.nivel ? 'off' : h.ligado ? 'erro' : 'off');
+    el.innerHTML = h.escrita ? '<i></i><span>Ligado: a tarefa de matriz e a de copy vão pro Hub como uma <b>tarefa mãe</b> (tipo Copy, formato Outros) com uma <b>subtarefa por post</b>, com o conteúdo e o tempo de cada um. A aprovação acontece lá.</span>'
+      : !h.ligado ? '<i></i><span>Desligado: falta a variável <b>MKH_CHAVE</b> no Render.</span>'
+      : h.nivel ? '<i></i><span>Desligado: a chave é de nível <b>'+esc(h.nivel)+'</b>. Pra mandar a matriz e a copy pro Hub, crie no Hub uma chave de nível <b>completa</b> e troque a MKH_CHAVE no Render. Até lá, a aprovação continua aqui no painel.</span>'
+      : '<i></i><span>Não consegui ver o nível da chave agora. Tente de novo em 1 minuto.</span>';
+    pts.hidden = !h.escrita;
+    $('#hubPtMae').value = h.cfg ? h.cfg.pontosMae : 1;
+    $('#hubPtSub').value = h.cfg ? h.cfg.pontosSub : 1;
+    nota.textContent = h.escrita ? 'Prazo de cada subtarefa: o dia em que o post foi feito (a última vez que o relógio contou nele). A mãe nasce em Pendente: quem faz a tarefa move pra Aprovação no Hub.' : '';
+  }catch(e){ el.className = 'hubestado erro'; el.textContent = 'Não consegui ver: '+e.message; }
+}
+async function hubSalvaPontos(){
+  const mae = parseInt($('#hubPtMae').value), sub = parseInt($('#hubPtSub').value);
+  if(!(mae>=1 && mae<=100) || !(sub>=1 && sub<=100)){ toast('Pontos de 1 a 100', true); return; }
+  try{ await api('/api/hub/config',{method:'POST', body:JSON.stringify({pontosMae:mae, pontosSub:sub})}); toast('Pontos salvos: mãe '+mae+', cada post '+sub); }
+  catch(e){ toast(e.message, true); }
+}
+$('#hubPtMae').onchange = hubSalvaPontos;
+$('#hubPtSub').onchange = hubSalvaPontos;
 $('#hubTestar').onclick = async ()=>{
   const m = $('#hubMsg'); m.textContent = 'testando…';
   try{
     const r = await api('/api/hub/eu');
     m.textContent = r.ok ? 'Conectado como '+r.nome+' ('+r.papel+')'+(r.chave ? ' · chave "'+r.chave.nome+'", nível '+r.chave.nivel : '')+(r.empresas && r.empresas.length ? ' · '+r.empresas.join(', ') : '') : 'Falhou: '+r.erro;
     setTimeout(hubPintaEstado, 1500);
+    hubPintaEscrita();
   }catch(e){ m.textContent = 'Falhou: '+e.message; }
 };
 $('#btnConfig').onclick = openConfig;

@@ -167,6 +167,31 @@ a.ti-prod:hover{background:var(--fill-2)}
 .bt-aprovar.mini{padding:5px 12px; font-size:12px; border-radius:8px}
 .bt-aprovar[disabled]{opacity:.4; cursor:not-allowed}
 .bt-aprovar[disabled]::before{--progress:100%}
+/* v3.84: a tarefa no MKT Hub (faixa na folha) e o código da subtarefa em cada post */
+.tf-hubs{display:flex; flex-direction:column; gap:8px}
+.tf-hubs:empty{display:none}
+.tf-hub{display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:14px; background:var(--fill-4); border:1px solid var(--hair-2); font-size:12.5px}
+.tf-hub.m-pendente{background:color-mix(in srgb, var(--orange) 11%, var(--fill-4)); border-color:color-mix(in srgb, var(--orange) 32%, transparent)}
+.tf-hub.m-alterar,.tf-hub.erro{background:color-mix(in srgb, var(--red) 10%, var(--fill-4)); border-color:color-mix(in srgb, var(--red) 30%, transparent)}
+.tf-hub.m-aprovada{background:color-mix(in srgb, var(--green) 9%, var(--fill-4))}
+.tf-hub.velha{padding:6px 14px; background:transparent; border-style:dashed; justify-content:space-between}
+.tf-hubic{width:30px; height:30px; border-radius:50%; display:grid; place-items:center; flex:none; background:var(--elev); color:var(--ink-2)}
+.tf-hubic .ic{width:16px; height:16px}
+.tf-hub.erro .tf-hubic{color:var(--red)}
+.tf-hubtx{display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; line-height:1.45}
+.tf-hubtx b{font-size:13.5px; font-weight:650; color:var(--ink); font-variant-numeric:tabular-nums}
+.tf-hubtx span{color:var(--ink-2)}
+.tf-hubtx span b{font-size:inherit; font-weight:650}
+.tf-hubbar{display:block; height:4px; border-radius:2px; background:var(--fill-3); overflow:hidden; margin-top:6px; max-width:320px}
+.tf-hubbar i{display:block; height:100%; background:var(--tc); transition:width .4s ease}
+.tf-hubet{font-size:12px; flex:none}
+.tf-hubabre{min-height:30px; font-size:12px; flex:none}
+.tf-hubabre .ic{width:13px; height:13px}
+.tf-hublink{font-size:12px; color:var(--ink-3); text-decoration:underline; text-underline-offset:2px}
+.tf-hublink:hover{color:var(--ink)}
+.ti-sub{font-size:11.5px; font-weight:650; color:var(--ink-2); background:var(--fill-3); border-radius:6px; padding:2px 7px; flex:none; text-decoration:none; font-variant-numeric:tabular-nums; white-space:nowrap}
+a.ti-sub:hover{background:var(--fill-2); color:var(--ink)}
+@media (max-width:720px){ .tf-hub{flex-wrap:wrap} .tf-hubtx{flex-basis:calc(100% - 42px)} .tf-hubet{margin-left:42px} }
 .tf-vazio{padding:18px; text-align:center; color:var(--ink-3); font-size:13px}
 .tffoot{flex-wrap:wrap; padding-top:4px}
 .tffoot .bin{margin-left:auto}
