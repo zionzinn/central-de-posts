@@ -333,11 +333,11 @@
   </div>
 </div></div>
 <!-- v3.90: copy aprovada vira task de produção no MKT Hub (tela do ADMIN) -->
-<div class="ov" id="ovProd"><div class="modal" style="position:relative; width:min(760px,100%)">
+<div class="ov" id="ovProd"><div class="modal prmodal" style="position:relative; width:min(640px,100%)">
   <button class="mclose" data-close="ovProd">✕</button>
-  <div class="mhead"><div class="mtit">Task de produção no MKT Hub</div><div class="ectx" id="prSub"></div></div>
-  <div class="mbody" id="prBody"><div class="dcvazio">carregando…</div></div>
-  <div class="mfoot" id="prFoot"></div>
+  <div class="mhead"><div class="mtit">Criar task de produção</div><div class="ectx pr-ctx" id="prSub"></div></div>
+  <div class="mbody pr-body" id="prBody"><div class="dcvazio">carregando…</div></div>
+  <div class="mfoot pr-foot" id="prFoot"></div>
 </div></div>
 <div class="ov" id="ovArq"><div class="modal" style="position:relative; width:min(580px,100%)">
   <button class="mclose" data-close="ovArq">✕</button>
@@ -413,7 +413,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.91'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.92'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2464,14 +2464,14 @@ $('#btnAprovar').onclick = () => abrirAprovar();
 // Copy aprovada → o ADMIN cria aqui a task de arte ou vídeo: título, tipo, formato, responsável, entrega, data do
 // post, pontos e prioridade (já vem tudo sugerido); o briefing é a copy aprovada e a matriz. O post fica ligado à
 // task no dia dele; a copy continua guardada (ícone do documento no card).
-const PR = { sid: null, op: null, tipos: new Set(), formato: '', resp: '', prior: 'media' };
+const PR = { sid: null, op: null, tipos: new Set(), formato: '', resp: '', prior: 'media', maisTipos: false };
 /** O documento (iframe) pergunta se o painel está ligado ao Hub, pra mostrar "Criar task de produção". */
 function painelTemHub(){ return !!S.temFonte && souAdmin(); }
 async function abrirProducao(sid){
   // o post pode não estar na tela (semana, ou documento aberto pela lista): o que falta vem do servidor
   const s = S.slots.find(x => x.id === sid);
-  PR.sid = sid; PR.op = null;
-  $('#prSub').textContent = s ? (s.date ? 'post de '+tfDia(s.date) : 'post sem dia')+' · '+nomeConta(s.conta)+' · '+slotTitulo(s) : '';
+  PR.sid = sid; PR.op = null; PR.maisTipos = false;
+  prSubtitulo(s ? { conta: s.conta, date: s.date, titulo: slotTitulo(s) } : null);
   $('#prBody').innerHTML = '<div class="dcvazio">carregando o que o MKT Hub tem…</div>'; $('#prFoot').innerHTML = '';
   $('#ovProd').classList.add('open');
   let op;
@@ -2479,47 +2479,95 @@ async function abrirProducao(sid){
   catch(e){ if(PR.sid === sid) $('#prBody').innerHTML = '<div class="dcvazio">Não consegui abrir: '+esc(e.message)+'</div>'; return; }
   if(PR.sid !== sid || !$('#ovProd').classList.contains('open')) return;   // abriu outro post (ou fechou) no meio
   PR.op = op;
-  if(!s && op.post) $('#prSub').textContent = (op.post.date ? 'post de '+tfDia(op.post.date) : 'post sem dia')+' · '+op.post.conta+' · '+op.post.titulo;
+  if(!s && op.post) prSubtitulo({ conta: op.post.contaId, contaNome: op.post.conta, date: op.post.date, titulo: op.post.titulo });
   const g = PR.op.sugestao || {};
   PR.tipos = new Set(Array.isArray(g.tipo) ? g.tipo : g.tipo ? [g.tipo] : []); PR.formato = g.formato || ''; PR.resp = g.responsavel || ''; PR.prior = g.prioridade || 'media';
   desenhaProducao();
 }
+/** Linha de contexto embaixo do título: bolinha da conta, conta, dia e o nome do post. */
+function prSubtitulo(p){
+  const el = $('#prSub'); if(!p){ el.innerHTML = ''; return; }
+  el.innerHTML = (p.conta ? '<span class="cdot" style="background:'+contaCor(p.conta)+'"></span>' : '')+
+    '<span>'+esc(p.contaNome || nomeConta(p.conta))+'</span><span class="pr-pt">·</span><span>'+(p.date ? esc(tfDia(p.date)) : 'sem dia')+'</span><span class="pr-pt">·</span><span class="pr-subtit">'+esc(p.titulo || '')+'</span>';
+}
+// v3.92 (pedido do Zion: "tá feio. deixe mais clean, mais fácil de se achar"): rótulo em cima de cada campo, o que
+// produzir primeiro (título, formato, tipo), depois quem e quando; formato e prioridade em controle segmentado,
+// responsável num menu, só os tipos mais usados à vista (o resto em "mais tipos") e o amarelo só no botão principal.
+const PR_FORMATOS = ['Carrossel', 'Estático', 'Vídeo', 'Vídeo Ads', 'Stories', 'Outros'];
+const PR_PRIOR = [['urgente','Urgente'], ['alta','Alta'], ['media','Média'], ['baixa','Baixa']];
+const PR_TIPOS_VISIVEIS = 4;
 function desenhaProducao(){
   const o = PR.op, g = o.sugestao || {};
   if(!o.aprovada){ $('#prBody').innerHTML = '<div class="dcvazio">A copy deste post ainda não foi aprovada.</div>'; return; }
   if(o.taskId && !(o.prod && o.prod.dataPostPend !== undefined)){ $('#prBody').innerHTML = '<div class="dcvazio">Este post já tem task de produção'+(o.prod && o.prod.codigo ? ' ('+esc(o.prod.codigo)+')' : '')+'.</div>'; return; }
   if(o.taskId && o.prod){   // criada, mas a data do post não foi pro Hub
     $('#prBody').innerHTML = '<div class="pr-aviso">A task '+esc(o.prod.codigo || '')+' foi criada, mas a data do post ainda não foi pro Hub.</div>';
-    $('#prFoot').innerHTML = '<button class="mbtn primary" id="prCriar">Mandar a data do post de novo</button><span class="note" id="prMsg"></span>';
-    $('#prCriar').onclick = criaProducao; return;
+    $('#prFoot').innerHTML = '<button class="mbtn" id="prCancelar">Fechar</button><span class="note pr-msg" id="prMsg"></span><button class="mbtn primary" id="prCriar">Mandar a data do post de novo</button>';
+    $('#prCancelar').onclick = () => closeOv('ovProd'); $('#prCriar').onclick = criaProducao; return;
   }
-  const chips = (lista, sel, attr) => lista.map(v => '<button type="button" class="echip'+(sel(v) ? ' on' : '')+'" '+attr+'="'+esc(v)+'">'+esc(v)+'</button>').join('');
-  const rotPrior = { urgente:'urgente', alta:'alta', media:'média', baixa:'baixa' };
   const bloqueio = o.erro ? '<div class="pr-aviso erro">'+esc(o.erro)+'</div>' : !o.escrita ? '<div class="pr-aviso erro">A chave do MKT Hub no Render é de nível <b>'+esc(o.nivel || 'leitura')+'</b>: pra criar a task, a MKH_CHAVE precisa ser de nível completa.</div>' : '';
   // um envio anterior ficou sem resposta: mandar de novo repete aquele envio (o Hub devolve a task, se já criou)
   const pendente = o.pendente ? '<div class="pr-aviso">Um envio anterior deste post ficou sem resposta do MKT Hub. "Criar" manda de novo o mesmo pedido (o que está abaixo): se a task já foi criada, o post só é ligado a ela. Nada duplica.</div>' : '';
+  // sempre na mesma ordem, pra achar no mesmo lugar; formato novo do Hub entra no fim
+  const formatos = PR_FORMATOS.filter(v => (o.formatos || PR_FORMATOS).includes(v)).concat((o.formatos || []).filter(v => !PR_FORMATOS.includes(v)));
+  const seg = (id, rot, lista, sel, attr) => '<div class="pr-seg" id="'+id+'" role="radiogroup" aria-label="'+rot+'">'+lista.map(([v, r]) =>
+    '<button type="button" role="radio" aria-checked="'+(v === sel)+'" class="pr-segb'+(v === sel ? ' on' : '')+'" '+attr+'="'+esc(v)+'">'+esc(r)+'</button>').join('')+'</div>';
+  const pessoas = (o.pessoas || []).map(p => '<option value="'+esc(p.id)+'"'+(p.id === PR.resp ? ' selected' : '')+'>'+esc(p.nome)+'</option>').join('');
   $('#prBody').innerHTML = bloqueio+pendente+
-    '<div class="pr-grid">'+
-      '<label class="pr-l">Título</label><input id="prTitulo" class="pr-inp" maxlength="200" value="'+esc(g.titulo || '')+'">'+
-      '<label class="pr-l">Tipo <small>pode mais de um</small></label><div class="echips pr-chips" id="prTipos">'+chips(o.tipos || [], v => PR.tipos.has(v), 'data-prtipo')+'</div>'+
-      '<label class="pr-l">Formato</label><div class="echips pr-chips" id="prFormatos">'+chips(o.formatos || [], v => v === PR.formato, 'data-prfmt')+'</div>'+
-      '<label class="pr-l">Responsável</label><div class="echips pr-chips" id="prResp">'+(o.pessoas || []).map(p => '<button type="button" class="echip'+(p.id === PR.resp ? ' on' : '')+'" data-prresp="'+esc(p.id)+'">'+esc(p.nome)+'</button>').join('')+'</div>'+
-      // a data do post é a do calendário (uma fonte só): aparece aqui e acompanha o post no Hub quando ele muda de dia
-      '<label class="pr-l">Datas</label><div class="pr-datas"><span>entrega <input type="date" id="prPrazo" value="'+esc(g.prazo || '')+'"></span>'+
-        '<span class="pr-post" id="prDataPost" data-iso="'+esc(g.dataPost || '')+'" title="o dia do post no calendário: se o post mudar de dia, a data muda no Hub junto">post no ar <b>'+(g.dataPost ? esc(tfDia(g.dataPost)) : 'sem dia')+'</b></span></div>'+
-      '<label class="pr-l">Pontos e prioridade</label><div class="pr-datas"><input type="number" id="prPontos" min="1" max="100" value="'+(g.pontos || 1)+'" aria-label="pontos"><div class="echips pr-chips" id="prPrior">'+chips(o.prioridades || [], v => v === PR.prior, 'data-prprior').replace(/>(urgente|alta|media|baixa)</g, (m, k) => '>'+rotPrior[k]+'<')+'</div></div>'+
-    '</div>'+
-    '<details class="pr-brief"><summary>Briefing que vai pro Hub (a copy aprovada e a matriz)</summary><pre>'+esc(o.briefing || '')+'</pre></details>';
-  $('#prFoot').innerHTML = '<button class="mbtn primary" id="prCriar"'+(bloqueio ? ' disabled' : '')+'>'+icon('hub')+'Criar no MKT Hub</button><span class="note" id="prMsg">'+(o.empresa ? 'nasce em Pendente, na empresa '+esc(o.empresa.nome) : '')+'</span>';
+    '<div class="pr-form">'+
+      '<div class="pr-campo"><label class="pr-l" for="prTitulo">Título da task</label><input id="prTitulo" class="pr-inp" maxlength="200" value="'+esc(g.titulo || '')+'"></div>'+
+      '<div class="pr-campo"><span class="pr-l">Formato</span>'+seg('prFormatos', 'Formato', formatos.map(v => [v, v]), PR.formato, 'data-prfmt')+'</div>'+
+      '<div class="pr-campo"><span class="pr-l">Tipo <small>pode marcar mais de um</small></span><div class="pr-tipos" id="prTipos"></div></div>'+
+      '<div class="pr-sep" role="presentation"></div>'+
+      '<div class="pr-linha pr-l3">'+
+        '<div class="pr-campo"><label class="pr-l" for="prResp">Responsável</label><select id="prResp" class="pr-sel"><option value="">Escolher…</option>'+pessoas+'</select></div>'+
+        '<div class="pr-campo"><label class="pr-l" for="prPrazo">Entrega</label><input type="date" id="prPrazo" class="pr-inp" value="'+esc(g.prazo || '')+'"></div>'+
+        // a data do post é a do calendário (uma fonte só): aparece aqui e acompanha o post no Hub quando ele muda de dia
+        '<div class="pr-campo"><span class="pr-l">Post no ar <small>do calendário</small></span><div class="pr-ro" id="prDataPost" data-iso="'+esc(g.dataPost || '')+'" title="O dia do post no calendário. Se o post mudar de dia, a data muda no Hub junto.">'+icon('calendar')+'<b>'+(g.dataPost ? esc(tfDia(g.dataPost)) : 'sem dia')+'</b></div></div>'+
+      '</div>'+
+      '<div class="pr-linha pr-l2">'+
+        '<div class="pr-campo"><span class="pr-l">Prioridade</span>'+seg('prPrior', 'Prioridade', PR_PRIOR, PR.prior, 'data-prprior')+'</div>'+
+        '<div class="pr-campo"><label class="pr-l" for="prPontos">Pontos</label><div class="pr-step"><button type="button" data-prstep="-1" aria-label="Um ponto a menos">−</button><input type="number" id="prPontos" min="1" max="100" value="'+(g.pontos || 1)+'"><button type="button" data-prstep="1" aria-label="Um ponto a mais">+</button></div></div>'+
+      '</div>'+
+      '<details class="pr-brief"><summary>'+icon('doc')+'<span><b>Briefing</b> a copy aprovada e a matriz do post</span>'+icon('chevR')+'</summary><pre>'+esc(o.briefing || '')+'</pre></details>'+
+    '</div>';
+  $('#prFoot').innerHTML = '<button class="mbtn" id="prCancelar">Cancelar</button>'+
+    '<span class="note pr-msg" id="prMsg">'+(o.empresa ? 'Nasce em Pendente, na '+esc(o.empresa.nome)+'.' : '')+'</span>'+
+    '<button class="mbtn primary" id="prCriar"'+(bloqueio ? ' disabled' : '')+'>'+icon('hub')+'Criar no MKT Hub</button>';
+  prDesenhaTipos();
   const B = $('#prBody');
-  B.querySelectorAll('[data-prtipo]').forEach(b => b.onclick = () => { const v = b.dataset.prtipo; if(PR.tipos.has(v)) PR.tipos.delete(v); else PR.tipos.add(v); b.classList.toggle('on', PR.tipos.has(v)); });
-  const unico = (sel, attr, set) => B.querySelectorAll('['+attr+']').forEach(b => b.onclick = () => { set(b.getAttribute(attr)); B.querySelectorAll(sel+' ['+attr+']').forEach(x => x.classList.toggle('on', x === b)); });
+  const unico = (id, attr, set) => B.querySelectorAll('#'+id+' ['+attr+']').forEach(b => b.onclick = () => {
+    set(b.getAttribute(attr)); B.querySelectorAll('#'+id+' ['+attr+']').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', String(x === b)); });
+  });
   // trocou o formato: o [FORMATO] do começo do título acompanha (se o título ainda começa com ele)
-  unico('#prFormatos', 'data-prfmt', v => { PR.formato = v; const t = $('#prTitulo'); if(t && /^\[[^\]]*\]\s*/.test(t.value)) t.value = t.value.replace(/^\[[^\]]*\]\s*/, '['+v.toUpperCase()+'] '); });
-  unico('#prResp', 'data-prresp', v => { PR.resp = v; });
-  unico('#prPrior', 'data-prprior', v => { PR.prior = v; });
-  if(o.pendente) B.querySelectorAll('.pr-grid input, .pr-grid button').forEach(x => { x.disabled = true; });   // repete igual: nada muda aqui
+  unico('prFormatos', 'data-prfmt', v => { PR.formato = v; const t = $('#prTitulo'); if(t && /^\[[^\]]*\]\s*/.test(t.value)) t.value = t.value.replace(/^\[[^\]]*\]\s*/, '['+v.toUpperCase()+'] '); });
+  unico('prPrior', 'data-prprior', v => { PR.prior = v; });
+  $('#prResp').onchange = ev => { PR.resp = ev.target.value; ev.target.classList.remove('faltando'); prErro(''); };
+  B.querySelectorAll('[data-prstep]').forEach(b => b.onclick = () => { const i = $('#prPontos'); i.value = String(Math.min(100, Math.max(1, (parseInt(i.value) || 1) + (+b.dataset.prstep)))); });
+  if(o.pendente) B.querySelectorAll('.pr-form input, .pr-form button, .pr-form select').forEach(x => { x.disabled = true; });   // repete igual: nada muda aqui
+  $('#prCancelar').onclick = () => closeOv('ovProd');
   $('#prCriar').onclick = criaProducao;
+}
+/** Tipos: os mais usados pra esse formato à vista (e os marcados); o resto em "mais tipos". */
+function prDesenhaTipos(){
+  const o = PR.op, todos = o.tipos || [], el = $('#prTipos'); if(!el) return;
+  const vis = PR.maisTipos ? todos : todos.filter((v, i) => i < PR_TIPOS_VISIVEIS || PR.tipos.has(v));
+  const resto = todos.length - vis.length;
+  el.innerHTML = vis.map(v => '<button type="button" class="pr-tipo'+(PR.tipos.has(v) ? ' on' : '')+'" aria-pressed="'+PR.tipos.has(v)+'" data-prtipo="'+esc(v)+'">'+icon('check')+'<span>'+esc(v)+'</span></button>').join('')+
+    (resto > 0 ? '<button type="button" class="pr-mais" id="prTiposMais">+ mais '+resto+' tipo'+(resto > 1 ? 's' : '')+'</button>'
+      : PR.maisTipos && todos.length > PR_TIPOS_VISIVEIS ? '<button type="button" class="pr-mais" id="prTiposMais">mostrar menos</button>' : '');
+  el.querySelectorAll('[data-prtipo]').forEach(b => b.onclick = () => {
+    const v = b.dataset.prtipo; if(PR.tipos.has(v)) PR.tipos.delete(v); else PR.tipos.add(v);
+    b.classList.toggle('on', PR.tipos.has(v)); b.setAttribute('aria-pressed', String(PR.tipos.has(v))); prErro('');
+  });
+  const m = $('#prTiposMais'); if(m) m.onclick = () => { PR.maisTipos = !PR.maisTipos; prDesenhaTipos(); };
+  if(PR.op && PR.op.pendente) el.querySelectorAll('button').forEach(x => { x.disabled = true; });
+}
+/** Mensagem do rodapé (erro em vermelho) sem apagar o aviso de onde a task nasce. */
+function prErro(txt){
+  const m = $('#prMsg'); if(!m) return;
+  if(txt){ m.textContent = txt; m.classList.add('erro'); return; }
+  if(m.classList.contains('erro')){ m.classList.remove('erro'); m.textContent = PR.op && PR.op.empresa ? 'Nasce em Pendente, na '+PR.op.empresa.nome+'.' : ''; }
 }
 async function criaProducao(){
   const bt = $('#prCriar'), msg = $('#prMsg');
@@ -2530,8 +2578,13 @@ async function criaProducao(){
     quem: (PERFIL.get()||{}).nome || '',
   };
   if(!pronta){
-    const falta = !corpo.titulo ? 'o título' : !corpo.tipo.length ? 'o tipo' : !corpo.formato ? 'o formato' : !corpo.responsavel ? 'o responsável' : !corpo.prazo ? 'a data de entrega' : '';
-    if(falta){ msg.textContent = 'Falta '+falta+'.'; msg.classList.add('erro'); return; }
+    // o que falta fica marcado no próprio campo, e o foco vai pra ele
+    const falta = !corpo.titulo ? ['o título', '#prTitulo'] : !corpo.formato ? ['o formato', '#prFormatos button'] : !corpo.tipo.length ? ['o tipo', '#prTipos button'] : !corpo.responsavel ? ['o responsável', '#prResp'] : !corpo.prazo ? ['a data de entrega', '#prPrazo'] : null;
+    if(falta){
+      prErro('Falta '+falta[0]+'.');
+      const el = document.querySelector(falta[1]); if(el){ el.focus(); if(el.id === 'prResp') el.classList.add('faltando'); }
+      return;
+    }
   }
   bt.disabled = true; msg.classList.remove('erro'); msg.textContent = 'criando no MKT Hub…';
   try{
@@ -2542,7 +2595,7 @@ async function criaProducao(){
     const s = S.slots.find(x => x.id === PR.sid), dia = s ? s.date : (o && o.post ? o.post.date : null);
     if(r.aviso) toast(r.aviso, true, 9000);
     else toast('Task '+(r.prod && r.prod.codigo ? r.prod.codigo+' ' : '')+'criada no MKT Hub e ligada ao post'+(dia ? ' de '+brData(dia) : ''));
-  }catch(e){ msg.textContent = e.message; msg.classList.add('erro'); bt.disabled = false; }
+  }catch(e){ prErro(e.message); bt.disabled = false; }
 }
 $('#dcExc').addEventListener('change', abrirListaDocs);
 $('#btnDocs').onclick = abrirListaDocs;
