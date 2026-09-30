@@ -413,7 +413,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.93'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.94'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1069,7 +1069,9 @@ function cardEl(s){
   const clb = (s.collab||[]);
   if(S.selecao.has(s.id)) d.classList.add('sel');
   const avatar = resp ? '<span class="avatar" title="'+esc(resp)+'">'+esc(initials(resp))+'</span>' : '';
+  const esit = entSit(s);                   // v3.94: a entrega da task deste post (MKT Hub) atrasou ou está em risco
   const alertas =
+    (esit==='atrasada' || esit==='risco' ? '<span class="mk t-ent '+esit+'" title="'+esc(entDica(s, esit))+'">'+icon('clock')+'</span>' : '')+
     (s.fixo?'<span class="mk t-pin" title="Data fixa: não se move no empurrar">'+icon('pin')+'</span>':'')+
     (isGm(s) && !mz?'<span class="mk t-gm" title="Grande marca na capa">'+icon('star')+'</span>':'')+
     (clb.length?'<span class="mk t-clb" title="Collab: '+esc([s.conta].concat(clb).map(c=>S.contas[c]?S.contas[c].nome:c).join(' + '))+'">'+
@@ -1344,6 +1346,118 @@ function postsPorDia(mes){
   Object.values(porDia).forEach(a=>a.sort((x,z)=>(ordem[x.conta]||9)-(ordem[z.conta]||9)));
   return porDia;
 }
+// ================= v3.94: entregas do dia (prazo da task no MKT Hub) =================
+// Pedido do Zion: no dia em que a task tem que ficar pronta no MKT Hub, um botão pequeno que abre o que vence ali e
+// mostra o dia em que cada post sai (a task fica ligada ao post no dia dele). Decisão dele (30/09/2026):
+// ATRASADA = passou o dia de entrega e a task ainda não foi pra aprovação (A fazer, Produção ou Alterar);
+// EM RISCO = ainda não foi pra aprovação e a entrega é hoje ou amanhã, ou está marcada depois do dia do post.
+// O sinal aparece no botão do dia e, discreto, como um relógio no card do post (sem poluir).
+function amanhaStr(){ const d = new Date(); d.setDate(d.getDate() + 1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+/** Situação da entrega do post: null (sem task do Hub ou sem prazo), 'entregue', 'atrasada', 'risco' ou 'ok'. */
+function entSit(s){
+  if(!s || !s.taskId || !s.hub || !s.hub.prazo) return null;
+  const b = stBucket(s);
+  if(s.postado || b === 'aprovar' || b === 'pronto') return 'entregue';
+  const p = s.hub.prazo;
+  if(p < hojeStr()) return 'atrasada';
+  if(p <= amanhaStr() || (s.date && p > s.date)) return 'risco';
+  return 'ok';
+}
+function entRiscoTxt(s){ const p = s.hub.prazo; return s.date && p > s.date ? 'depois do post' : p === hojeStr() ? 'vence hoje' : 'vence amanhã'; }
+/** Dica do relógio no card do post (só atrasada ou em risco). */
+function entDica(s, sit){
+  const onde = ' (' + (s.hub.codigo || 'MKT Hub') + (s.statusCache && s.statusCache.nome ? ', ' + s.statusCache.nome : '') + ')';
+  if(sit === 'atrasada') return 'Entrega atrasada: era pra ' + tfDia(s.hub.prazo) + ' no MKT Hub' + onde;
+  const r = entRiscoTxt(s);
+  return 'Entrega em risco: ' + (r === 'depois do post' ? 'marcada pra ' + tfDia(s.hub.prazo) + ', depois do dia do post' : r) + onde;
+}
+const ENT_ORDEM = { atrasada: 0, risco: 1, ok: 2, entregue: 3 };
+/** As entregas de cada dia na aba aberta (posts ligados a uma task do Hub com prazo). Refaz quando o estado muda. */
+function entMapa(){
+  const chave = S.aba + '|' + [...S.filtroConta].join(',') + '|' + hojeStr();
+  if(S._ent && S._ent.slots === S.slots && S._ent.chave === chave) return S._ent.mapa;
+  const mapa = {};
+  for(const s of slotsVisiveis()) if(entSit(s)) (mapa[s.hub.prazo] = mapa[s.hub.prazo] || []).push(s);
+  for(const k in mapa) mapa[k].sort((a, b) => (ENT_ORDEM[entSit(a)] - ENT_ORDEM[entSit(b)]) || String(a.date || '9').localeCompare(String(b.date || '9')));
+  S._ent = { slots: S.slots, chave, mapa };
+  return mapa;
+}
+/** Botão do dia: caixinha + quantas vencem ali. Vermelho se tem atrasada, laranja se tem em risco, apagado se já foi tudo. */
+function entBotao(lista){
+  const n = { atrasada: 0, risco: 0, entregue: 0 };
+  lista.forEach(s => { const k = entSit(s); if(k in n) n[k]++; });
+  const cls = n.atrasada ? ' atrasada' : n.risco ? ' risco' : n.entregue === lista.length ? ' feita' : '';
+  const pl = (q, um, v) => q + ' ' + (q > 1 ? v : um);
+  const tit = pl(lista.length, 'entrega', 'entregas') + ' neste dia (prazo no MKT Hub)' + (n.atrasada ? ' · ' + pl(n.atrasada, 'atrasada', 'atrasadas') : '') +
+    (n.risco ? ' · ' + n.risco + ' em risco' : '') + (n.entregue ? ' · ' + pl(n.entregue, 'entregue', 'entregues') : '') + '. Clique pra ver.';
+  return '<button type="button" class="entbtn'+cls+'" title="'+esc(tit)+'" aria-label="'+esc(tit)+'" aria-haspopup="dialog" aria-expanded="false">'+icon('box')+'<b>'+lista.length+'</b></button>';
+}
+/** Uma linha do balão: etapa, código e título da task, quem faz, o dia em que o post sai e o selo. */
+function entLinha(s){
+  const sit = entSit(s), st = s.statusCache || {}, cod = s.hub.codigo || '', url = /^https?:\/\//i.test(s.hub.url || '') ? s.hub.url : '';
+  const selo = sit === 'atrasada' ? '<span class="epselo atrasada">atrasada</span>'
+    : sit === 'risco' ? '<span class="epselo risco">'+esc(entRiscoTxt(s))+'</span>'
+    : sit === 'entregue' ? '<span class="epselo feita">'+icon('check')+'entregue</span>' : '';
+  return '<div class="eplin '+sit+'" role="button" tabindex="0" data-epsid="'+esc(s.id)+'" title="Ver o post no dia em que ele sai">'+
+    '<span class="epdot" style="background:'+esc(st.color || '#8E8E93')+'"></span>'+
+    '<span class="eptxt"><span class="eptit">'+(cod ? '<span class="epcod">'+esc(cod)+'</span>' : '')+esc(s.tituloCache || slotTitulo(s))+'</span>'+
+      '<span class="epsub">'+esc(st.nome || 'sem etapa')+(s.assigneeCache ? ' · '+esc(s.assigneeCache) : '')+'</span>'+
+      '<span class="eppost">'+icon('calendar')+'sai <b>'+(s.date ? esc(tfDia(s.date)) : 'sem dia')+'</b> · '+esc(nomeConta(s.conta))+'</span></span>'+
+    '<span class="epfim">'+selo+(url ? '<a class="ephub" href="'+esc(url)+'" target="_blank" rel="noopener" title="Abrir no MKT Hub" aria-label="Abrir no MKT Hub">'+icon('external')+'</a>' : '')+'</span>'+
+  '</div>';
+}
+function fechaEntregas(){ const p = document.getElementById('entPop'); if(p && p._fecha) p._fecha(); }
+/** Balão das entregas do dia, embaixo do botão (ou em cima, se não couber). Esc, clique fora ou rolar a página fecham. */
+function abrirEntregas(dia, ancora){
+  const ja = document.getElementById('entPop'), mesmo = ja && ja.dataset.dia === dia;
+  fechaEntregas(); if(mesmo) return;                                  // clicar de novo no mesmo dia só fecha
+  const lista = (entMapa()[dia] || []).slice(); if(!lista.length) return;
+  const p = document.createElement('div');
+  p.className = 'entpop'; p.id = 'entPop'; p.dataset.dia = dia; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Entregas de '+tfDia(dia));
+  p.innerHTML = '<div class="ephead"><b>Entregas de '+esc(tfDia(dia))+'</b><span>prazo no MKT Hub</span></div>'+
+    '<div class="eplista">'+lista.map(entLinha).join('')+'</div>'+
+    '<div class="epfoot">Clique na linha pra ver o post no dia em que ele sai.</div>';
+  document.body.appendChild(p);
+  const r = ancora.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+  let top = r.bottom + 6;
+  if(top + h > innerHeight - 8 && r.top - h - 6 > 8) top = r.top - h - 6;
+  p.style.left = Math.min(Math.max(8, r.left - 6), innerWidth - w - 8)+'px'; p.style.top = Math.max(8, top)+'px';
+  ancora.classList.add('on'); ancora.setAttribute('aria-expanded', 'true');
+  const fora = ev => { if(!p.contains(ev.target) && !ancora.contains(ev.target)) fecha(); };
+  const tecla = ev => { if(ev.key === 'Escape'){ ev.preventDefault(); ev.stopPropagation(); fecha(); if(ancora.isConnected) ancora.focus(); } };
+  const rola = ev => { if(ev.target && ev.target.nodeType === 1 && p.contains(ev.target)) return; fecha(); };
+  function fecha(){
+    document.removeEventListener('mousedown', fora, true); document.removeEventListener('keydown', tecla, true);
+    window.removeEventListener('scroll', rola, true); window.removeEventListener('resize', fecha);
+    p.remove(); ancora.classList.remove('on'); ancora.setAttribute('aria-expanded', 'false');
+  }
+  p._fecha = fecha;
+  p.querySelectorAll('.eplin').forEach(l => {
+    const vai = () => { fecha(); irParaPost(l.dataset.epsid); };
+    l.onclick = ev => { if(!ev.target.closest('.ephub')) vai(); };
+    l.onkeydown = ev => { if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); vai(); } };
+  });
+  document.addEventListener('mousedown', fora, true); document.addEventListener('keydown', tecla, true);
+  window.addEventListener('scroll', rola, true); window.addEventListener('resize', fecha);
+  const l1 = p.querySelector('.eplin'); if(l1) l1.focus({ preventScroll: true });
+}
+/** Leva até o card do post (no dia em que ele sai) e faz ele piscar. */
+function irParaPost(sid){
+  const s = S.slots.find(x => x.id === sid);
+  if(!s || !s.date) return toast('Esse post está sem dia no calendário.');
+  let c = document.querySelector('.card[data-id="'+sid+'"]');
+  if(!c){
+    if(S.view === 'semana'){
+      const rows = rowsDoMes(S.mes), wi = rows.findIndex(r => r.some(x => x.date === s.date));
+      if(wi >= 0 && wi !== S.semIdx){ S.semIdx = wi; render(); }
+    } else irParaMes(s.date.slice(0, 7));
+    c = document.querySelector('.card[data-id="'+sid+'"]');
+  }
+  if(!c) return toast('Esse post está escondido pelo filtro: volte pra "Todos os posts" pra ver.');
+  c.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  c.classList.remove('pisca'); void c.offsetWidth; c.classList.add('pisca');
+  setTimeout(() => c.classList.remove('pisca'), 2600);
+}
 /** Uma célula de dia (usada nas duas visões). */
 function celulaDia(c, di, porDia, semana){
   const hoje = hojeStr();
@@ -1362,8 +1476,10 @@ function celulaDia(c, di, porDia, semana){
   const mzd = mzk ? mzTipoDoDia(c.date, mzk) : null;
   const mzLabel = mzd ? (mzd.tipo || mzd.opcoes.join(' / ')) : '';
   const mzHacks = mzd && mzk === 'weevo' ? ' · e mais '+((new Date(mzUtc(c.date)).getUTCDay()+6)%7 >= 5 ? 2 : 4)+' hacks e virais (fora da matriz)' : '';
+  const ents = entMapa()[c.date] || [];                       // v3.94: o que vence neste dia no MKT Hub
   cell.innerHTML = '<div class="day-top"><span class="dleft"><span class="dnum">'+c.dnum+ estrela + '</span>'+
     (mzd ? '<span class="mzdia" style="--c:'+(mzd.tipo?mzObjCor(mzd.tipo, mzk):'#FCC100')+'" title="Matriz: '+esc(mzLabel)+' · semana '+mzd.semana+esc(mzHacks)+'">'+esc(mzd.tipo || 'Em aberto')+'</span>' : '')+
+    (ents.length ? entBotao(ents) : '')+
     '</span><span class="day-acts">'+
       (sb ? '' : '<button class="vagabtn" title="Sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>')+
       '<button class="addbtn" title="Criar neste dia" aria-haspopup="menu">'+icon('plus','s')+'</button>'+
@@ -1375,6 +1491,8 @@ function celulaDia(c, di, porDia, semana){
   cell.querySelector('.addbtn').onclick = ev=>{ ev.stopPropagation(); abrirCriarDia(dateStr, ev.currentTarget); };
   const vb = cell.querySelector('.vagabtn');
   if(vb) vb.onclick = ev=>{ ev.stopPropagation(); abrirPopVaga(dateStr, ev.currentTarget); };
+  const eb = cell.querySelector('.entbtn');
+  if(eb) eb.onclick = ev=>{ ev.stopPropagation(); abrirEntregas(dateStr, eb); };
   if(S.clip){
     const cb = document.createElement('button'); cb.className='colar-aqui'; cb.innerHTML = icon('plus','s')+'Colar aqui';
     cb.onclick = (e)=>{ e.stopPropagation(); colarNoDia(dateStr); };
