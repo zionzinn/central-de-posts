@@ -4,8 +4,10 @@
    - folha da tarefa: explicação, período, relógio, posts do período e aprovação post a post
    - cápsula do relógio no centro de baixo (aparece em qualquer tela, até em cima do doc)
    - avisos "pra aprovar" (pra quem aprova) e "pra alterar" (pra quem faz)
-   - v3.84: com a chave do MKT Hub de nível completa, "Mandar pro MKT Hub" cria lá a tarefa mãe com uma
-     subtarefa por post; a aprovação é no Hub e o painel acompanha (faixa do Hub na folha, código em cada post)
+   - v3.84/3.85: a tarefa ia pro MKT Hub (mãe + subtarefas) e a aprovação era lá
+   - v3.88 (fluxo novo, pedido do Zion em 30/09/2026): nada vai mais pro Hub. A tarefa de matriz CRIA os cards
+     amarelos dos dias dela e não tem aprovação (conta os cards preenchidos); só a copy é aprovada, aqui mesmo.
+     Concluir a tarefa é só do ADMIN
    Carregado ANTES do script principal do index.html: aqui só tem funções; tudo que usa S, $, api, esc,
    icon, toast, PERFIL... roda depois, chamado pelo painel. O relógio mora em js/cronometro.js (CRON).
    ===================================================================== */
@@ -14,14 +16,9 @@ const TF = { aberta: null, novo: null, det: null, sel: null, exp: new Set(), alt
 const TF_ABAS_MATRIZ = ['SEUBONÉ'];
 const TF_TIPOS = {
   matriz: { nome: 'Matriz', k: 'm', cor: 'var(--mz)', icone: 'calmz',
-    exp: 'Preencha a matriz de cada post do período: formato, ângulo, pauta quente, tema, tese, gancho, descrição e quem faz. Dê play no relógio quando começar: o painel anota sozinho em qual post você está. Terminou, mande pra aprovação. O Zion aprova post a post e cada matriz aprovada já libera a copy daquele post.' },
+    exp: 'Escolha os dias e crie a tarefa: cada dia ganha um card amarelo da matriz. Preencha formato, ângulo, pauta quente, tema, tese, gancho e descrição de cada um. Dê play no relógio quando começar: o painel anota sozinho em qual card você está. Não precisa terminar a matriz pra começar a copy.' },
   copy: { nome: 'Copy', k: 'c', cor: 'var(--blue)', icone: 'doc',
-    exp: 'Escreva a copy de cada post do período no documento dele. Não precisa esperar a matriz ser aprovada: o post só avisa quando ela ainda não foi. Dê play no relógio quando começar: o painel anota sozinho em qual documento você está. Terminou, mande pra aprovação. Copy aprovada segue pra produção (arte ou vídeo no MKT Hub).' },
-};
-// v3.84: com a chave do MKT Hub de nível completa, a tarefa vai pro Hub (mãe + uma subtarefa por post) e a aprovação é lá
-const TF_EXP_HUB = {
-  matriz: 'Preencha a matriz de cada post do período: formato, ângulo, pauta quente, tema, tese, gancho, descrição e quem faz. Dê play no relógio quando começar: o painel anota sozinho em qual post você está. Terminou, mande pro MKT Hub: cada post vira uma subtarefa (com a matriz e o seu tempo) dentro da tarefa mãe do período. A aprovação é lá, e cada matriz aprovada libera a copy daquele post.',
-  copy: 'Escreva a copy de cada post do período no documento dele. Não precisa esperar a matriz ser aprovada: o post só avisa quando ela ainda não foi. Dê play no relógio quando começar: o painel anota sozinho em qual documento você está. Terminou, mande pro MKT Hub: cada post vira uma subtarefa (com o texto e o seu tempo) dentro da tarefa mãe do período. A aprovação é lá; copy aprovada segue pra produção.',
+    exp: 'Escreva a copy de cada post do período no documento dele: o card da matriz vira o card da copy. Dê play no relógio quando começar: o painel anota sozinho em qual documento você está. Terminou, mande pra aprovação: o Zion ou a Maria aprovam aqui no B.O.N.E. Copy aprovada vira task de produção no MKT Hub.' },
 };
 const TF_DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const TF_ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.8v12.4a.8.8 0 0 0 1.2.7l9.6-6.2a.8.8 0 0 0 0-1.4L9.7 5.1a.8.8 0 0 0-1.2.7z"/></svg>';
@@ -42,41 +39,54 @@ function tfSoma(iso, n) { const d = new Date(iso + 'T12:00:00'); d.setDate(d.get
 function tfSegunda(iso) { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return tfIso(d); }
 function tfDia(iso) { return TF_DIAS[new Date(iso + 'T12:00:00').getDay()] + ' ' + brData(iso); }
 function tfAprov(s, k) { return (s && s.aprov && s.aprov[k]) || null; }
-/** v3.84: a aprovação deste post é no MKT Hub (foi mandado pra lá e o painel está ligado ao Hub). */
-function tfNoHub(a) { return !!(a && a.hub && S.temFonte); }
+/** v3.84: a aprovação deste post era no MKT Hub. v3.88: sempre aqui (a migração tirou a marca do Hub dos posts). */
+function tfNoHub() { return false; }
+/** v3.88: pode concluir (arquivar) a tarefa? Com login, só ADMIN; sem login (PC local), todo mundo. */
+function tfPodeConcluir() { return !S.eu || S.eu.papel === 'admin'; }
 function tfSlots(t) { const m = new Map(S.slots.map(s => [s.id, s])); return t.itens.map(id => m.get(id)).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date) || slotTitulo(a).localeCompare(slotTitulo(b))); }
 function tfNomeTarefa(t) { return TF_TIPOS[t.tipo].nome + ' · ' + nomeAba(t.aba); }
+/**
+ * v3.88: prévia da tarefa de matriz: cada dia do período e o que acontece nele (mesma regra do servidor: dia que já
+ * tem post da SeuBoné fica como está; os outros ganham um card amarelo com o tipo do dia).
+ */
+function tfDiasMatriz(de, ate) {
+  const dias = [];
+  for (let d = de; d <= ate && dias.length < 40; d = tfSoma(d, 1)) {
+    const l = S.slots.filter(s => s.date === d && (s.conta === 'seubone' || (s.collab || []).includes('seubone')));
+    const mz = l.find(s => s.matrizSB);
+    dias.push({ d, s: mz || l[0] || null, tipo: (mzTipoDoDia(d) || {}).tipo || '' });
+  }
+  return dias;
+}
 /** Mesma regra do servidor (lib/tarefas.js), só pra mostrar a prévia antes de criar. */
 function tfItensPrevia(tipo, aba, de, ate) {
   const contas = new Set(contasDaAba(aba));
   return S.slots.filter(s => s.date && s.date >= de && s.date <= ate && contas.has(s.conta) && !s.postado && !(s.sugestao && !s.taskId) && (tipo !== 'matriz' || !!s.matrizSB))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
-/** A matriz ou a copy deste post está pronta pra mandar? (matriz: os 8 campos; copy: documento com texto) */
+/** A matriz está preenchida (os 7 campos) ou a copy está pronta pra mandar (documento com texto)? */
 function tfPronto(s, t) {
   if (t.tipo === 'matriz') return !!(s.matrizSB && mzProgresso(s.matrizSB).cheio);
   const d = TF.det && TF.det.docs ? TF.det.docs[s.id] : null;
   return !!(d && d.palavras >= 15);
 }
 function tfEstado(s, t) {
+  if (t.tipo === 'matriz') return tfPronto(s, t) ? { cod: 'feita', rot: 'preenchida', cor: 'var(--green)' } : { cod: 'fazer', rot: 'a preencher', cor: 'var(--gray)' };   // v3.88
   const a = tfAprov(s, tfK(t));
   if (a && a.st === 'aprovado') return { cod: 'aprovado', rot: 'aprovada', cor: 'var(--green)' };
-  if (a && a.st === 'enviado' && a.hub) return { cod: 'enviado', rot: a.pend ? 'no Hub · Pendente' : 'em aprovação no Hub', cor: 'var(--orange)' };
   if (a && a.st === 'enviado') return { cod: 'enviado', rot: 'em aprovação', cor: 'var(--orange)' };
   if (a && a.st === 'alterar') return { cod: 'alterar', rot: 'pra alterar', cor: 'var(--red)' };
   if (tfPronto(s, t)) return { cod: 'pronto', rot: 'pronta pra mandar', cor: 'var(--blue)' };
   return { cod: 'fazer', rot: 'a fazer', cor: 'var(--gray)' };
 }
-/** Números do card: quantos aprovados, em aprovação, pra alterar e (copy) liberados. */
+/** Números do card: copy (aprovadas, em aprovação, pra alterar) ou matriz (v3.88: cards preenchidos, em "aprovado"). */
 function tfConta(t) {
-  const k = tfK(t), c = { total: 0, aprovado: 0, enviado: 0, alterar: 0, liberada: 0, hub: 0 };
+  const k = tfK(t), c = { total: 0, aprovado: 0, enviado: 0, alterar: 0 };
   for (const s of tfSlots(t)) {
     c.total++;
+    if (t.tipo === 'matriz') { if (tfPronto(s, t)) c.aprovado++; continue; }
     const a = tfAprov(s, k);
-    if (a) {
-      c[a.st === 'aprovado' ? 'aprovado' : a.st === 'enviado' ? 'enviado' : 'alterar']++;
-      if (a.st === 'enviado' && tfNoHub(a)) c.hub++;                  // v3.84: esperando no MKT Hub (aprovação lá)
-    } else if (t.tipo === 'copy' && (!s.matrizSB || (tfAprov(s, 'm') || {}).st === 'aprovado')) c.liberada++;
+    if (a) c[a.st === 'aprovado' ? 'aprovado' : a.st === 'enviado' ? 'enviado' : 'alterar']++;
   }
   return c;
 }
@@ -128,9 +138,9 @@ function renderFaixa() {
   tfPintaRelogios();
   tfRefresca();
 }
-/** Assinatura do que o Hub muda na folha aberta: a mãe (etapa) e a aprovação de cada post. */
-function tfFirma(t) { const k = tfK(t); return JSON.stringify([t.hub ? [t.hub.maes, t.hub.subs] : null, tfSlots(t).map(s => s.aprov && s.aprov[k])]); }
-/** v3.84: a folha aberta acompanha o Hub (a mãe mudou de etapa, alguém aprovou lá) sem atrapalhar quem está digitando. */
+/** Assinatura do que muda na folha aberta sem ela mexer: a aprovação de cada post (e a matriz de cada card). */
+function tfFirma(t) { const k = tfK(t); return JSON.stringify(tfSlots(t).map(s => t.tipo === 'matriz' ? mzProgresso(s.matrizSB || {}).n : s.aprov && s.aprov[k])); }
+/** A folha aberta acompanha o que outra pessoa fez (aprovou, pediu alteração) sem atrapalhar quem está digitando. */
 function tfRefresca() {
   const ov = document.getElementById('ovTarefa');
   if (!ov || !ov.classList.contains('open') || !TF.aberta || TF.novo || TF.alt || TF.ligar) return;
@@ -152,16 +162,14 @@ function tfCardHtml(aba, tipo) {
   }
   const c = tfConta(t), dona = tfSouDona(t), aprova = tfPodeAprovar(t), pct = n => c.total ? (n / c.total * 100).toFixed(1) : 0;
   const chips = [];
-  if (c.enviado - c.hub) chips.push('<span class="tc-chip env"><i></i>' + (c.enviado - c.hub) + (aprova && !dona ? ' pra aprovar' : ' em aprovação') + '</span>');
-  if (c.hub) chips.push('<span class="tc-chip env"><i></i>' + c.hub + ' no MKT Hub</span>');
+  if (c.enviado) chips.push('<span class="tc-chip env"><i></i>' + c.enviado + (aprova && !dona ? ' pra aprovar' : ' em aprovação') + '</span>');
   if (c.alterar) chips.push('<span class="tc-chip alt"><i></i>' + c.alterar + ' pra alterar</span>');
-  if (tipo === 'copy' && c.liberada) chips.push('<span class="tc-chip lib"><i></i>' + c.liberada + ' liberada' + (c.liberada > 1 ? 's' : '') + '</span>');
   return '<div class="tcard" style="--tc:' + T.cor + '" data-id="' + t.id + '">' +
     '<button class="tc-abre" data-id="' + t.id + '" aria-label="Abrir a tarefa de ' + T.nome + '">' +
       '<span class="tc-l1"><span class="tc-ic">' + icon(T.icone) + '</span><b>' + T.nome + '</b><span class="tc-per">' + brData(t.de) + ' a ' + brData(t.ate) + ' · ' + esc(t.por) + '</span>' +
         (outras ? '<span class="tc-mais" title="mais ' + outras + ' tarefa(s) de ' + T.nome.toLowerCase() + ' aberta(s)">+' + outras + '</span>' : '') + '</span>' +
       '<span class="tc-l2"><span class="tc-bar" aria-hidden="true">' + [['ok', c.aprovado], ['env', c.enviado], ['alt', c.alterar]].filter(x => x[1]).map(x => '<i class="' + x[0] + '" style="width:' + pct(x[1]) + '%"></i>').join('') + '</span>' +
-        '<span class="tc-num">' + (c.aprovado + c.enviado) + ' de ' + c.total + ' feitas</span>' + chips.join('') + '</span>' +
+        '<span class="tc-num">' + (tipo === 'matriz' ? c.aprovado + ' de ' + c.total + ' preenchida' + (c.total === 1 ? '' : 's') : (c.aprovado + c.enviado) + ' de ' + c.total + ' feitas') + '</span>' + chips.join('') + '</span>' +
     '</button>' +
     '<span class="tc-rel"><span class="nf tc-nf" data-id="' + t.id + '" role="timer"></span><span class="tc-tot" data-id="' + t.id + '"></span><button class="rl-btn tc-rl" data-id="' + t.id + '"></button></span>' +
   '</div>';
@@ -267,7 +275,7 @@ async function tfRelogioDoPost(slotId, tipo) {
   if (!t) {
     const p = tfPeriodoLivre(tipo, aba, s.date);
     try {
-      const r = await api('/api/tarefas', { method: 'POST', body: JSON.stringify({ tipo, aba, de: p.de, ate: p.ate, por: tfEu() }) });
+      const r = await api('/api/tarefas', { method: 'POST', body: JSON.stringify({ tipo, aba, de: p.de, ate: p.ate, por: tfEu(), semCards: true }) });
       t = r.tarefa; S.tarefas = (S.tarefas || []).concat(t);
       toast('Tarefa de ' + TF_TIPOS[tipo].nome.toLowerCase() + ' criada: ' + brData(p.de) + ' a ' + brData(p.ate));
     } catch (err) { toast(err.message, true); return; }
@@ -286,7 +294,6 @@ function abrirTarefa(id, focoSlot) {
   tfDesenha();
   $('#ovTarefa').classList.add('open');
   tfCarregaDetalhe(focoSlot);
-  if (t.hub && t.hub.job && t.hub.job.st === 'enviando') tfHubAcompanha(t.id, true);   // v3.84: envio em andamento
 }
 function novaTarefa(tipo, aba) {
   if (tipo === 'matriz' && !TF_ABAS_MATRIZ.includes(aba)) { toast('Por enquanto a matriz existe só na SeuBoné', true); return; }
@@ -329,7 +336,7 @@ function tfDesenha() {
   $('#tfHead').innerHTML =
     '<div class="tf-kick"><i></i>' + T.nome + ' · ' + esc(nomeAba(aba)) + '</div>' +
     '<div class="mtit">' + (novo ? 'Nova tarefa de ' + T.nome.toLowerCase() : T.nome + ' de ' + tfDia(t.de) + ' a ' + tfDia(t.ate)) + (t && t.concluida ? '<span class="tf-concl">' + icon('check') + 'concluída</span>' : '') + '</div>' +
-    '<p class="tf-exp">' + (S.hubEscrita ? TF_EXP_HUB[tipo] : T.exp) + '</p>' +
+    '<p class="tf-exp">' + T.exp + '</p>' +
     '<div class="tf-irmas">' + irmas.map(x => '<button class="echip' + (t && x.id === t.id ? ' on' : '') + '" data-id="' + x.id + '">' + brData(x.de) + ' a ' + brData(x.ate) + (x.concluida ? ' ✓' : '') + '</button>').join('') +
       '<button class="echip nada' + (novo ? ' on' : '') + '" data-novo="1">' + icon('plus') + 'nova</button></div>';
   // ---- corpo ----
@@ -355,13 +362,18 @@ function tfDesenha() {
         '<button class="mbtn tf-parar" id="tfParar" hidden>' + TF_ICON_STOP + 'Parar e salvar</button>' +
       '</div>';
     const ss = tfSlots(t);
-    corpo += '<div class="tf-hubs" id="tfHub">' + tfHubHtml(t, dona, aprova) + '</div>';     // v3.84: a tarefa no MKT Hub
-    const hubAqui = S.hubEscrita || ss.some(s => tfNoHub(tfAprov(s, tfK(t))));
-    corpo += '<div class="tf-lhead"><b>Posts do período</b><span class="tf-n">' + ss.length + '</span>' +
-      (dona ? '<span class="tf-dica">marque o que está pronto e mande ' + (S.hubEscrita ? 'pro MKT Hub' : 'pra aprovação') + '</span>'
-        : hubAqui ? '<span class="tf-dica">a aprovação é no MKT Hub, na tarefa mãe</span>'
+    corpo += '<div class="tf-lhead"><b>' + (tipo === 'matriz' ? 'Cards da matriz' : 'Posts do período') + '</b><span class="tf-n">' + ss.length + '</span>' +
+      (tipo === 'matriz' ? '<span class="tf-dica">clique no card pra preencher</span>'
+        : dona ? '<span class="tf-dica">marque o que está pronto e mande pra aprovação</span>'
           : aprova ? '<span class="tf-dica">aprove ou peça alteração em cada um</span>' : '<span class="tf-dica">quem aprova: Zion ou Maria (ADMIN)</span>') + '</div>' +
-      '<div class="tf-itens" id="tfItens">' + (ss.length ? ss.map(s => tfLinha(s, t, dona, aprova)).join('') : '<div class="tf-vazio">Nenhum post nesse período' + (tipo === 'matriz' ? ' com card da matriz' : '') + '.</div>') + '</div>';
+      '<div class="tf-itens" id="tfItens">' + (ss.length ? ss.map(s => tfLinha(s, t, dona, aprova)).join('') : '<div class="tf-vazio">Nenhum ' + (tipo === 'matriz' ? 'card da matriz' : 'post') + ' nesse período.</div>') + '</div>';
+  } else if (tipo === 'matriz') {
+    // v3.88: a tarefa de matriz cria os cards amarelos: a prévia mostra o que vai acontecer em cada dia
+    const dias = tfDiasMatriz(de, ate), novos = dias.filter(x => !x.s).length;
+    corpo += '<div class="tf-lhead"><b>Dias da matriz</b><span class="tf-n">' + dias.length + '</span><span class="tf-dica">' + (novos ? novos + ' card' + (novos > 1 ? 's' : '') + ' amarelo' + (novos > 1 ? 's' : '') + ' novo' + (novos > 1 ? 's' : '') : 'nenhum card novo') + '</span></div>' +
+      '<div class="tf-itens previa" id="tfItens">' + dias.map(x => '<div class="ti' + (x.s ? '' : ' novo') + '"><span class="ti-dia">' + tfDia(x.d) + '</span>' +
+        (x.s ? '<span class="ti-tit">' + esc(slotTitulo(x.s)) + '</span><span class="ti-conta">' + (x.s.matrizSB ? 'já tem card' : 'já tem post') + '</span>'
+          : '<span class="ti-tit">card novo' + (x.tipo ? ' · ' + esc(x.tipo) : ' · slot em aberto') + '</span>') + '</div>').join('') + '</div>';
   } else {
     const l = tfItensPrevia(tipo, aba, de, ate);
     corpo += '<div class="tf-lhead"><b>Posts nesse período</b><span class="tf-n">' + l.length + '</span></div>' +
@@ -370,14 +382,16 @@ function tfDesenha() {
   $('#tfBody').innerHTML = corpo;
   // ---- rodapé ----
   let pe = '';
-  if (novo) pe = '<button class="mbtn primary" id="tfCriar">' + icon('plus') + 'Criar tarefa</button><span class="note">depois é só dar play no relógio</span>';
+  if (novo) pe = '<button class="mbtn primary" id="tfCriar">' + icon('plus') + 'Criar tarefa</button><span class="note">' + (tipo === 'matriz' ? 'cria os cards amarelos; depois é só dar play no relógio' : 'depois é só dar play no relógio') + '</span>';
   else {
     const ss = tfSlots(t);
-    const esperando = ss.filter(s => { const a = tfAprov(s, tfK(t)); return a && a.st === 'enviado' && !tfNoHub(a); });   // os do Hub são aprovados lá
-    if (dona) pe += '<button class="bt-aprovar" id="tfEnviar"' + (sel.size && !tfHubIndo(t) ? '' : ' disabled') + '><span class="bt-txt"><span>' + tfTxtEnviar(t, sel.size) + '</span></span></button>';
-    if (aprova && esperando.length) pe += '<button class="bt-aprovar" id="tfAprovarTudo" data-n="' + esperando.length + '"><span class="bt-txt"><span>Aprovar tudo (' + esperando.length + ')</span></span></button>';
+    if (t.tipo === 'copy') {                           // v3.88: a matriz não passa por aprovação
+      const esperando = ss.filter(s => { const a = tfAprov(s, tfK(t)); return a && a.st === 'enviado'; });
+      if (dona) pe += '<button class="bt-aprovar" id="tfEnviar"' + (sel.size ? '' : ' disabled') + '><span class="bt-txt"><span>' + tfTxtEnviar(t, sel.size) + '</span></span></button>';
+      if (aprova && esperando.length) pe += '<button class="bt-aprovar" id="tfAprovarTudo" data-n="' + esperando.length + '"><span class="bt-txt"><span>Aprovar tudo (' + esperando.length + ')</span></span></button>';
+    }
     pe += '<button class="mbtn" id="tfVerTempo">' + icon('clock') + 'Ver o tempo</button>';
-    pe += '<button class="mbtn" id="tfArquivar" data-tip="Tira a tarefa da faixa (o tempo dela continua no relatório)">' + icon('check') + 'Concluir tarefa</button>';
+    if (tfPodeConcluir()) pe += '<button class="mbtn" id="tfArquivar" data-tip="Tira a tarefa da faixa (o tempo dela continua no relatório)">' + icon('check') + 'Concluir tarefa</button>';   // v3.88: só ADMIN
     pe += '<span class="note" id="tfMsg"></span>';
     pe += '<button class="bin" id="tfExcluir" data-tip="Excluir a tarefa (o tempo dela continua no relatório)" aria-label="Excluir a tarefa">' + BIN_SVG + '</button>';
   }
@@ -386,138 +400,33 @@ function tfDesenha() {
   tfLigaFolha(t, novo, dona);
   tfPintaFolhaRelogio();
 }
-// ---------------- a tarefa no MKT Hub (v3.84) ----------------
-function tfHubIndo(t) { return !!(t && t.hub && t.hub.job && t.hub.job.st === 'enviando'); }
-/** Link do Hub só se for http(s) (o texto vem de fora). */
+function tfTxtEnviar(t, n) { return 'Mandar pra aprovação' + (n ? ' (' + n + ')' : ''); }
+/** Link de fora só se for http(s). */
 function tfUrl(u) { return /^https?:\/\//i.test(String(u || '')) ? String(u) : ''; }
-function tfTxtEnviar(t, n) {
-  if (!S.hubEscrita) return 'Mandar pra aprovação' + (n ? ' (' + n + ')' : '');
-  const j = t.hub && t.hub.job;
-  if (j && j.st === 'enviando') return 'Mandando… ' + (j.feitos || 0) + ' de ' + j.total;
-  return 'Mandar pro MKT Hub' + (n ? ' (' + n + ')' : '');
-}
-/** Faixa com a tarefa mãe no Hub (código, etapa, o que falta) e o envio em andamento ou com erro. */
-function tfHubHtml(t, dona, aprova) {
-  const h = t.hub; if (!h) return '';
-  const j = h.job, nome = t.tipo === 'matriz' ? 'MATRIZ' : 'COPY';
-  let html = '';
-  if (j && j.st === 'enviando') {
-    const pct = j.total ? Math.round(100 * (j.feitos || 0) / j.total) : 0;
-    html += '<div class="tf-hub envia" role="status"><span class="tf-hubic">' + icon('hub') + '</span><div class="tf-hubtx"><b>Mandando pro MKT Hub…</b>' +
-      '<span>' + (j.feitos || 0) + ' de ' + j.total + ' (a tarefa mãe e cada post). Pode fechar: o servidor termina sozinho.</span>' +
-      '<span class="tf-hubbar" aria-hidden="true"><i style="width:' + pct + '%"></i></span></div></div>';
-  } else if (j && j.st === 'erro') {
-    html += '<div class="tf-hub erro" role="alert"><span class="tf-hubic">' + icon('alerta') + '</span><div class="tf-hubtx"><b>Não foi tudo pro MKT Hub</b><span>' + esc(j.erro || 'erro') + (/mande de novo/i.test(j.erro || '') ? '.' : '. Mande de novo: o que já foi não duplica.') + '</span></div></div>';
-  }
-  const maes = (h.maes || []).slice().reverse();
-  maes.forEach((m, i) => {
-    if (m.estado === 'sumiu' || m.estado === 'arquivada') {           // apagada ou arquivada no Hub: os posts voltaram pra mandar de novo
-      html += '<div class="tf-hub velha"><span class="ti-et" style="--c:var(--gray)"><i></i>' + esc(m.codigo || 'tarefa mãe') + (m.estado === 'arquivada' ? ' foi arquivada' : ' foi apagada') + ' no Hub: os posts sem aprovação voltaram pra mandar de novo</span></div>';
-      return;
-    }
-    if (i > 0 && m.estado === 'aprovada') {                           // rodada antiga aprovada: 1 linha discreta
-      html += '<div class="tf-hub velha"><span class="ti-et" style="--c:var(--green)"><i></i>' + esc(m.codigo || 'tarefa mãe') + ' · rodada ' + (m.rodada || 1) + ' aprovada (' + m.posts + ' post' + (m.posts > 1 ? 's' : '') + ')</span>' +
-        (tfUrl(m.url) ? '<a class="tf-hublink" href="' + esc(tfUrl(m.url)) + '" target="_blank" rel="noopener">Abrir no Hub</a>' : '') + '</div>';
-      return;
-    }
-    const txt = m.estado === 'pendente' ? (dona ? '<b>Falta 1 passo:</b> no Hub, mova esta tarefa pra <b>Aprovação</b>. A aprovação acontece lá.' : 'Esperando ' + esc(t.por) + ' mover pra Aprovação no Hub.')
-      : m.estado === 'aprovacao' ? (aprova ? 'Em aprovação: aprove ou peça alteração no Hub. O painel acompanha sozinho.' : 'Em aprovação no Hub. O painel acompanha sozinho.')
-        : m.estado === 'alterar' ? (dona ? 'Pediram alteração. Ajuste os posts em vermelho, mande de novo e mova a tarefa pra Aprovação.' : 'Voltou pra ' + esc(t.por) + ' ajustar.')
-          : 'Aprovada no Hub' + (t.tipo === 'matriz' ? ': a copy destes posts está liberada.' : ': segue pra produção.');
-    const et = m.etapa ? '<span class="ti-et tf-hubet" style="--c:' + esc(m.etapa.cor || '#8E8E93') + '"><i></i>' + esc(m.etapa.nome) + '</span>' : '';
-    html += '<div class="tf-hub m-' + m.estado + '"><span class="tf-hubic">' + icon('hub') + '</span>' +
-      '<div class="tf-hubtx"><b>' + esc(m.codigo || 'Tarefa mãe') + ' · ' + nome + ' de ' + brData(t.de) + ' a ' + brData(t.ate) + (m.rodada > 1 ? ' · rodada ' + m.rodada : '') + '</b><span>' + txt + '</span></div>' +
-      et + (tfUrl(m.url) ? '<a class="mbtn tf-hubabre" href="' + esc(tfUrl(m.url)) + '" target="_blank" rel="noopener">' + icon('external') + 'Abrir no Hub</a>' : '') + '</div>';
-  });
-  return html;
-}
-/** Troca o resumo do Hub da tarefa na memória e repinta só a faixa e o botão (sem mexer no resto da folha). */
-function tfHubAtualiza(id, hub) {
-  const t = tfPorId(id); if (!t) return;
-  t.hub = hub || t.hub;
-  if (TF.aberta !== id || !$('#ovTarefa').classList.contains('open')) return;
-  const box = $('#tfHub'); if (box) box.innerHTML = tfHubHtml(t, tfSouDona(t), tfPodeAprovar(t));
-  const b = $('#tfEnviar');
-  if (b) { b.disabled = !tfSel().size || tfHubIndo(t); b.querySelector('.bt-txt span').textContent = tfTxtEnviar(t, tfSel().size); }
-}
-/** Acompanha o envio até terminar (o servidor manda sozinho, no ritmo do limite do Hub). */
-function tfHubAcompanha(id, calado) {
-  clearTimeout(TF.hubTimer);
-  TF.hubSeguindo = id;
-  const passo = async () => {
-    if (TF.hubSeguindo !== id) return;
-    try {
-      const r = await api('/api/tarefas/' + id + '/hub');
-      tfHubAtualiza(id, r.hub);
-      const j = r.hub && r.hub.job;
-      if (j && j.st === 'enviando') { TF.hubTimer = setTimeout(passo, 800); return; }
-      TF.hubSeguindo = null;
-      await loadState();
-      if (TF.aberta === id && $('#ovTarefa').classList.contains('open')) { tfDesenha(); tfCarregaDetalhe(); }
-      if (calado || !j) return;
-      const t = tfPorId(id), m = t && t.hub && (t.hub.maes || []).slice(-1)[0];
-      if (j.st === 'ok') toast(j.n + ' post' + (j.n > 1 ? 's' : '') + ' no MKT Hub (' + (j.mae || 'tarefa mãe') + ')' + (m && m.estado === 'pendente' ? ' · falta mover a tarefa pra Aprovação lá' : ''));
-      else if (j.st === 'erro') toast('Não foi tudo pro MKT Hub: ' + j.erro, true);
-    } catch (e) {
-      if (e.status >= 400 && e.status < 500) { TF.hubSeguindo = null; return; }    // tarefa excluída ou sem acesso: para de perguntar
-      TF.hubTimer = setTimeout(passo, 2500);
-    }
-  };
-  TF.hubTimer = setTimeout(passo, 600);
-}
-async function tfMandaHub(t) {
-  const ids = [...tfSel()]; if (!ids.length || tfHubIndo(t)) return;
-  const b = $('#tfEnviar'); if (b) b.disabled = true;
-  try {
-    // v3.85: o tempo que está no relógio desta tarefa vai junto: para e salva antes de mandar (senão o briefing sai sem ele)
-    const e = CRON.estado();
-    if (e && e.tarefaId === t.id) {
-      const rel = await CRON.parar();
-      if (rel && rel.curto) toast('O relógio tinha menos de 30 s: esse pedaço não conta');
-      else if (rel && rel.reg) toast('Relógio parado e salvo: ' + CRON.fmtLongo(rel.reg.seg) + (rel.pendente ? ' (sem conexão agora: vai quando voltar)' : ', vai no briefing do Hub'));
-    }
-    const r = await api('/api/tarefas/' + t.id + '/hub', { method: 'POST', body: JSON.stringify({ slots: ids, quem: tfEu() }) });
-    TF.sel = new Set();
-    tfHubAtualiza(t.id, r.hub);
-    document.querySelectorAll('#tfItens [data-sel]').forEach(c => { c.checked = false; });
-    tfHubAcompanha(t.id);
-  } catch (e) { toast(e.message, true); if (b) b.disabled = false; }
-}
 
 function tfLinha(s, t, dona, aprova) {
-  const k = tfK(t), a = tfAprov(s, k), est = tfEstado(s, t);
+  const k = tfK(t), a = t.tipo === 'copy' ? tfAprov(s, k) : null, est = tfEstado(s, t);
   const tempo = tfTempoPost(s.id, t);
-  const noHub = tfNoHub(a);
   let prog = '';
   if (t.tipo === 'matriz') {
     const p = mzProgresso(s.matrizSB || {});
-    prog = '<span class="ti-prog" title="' + p.n + ' de ' + p.total + ' campos obrigatórios"><span class="ti-pbar"><i style="width:' + Math.round(100 * p.n / p.total) + '%"></i></span>' + p.n + '/' + p.total + '</span>';
+    prog = '<span class="ti-prog" title="' + p.n + ' de ' + p.total + ' campos"><span class="ti-pbar"><i style="width:' + Math.round(100 * p.n / p.total) + '%"></i></span>' + p.n + '/' + p.total + '</span>';
   } else {
     const d = TF.det && TF.det.docs ? TF.det.docs[s.id] : null;
     prog = '<span class="ti-prog">' + (d ? (d.palavras ? d.palavras + ' palavras' : 'doc vazio') : (s.docId ? '…' : 'sem doc')) + '</span>';
   }
-  // v3.85: a copy não espera a matriz (sem trava); o post só avisa quando a matriz dele ainda não foi aprovada
-  const mzPend = t.tipo === 'copy' && !!s.matrizSB && !(a && a.st === 'aprovado') && (tfAprov(s, 'm') || {}).st !== 'aprovado';
-  // v3.84: o que já está no Hub pode ir de novo (atualiza o briefing da subtarefa), menos o que foi aprovado
-  const reenviaHub = S.hubEscrita && noHub && a.st === 'enviado';
-  const podeMarcar = dona && (est.cod === 'pronto' || est.cod === 'alterar' || reenviaHub);
-  const porque = est.cod === 'fazer' ? (t.tipo === 'matriz' ? 'falta preencher campos da matriz' : 'o documento ainda não tem texto') : est.cod === 'enviado' ? 'já está em aprovação' : est.cod === 'aprovado' ? 'já foi aprovada' : '';
-  const chk = dona ? '<label class="ti-chk" title="' + esc(reenviaHub ? 'mandar de novo pro Hub (atualiza o briefing da subtarefa)' : podeMarcar ? (S.hubEscrita ? 'mandar este pro MKT Hub' : 'mandar este pra aprovação') : porque) + '"><input type="checkbox" data-sel="' + s.id + '"' + (tfSel().has(s.id) ? ' checked' : '') + (podeMarcar ? '' : ' disabled') + '></label>' : '';
+  // v3.88: só a copy se manda pra aprovação (a matriz não passa mais por aprovação)
+  const podeMarcar = t.tipo === 'copy' && dona && (est.cod === 'pronto' || est.cod === 'alterar');
+  const porque = est.cod === 'fazer' ? 'o documento ainda não tem texto' : est.cod === 'enviado' ? 'já está em aprovação' : est.cod === 'aprovado' ? 'já foi aprovada' : '';
+  const chk = t.tipo === 'copy' && dona ? '<label class="ti-chk" title="' + esc(podeMarcar ? 'mandar este pra aprovação' : porque) + '"><input type="checkbox" data-sel="' + s.id + '"' + (tfSel().has(s.id) ? ' checked' : '') + (podeMarcar ? '' : ' disabled') + '></label>' : '';
   let acoes = '';
-  if (noHub) {
-    // a aprovação é no Hub: aqui só o código da subtarefa (abre lá), enquanto não foi aprovada
-    if (a.st !== 'aprovado' && a.sub) {
-      const x = t.hub && t.hub.subs ? t.hub.subs[s.id] : null;
-      acoes = x && tfUrl(x.url) ? '<a class="ti-sub" href="' + esc(tfUrl(x.url)) + '" target="_blank" rel="noopener" title="Subtarefa no MKT Hub">' + esc(a.sub) + '</a>' : '<span class="ti-sub" title="Subtarefa no MKT Hub">' + esc(a.sub) + '</span>';
-    }
-  } else if (aprova && a && a.st === 'enviado') {
+  if (aprova && a && a.st === 'enviado') {
     acoes = '<button class="bt-aprovar mini" data-aprova="' + s.id + '"><span class="bt-txt"><span>Aprovar</span></span></button>' +
       '<button class="bt-edit alterar" data-rot="Pedir alteração" style="--w:136px" data-alt="' + s.id + '" aria-label="Pedir alteração">' + icon('pencil') + '</button>';
   } else if (a && (a.st === 'aprovado' || a.st === 'alterar') && aprova) {
     acoes = '<button class="ti-desf" data-reabre="' + s.id + '" title="Voltar pra esperando aprovação">desfazer</button>';
   }
-  // copy aprovada: o post segue pra produção. A task de arte ou vídeo nasce no MKT Hub e é ligada aqui
-  // (v3.81: o painel lista as tasks do Hub daquele dia e conta pra escolher com 1 clique)
+  // copy aprovada: o post segue pra produção (a task de arte ou vídeo no MKT Hub, ligada aqui)
   if (t.tipo === 'copy' && a && a.st === 'aprovado') {
     const url = linkDaTask(s);
     const cod = s.hub && s.hub.codigo ? s.hub.codigo : (/^MKT-\d+$/i.test(s.taskId || '') ? s.taskId : 'produção');
@@ -530,9 +439,8 @@ function tfLinha(s, t, dona, aprova) {
   const aberto = TF.exp.has(s.id);
   const notas = [];
   if (a && a.st === 'alterar' && a.nota) notas.push('<div class="ti-nota alt">' + icon('pencil') + '<span><b>' + esc(a.ap || 'Pedido') + ':</b> ' + esc(a.nota) + '</span></div>');
-  if (a && a.st === 'enviado' && a.pedido && noHub) notas.push('<div class="ti-nota">' + icon('undo') + '<span><b>Pediram no Hub:</b> ' + esc(a.pedido) + '</span></div>');
-  else if (a && a.st === 'enviado' && a.pedido && aprova) notas.push('<div class="ti-nota">' + icon('undo') + '<span><b>Você tinha pedido:</b> ' + esc(a.pedido) + '</span></div>');
-  if (a && a.st === 'aprovado' && a.ap) notas.push('<div class="ti-nota ok">' + icon('check') + '<span>Aprovada por <b>' + esc(a.ap) + '</b>' + (noHub ? ' no MKT Hub' : '') + (a.apEm ? ' em ' + fmtDataHora(Date.parse(a.apEm)) : '') + (k === 'm' ? ' · a copy deste post está liberada' : '') + '</span></div>');
+  if (a && a.st === 'enviado' && a.pedido && aprova) notas.push('<div class="ti-nota">' + icon('undo') + '<span><b>Você tinha pedido:</b> ' + esc(a.pedido) + '</span></div>');
+  if (a && a.st === 'aprovado' && a.ap) notas.push('<div class="ti-nota ok">' + icon('check') + '<span>Aprovada por <b>' + esc(a.ap) + '</b>' + (a.apEm ? ' em ' + fmtDataHora(Date.parse(a.apEm)) : '') + '</span></div>');
   const ligBox = TF.ligar === s.id ? tfLigarHtml(s) : '';
   const altBox = TF.alt === s.id ? '<div class="ti-altbox"><textarea id="tfAltTxt" rows="2" maxlength="500" placeholder="O que precisa mudar? (ela vê isso no card)"></textarea><div><button class="mbtn" data-altcancela="1">Cancelar</button><button class="mbtn primary" data-altmanda="' + s.id + '">Mandar pedido</button></div></div>' : '';
   return '<div class="ti st-' + est.cod + (aberto ? ' aberto' : '') + '" data-id="' + s.id + '">' +
@@ -540,7 +448,7 @@ function tfLinha(s, t, dona, aprova) {
       '<span class="ti-dia">' + tfDia(s.date) + '</span>' +
       '<button class="ti-tit" data-abre="' + s.id + '" title="Abrir ' + (t.tipo === 'matriz' ? 'o card da matriz' : 'o documento da copy') + '">' + esc(slotTitulo(s)) + '</button>' +
       (contasDaAba(t.aba).length > 1 ? '<span class="ti-conta">' + esc(contaCurta(s.conta)) + '</span>' : '') +
-      prog + (t.tipo !== 'copy' ? '' : mzPend ? '<span class="ti-mzp" title="A matriz deste post ainda não foi aprovada. Não trava: dá pra escrever e mandar a copy.">matriz não aprovada</span>' : '<span class="ti-mzp" aria-hidden="true"></span>') +
+      prog +
       '<span class="ti-tempo" data-tempo="' + s.id + '">' + (tempo ? CRON.fmtLongo(tempo) : '') + '</span>' +
       '<span class="ti-st" style="--stc:' + est.cor + '"><i></i>' + est.rot + '</span>' +
       acoes +
@@ -620,7 +528,7 @@ async function tfLigaTask(sid, ref, cod) {
 function tfResumo(s, t) {
   if (t.tipo === 'matriz') {
     const m = s.matrizSB || {};
-    const campos = [['Formato', m.formato], ['Ângulo', m.angulo], ['Pauta quente', m.pautaQuente], ['Tema', m.tema], ['Tese', m.tese], ['Gancho', m.gancho], ['Descrição', m.descricao], ['Quem faz', m.responsavel]];
+    const campos = [['Formato', m.formato], ['Ângulo', m.angulo], ['Pauta quente', m.pautaQuente], ['Tema', m.tema], ['Tese', m.tese], ['Gancho', m.gancho], ['Descrição', m.descricao]];
     return '<dl class="ti-kv">' + campos.map(([r, v]) => '<dt>' + r + '</dt><dd' + (v ? '' : ' class="vazio"') + '>' + (v ? esc(v) : 'não preenchido') + '</dd>').join('') + '</dl>';
   }
   const d = TF.det && TF.det.docs ? TF.det.docs[s.id] : null;
@@ -664,7 +572,7 @@ function tfLigaFolha(t, novo, dona) {
     if (TF.sel === null) TF.sel = new Set(tfSel());
     if (c.checked) TF.sel.add(c.dataset.sel); else TF.sel.delete(c.dataset.sel);
     const b = $('#tfEnviar');
-    if (b) { b.disabled = !TF.sel.size || tfHubIndo(t); b.querySelector('.bt-txt span').textContent = tfTxtEnviar(t, TF.sel.size); }
+    if (b) { b.disabled = !TF.sel.size; b.querySelector('.bt-txt span').textContent = tfTxtEnviar(t, TF.sel.size); }
   });
   body.querySelectorAll('[data-abre]').forEach(b => b.onclick = () => tfAbrePost(b.dataset.abre, t));
   body.querySelectorAll('[data-exp]').forEach(b => b.onclick = () => { const id = b.dataset.exp; if (TF.exp.has(id)) TF.exp.delete(id); else TF.exp.add(id); tfDesenha(); });
@@ -677,10 +585,10 @@ function tfLigaFolha(t, novo, dona) {
   body.querySelectorAll('[data-reabre]').forEach(b => b.onclick = () => tfReabrir(t, b.dataset.reabre));
   body.querySelectorAll('[data-ligar]').forEach(b => b.onclick = () => tfAbreLigar(b.dataset.ligar, t));
   tfLigaLigar(t);
-  const env = $('#tfEnviar'); if (env) env.onclick = () => (S.hubEscrita ? tfMandaHub(t) : tfEnviar(t));
+  const env = $('#tfEnviar'); if (env) env.onclick = () => tfEnviar(t);
   const tudo = $('#tfAprovarTudo'); if (tudo) tudo.onclick = () => tfAprovar(t, tfSlots(t).filter(s => (tfAprov(s, tfK(t)) || {}).st === 'enviado').map(s => s.id), tudo);
   $('#tfVerTempo').onclick = () => { closeOv('ovTarefa'); abrirTempo({ tarefa: t }); };
-  $('#tfArquivar').onclick = () => tfArquivar(t);
+  const arq = $('#tfArquivar'); if (arq) arq.onclick = () => tfArquivar(t);   // v3.88: só aparece pro ADMIN
   $('#tfExcluir').onclick = () => tfExcluir(t);
 }
 function tfMsg(txt, erro) { const m = $('#tfCfgMsg'); if (m) { m.textContent = txt || ''; m.classList.toggle('erro', !!erro); } }
@@ -701,7 +609,9 @@ async function tfCriar() {
     const r = await api('/api/tarefas', { method: 'POST', body: JSON.stringify(n) });
     S.tarefas = (S.tarefas || []).concat(r.tarefa);
     TF.novo = null;
-    toast('Tarefa de ' + TF_TIPOS[n.tipo].nome.toLowerCase() + ' criada · ' + r.tarefa.itens.length + ' posts');
+    toast(n.tipo === 'matriz' ? 'Tarefa de matriz criada · ' + (r.cards ? r.cards + ' card' + (r.cards > 1 ? 's' : '') + ' amarelo' + (r.cards > 1 ? 's' : '') + ' no calendário' : 'nenhum card novo (os dias já tinham post)')
+      : 'Tarefa de copy criada · ' + r.tarefa.itens.length + ' posts');
+    if (n.tipo === 'matriz' && r.cards) await loadState();          // os cards novos aparecem no calendário
     renderFaixa();
     abrirTarefa(r.tarefa.id);
   } catch (e) { tfMsg(e.message, true); }
@@ -755,18 +665,17 @@ async function tfReabrir(t, sid) {
 }
 async function tfArquivar(t) {
   const c = tfConta(t), faltam = c.total - c.aprovado;
-  if (faltam && !confirm('Concluir a tarefa com ' + faltam + ' post' + (faltam > 1 ? 's' : '') + ' ainda sem aprovação?\n\n(Ela sai da faixa. O tempo continua no relatório.)')) return;
+  if (faltam && !confirm('Concluir a tarefa com ' + faltam + (t.tipo === 'matriz' ? ' card' + (faltam > 1 ? 's' : '') + ' ainda sem preencher?' : ' post' + (faltam > 1 ? 's' : '') + ' ainda sem aprovação?') + '\n\n(Ela sai da faixa. O tempo continua no relatório.)')) return;
   const e = CRON.estado();
   if (e && e.tarefaId === t.id) await tfParar();
   try { await api('/api/tarefas/' + t.id + '/arquivar', { method: 'POST', body: '{}' }); closeOv('ovTarefa'); await loadState(); toast('Tarefa concluída'); }
   catch (err) { toast(err.message, true); }
 }
 async function tfExcluir(t) {
-  const noHub = t.hub && (t.hub.maes || []).some(m => m.estado !== 'aprovada' && m.estado !== 'sumiu' && m.estado !== 'arquivada');
-  if (!confirm('Excluir a tarefa de ' + TF_TIPOS[t.tipo].nome.toLowerCase() + ' de ' + brData(t.de) + ' a ' + brData(t.ate) + '?\n\n(As aprovações ficam nos posts e o tempo continua no relatório.' + (noHub ? ' Os posts que estão no MKT Hub sem aprovação voltam pra mandar de novo; no Hub nada muda.' : '') + ')')) return;
+  if (!confirm('Excluir a tarefa de ' + TF_TIPOS[t.tipo].nome.toLowerCase() + ' de ' + brData(t.de) + ' a ' + brData(t.ate) + '?\n\n(' + (t.tipo === 'matriz' ? 'Os cards amarelos que ela criou e continuam vazios saem junto; os preenchidos ficam. ' : 'As aprovações ficam nos posts. ') + 'O tempo continua no relatório.)')) return;
   const e = CRON.estado();
   if (e && e.tarefaId === t.id) await tfParar();
-  try { await api('/api/tarefas/' + t.id, { method: 'DELETE' }); closeOv('ovTarefa'); await loadState(); toast('Tarefa excluída'); }
+  try { const r = await api('/api/tarefas/' + t.id, { method: 'DELETE' }); closeOv('ovTarefa'); await loadState(); toast('Tarefa excluída' + (r && r.cardsRemovidos ? ' · ' + r.cardsRemovidos + ' card' + (r.cardsRemovidos > 1 ? 's' : '') + ' vazio' + (r.cardsRemovidos > 1 ? 's' : '') + ' saíram junto' : '')); }
   catch (err) { toast(err.message, true); }
 }
 /** Relógio grande da folha e o tempo de cada post (sem redesenhar a folha inteira). */
@@ -789,21 +698,9 @@ function tfPintaFolhaRelogio(e) {
   document.querySelectorAll('#tfItens [data-tempo]').forEach(x => { const s = tfTempoPost(x.dataset.tempo, t); const v = s ? CRON.fmtLongo(s) : ''; if (x.textContent !== v) x.textContent = v; });
 }
 
-// ---------------- card da matriz: botão do relógio e o estado da aprovação ----------------
-function tfNaMatriz(s) {
-  const box = $('#mzAprov');
-  const a = tfAprov(s, 'm');
-  if (box) {
-    box.hidden = !a;
-    if (a) {
-      box.className = 'tf-aviso ' + a.st;
-      const hub = tfNoHub(a);
-      box.innerHTML = a.st === 'alterar' ? icon('pencil') + '<span><b>' + esc(a.ap || 'Pedido') + ' pediu alteração' + (hub ? ' no MKT Hub' : '') + ':</b> ' + esc(a.nota || '') + '</span>'
-        : a.st === 'enviado' && hub ? icon('hub') + '<span>Matriz no MKT Hub' + (a.sub ? ' (subtarefa <b>' + esc(a.sub) + '</b>)' : '') + (a.pend ? ' · falta mover a tarefa mãe pra Aprovação lá' : ' · em aprovação lá') + '</span>'
-        : a.st === 'enviado' ? icon('clock') + '<span>Matriz em aprovação desde ' + fmtDataHora(Date.parse(a.em)) + (a.por ? ' (mandada por ' + esc(a.por) + ')' : '') + '</span>'
-        : icon('check') + '<span>Matriz aprovada' + (a.ap ? ' por <b>' + esc(a.ap) + '</b>' : '') + (hub ? ' no MKT Hub' : '') + ' · a copy deste post está liberada</span>';
-    }
-  }
+// ---------------- card da matriz: botão do relógio (v3.88: a matriz não tem aprovação) ----------------
+function tfNaMatriz() {
+  const box = $('#mzAprov'); if (box) box.hidden = true;
   tfPintaMzRel();
 }
 function tfPintaMzRel(e) {
@@ -819,20 +716,17 @@ function tfPintaMzRel(e) {
 }
 
 // ---------------- selo no card do calendário ----------------
-/** Bolinha + letra (M = matriz, C = copy) no card, na cor do estado da aprovação. A palavra vai na dica. */
+/** Bolinha + C no card, na cor do estado da aprovação da copy. A palavra vai na dica. (v3.88: a matriz não tem mais aprovação.) */
 function tfChipsCard(s) {
-  if (!s.aprov) return '';
+  const a = s.aprov && s.aprov.c; if (!a) return '';
   const rot = { enviado: 'em aprovação', aprovado: 'aprovada', alterar: 'pra alterar' };
-  return ['m', 'c'].filter(k => s.aprov[k]).map(k => {
-    const a = s.aprov[k];
-    return '<span class="apv st-' + a.st + '" title="' + (k === 'm' ? 'Matriz' : 'Copy') + ' ' + rot[a.st] + (a.hub ? ' no MKT Hub' + (a.sub ? ' (' + esc(a.sub) + ')' : '') : '') + (a.st === 'alterar' && a.nota ? ': ' + esc(a.nota) : '') + '"><i></i>' + (k === 'm' ? 'M' : 'C') + '</span>';
-  }).join('');
+  return '<span class="apv st-' + a.st + '" title="Copy ' + rot[a.st] + (a.st === 'alterar' && a.nota ? ': ' + esc(a.nota) : '') + '"><i></i>C</span>';
 }
 
 // ---------------- avisos: pra aprovar (quem aprova) e pra alterar (quem fez) ----------------
 function tfChecaAvisos(slots) {
   const agora = {};
-  for (const s of slots) { if (!s.aprov) continue; for (const k of ['m', 'c']) { const a = s.aprov[k]; if (a) agora[s.id + ':' + k] = a.st + '|' + (a.apEm || a.em || ''); } }
+  for (const s of slots) { const a = s.aprov && s.aprov.c; if (a) agora[s.id + ':c'] = a.st + '|' + (a.apEm || a.em || ''); }   // v3.88: só a copy tem aprovação
   // primeira carga: só memoriza, senão avisaria de tudo que já estava lá
   if (TF.conhecidos === null) { TF.conhecidos = agora; return; }
   const eu = tfChave(tfEu()), novos = [], aprovados = new Map();
@@ -842,12 +736,11 @@ function tfChecaAvisos(slots) {
     const s = slots.find(x => x.id === id); if (!s) continue;
     const a = s.aprov[k], nome = k === 'm' ? 'Matriz' : 'Copy', minha = !!eu && tfChave(a.por) === eu;
     const base = { id, k, conta: nomeConta(s.conta), titulo: nome + ' · ' + slotTitulo(s), data: s.date };
-    // v3.84: o que está no MKT Hub é aprovado lá (o Hub avisa quem aprova); aqui não vira aviso de aprovar
-    if (a.st === 'enviado' && !minha && (!S.eu || S.eu.papel === 'admin') && !tfNoHub(a)) novos.push(Object.assign({ tipo: 'aprovar', por: a.por }, base));
+    if (a.st === 'enviado' && !minha && (!S.eu || S.eu.papel === 'admin')) novos.push(Object.assign({ tipo: 'aprovar', por: a.por }, base));
     else if (a.st === 'alterar' && minha) novos.push(Object.assign({ tipo: 'alterar', motivo: a.nota, por: a.ap }, base));
     else if (a.st === 'aprovado' && minha) { const g = (a.ap || 'Alguém') + '|' + k; aprovados.set(g, (aprovados.get(g) || []).concat(s)); }
   }
-  // aprovação junta num aviso só por quem aprovou (no Hub, a tarefa mãe aprova todos os posts de uma vez)
+  // aprovação junta num aviso só por quem aprovou (o "Aprovar tudo" aprova vários de uma vez)
   for (const [g, l] of aprovados) {
     const [ap, k] = g.split('|'), nome = k === 'm' ? 'matriz' : 'copy';
     toast(ap + ' aprovou ' + (l.length > 1 ? l.length + ' ' + (k === 'm' ? 'matrizes' : 'copys') : 'a ' + nome + ' de ' + brData(l[0].date)) + (k === 'm' ? ' · pode fazer a copy' : ''));

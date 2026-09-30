@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.87'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.88'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -34,7 +34,8 @@ if (!fs.existsSync(DATA_FILE)) {
 let db = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 // migrações leves (nunca destrutivas)
 if (!Array.isArray(db.banco)) db.banco = [];   // v3.83: banco de cada empresa (lib/banco.js); as referências gerais saem na migração
-// matriz da SeuBoné: dias em que o card amarelo já foi gerado (pra não recriar o que você apagou ou arrastou)
+// matriz da SeuBoné: dias em que o card amarelo já foi gerado (legado da geração automática, que acabou na v3.88;
+// só a limpeza da v3.77 ainda escreve aqui, em dados antigos)
 if (!db.matrizSBGeradas || typeof db.matrizSBGeradas !== 'object' || Array.isArray(db.matrizSBGeradas)) db.matrizSBGeradas = {};
 // cadência automática de GM (grande marca na capa) — só SeuBoné. ancora null = desligado até configurar.
 if (!db.gmCadencia || typeof db.gmCadencia !== 'object' || Array.isArray(db.gmCadencia))
@@ -134,8 +135,6 @@ function validAuthToken(tok) {
 }
 /** Sem acento, minúsculo e com espaço simples (comparar nomes e títulos). */
 function semAcento(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
-// quem pode aparecer no "Quem faz" da matriz. Troque por RESPONSAVEIS no ambiente: "Nome A, Nome B".
-const RESPONSAVEIS = (process.env.RESPONSAVEIS || process.env.CU_RESPONSAVEIS || 'Samuel Melo, Zion, Anny Beatriz, Klenio Braz').split(',').map(x => x.trim()).filter(Boolean);
 /**
  * Link da task de produção (v3.77). Aceita qualquer endereço http. O id é o que identifica a task no card:
  * MKT Hub (MKT-1234), ClickUp antigo (app.clickup.com/t/ID) ou, pra outro sistema, um código curto do próprio link.
@@ -158,63 +157,49 @@ function taskDoLink(link) {
 }
 
 // ---------------- MATRIZ DE CONTEÚDO DA SEUBONÉ ----------------
-// Cada dia do mês da SeuBoné nasce com um card AMARELO da matriz: o tipo do dia (Case, Educação...)
-// vem da rotação A/B e a copywriter preenche formato, ângulo, tese, gancho... As regras moram em
-// lib/matriz-seubone.js. O card só vira "post normal" quando alguém cola o link da task de produção nele.
+// Card AMARELO da matriz: o tipo do dia (Case, Educação...) vem da rotação A/B e a copywriter preenche formato,
+// ângulo, tese, gancho... As regras moram em lib/matriz-seubone.js. O card só vira "post normal" quando ganha a
+// task de produção. v3.88: o card nasce quando a copywriter cria a tarefa de matriz dos dias que escolheu
+// (lib/tarefas.js chama criaCardsMatriz); acabou a geração automática de 3 meses e o botão "preencher o mês".
 const MZ = require('./lib/matriz-seubone.js');
 const MZ_CONTA = 'seubone';
 /** Dia já tem post da SeuBoné (próprio ou collab)? Então a matriz não põe card ali. */
 function temPostSeubone(iso) {
   return db.slots.some(s => s.date === iso && (s.conta === MZ_CONTA || (s.collab || []).includes(MZ_CONTA)));
 }
-function novoSlotMatriz(iso, matrizSB) {
+function novoSlotMatriz(iso, matrizSB, mzTarefa) {
   return {
     id: 's' + crypto.randomBytes(4).toString('hex'),
     conta: MZ_CONTA, date: iso || null, taskId: null, titulo: null, formato: '', angulo: '', obs: '', notas: '',
     gm: '', collab: [], drive: '', linkRef: '', aprovado: false, postado: false, fixo: false,
     responsavelManual: '', origem: 'matriz', cat: '', fonteId: '', matrizSB,
+    ...(mzTarefa ? { mzTarefa } : {}),        // v3.88: a tarefa de matriz que criou o card (excluir a tarefa leva os vazios)
     tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: new Date().toISOString(),
   };
 }
-/** Cria os cards da matriz nos dias VAZIOS de um mês.
-    automático (forcar=false): cada dia só é gerado uma vez na vida; se você apagou ou arrastou o card,
-    ele não volta. Manual (forcar=true, botão "gerar o mês"): preenche todo dia vazio de novo. */
-function gerarMatrizSB(mes, { forcar = false, desde = null } = {}) {
-  if (!db.contas[MZ_CONTA] || !/^\d{4}-\d{2}$/.test(String(mes || ''))) return [];
-  const [y, m] = mes.split('-').map(Number);
-  const ultimo = new Date(Date.UTC(y, m, 0)).getUTCDate();
+const MZ_ABA = 'SEUBONÉ';
+/**
+ * v3.88: a tarefa de matriz cria os cards amarelos dos dias dela. Dia que já tem post da SeuBoné (próprio ou
+ * collab) fica como está: a matriz da SeuBoné é um post por dia. Devolve os ids criados.
+ */
+function criaCardsMatriz(tf) {
+  if (!tf || tf.tipo !== 'matriz' || tf.aba !== MZ_ABA || !db.contas[MZ_CONTA]) return [];
   const criados = [];
-  for (let d = 1; d <= ultimo; d++) {
-    const iso = mes + '-' + String(d).padStart(2, '0');
-    if (desde && iso < desde) continue;
-    if (!forcar && db.matrizSBGeradas[iso]) continue;
-    if (temPostSeubone(iso)) continue;
-    const slot = novoSlotMatriz(iso, MZ.novoParaDia(iso));
-    db.slots.push(slot);
-    db.matrizSBGeradas[iso] = true;
-    criados.push(slot.id);
+  for (let d = tf.de; d <= tf.ate; d = addDiaISO(d, 1)) {
+    if (temPostSeubone(d)) continue;
+    const slot = novoSlotMatriz(d, MZ.cardDoDia(d), tf.id);
+    db.slots.push(slot); criados.push(slot.id);
   }
-  if (criados.length) saveDb();
   return criados;
 }
-function hojeRecife() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Recife' }); }
-function addMesIso(mes, n) { const [y, m] = mes.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return d.toISOString().slice(0, 7); }
-let mzUltimoDia = null;
-/** Uma vez por dia: garante a matriz de hoje até o fim do mês que vem depois do próximo (3 meses). */
-function autoMatrizSB() {
-  try {
-    const hoje = hojeRecife();
-    if (mzUltimoDia === hoje) return;
-    mzUltimoDia = hoje;
-    // backup único antes da primeira geração em massa (regra do projeto: nunca escrever em massa sem backup)
-    const dir = path.join(DATA_DIR, 'backups'); fs.mkdirSync(dir, { recursive: true });
-    const bk = path.join(dir, 'data-antes-matriz-seubone.json');
-    if (!fs.existsSync(bk) && fs.existsSync(DATA_FILE)) fs.copyFileSync(DATA_FILE, bk);
-    let n = 0;
-    for (let i = 0; i < 3; i++) n += gerarMatrizSB(addMesIso(hoje.slice(0, 7), i), { desde: hoje }).length;
-    if (n) console.log('[matriz SeuBoné] ' + n + ' card(s) criado(s) nos dias vazios');
-  } catch (e) { console.log('[matriz SeuBoné] falhou:', e.message); }
+/** v3.88: excluir a tarefa de matriz leva junto os cards que ELA criou e que continuam vazios. Devolve quantos. */
+function limpaCardsMatriz(tf) {
+  const sai = new Set(db.slots.filter(s => s.mzTarefa === tf.id && s.matrizSB && !s.taskId && !s.postado && !s.docId
+    && !(s.aprov && s.aprov.c) && MZ.vazio(s.matrizSB)).map(s => s.id));
+  if (sai.size) db.slots = db.slots.filter(s => !sai.has(s.id));
+  return sai.size;
 }
+function hojeRecife() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Recife' }); }
 // ---------------- app instalável (PWA) ----------------
 // O manifesto e o ícone são SERVIDOS PELO CÓDIGO, não como arquivos na pasta public.
 // Motivo prático: a rotina de sincronizar com a pasta da nuvem copia server.js e
@@ -368,7 +353,8 @@ setInterval(() => { const t = Date.now(); for (const [id, p] of aovivo) { if (t 
 const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo, MZ, backupAgora, usoInvalida: () => USO.invalida() });
 // v3.80: tarefas da copywriter (matriz e copy por empresa, com aprovação post a post) e o relógio delas
 const rotaTempo = require('./lib/tempo.js')({ db, saveDb, readBody, json, equipe: () => AUTH.ligado() ? AUTH.usuarios().map(u => u.nome) : [] });
-const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, undoSlots, tempo: rotaTempo, hubLigado: () => rotaHub.ligado(), hubEscrita: () => rotaHubEnvio.escrita() });
+const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, undoSlots, tempo: rotaTempo,
+  criaCards: criaCardsMatriz, limpaCards: limpaCardsMatriz, mzCheio: m => !!m && MZ.OBRIGATORIOS.every(k => String(m[k] || '').trim()) });   // v3.88
 // v3.81: MKT Hub (leitura; chave só na variável MKH_CHAVE). Sem chave, fica desligado.
 const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/docs.js').limpaHtml });
 // v3.84: a tarefa de matriz ou copy vira no Hub uma tarefa mãe com uma subtarefa por post (só com a chave de nível completa)
@@ -394,7 +380,7 @@ function montaSlot(b) {
   };
   // VAGA = "falta criar este post". Só faz sentido sem task: se já tem task, não falta criar.
   if (b.vaga && !slot.taskId) slot.vaga = true;
-  if (slot.matrizSB) { slot.origem = 'matriz'; if (slot.date) db.matrizSBGeradas[slot.date] = true; }
+  if (slot.matrizSB) slot.origem = 'matriz';
   return slot;
 }
 // v3.83: banco de cada empresa (Reutilizar, Drive de conteúdos, Referência de posts, Cortes de podcasts)
@@ -495,7 +481,7 @@ const server = http.createServer(async (req, res) => {
         equipe: AUTH.ligado() ? AUTH.usuarios().map(x => x.nome) : undefined,   // nomes pro "quem faz" (60 bytes)
         gmCadencia: db.gmCadencia,
         uso: USO.curto(),
-        matrizSB: { conta: MZ_CONTA, tipos: MZ.TIPOS, semanas: MZ.SEMANAS, ancora: MZ.ANCORA, status: MZ.STATUS, obrigatorios: MZ.OBRIGATORIOS, regras: MZ.REGRAS, checklist: MZ.CHECKLIST, responsaveis: RESPONSAVEIS, glossario: MZ.GLOSSARIO },
+        matrizSB: { conta: MZ_CONTA, tipos: MZ.TIPOS, semanas: MZ.SEMANAS, ancora: MZ.ANCORA, status: MZ.STATUS, obrigatorios: MZ.OBRIGATORIOS, regras: MZ.REGRAS, checklist: MZ.CHECKLIST, glossario: MZ.GLOSSARIO },
       });
       // v3.72: o painel pergunta a cada 20 s; se nada mudou, a resposta é um 304 de ~0,3 KB em vez de ~17 KB.
       // O navegador guarda a última resposta e devolve ela pro painel sozinho (nada muda no front).
@@ -509,14 +495,6 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/uso' && req.method === 'GET') return json(res, 200, USO.resumo());
 
     // ---------- criar post (calendário, banco ou criativo) ----------
-    // matriz da SeuBoné: preencher os dias vazios de um mês (botão)
-    if (p === '/api/matriz-sb/gerar' && req.method === 'POST') {
-      const b = await readBody(req);
-      if (!/^\d{4}-\d{2}$/.test(String(b.mes || ''))) return json(res, 400, { erro: 'mês inválido' });
-      const criados = gerarMatrizSB(b.mes, { forcar: true });
-      if (criados.length) undoSlots('gerar matriz da SeuBoné (' + criados.length + ' card' + (criados.length === 1 ? '' : 's') + ')', [], criados);
-      return json(res, 200, { ok: true, criados: criados.length });
-    }
     if (p === '/api/slots' && req.method === 'POST') {
       const b = await readBody(req);
       if (!b.conta || !db.contas[b.conta]) return json(res, 400, { erro: 'conta inválida' });
@@ -806,6 +784,65 @@ function limpezaV377() {
   } catch (e) { console.log('[v3.77] limpeza falhou:', e.message); }
 }
 
+// ---------------- limpeza da v3.88 (uma vez só) ----------------
+// Pedido do Zion em 30/09/2026 ("vamos rever o fluxo de Elis"): (1) saem os cards amarelos da matriz que ninguém
+// preencheu (os preenchidos ficam; card novo agora nasce da tarefa de matriz); (2) sai tudo de 01/10/2026 em diante
+// da Carbone, da Weevo e da Onevo (posts, cards e tarefas; os documentos desses posts vão pra lixeira, dá pra
+// restaurar); (3) a matriz e a copy não vão mais pro MKT Hub: a copy que esperava aprovação lá volta a esperar aqui,
+// e a matriz não passa mais por aprovação. Backup completo antes (e o histórico do GitHub dos dados tem o antes);
+// em db.removidosV388 fica 30 dias só o resumo de cada post que saiu (a cópia inteira de centenas de posts ia
+// junto pro GitHub em toda gravação).
+const V388_DESDE = '2026-10-01', V388_ABAS = ['CARBONE', 'WEEVO', 'ONEVO'];
+function limpezaV388() {
+  try {
+    if (!db.migracoes || typeof db.migracoes !== 'object') db.migracoes = {};
+    if (db.removidosV388 && Date.now() > Date.parse(db.removidosV388.ate || 0)) { delete db.removidosV388; saveDb(); }
+    if (db.migracoes.v388) return;
+    const bk = backupAgora('antes da limpeza v3.88 (fluxo novo da copywriter)');
+    const abaDe = c => db.contas[c] ? db.contas[c].aba : null;
+    const mzVazio = s => !!s.matrizSB && !s.taskId && !s.postado && !s.docId && !(s.aprov && s.aprov.c) && MZ.vazio(s.matrizSB);
+    const daLimpa = s => !!s.date && s.date >= V388_DESDE && V388_ABAS.includes(abaDe(s.conta));
+    const saem = db.slots.filter(s => mzVazio(s) || daLimpa(s));
+    const agora = new Date().toISOString();
+    // documentos dos posts que saem: pra lixeira (a lista de documentos mostra em "ver excluídos" e restaura)
+    let docs = 0;
+    for (const s of saem) {
+      const d = s.docId && db.docs ? db.docs[s.docId] : null;
+      if (d && !d.excluido) { d.excluido = true; d.excluidoEm = agora; docs++; }
+    }
+    const fora = new Set(saem.map(s => s.id));
+    db.slots = db.slots.filter(s => !fora.has(s.id));
+    // tarefas dessas empresas que começam de 01/10 em diante
+    const tarefas = Object.values(db.tarefas || {}).filter(t => V388_ABAS.includes(t.aba) && t.de >= V388_DESDE);
+    for (const t of tarefas) delete db.tarefas[t.id];
+    // sem MKT Hub na tarefa: a copy que estava lá esperando volta a esperar aqui; o resto fica, sem a marca do Hub
+    let hub = 0;
+    for (const s of db.slots) {
+      const a = s.aprov && s.aprov.c;
+      if (a && (a.hub || a.sub || a.pend)) { delete a.hub; delete a.sub; delete a.pend; hub++; }
+    }
+    const hubs = {};
+    for (const t of Object.values(db.tarefas || {})) if (t.hub) { hubs[t.id] = (t.hub.maes || []).map(m => m.codigo || m.id); delete t.hub; }
+    // "Quem faz" saiu da conta: card com os 7 campos cheios e ainda "Não iniciado" vai pra "Briefing criado"
+    let briefing = 0;
+    for (const s of db.slots) {
+      if (!s.matrizSB || s.matrizSB.status !== 'Não iniciado') continue;
+      const m = MZ.limpa(s.matrizSB);
+      if (m.status !== s.matrizSB.status) { s.matrizSB = m; briefing++; }
+    }
+    db.matrizSBGeradas = {};
+    const resumo = x => ({ id: x.id, conta: x.conta, date: x.date, titulo: x.titulo || x.tituloCache || (x.matrizSB && (x.matrizSB.tema || x.matrizSB.tipo)) || '', taskId: x.taskId || null, docId: x.docId || null });
+    db.removidosV388 = {
+      em: agora, ate: new Date(Date.now() + 30 * 86400000).toISOString(), backup: bk,
+      motivo: 'fluxo novo da copywriter: cards vazios da matriz e tudo de 01/10/2026 em diante da Carbone, Weevo e Onevo (pedido do Zion em 30/09/2026)',
+      slots: saem.map(resumo), tarefas: tarefas.map(t => ({ id: t.id, tipo: t.tipo, aba: t.aba, de: t.de, ate: t.ate, por: t.por })), tarefasHub: hubs,
+    };
+    db.migracoes.v388 = { em: agora, cardsVazios: saem.filter(mzVazio).length, postsDasOutras: saem.filter(daLimpa).length, docsLixeira: docs, tarefas: tarefas.length, copysDoHub: hub, briefing };
+    saveDb();
+    console.log('[v3.88] ' + JSON.stringify(db.migracoes.v388));
+  } catch (e) { console.log('[v3.88] limpeza falhou:', e.message); }
+}
+
 // ---------------- backup diário automático ----------------
 function backupDiario() {
   try {
@@ -825,10 +862,9 @@ setInterval(backupDiario, 6 * 3600_000);
 function faxinaTarefas() { try { rotaTempo.poda(); rotaTarefas.faxina(); } catch (e) { console.log('[tarefas] faxina falhou:', e.message); } }
 faxinaTarefas();
 setInterval(faxinaTarefas, 6 * 3600_000);
-limpezaV377();                                    // antes da matriz do dia: os dias que ficarem vazios ganham o card dela
+limpezaV377();                                    // v3.77 (dados antigos): catálogo sai, matriz no lugar
 rotaBanco.migra(backupAgora, m => console.log(m)); // v3.83: o banco antigo sai (guardado 30 dias em removidosV383)
-autoMatrizSB();                                   // depois do backup do dia
-setInterval(autoMatrizSB, 3600_000);
+limpezaV388();                                    // v3.88: fluxo novo da copywriter (cards vazios e o que sai de 01/10 em diante)
 
 server.listen(PORT, () => {
   console.log('');

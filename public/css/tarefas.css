@@ -103,6 +103,9 @@ html[data-modo="claro"] :is(.tf-per input[type=date],.tp-lancar input,.tp-lancar
 .tf-itens{display:flex; flex-direction:column; border:1px solid var(--hair); border-radius:14px; overflow:hidden; margin-top:-6px}
 .tf-itens.previa .ti{display:flex; align-items:center; gap:10px; padding:8px 12px; font-size:13px}
 .tf-itens.previa .ti-tit{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+/* v3.88: prévia da tarefa de matriz: dia que ganha card amarelo novo */
+.tf-itens.previa .ti.novo .ti-tit{color:var(--mz-txt); font-weight:600}
+.tf-itens.previa .ti.novo::before{content:''; width:8px; height:8px; border-radius:2px; border:1.5px dashed var(--mz); flex:none}
 .ti{border-top:1px solid var(--hair)}
 .ti:first-child{border-top:0}
 .ti-lin{display:flex; align-items:center; gap:10px; padding:8px 10px 8px 12px; min-height:46px}
