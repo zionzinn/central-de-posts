@@ -207,11 +207,11 @@ function tpLigaLancar() {
   document.querySelectorAll('[data-latv]').forEach(x => x.onclick = () => {
     atv = x.dataset.latv;
     document.querySelectorAll('[data-latv]').forEach(y => y.classList.toggle('on', y === x));
-    if (atv === 'm') $('#tpLAba').value = 'SEUBONÉ';
+    if (atv === 'm' && !tfTemMatriz($('#tpLAba').value)) $('#tpLAba').value = 'SEUBONÉ';   // v3.91: a Weevo também tem matriz
     tarefas();
   });
-  $('#tpLAba').onchange = () => { if (atv === 'm' && !TF_ABAS_MATRIZ.includes($('#tpLAba').value)) { toast('A matriz existe só na SeuBoné por enquanto', true); $('#tpLAba').value = 'SEUBONÉ'; } tarefas(); };
-  if (!TF_ABAS_MATRIZ.includes($('#tpLAba').value)) $('#tpLAba').value = 'SEUBONÉ';
+  $('#tpLAba').onchange = () => { if (atv === 'm' && !tfTemMatriz($('#tpLAba').value)) { toast('A matriz existe só na SeuBoné e na Weevo por enquanto', true); $('#tpLAba').value = 'SEUBONÉ'; } tarefas(); };
+  if (!tfTemMatriz($('#tpLAba').value)) $('#tpLAba').value = 'SEUBONÉ';
   tarefas();
   $('#tpLCancela').onclick = () => { TP.lancar = false; tpDesenha(); };
   $('#tpLSalva').onclick = async () => {

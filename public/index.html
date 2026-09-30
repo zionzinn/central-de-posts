@@ -246,7 +246,7 @@
   <div class="mfoot"><button class="mbtn primary" id="loginBtn" style="width:100%">Entrar</button></div>
 </div></div>
 
-<!-- card da MATRIZ da SeuBoné: a copywriter preenche aqui -->
+<!-- card da MATRIZ (SeuBoné e, v3.91, Weevo): a copywriter preenche aqui -->
 <div class="ov" id="ovMz"><div class="modal" style="position:relative">
   <button class="mclose" data-close="ovMz">✕</button>
   <div class="mhead mzhead">
@@ -281,11 +281,11 @@
           <div><label>Pauta quente <span data-ib="pautaQuente"></span></label><input id="mzPauta" data-mz="pautaQuente" placeholder="assunto do momento, ou ATEMPORAL" maxlength="300"></div>
           <div><label>Tema <span data-ib="tema"></span><span class="mzdica">vira o nome do card</span></label><input id="mzTema" data-mz="tema" placeholder="o recorte específico" maxlength="300"></div>
         </div>
-        <div><label>Tese em uma frase <span data-ib="tese"></span><span class="mzdica">a opinião da SeuBoné</span></label><textarea id="mzTese" data-mz="tese" rows="1" placeholder="sem tese não tem posicionamento"></textarea></div>
+        <div><label>Tese em uma frase <span data-ib="tese"></span><span class="mzdica" id="mzTeseDica">a opinião da SeuBoné</span></label><textarea id="mzTese" data-mz="tese" rows="1" placeholder="sem tese não tem posicionamento"></textarea></div>
         <div><label>Gancho <span data-ib="gancho"></span><span class="mzdica">entendido em 1,5 s</span></label><textarea id="mzGancho" data-mz="gancho" rows="1" placeholder="bate em dor ou desejo concreto"></textarea></div>
       </section>
       <section class="mzbloco" data-bloco="descricao">
-        <div class="mzbt"><span class="mzbn">3</span><b>Como fazer</b><small>o que o Samuca e a edição precisam saber</small></div>
+        <div class="mzbt"><span class="mzbn">3</span><b>Como fazer</b><small id="mzComoDica">o que o Samuca e a edição precisam saber</small></div>
         <div><label>Descrição <span data-ib="descricao"></span><span class="mzdica">2 ou 3 linhas</span></label><textarea id="mzDesc" data-mz="descricao" rows="2" placeholder="cena, estrutura, quem aparece"></textarea></div>
         <div><label>Refs visuais / inserts <span data-ib="refs"></span><span class="mzdica">opcional</span></label><textarea id="mzRefs" data-mz="refs" rows="1" placeholder="links de referência"></textarea></div>
         <div><label>Observações <span data-ib="obs"></span><span class="mzdica">opcional</span></label><textarea id="mzObs" data-mz="obs" rows="1" placeholder="o que confirmar antes de gravar, autorização, número..."></textarea></div>
@@ -413,7 +413,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.90'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.91'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -547,6 +547,8 @@ async function loadState(fresh, silencioso){
   // fluxo contínuo precisa dos posts de qualquer mês, então não filtra por mês;
   // a visão Semana continua pedindo só o mês em foco (payload menor).
   const q = S.view==='semana' ? ('month='+S.mes) : '';
+  // v3.91: as regras das matrizes (SeuBoné e Weevo) vêm uma vez, à parte, e o navegador guarda (ETag)
+  const pm = S.matrizes ? null : api('/api/matrizes').catch(()=>null);
   try{ j = await api('/api/state'+(q||fresh?'?':'')+q+(fresh?(q?'&':'')+'fresh=1':'')); }
   catch(e){ if(e.status===401){ if(!silencioso) mostrarLogin(); return; } if(silencioso) return; throw e; }
   // assinatura barata do que aparece na tela: se nada mudou, o modo silencioso não redesenha
@@ -555,7 +557,8 @@ async function loadState(fresh, silencioso){
   const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.banco||[]) + '#' + JSON.stringify(j.tarefas||[]);
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, hubEscrita:!!j.hubEscrita, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia, matrizSB:j.matrizSB||S.matrizSB});
+  if(pm){ const r = await pm; if(r && r.matrizes) S.matrizes = r.matrizes; }
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, hubEscrita:!!j.hubEscrita, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   contaNaTela();                                        // v3.82: nome da conta no perfil e o que cada papel vê
@@ -602,9 +605,10 @@ function ehPublicar(s){
 }
 /** Sugestão de post vinda pela pauta (dia vazio). Deixa de ser sugestão quando você cola a task. */
 function isSugestao(s){ return !!s.sugestao && !s.taskId; }
-// ---- MATRIZ DA SEUBONÉ ----
+// ---- MATRIZ (SeuBoné e, v3.91, Weevo) ----
 // Card amarelo = post ainda na matriz (sem task). A regra (tipos, rotação A/B, CTA...) vem do servidor
-// (lib/matriz-seubone.js) no /api/state, pra existir num lugar só.
+// (lib/matriz-seubone.js e lib/matriz-weevo.js) pelo /api/matrizes, pra existir num lugar só. O campo do post
+// continua matrizSB; a conta do post diz qual matriz vale.
 function isMatriz(s){ return !!s.matrizSB && !s.taskId; }
 /** v3.89: card de COPY: o post tem documento e ainda não tem task de produção (o card da matriz vira o da copy). */
 function isCopy(s){ return !!s.docId && !s.taskId && !s.postado && !isVaga(s) && !isSugestao(s); }
@@ -616,25 +620,33 @@ function copyEstado(s){
   if(a && a.st==='alterar') return { cod:'alterar', rot:'pra alterar', cor:'var(--red)' };
   return { cod:'escrevendo', rot:'escrevendo', cor:'var(--blue)' };
 }
-const MZ_OBJ_COR = { Atrair:'#00D2E0', Provar:'#6D7CFF', Converter:'#FF9230' };   // teal, índigo, laranja do sistema
+const MZ_OBJ_COR = { Atrair:'#00D2E0', Provar:'#6D7CFF', Converter:'#FF9230', Crescer:'#00DAC3' };   // teal, índigo, laranja e menta do sistema
 const MZ_ST_COR = { 'Não iniciado':'#8E8E93', 'Briefing criado':'#6D7CFF', 'Em produção':'#FF9230', 'Em aprovação':'#00D2E0', 'Aprovado':'#00DAC3', 'Postado':'#30D158' };
-function mzCfg(){ return S.matrizSB || { tipos:{}, semanas:{A:[],B:[]}, ancora:'2026-09-28', status:[], obrigatorios:[], regras:[], checklist:[] }; }
+const MZ_VAZIA = { nome:'', tipos:{}, semanas:{A:[],B:[]}, ancora:'2026-09-28', inicio:null, status:[], obrigatorios:[], regras:[], checklist:[], hacks:'', glossario:{ campos:{}, valores:{}, sugestoes:{} } };
+/** Regras da matriz de uma conta ('seubone' ou 'weevo'); sem conta, a da SeuBoné. */
+function mzCfg(conta){ const l = S.matrizes || {}; return l[conta || 'seubone'] || l.seubone || MZ_VAZIA; }
+/** De qual matriz é o post (pela conta; conta sem matriz própria segue a da SeuBoné, como no servidor). */
+function mzContaDe(s){ return s && S.matrizes && S.matrizes[s.conta] ? s.conta : 'seubone'; }
+/** A matriz da aba (SEUBONÉ → 'seubone', WEEVO → 'weevo'), ou null se a empresa não tem matriz. */
+function mzDaAba(aba){ const l = S.matrizes || {}; return Object.keys(l).find(k => l[k].aba === aba) || null; }
 function mzUtc(iso){ return Date.parse(iso+'T12:00:00Z'); }
-/** Semana A ou B (conta a partir da segunda-âncora da planilha, vale pra qualquer mês). */
-function mzSemana(iso){
+/** Semana A ou B (conta a partir da segunda-âncora de cada matriz, vale pra qualquer mês). */
+function mzSemana(iso, conta){
   const d = mzUtc(iso), dow = (new Date(d).getUTCDay()+6)%7;
-  const w = Math.round((d - dow*86400000 - mzUtc(mzCfg().ancora)) / 86400000 / 7);
+  const w = Math.round((d - dow*86400000 - mzUtc(mzCfg(conta).ancora)) / 86400000 / 7);
   return ((w%2)+2)%2===0 ? 'A' : 'B';
 }
-/** O que a matriz pede no dia: tipo fixo, ou slot em aberto com as opções. */
-function mzTipoDoDia(iso){
-  const sem = mzSemana(iso), dow = (new Date(mzUtc(iso)).getUTCDay()+6)%7;
-  const v = (mzCfg().semanas[sem]||[])[dow];
+/** O que a matriz pede no dia: tipo fixo, ou slot em aberto com as opções. Antes do começo da matriz: null. */
+function mzTipoDoDia(iso, conta){
+  const cfg = mzCfg(conta);
+  if(!iso || (cfg.inicio && iso < cfg.inicio)) return null;
+  const sem = mzSemana(iso, conta), dow = (new Date(mzUtc(iso)).getUTCDay()+6)%7;
+  const v = (cfg.semanas[sem]||[])[dow];
   return Array.isArray(v) ? { semana:sem, tipo:null, opcoes:v } : { semana:sem, tipo:v||null, opcoes:null };
 }
 function mzStatus(s){ return s.postado ? 'Postado' : ((s.matrizSB && s.matrizSB.status) || 'Não iniciado'); }
-function mzProgresso(m){ const ob = mzCfg().obrigatorios; const n = ob.filter(k=>m && m[k]).length; return { n, total: ob.length, cheio: n===ob.length }; }
-function mzObjCor(tipo){ const t = mzCfg().tipos[tipo]; return t ? (MZ_OBJ_COR[t.objetivo]||'#FCC100') : '#FCC100'; }
+function mzProgresso(m, conta){ const ob = mzCfg(conta).obrigatorios; const n = ob.filter(k=>m && m[k]).length; return { n, total: ob.length, cheio: n===ob.length }; }
+function mzObjCor(tipo, conta){ const t = mzCfg(conta).tipos[tipo]; return t ? (MZ_OBJ_COR[t.objetivo]||'#FCC100') : '#FCC100'; }
 function stInfo(s){
   if(isVaga(s)) return {label:'falta criar', color:'#FF4D4D'};
   if(isSugestao(s)) return {label:'sugestão', color:'#C77DFF'};
@@ -1083,12 +1095,12 @@ function cardEl(s){
       '<button class="qdel bin mini" title="Excluir este post do painel">'+BIN_SVG+'</button>';
   } else if(mz){
     // MATRIZ: faixa amarela sólida no topo dizendo MATRIZ + o tipo do dia. Não tem como confundir com post.
-    const m = s.matrizSB; const mzp = mzProgresso(m); const st = mzStatus(s);
-    const tipoCfg = mzCfg().tipos[m.tipo];
+    const m = s.matrizSB, mzk = mzContaDe(s); const mzp = mzProgresso(m, mzk); const st = mzStatus(s);
+    const tipoCfg = mzCfg(mzk).tipos[m.tipo];
     const gmPede = s.date && S.aba==='SEUBONÉ' && gmCadenciaDia(s.date);
     d.innerHTML =
       '<div class="mzband" title="Card da matriz: clique pra preencher">'+
-        '<span class="mzobj" style="background:'+mzObjCor(m.tipo)+'" title="'+esc(tipoCfg? 'objetivo: '+tipoCfg.objetivo : 'tipo em aberto')+'"></span>'+
+        '<span class="mzobj" style="background:'+mzObjCor(m.tipo, mzk)+'" title="'+esc(tipoCfg? 'objetivo: '+tipoCfg.objetivo : 'tipo em aberto')+'"></span>'+
         '<span class="mzlbl">Matriz</span><span class="mztipo">'+esc(m.tipo||'Em aberto')+'</span>'+
         (gmPede||isGm(s)?'<span class="mzstar" title="Dia de grande marca na capa">'+icon('star')+'</span>':'')+
       '</div>'+
@@ -1345,11 +1357,13 @@ function celulaDia(c, di, porDia, semana){
   const estrela = temGmPost
     ? '<span class="gmday" title="Dia de grande marca (GM)">'+icon('star')+'</span>'
     : (gmDia ? '<span class="gmday esperado" title="Este dia precisa de um post de GRANDE MARCA (GM), mesmo sem post ainda">'+icon('star')+'</span>' : '');
-  const sb = S.aba==='SEUBONÉ' && S.matrizSB;
-  const mzd = sb ? mzTipoDoDia(c.date) : null;
+  const sb = S.aba==='SEUBONÉ';
+  const mzk = mzDaAba(S.aba);                                  // v3.91: SeuBoné e Weevo
+  const mzd = mzk ? mzTipoDoDia(c.date, mzk) : null;
   const mzLabel = mzd ? (mzd.tipo || mzd.opcoes.join(' / ')) : '';
+  const mzHacks = mzd && mzk === 'weevo' ? ' · e mais '+((new Date(mzUtc(c.date)).getUTCDay()+6)%7 >= 5 ? 2 : 4)+' hacks e virais (fora da matriz)' : '';
   cell.innerHTML = '<div class="day-top"><span class="dleft"><span class="dnum">'+c.dnum+ estrela + '</span>'+
-    (mzd ? '<span class="mzdia" style="--c:'+(mzd.tipo?mzObjCor(mzd.tipo):'#FCC100')+'" title="Matriz: '+esc(mzLabel)+' · semana '+mzd.semana+'">'+esc(mzd.tipo || 'Em aberto')+'</span>' : '')+
+    (mzd ? '<span class="mzdia" style="--c:'+(mzd.tipo?mzObjCor(mzd.tipo, mzk):'#FCC100')+'" title="Matriz: '+esc(mzLabel)+' · semana '+mzd.semana+esc(mzHacks)+'">'+esc(mzd.tipo || 'Em aberto')+'</span>' : '')+
     '</span><span class="day-acts">'+
       (sb ? '' : '<button class="vagabtn" title="Sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>')+
       '<button class="addbtn" title="Criar neste dia" aria-haspopup="menu">'+icon('plus','s')+'</button>'+
@@ -2124,7 +2138,7 @@ $('#eMaisBtn').onclick = ()=> abreMais($('#eMaisCorpo').hidden);
 function ePasso(){ $('#eForm').hidden = false; $('#eFoot').hidden = false; }
 const E_TITULOS = { link:'Novo post', hub:'Post do MKT Hub', edit:'Editar post' };
 function setModo(m){
-  if(m==='matriz'){ const dia = $('#eDate').value || null; closeOv('ovEdit'); criarCardMatriz(dia); return; }
+  if(m==='matriz'){ const dia = $('#eDate').value || null; closeOv('ovEdit'); criarCardMatriz(dia, mzDaAba(S.aba) || 'seubone'); return; }
   E_MODO = m;
   aplicaModo(m);
   ePasso(2);
@@ -2215,7 +2229,8 @@ $('#eSave').onclick = async ()=>{
 // ================= (i) EXPLICAÇÃO DE CADA CAMPO (v3.68) =================
 // Os textos moram no servidor (lib/matriz-seubone.js, GLOSSARIO) e chegam no /api/state.
 const ICON_INFO = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><path d="M12 11v5.8"/><circle cx="12" cy="7.7" r="1.15" fill="currentColor" stroke="none"/></svg>';
-function glo(){ return (S.matrizSB && S.matrizSB.glossario) || { campos:{}, valores:{} }; }
+let MZ_CONTA_UI = 'seubone';   // v3.91: de qual matriz é o card aberto (o (i) explica pelas regras dela)
+function glo(){ return mzCfg(MZ_CONTA_UI).glossario || { campos:{}, valores:{} }; }
 function infoBtn(chave, valor, lista){ return '<button type="button" class="ib" data-info="'+esc(chave)+'"'+(valor?' data-valor="'+esc(valor)+'"':'')+(lista?' data-lista="1"':'')+' title="O que é isso?" aria-label="o que é isso?">'+ICON_INFO+'</button>'; }
 function trocaMarcadoresInfo(raiz){ (raiz||document).querySelectorAll('span[data-ib]').forEach(el=>{ el.outerHTML = infoBtn(el.dataset.ib, el.dataset.valor, el.dataset.lista); }); }
 let INFO_BTN = null;
@@ -2225,18 +2240,21 @@ function abreInfo(btn){
   const g = glo(), k = btn.dataset.info, v = btn.dataset.valor || '';
   let tit = '', corpo = '';
   if(k === 'tipoAtual'){
-    const t = mzCfg().tipos[v]; tit = v;
+    const t = mzCfg(MZ_CONTA_UI).tipos[v]; tit = v;
     corpo = '<p>'+esc(t ? t.oQueE : '')+'</p>'+(t ? '<ul class="ipl"><li><b>Quando</b>: '+esc(t.quando)+'</li><li><b>Objetivo</b>: '+esc(t.objetivo)+' · <b>CTA</b>: '+esc(t.cta)+'</li></ul>' : '')+
       (g.campos.tipo ? '<p>'+esc(g.campos.tipo.txt)+'</p>' : '');
   } else if(k.startsWith('sug:')){
-    const qual = k.slice(4), txt = ((g.sugestoes||{})[qual]||{})[v];
+    // v3.91: a explicação do formato pode ser do tipo (a Weevo tem "Quadro branco" em 2 tipos, com usos diferentes)
+    const tAtual = mzCfg(MZ_CONTA_UI).tipos[$('#ovMz').dataset.tipo || ''] || {};
+    const qual = k.slice(4), txt = (qual==='formato' && (tAtual.formatosTxt||{})[v]) || ((g.sugestoes||{})[qual]||{})[v];
     tit = v; corpo = '<p class="ipk">Sugestão de '+(qual==='formato'?'formato':'ângulo')+'</p><p>'+esc(txt || 'Sem explicação cadastrada ainda.')+'</p><p class="ipd">Clique no nome da sugestão pra usar ela no campo.</p>';
   } else {
     const c = g.campos[k]; if(!c) return;
     tit = c.tit; corpo = '<p>'+esc(c.txt)+'</p>';
     // formato/ângulo: se o que está escrito é uma das sugestões, explica ela também
     const atual = (k==='formato' || k==='angulo') ? (document.querySelector('#ovMz [data-mz="'+k+'"]')||{}).value : '';
-    const exp = atual && ((g.sugestoes||{})[k]||{})[atual.trim()];
+    const tA = mzCfg(MZ_CONTA_UI).tipos[$('#ovMz').dataset.tipo || ''] || {};
+    const exp = atual && ((k==='formato' && (tA.formatosTxt||{})[atual.trim()]) || ((g.sugestoes||{})[k]||{})[atual.trim()]);
     if(exp) corpo += '<ul class="ipl"><li class="atual"><b>'+esc(atual.trim())+'</b>: '+esc(exp)+'</li></ul>';
     const vals = g.valores[k];
     if(vals && (v || btn.dataset.lista)) corpo += '<ul class="ipl">'+Object.entries(vals).map(([nome, txt])=>'<li'+(nome===v?' class="atual"':'')+'><b>'+esc(nome)+'</b>: '+esc(txt)+'</li>').join('')+'</ul>';
@@ -2725,16 +2743,16 @@ function docDoLink(){ const id = location.hash.startsWith('#doc=') ? location.ha
 setTimeout(docDoLink, 300);
 window.addEventListener('hashchange', docDoLink);
 
-// ================= MATRIZ DA SEUBONÉ: o card amarelo =================
+// ================= MATRIZ (SeuBoné e Weevo): o card amarelo =================
 // v3.88: o card nasce quando a copywriter cria a tarefa de matriz dos dias que escolheu: o tipo do dia vem da rotação
 // A/B, e a copywriter preenche formato, ângulo, pauta, tema, tese, gancho, descrição, refs.
 let MZ_ATUAL = null;       // id do card aberto
 let MZ_TIPO_LIVRE = false; // "trocar tipo" num dia de tipo fixo
 function mzTiposPossiveis(s){
-  const d = s.date ? mzTipoDoDia(s.date) : null;
+  const k = mzContaDe(s), d = s.date ? mzTipoDoDia(s.date, k) : null;
   if(d && d.opcoes) return d.opcoes;
-  if(!d) return Object.keys(mzCfg().tipos);           // sem data (banco): qualquer tipo
-  return MZ_TIPO_LIVRE ? Object.keys(mzCfg().tipos) : null;
+  if(!d) return Object.keys(mzCfg(k).tipos);          // sem data (banco) ou antes do começo da matriz: qualquer tipo
+  return MZ_TIPO_LIVRE ? Object.keys(mzCfg(k).tipos) : null;
 }
 /** Formato já usado por outro card do mesmo tipo na semana anterior ou na mesma semana (regras 2 e 3 da rotação). */
 function mzFormatoRepetido(s, tipo, formato){
@@ -2742,7 +2760,7 @@ function mzFormatoRepetido(s, tipo, formato){
   const alvo = formato.trim().toLowerCase(); const d = mzUtc(s.date);
   const seg = d - ((new Date(d).getUTCDay()+6)%7)*86400000;
   for(const x of S.slots){
-    if(x.id===s.id || x.conta!=='seubone' || !x.date || !x.matrizSB) continue;
+    if(x.id===s.id || x.conta!==s.conta || !x.date || !x.matrizSB) continue;   // v3.91: a mesma conta (SeuBoné ou Weevo)
     if((x.matrizSB.tipo||'')!==tipo || String(x.matrizSB.formato||'').trim().toLowerCase()!==alvo) continue;
     const t = mzUtc(x.date);
     if(t >= seg - 7*86400000 && t < seg + 7*86400000) return x;
@@ -2750,36 +2768,42 @@ function mzFormatoRepetido(s, tipo, formato){
   return null;
 }
 function mzDesenhaTipo(s, tipo){
-  const cfg = mzCfg(); const t = cfg.tipos[tipo] || null;
-  const d = s.date ? mzTipoDoDia(s.date) : null;
+  const k = mzContaDe(s), cfg = mzCfg(k); const t = cfg.tipos[tipo] || null;
+  const d = s.date ? mzTipoDoDia(s.date, k) : null;
   const dows = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
-  $('#mzKicker').textContent = s.date ? (dows[new Date(mzUtc(s.date)).getUTCDay()]+' '+brData(s.date).slice(0,5)+' · semana '+d.semana+(d.opcoes?' · slot em aberto':'')) : 'sem data · banco';
+  $('#mzKicker').textContent = (cfg.nome ? cfg.nome.toUpperCase()+' · ' : '')+(s.date ? (dows[new Date(mzUtc(s.date)).getUTCDay()]+' '+brData(s.date).slice(0,5)+(d ? ' · semana '+d.semana+(d.opcoes?' · slot em aberto':'') : ' · antes da matriz')) : 'sem data · banco');
   $('#mzTit').textContent = tipo || 'Escolha o tipo';
-  const cor = tipo ? mzObjCor(tipo) : '#FCC100';
+  const cor = tipo ? mzObjCor(tipo, k) : '#FCC100';
   $('#ovMz').style.setProperty('--mzc', cor);
   $('#mzObj').textContent = t ? t.objetivo : ''; $('#mzObj').hidden = !t;
   $('#mzSub').textContent = t ? t.oQueE : 'Este dia é um slot em aberto: escolha o tipo de conteúdo que faz sentido agora.';
-  $('#mzGm').hidden = !(s.date && gmCadenciaDia(s.date));
+  $('#mzGm').hidden = !(k==='seubone' && s.date && gmCadenciaDia(s.date));   // GM é só da SeuBoné
   // travadas: saem do tipo, não se mexe aqui
   // o que o tipo pede (não se mexe aqui): CTA em destaque, o resto em linhas curtas
   $('#mzTrava').hidden = !t;
+  // v3.91: só o que o tipo tem (a Weevo não tem consciência, emoção nem métricas; tem quem produz e, na Oferta, uma nota)
   $('#mzTrava').innerHTML = t ? '<div class="pt">O que o tipo '+esc(tipo)+' pede '+infoBtn('pede')+'</div>'+
     '<div class="cta"><span>CTA '+infoBtn('cta')+'</span><b>'+esc(t.cta)+'</b></div>'+
-    [['Objetivo','objetivo'], ['Funil','funil'], ['Consciência','consciencia'], ['Emoção','emocao']].map(([r,k])=>'<div class="lin"><span>'+esc(r)+' '+infoBtn(k, t[k])+'</span><b>'+esc(t[k])+'</b></div>').join('')+
-    '<div class="met"><span>Métrica principal '+infoBtn('metrica1')+'</span>'+esc(t.metrica1)+'</div><div class="met"><span>Métrica secundária '+infoBtn('metrica2')+'</span>'+esc(t.metrica2)+'</div>' : '';
+    [['Objetivo','objetivo'], ['Funil','funil'], ['Consciência','consciencia'], ['Emoção','emocao']].filter(([,c])=>t[c]).map(([r,c])=>'<div class="lin"><span>'+esc(r)+' '+infoBtn(c, t[c])+'</span><b>'+esc(t[c])+'</b></div>').join('')+
+    (t.metrica1 ? '<div class="met"><span>Métrica principal '+infoBtn('metrica1')+'</span>'+esc(t.metrica1)+'</div>' : '')+(t.metrica2 ? '<div class="met"><span>Métrica secundária '+infoBtn('metrica2')+'</span>'+esc(t.metrica2)+'</div>' : '')+
+    (t.quem ? '<div class="met"><span>Quem produz '+infoBtn('quem')+'</span>'+esc(t.quem)+'</div>' : '')+
+    (t.nota ? '<div class="met mznota"><span>Atenção</span>'+esc(t.nota)+'</div>' : '') : '';
   $('#mzTitInfo').innerHTML = tipo && t ? infoBtn('tipoAtual', tipo) : infoBtn('tipo');
   // tipo: slot em aberto (ou "trocar tipo") mostra os botões
   const poss = mzTiposPossiveis(s);
   $('#mzAberto').hidden = !poss;
   if(poss){
-    $('#mzAbertoLbl').textContent = d && d.opcoes ? 'Slot em aberto: escolha o tipo ('+d.opcoes.join(', ')+')' : 'Tipo de conteúdo';
+    $('#mzAbertoLbl').textContent = d && d.opcoes ? 'Slot em aberto: escolha o tipo'+(d.opcoes.length <= 3 ? ' ('+d.opcoes.join(', ')+')' : '') : 'Tipo de conteúdo';
     $('#mzOpc').innerHTML = poss.map(o=>'<button type="button" data-t="'+esc(o)+'" class="'+(o===tipo?'on':'')+'">'+esc(o)+'</button>').join('');
     $('#mzOpc').querySelectorAll('button').forEach(b=> b.onclick = ()=>{ $('#ovMz').dataset.tipo = b.dataset.t; mzDesenhaTipo(s, b.dataset.t); });
   }
   // chips de formato e ângulo do tipo
   // cada sugestão tem o nome (clique usa) e o (i) do lado (clique explica)
+  // v3.91: QUADRO = formato já aprovado (é sugestão, não obrigação); o (i) só aparece quando tem explicação
+  const g = glo(), explica = (qual, o) => !!((qual==='formato' && t && (t.formatosTxt||{})[o]) || ((g.sugestoes||{})[qual]||{})[o]);
   const chips = (el, lista, input, qual)=>{
-    el.innerHTML = (lista||[]).map(o=>'<span class="mzsug"><button type="button" class="mzsb">'+esc(o)+'</button>'+infoBtn('sug:'+qual, o)+'</span>').join('');
+    el.innerHTML = (lista||[]).map(o=>'<span class="mzsug'+(qual==='formato' && t && (t.quadros||[]).includes(o) ? ' quadro' : '')+'"><button type="button" class="mzsb">'+esc(o)+'</button>'+
+      (qual==='formato' && t && (t.quadros||[]).includes(o) ? '<span class="mzqd" title="Quadro: formato já aprovado (sugestão, não obrigação)">quadro</span>' : '')+(explica(qual, o) ? infoBtn('sug:'+qual, o) : '')+'</span>').join('');
     el.querySelectorAll('.mzsb').forEach(b=> b.onclick = ()=>{ input.value = b.textContent; mzMarcaChips(s); mzProgresso_(); const c = el.closest('.mzcampo'); c.classList.remove('aberto'); mzRotuloSug(c); input.focus(); });
   };
   chips($('#mzFormatos'), t && t.formatos, $('#mzFormato'), 'formato');
@@ -2791,7 +2815,7 @@ function mzDesenhaTipo(s, tipo){
 }
 /** Barra "x de 8" no topo, check nos blocos completos, sugestões somem no campo preenchido e textos crescem sozinhos. */
 function mzProgresso_(){
-  const ob = mzCfg().obrigatorios; const val = k => { const el = document.querySelector('#ovMz [data-mz="'+k+'"]'); return el && el.value.trim(); };
+  const ob = mzCfg(MZ_CONTA_UI).obrigatorios; const val = k => { const el = document.querySelector('#ovMz [data-mz="'+k+'"]'); return el && el.value.trim(); };
   const n = ob.filter(val).length;
   $('#mzProgBar').style.width = Math.round(100*n/ob.length)+'%';
   $('#mzProgTxt').textContent = n===ob.length ? 'tudo preenchido: pronto pra briefing' : n+' de '+ob.length+' preenchidos';
@@ -2808,30 +2832,36 @@ function mzMarcaChips(s){
   $('#mzFormatos').querySelectorAll('.mzsb').forEach(b=>{ b.parentNode.classList.toggle('on', b.textContent===f); b.parentNode.classList.toggle('usado', !!mzFormatoRepetido(s, tipo, b.textContent)); });
   $('#mzAngulos').querySelectorAll('.mzsb').forEach(b=> b.parentNode.classList.toggle('on', b.textContent===a));
   const rep = mzFormatoRepetido(s, tipo, f);
-  $('#mzAvisoFmt').textContent = rep ? 'Esse formato já está no '+tipo+' de '+brData(rep.date).slice(0,5)+'. A regra é não repetir o formato do mesmo tipo em semanas seguidas (nem 2 Produtos iguais na semana).' : '';
+  $('#mzAvisoFmt').textContent = rep ? 'Esse formato já está no '+tipo+' de '+brData(rep.date).slice(0,5)+'. A regra é não repetir o formato do mesmo tipo em semanas seguidas'+(mzContaDe(s)==='seubone' ? ' (nem 2 Produtos iguais na semana).' : '.') : '';
 }
 function openMatriz(id){
   const s = S.slots.find(x=>x.id===id); if(!s) return;
-  const cfg = mzCfg(); const m = s.matrizSB || {};
+  MZ_CONTA_UI = mzContaDe(s);                                  // v3.91: SeuBoné ou Weevo
+  const cfg = mzCfg(MZ_CONTA_UI); const m = s.matrizSB || {};
   MZ_ATUAL = id; MZ_TIPO_LIVRE = false;
-  const tipo = m.tipo || (s.date ? (mzTipoDoDia(s.date).tipo||'') : '');
+  const hoje = s.date ? mzTipoDoDia(s.date, MZ_CONTA_UI) : null;
+  const tipo = m.tipo || ((hoje && hoje.tipo) || '');
+  // o que muda de uma empresa pra outra no formulário
+  $('#mzTeseDica').textContent = 'a opinião da '+(cfg.nome || 'marca');
+  $('#mzComoDica').textContent = MZ_CONTA_UI==='seubone' ? 'o que o Samuca e a edição precisam saber' : 'o que o time precisa saber pra produzir';
   $('#ovMz').dataset.tipo = tipo;
   document.querySelectorAll('#ovMz [data-mz]').forEach(el=>{ if(el.tagName!=='SELECT') el.value = m[el.dataset.mz] || ''; });
   $('#mzStatus').innerHTML = cfg.status.map(n=>'<option>'+esc(n)+'</option>').join('');
   $('#mzStatus').value = mzStatus(s);
-  $('#mzRegrasTxt').innerHTML = '<b>Regras da rotação</b><ol>'+cfg.regras.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ol><b>Antes de aprovar qualquer peça</b><ul>'+cfg.checklist.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>';
+  $('#mzRegrasTxt').innerHTML = '<b>Regras da rotação</b><ol>'+cfg.regras.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ol><b>Antes de aprovar qualquer peça</b><ul>'+cfg.checklist.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>'+
+    (cfg.hacks ? '<b>Fora da matriz</b><p>'+esc(cfg.hacks)+'</p>' : '');
   $('#mzExcluir').hidden = !isMatriz(s);                 // card que já virou post normal se apaga pelo editor
   $('#mzMsg').textContent = s.taskId ? 'Este post já tem task de produção. Aqui fica o planejamento da matriz.' : '';
   mzDesenhaTipo(s, tipo);
   $('#mzCopy').innerHTML = $('#mzCopyTop').innerHTML = icon('doc') + (s.docId ? 'Abrir a copy' : 'Escrever a copy');
   // dia de tipo fixo: link discreto pra trocar o tipo mesmo assim
-  if(s.date && mzTipoDoDia(s.date).tipo && !$('#mzTrocar')){
+  if(hoje && hoje.tipo && !$('#mzTrocar')){
     const a = document.createElement('button'); a.type='button'; a.id='mzTrocar'; a.className='mbtn'; a.style.cssText='padding:3px 9px; font-size:11px';
     a.textContent = 'trocar tipo'; a.dataset.tip = 'A rotação pede este tipo neste dia. Troque só se tiver motivo';
     $('#mzSub').after(a);
   }
   const tr = $('#mzTrocar');
-  if(tr){ tr.hidden = !(s.date && mzTipoDoDia(s.date).tipo); tr.onclick = ()=>{ MZ_TIPO_LIVRE = true; tr.hidden = true; mzDesenhaTipo(s, $('#ovMz').dataset.tipo); }; }
+  if(tr){ tr.hidden = !(hoje && hoje.tipo); tr.onclick = ()=>{ MZ_TIPO_LIVRE = true; tr.hidden = true; mzDesenhaTipo(s, $('#ovMz').dataset.tipo); }; }
   $('#ovMz').classList.add('open');
   tfNaMatriz(s);                                  // v3.80: aviso da aprovação e o relógio da tarefa
   requestAnimationFrame(()=>mzProgresso_());   // altura dos textos só dá pra medir com a janela aberta
@@ -2861,9 +2891,9 @@ $('#mzExcluir').onclick = async ()=>{
   catch(e){ $('#mzMsg').textContent = 'Erro: '+e.message; }
 };
 /** Botão amarelo do dia: cria um card da matriz naquele dia (com o tipo da rotação) e já abre pra preencher. */
-async function criarCardMatriz(dateStr){
+async function criarCardMatriz(dateStr, conta){
   try{
-    const r = await api('/api/slots', {method:'POST', body:JSON.stringify({ conta:'seubone', date:dateStr, matrizSB:{} })});
+    const r = await api('/api/slots', {method:'POST', body:JSON.stringify({ conta: conta || 'seubone', date:dateStr, matrizSB:{} })});   // v3.91: SeuBoné ou Weevo
     await loadState();
     toast('Card da matriz criado · Ctrl+Z desfaz');
     openMatriz(r.slot.id);
@@ -3083,9 +3113,10 @@ function abrirRadial(el, itens, angs, raio, fab){
 /** Opções de criar no dia: matriz nova (só onde tem matriz), post avulso e post já feito no MKT Hub. */
 function itensCriar(dia){
   const l = [];
-  if(S.aba==='SEUBONÉ' && S.matrizSB){
-    const d = dia ? mzTipoDoDia(dia) : null;
-    l.push({ rot:'Matriz nova'+(d ? ' ('+(d.tipo || d.opcoes.join(' / '))+')' : ''), ic:'sparkle', cor:'var(--mz)', corOn:'#000', f:()=> criarCardMatriz(dia) });
+  const mzk = mzDaAba(S.aba);                    // v3.91: SeuBoné e Weevo
+  if(mzk){
+    const d = dia ? mzTipoDoDia(dia, mzk) : null;
+    l.push({ rot:'Matriz nova'+(d ? ' ('+(d.tipo || (d.opcoes.length > 3 ? 'em aberto' : d.opcoes.join(' / ')))+')' : ''), ic:'sparkle', cor:'var(--mz)', corOn:'#000', f:()=> criarCardMatriz(dia, mzk) });
   }
   l.push({ rot:'Post avulso', ic:'pencil', f:()=> openEdit(null, dia) });
   l.push({ rot:'Post feito no MKT Hub', ic:'hub', cor:'var(--indigo)', corOn:'#fff', f:()=> openEdit(null, dia, {modo:'hub'}) });

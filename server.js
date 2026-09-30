@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.90'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.91'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -163,31 +163,46 @@ function taskDoLink(link) {
 // (lib/tarefas.js chama criaCardsMatriz); acabou a geração automática de 3 meses e o botão "preencher o mês".
 const MZ = require('./lib/matriz-seubone.js');
 const MZ_CONTA = 'seubone';
+// v3.91: a Weevo também tem matriz (lib/matriz-weevo.js). lib/matrizes.js diz qual matriz vale pra cada conta e aba.
+const MZS = require('./lib/matrizes.js');
+/** As regras da matriz de um post (pela conta; o campo continua matrizSB). */
+const mzDe = s => MZS.doPost(s).mod;
+// as regras de todas as matrizes, montadas uma vez (vão pelo GET /api/matrizes, com ETag: o navegador guarda)
+const MATRIZES_JSON = JSON.stringify({ versao: VERSAO, matrizes: MZS.publicas() });
+const MATRIZES_ETAG = 'W/"mz' + crypto.createHash('md5').update(MATRIZES_JSON).digest('hex').slice(0, 18) + '"';
 /** Dia já tem post da SeuBoné (próprio ou collab)? Então a matriz não põe card ali. */
 function temPostSeubone(iso) {
   return db.slots.some(s => s.date === iso && (s.conta === MZ_CONTA || (s.collab || []).includes(MZ_CONTA)));
 }
-function novoSlotMatriz(iso, matrizSB, mzTarefa) {
+function novoSlotMatriz(iso, matrizSB, mzTarefa, conta) {
   return {
     id: 's' + crypto.randomBytes(4).toString('hex'),
-    conta: MZ_CONTA, date: iso || null, taskId: null, titulo: null, formato: '', angulo: '', obs: '', notas: '',
+    conta: conta || MZ_CONTA, date: iso || null, taskId: null, titulo: null, formato: '', angulo: '', obs: '', notas: '',
     gm: '', collab: [], drive: '', linkRef: '', aprovado: false, postado: false, fixo: false,
     responsavelManual: '', origem: 'matriz', cat: '', fonteId: '', matrizSB,
     ...(mzTarefa ? { mzTarefa } : {}),        // v3.88: a tarefa de matriz que criou o card (excluir a tarefa leva os vazios)
     tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: new Date().toISOString(),
   };
 }
-const MZ_ABA = 'SEUBONÉ';
 /**
- * v3.88: a tarefa de matriz cria os cards amarelos dos dias dela. Dia que já tem post da SeuBoné (próprio ou
- * collab) fica como está: a matriz da SeuBoné é um post por dia. Devolve os ids criados.
+ * v3.91: o dia já tem o post da matriz? SeuBoné: qualquer post da conta (próprio ou collab), porque a matriz é o post
+ * do dia. Weevo: só um card da matriz dela (os hacks e virais do dia são outros posts, fora da matriz).
+ */
+function diaOcupado(iso, mz) {
+  if (mz.umPorDia) return db.slots.some(s => s.date === iso && (s.conta === mz.conta || (s.collab || []).includes(mz.conta)));
+  return db.slots.some(s => s.date === iso && s.conta === mz.conta && !!s.matrizSB);
+}
+/**
+ * v3.88: a tarefa de matriz cria os cards amarelos dos dias dela (v3.91: SeuBoné e Weevo). Dia ocupado fica como
+ * está; dia antes do começo da matriz (Weevo: 01/10/2026) também. Devolve os ids criados.
  */
 function criaCardsMatriz(tf) {
-  if (!tf || tf.tipo !== 'matriz' || tf.aba !== MZ_ABA || !db.contas[MZ_CONTA]) return [];
+  const mz = tf && tf.tipo === 'matriz' ? MZS.porAba(tf.aba) : null;
+  if (!mz || !db.contas[mz.conta]) return [];
   const criados = [];
   for (let d = tf.de; d <= tf.ate; d = addDiaISO(d, 1)) {
-    if (temPostSeubone(d)) continue;
-    const slot = novoSlotMatriz(d, MZ.cardDoDia(d), tf.id);
+    if (!mz.mod.tipoDoDia(d) || diaOcupado(d, mz)) continue;
+    const slot = novoSlotMatriz(d, mz.mod.cardDoDia(d), tf.id, mz.conta);
     db.slots.push(slot); criados.push(slot.id);
   }
   return criados;
@@ -195,7 +210,7 @@ function criaCardsMatriz(tf) {
 /** v3.88: excluir a tarefa de matriz leva junto os cards que ELA criou e que continuam vazios. Devolve quantos. */
 function limpaCardsMatriz(tf) {
   const sai = new Set(db.slots.filter(s => s.mzTarefa === tf.id && s.matrizSB && !s.taskId && !s.postado && !s.docId
-    && !(s.aprov && s.aprov.c) && MZ.vazio(s.matrizSB)).map(s => s.id));
+    && !(s.aprov && s.aprov.c) && mzDe(s).vazio(s.matrizSB)).map(s => s.id));
   if (sai.size) db.slots = db.slots.filter(s => !sai.has(s.id));
   return sai.size;
 }
@@ -350,11 +365,12 @@ function aovivoBroadcast(evt, obj, exceto) { for (const [id, r] of aovivoSSE) { 
 setInterval(() => { const t = Date.now(); for (const [id, p] of aovivo) { if (t - p.visto > 40000 && !aovivoSSE.has(id)) { aovivo.delete(id); aovivoBroadcast('saiu', { id }); } } }, 20000);
 
 // Documentos (a copy do post, editor estilo Docs em public/doc.html). Rotas em lib/docs.js.
-const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo, MZ, backupAgora, usoInvalida: () => USO.invalida() });
+const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo, MZ, mzDe, backupAgora, usoInvalida: () => USO.invalida() });
 // v3.80: tarefas da copywriter (matriz e copy por empresa, com aprovação post a post) e o relógio delas
 const rotaTempo = require('./lib/tempo.js')({ db, saveDb, readBody, json, equipe: () => AUTH.ligado() ? AUTH.usuarios().map(u => u.nome) : [] });
 const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, undoSlots, tempo: rotaTempo,
-  criaCards: criaCardsMatriz, limpaCards: limpaCardsMatriz, mzCheio: m => !!m && MZ.OBRIGATORIOS.every(k => String(m[k] || '').trim()) });   // v3.88
+  criaCards: criaCardsMatriz, limpaCards: limpaCardsMatriz, mzCheio: (m, s) => !!m && mzDe(s).OBRIGATORIOS.every(k => String(m[k] || '').trim()),   // v3.88
+  abasMatriz: MZS.ABAS });   // v3.91: SeuBoné e Weevo
 // v3.81: MKT Hub (leitura; chave só na variável MKH_CHAVE). Sem chave, fica desligado.
 const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/docs.js').limpaHtml });
 // v3.84: a tarefa de matriz ou copy vira no Hub uma tarefa mãe com uma subtarefa por post (só com a chave de nível completa)
@@ -376,7 +392,7 @@ function montaSlot(b) {
     collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
     drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: false, fixo: false,
     responsavelManual: String(b.responsavelManual || '').slice(0, 80), origem: 'painel',   // v3.83: sem "criativo" e "banco" (o banco antigo saiu)
-    ...(b.matrizSB ? { matrizSB: MZ.limpa(Object.assign({ tipo: b.date ? (MZ.tipoDoDia(b.date).tipo || '') : '' }, b.matrizSB)) } : {}),
+    ...(b.matrizSB ? { matrizSB: mzDe(b).limpa(Object.assign({ tipo: b.date ? ((mzDe(b).tipoDoDia(b.date) || {}).tipo || '') : '' }, b.matrizSB)) } : {}),   // v3.91: a matriz da conta
     tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: null,
   };
   // VAGA = "falta criar este post". Só faz sentido sem task: se já tem task, não falta criar.
@@ -482,7 +498,7 @@ const server = http.createServer(async (req, res) => {
         equipe: AUTH.ligado() ? AUTH.usuarios().map(x => x.nome) : undefined,   // nomes pro "quem faz" (60 bytes)
         gmCadencia: db.gmCadencia,
         uso: USO.curto(),
-        matrizSB: { conta: MZ_CONTA, tipos: MZ.TIPOS, semanas: MZ.SEMANAS, ancora: MZ.ANCORA, status: MZ.STATUS, obrigatorios: MZ.OBRIGATORIOS, regras: MZ.REGRAS, checklist: MZ.CHECKLIST, glossario: MZ.GLOSSARIO },
+        // v3.91: as regras das matrizes saíram daqui (eram 10 KB comprimidos em toda resposta cheia): GET /api/matrizes
       });
       // v3.72: o painel pergunta a cada 20 s; se nada mudou, a resposta é um 304 de ~0,3 KB em vez de ~17 KB.
       // O navegador guarda a última resposta e devolve ela pro painel sozinho (nada muda no front).
@@ -490,6 +506,12 @@ const server = http.createServer(async (req, res) => {
       // v3.82: a resposta tem quem está logado: "private" (nenhum cache no caminho guarda pra outra pessoa)
       if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, 'Cache-Control': 'private, no-cache', Vary: 'Accept-Encoding' }); USO.resposta(0); return res.end(); }
       return jsonTexto(res, 200, corpo, { ETag: etag, 'Cache-Control': 'private, no-cache' });
+    }
+
+    // ---------- v3.91: regras das matrizes (SeuBoné e Weevo): mudam só com versão nova, então o navegador guarda ----------
+    if (p === '/api/matrizes' && req.method === 'GET') {
+      if (req.headers['if-none-match'] === MATRIZES_ETAG) { res.writeHead(304, { ETag: MATRIZES_ETAG, 'Cache-Control': 'private, no-cache', Vary: 'Accept-Encoding' }); USO.resposta(0); return res.end(); }
+      return jsonTexto(res, 200, MATRIZES_JSON, { ETag: MATRIZES_ETAG, 'Cache-Control': 'private, no-cache' });
     }
 
     // ---------- uso de banda do mês (v3.72) ----------
@@ -627,7 +649,7 @@ const server = http.createServer(async (req, res) => {
       if ('date' in b) slot.date = b.date || null;
       for (const k of ['titulo', 'formato', 'obs', 'drive', 'linkRef', 'angulo', 'notas']) if (k in b) slot[k] = b[k] || '';
       if ('matrizSB' in b) {                                               // campos da matriz da SeuBoné
-        slot.matrizSB = MZ.limpa(b.matrizSB, slot.matrizSB);
+        slot.matrizSB = mzDe(slot).limpa(b.matrizSB, slot.matrizSB);   // v3.91: a matriz da conta do post
         if (slot.matrizSB) slot.postado = slot.matrizSB.status === 'Postado'; // status da matriz e "postado" andam juntos
       }
       if ('responsavelManual' in b) slot.responsavelManual = String(b.responsavelManual || '').slice(0, 80);

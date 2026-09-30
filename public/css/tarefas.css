@@ -325,3 +325,5 @@ a.ti-sub:hover{background:var(--fill-2); color:var(--ink)}
 .ti-criaprod{min-height:28px; font-size:12px; flex:none}
 .ti-criaprod .ic{width:14px; height:14px}
 @media (max-width:640px){ .pr-grid{grid-template-columns:1fr; gap:6px} .pr-l{padding-top:6px} }
+/* v3.91: prévia da matriz da Weevo: dia antes do começo da matriz */
+.tf-itens.previa .ti.fora .ti-tit{color:var(--ink-3); font-weight:500}

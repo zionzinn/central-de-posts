@@ -1,6 +1,6 @@
 /* =====================================================================
    B.O.N.E · tarefas da copywriter (v3.80)
-   - faixa no topo de cada empresa com os cards de Matriz (só SeuBoné por enquanto) e Copy
+   - faixa no topo de cada empresa com os cards de Matriz (SeuBoné e, v3.91, Weevo) e Copy
    - folha da tarefa: explicação, período, relógio, posts do período e aprovação post a post
    - cápsula do relógio no centro de baixo (aparece em qualquer tela, até em cima do doc)
    - avisos "pra aprovar" (pra quem aprova) e "pra alterar" (pra quem faz)
@@ -13,7 +13,8 @@
    ===================================================================== */
 'use strict';
 const TF = { aberta: null, novo: null, det: null, sel: null, exp: new Set(), alt: null, voltar: null, conhecidos: null, pendPer: null, ligar: null, ligarQ: '', ligarLista: null, ligarN: 0, hubTimer: null, hubSeguindo: null, firma: null };
-const TF_ABAS_MATRIZ = ['SEUBONÉ'];
+/** v3.91: a empresa tem matriz? (SeuBoné e Weevo: vem do /api/matrizes) */
+function tfTemMatriz(aba) { return !!mzDaAba(aba); }
 const TF_TIPOS = {
   matriz: { nome: 'Matriz', k: 'm', cor: 'var(--mz)', icone: 'calmz',
     exp: 'Escolha os dias e crie a tarefa: cada dia ganha um card amarelo da matriz. Preencha formato, ângulo, pauta quente, tema, tese, gancho e descrição de cada um. Dê play no relógio quando começar: o painel anota sozinho em qual card você está. Não precisa terminar a matriz pra começar a copy.' },
@@ -46,15 +47,16 @@ function tfPodeConcluir() { return !S.eu || S.eu.papel === 'admin'; }
 function tfSlots(t) { const m = new Map(S.slots.map(s => [s.id, s])); return t.itens.map(id => m.get(id)).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date) || slotTitulo(a).localeCompare(slotTitulo(b))); }
 function tfNomeTarefa(t) { return TF_TIPOS[t.tipo].nome + ' · ' + nomeAba(t.aba); }
 /**
- * v3.88: prévia da tarefa de matriz: cada dia do período e o que acontece nele (mesma regra do servidor: dia que já
- * tem post da SeuBoné fica como está; os outros ganham um card amarelo com o tipo do dia).
+ * v3.88: prévia da tarefa de matriz: cada dia do período e o que acontece nele (mesma regra do servidor: na SeuBoné,
+ * dia que já tem post fica como está; na Weevo, só um card da matriz que já existe; os outros ganham um card amarelo
+ * com o tipo do dia). v3.91: dia antes do começo da matriz (Weevo: 01/10/2026) fica de fora.
  */
-function tfDiasMatriz(de, ate) {
-  const dias = [];
+function tfDiasMatriz(de, ate, aba) {
+  const k = mzDaAba(aba || 'SEUBONÉ') || 'seubone', umPorDia = k === 'seubone', dias = [];
   for (let d = de; d <= ate && dias.length < 40; d = tfSoma(d, 1)) {
-    const l = S.slots.filter(s => s.date === d && (s.conta === 'seubone' || (s.collab || []).includes('seubone')));
-    const mz = l.find(s => s.matrizSB);
-    dias.push({ d, s: mz || l[0] || null, tipo: (mzTipoDoDia(d) || {}).tipo || '' });
+    const l = S.slots.filter(s => s.date === d && (s.conta === k || (umPorDia && (s.collab || []).includes(k))));
+    const mz = l.find(s => s.matrizSB), td = mzTipoDoDia(d, k);
+    dias.push({ d, s: mz || (umPorDia ? l[0] : null) || null, tipo: (td || {}).tipo || '', fora: !td });
   }
   return dias;
 }
@@ -66,7 +68,7 @@ function tfItensPrevia(tipo, aba, de, ate) {
 }
 /** A matriz está preenchida (os 7 campos) ou a copy está pronta pra mandar (documento com texto)? */
 function tfPronto(s, t) {
-  if (t.tipo === 'matriz') return !!(s.matrizSB && mzProgresso(s.matrizSB).cheio);
+  if (t.tipo === 'matriz') return !!(s.matrizSB && mzProgresso(s.matrizSB, mzContaDe(s)).cheio);
   const d = TF.det && TF.det.docs ? TF.det.docs[s.id] : null;
   return !!(d && d.palavras >= 15);
 }
@@ -130,7 +132,7 @@ function tfSugerePeriodo(tipo, aba) {
 function renderFaixa() {
   const el = document.getElementById('faixa'); if (!el) return;
   const aba = S.aba;
-  const tipos = TF_ABAS_MATRIZ.includes(aba) ? ['matriz', 'copy'] : ['copy'];
+  const tipos = tfTemMatriz(aba) ? ['matriz', 'copy'] : ['copy'];
   el.innerHTML = tipos.map(tp => tfCardHtml(aba, tp)).join('');
   el.classList.toggle('um', tipos.length === 1);
   el.querySelectorAll('.tc-abre').forEach(b => b.onclick = () => b.dataset.id ? abrirTarefa(b.dataset.id) : novaTarefa(b.dataset.tipo, aba));
@@ -139,7 +141,7 @@ function renderFaixa() {
   tfRefresca();
 }
 /** Assinatura do que muda na folha aberta sem ela mexer: a aprovação de cada post (e a matriz de cada card). */
-function tfFirma(t) { const k = tfK(t); return JSON.stringify(tfSlots(t).map(s => t.tipo === 'matriz' ? mzProgresso(s.matrizSB || {}).n : s.aprov && s.aprov[k])); }
+function tfFirma(t) { const k = tfK(t); return JSON.stringify(tfSlots(t).map(s => t.tipo === 'matriz' ? mzProgresso(s.matrizSB || {}, mzContaDe(s)).n : s.aprov && s.aprov[k])); }
 /** A folha aberta acompanha o que outra pessoa fez (aprovou, pediu alteração) sem atrapalhar quem está digitando. */
 function tfRefresca() {
   const ov = document.getElementById('ovTarefa');
@@ -267,7 +269,7 @@ async function tfRelogioDoPost(slotId, tipo) {
   const s = S.slots.find(x => x.id === slotId);
   if (!s || !s.date) { toast('Post sem data não entra em tarefa', true); return; }
   const aba = S.contas[s.conta] && S.contas[s.conta].aba;
-  if (tipo === 'matriz' && !TF_ABAS_MATRIZ.includes(aba)) { toast('Por enquanto a matriz existe só na SeuBoné', true); return; }
+  if (tipo === 'matriz' && !tfTemMatriz(aba)) { toast('Por enquanto a matriz existe só na SeuBoné e na Weevo', true); return; }
   let t = (S.tarefas || []).find(x => x.tipo === tipo && x.aba === aba && x.itens.includes(slotId));
   const e = CRON.estado();
   if (t && e && e.tarefaId === t.id) { CRON.alternar(); return; }
@@ -296,7 +298,7 @@ function abrirTarefa(id, focoSlot) {
   tfCarregaDetalhe(focoSlot);
 }
 function novaTarefa(tipo, aba) {
-  if (tipo === 'matriz' && !TF_ABAS_MATRIZ.includes(aba)) { toast('Por enquanto a matriz existe só na SeuBoné', true); return; }
+  if (tipo === 'matriz' && !tfTemMatriz(aba)) { toast('Por enquanto a matriz existe só na SeuBoné e na Weevo', true); return; }
   TF.aberta = null; TF.det = null; TF.sel = null; TF.exp.clear(); TF.voltar = null;
   TF.novo = Object.assign({ tipo, aba, por: tfEu() }, tfSugerePeriodo(tipo, aba));
   tfDesenha();
@@ -369,10 +371,13 @@ function tfDesenha() {
       '<div class="tf-itens" id="tfItens">' + (ss.length ? ss.map(s => tfLinha(s, t, dona, aprova)).join('') : '<div class="tf-vazio">Nenhum ' + (tipo === 'matriz' ? 'card da matriz' : 'post') + ' nesse período.</div>') + '</div>';
   } else if (tipo === 'matriz') {
     // v3.88: a tarefa de matriz cria os cards amarelos: a prévia mostra o que vai acontecer em cada dia
-    const dias = tfDiasMatriz(de, ate), novos = dias.filter(x => !x.s).length;
+    // v3.91: na Weevo, dia antes do começo da matriz (01/10/2026) não ganha card
+    const dias = tfDiasMatriz(de, ate, aba), novos = dias.filter(x => !x.s && !x.fora).length;
+    const inicio = (mzCfg(mzDaAba(aba)).inicio || '');
     corpo += '<div class="tf-lhead"><b>Dias da matriz</b><span class="tf-n">' + dias.length + '</span><span class="tf-dica">' + (novos ? novos + ' card' + (novos > 1 ? 's' : '') + ' amarelo' + (novos > 1 ? 's' : '') + ' novo' + (novos > 1 ? 's' : '') : 'nenhum card novo') + '</span></div>' +
-      '<div class="tf-itens previa" id="tfItens">' + dias.map(x => '<div class="ti' + (x.s ? '' : ' novo') + '"><span class="ti-dia">' + tfDia(x.d) + '</span>' +
+      '<div class="tf-itens previa" id="tfItens">' + dias.map(x => '<div class="ti' + (x.s ? '' : x.fora ? ' fora' : ' novo') + '"><span class="ti-dia">' + tfDia(x.d) + '</span>' +
         (x.s ? '<span class="ti-tit">' + esc(slotTitulo(x.s)) + '</span><span class="ti-conta">' + (x.s.matrizSB ? 'já tem card' : 'já tem post') + '</span>'
+          : x.fora ? '<span class="ti-tit">antes da matriz' + (inicio ? ' (começa em ' + brData(inicio) + ')' : '') + '</span>'
           : '<span class="ti-tit">card novo' + (x.tipo ? ' · ' + esc(x.tipo) : ' · slot em aberto') + '</span>') + '</div>').join('') + '</div>';
   } else {
     const l = tfItensPrevia(tipo, aba, de, ate);
@@ -409,7 +414,7 @@ function tfLinha(s, t, dona, aprova) {
   const tempo = tfTempoPost(s.id, t);
   let prog = '';
   if (t.tipo === 'matriz') {
-    const p = mzProgresso(s.matrizSB || {});
+    const p = mzProgresso(s.matrizSB || {}, mzContaDe(s));
     prog = '<span class="ti-prog" title="' + p.n + ' de ' + p.total + ' campos"><span class="ti-pbar"><i style="width:' + Math.round(100 * p.n / p.total) + '%"></i></span>' + p.n + '/' + p.total + '</span>';
   } else {
     const d = TF.det && TF.det.docs ? TF.det.docs[s.id] : null;

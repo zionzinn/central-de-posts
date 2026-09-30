@@ -1458,7 +1458,7 @@ function substituirTodos(){
 // ======================================================================
 // Painel lateral: a matriz do post (pra revisitar o que foi preenchido)
 // ======================================================================
-const COR_OBJ = { Atrair:'#3FD1B8', Provar:'#A78BFA', Converter:'#F4874B' };
+const COR_OBJ = { Atrair:'#3FD1B8', Provar:'#A78BFA', Converter:'#F4874B', Crescer:'#2BB9A8' };   // v3.91: Crescer é da Weevo
 const DIAS = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
 function dataBr(iso){ const [y,m,d]=iso.split('-').map(Number); const dt=new Date(Date.UTC(y,m-1,d,12)); return DIAS[dt.getUTCDay()]+', '+String(d).padStart(2,'0')+'/'+String(m).padStart(2,'0')+'/'+y; }
 function linkify(t){ return esc(t).replace(/(https?:\/\/[^\s<]+)/g, u=>'<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>'); }
@@ -1474,7 +1474,8 @@ function montaLateral(){
     h += '<div class="sb-sec">Preenchido na matriz</div>';
     [['Formato','formato'],['Pauta quente','pautaQuente'],['Ângulo','angulo'],['Tema','tema'],['Tese em uma frase','tese'],['Gancho','gancho'],['Descrição (o que fazer)','descricao'],['Refs visuais / inserts','refs',1],['Status','status'],['Observações','obs']]
       .forEach(([l,k,ln])=> h += row(l, m[k]||'', ln, k, (k==='status' || k==='formato' || k==='angulo') ? (m[k]||'') : ''));
-    if(t){ h += '<div class="sb-sec">Vem do tipo (não muda)</div>'; [['Objetivo','objetivo'],['Etapa do funil','funil'],['Nível de consciência','consciencia'],['Emoção','emocao'],['CTA','cta'],['Métrica principal','metrica1'],['Métrica secundária','metrica2']].forEach(([l,k])=> h += row(l, t[k]||'', 0, k, t[k]||'')); }
+    // v3.91: só o que o tipo tem (a Weevo não tem consciência, emoção nem métricas; tem quem produz e, na Oferta, uma nota)
+    if(t){ h += '<div class="sb-sec">Vem do tipo (não muda)</div>'; [['Objetivo','objetivo'],['Etapa do funil','funil'],['Nível de consciência','consciencia'],['Emoção','emocao'],['CTA','cta'],['Métrica principal','metrica1'],['Métrica secundária','metrica2'],['Quem produz','quem'],['Atenção','nota']].filter(([,k])=>t[k]).forEach(([l,k])=> h += row(l, t[k]||'', 0, k, t[k]||'')); }
     if(D.checklistMatriz && D.checklistMatriz.length){ h += '<div class="sb-sec">Checklist antes de entregar</div>'; D.checklistMatriz.forEach((c,i)=> h += '<label class="sb-chk'+(CHK[i]?' ok':'')+'"><input type="checkbox" data-i="'+i+'"'+(CHK[i]?' checked':'')+(LEITURA?' disabled':'')+'><span>'+esc(c)+'</span></label>'); }
     if(D.regras && D.regras.length) h += '<div class="sb-sec">Regras da matriz</div><ol class="sb-list">'+D.regras.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ol>';
   } else if(p){
