@@ -302,3 +302,26 @@ a.ti-sub:hover{background:var(--fill-2); color:var(--ink)}
 .apmeta{font-size:11.5px; color:var(--ink-3); margin:3px 0 0 16px}
 .aptexto{margin:8px 0 2px; padding:10px 12px; border-radius:8px; background:var(--cell); font-size:13px; line-height:1.5; color:var(--ink-2); white-space:pre-wrap; max-height:260px; overflow:auto}
 @media (max-width:700px){ .aprovbtn .ab-rot{display:none} .apacoes{margin-left:0} }
+
+/* ================= v3.90: task de produção no MKT Hub (tela do ADMIN) ================= */
+.pr-grid{display:grid; grid-template-columns:132px minmax(0,1fr); gap:12px 14px; align-items:start}
+.pr-l{font-size:12px; font-weight:600; color:var(--ink-2); padding-top:7px}
+.pr-l small{display:block; font-weight:500; color:var(--ink-3); font-size:11px}
+.pr-inp,.pr-datas input{height:34px; border:0; border-radius:8px; background:var(--fill-3); color:var(--ink); padding:0 11px; font:inherit; font-size:13.5px; min-width:0}
+.pr-inp{width:100%}
+.pr-inp:focus,.pr-datas input:focus{outline:none; box-shadow:0 0 0 3px color-mix(in srgb, var(--focus) 40%, transparent)}
+.pr-chips .echip{padding:5px 11px; font-size:12px}
+.pr-datas{display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap}
+.pr-datas > span{display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-3)}
+.pr-datas input[type=number]{width:72px; font-variant-numeric:tabular-nums}
+.pr-post b{color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums}
+.pr-brief{margin-top:16px; border:1px solid var(--hair); border-radius:10px; background:var(--surface-2)}
+.pr-brief summary{cursor:pointer; padding:9px 12px; font-size:12.5px; font-weight:600; color:var(--ink-2)}
+.pr-brief pre{margin:0; padding:10px 12px 12px; border-top:1px solid var(--hair-2); font:12.5px/1.5 inherit; font-family:inherit; color:var(--ink-2); white-space:pre-wrap; max-height:240px; overflow:auto}
+.pr-aviso{margin:0 0 14px; padding:9px 12px; border-radius:10px; font-size:12.5px; line-height:1.45; background:color-mix(in srgb, var(--orange) 12%, var(--fill-4)); border:1px solid color-mix(in srgb, var(--orange) 35%, transparent); color:var(--ink)}
+.pr-aviso.erro{background:color-mix(in srgb, var(--red) 10%, var(--fill-4)); border-color:color-mix(in srgb, var(--red) 35%, transparent)}
+#prMsg.erro{color:var(--red)}
+#ovProd .mfoot .mbtn.primary{min-height:34px; padding:0 16px}
+.ti-criaprod{min-height:28px; font-size:12px; flex:none}
+.ti-criaprod .ic{width:14px; height:14px}
+@media (max-width:640px){ .pr-grid{grid-template-columns:1fr; gap:6px} .pr-l{padding-top:6px} }

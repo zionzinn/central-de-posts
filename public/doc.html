@@ -35,7 +35,7 @@
   .gd-row1{display:flex; align-items:center; gap:6px; min-width:0}
   .gd-title{font:400 18px var(--ui); color:var(--ink); border:1px solid transparent; border-radius:4px; padding:2px 7px; min-width:60px; max-width:100%; background:transparent; outline:none; text-overflow:ellipsis}
   .gd-title:hover{border-color:var(--line)} .gd-title:focus{border-color:var(--blue); border-width:2px; padding:1px 6px}
-  .gd-titlew{position:relative; display:inline-block}
+  .gd-titlew{position:relative; display:inline-block; min-width:0; flex:0 1 auto}   /* v3.90: título longo encolhe (…) em vez de passar por baixo dos botões */
   .gd-titlew .medida{position:absolute; visibility:hidden; white-space:pre; font:400 18px var(--ui); padding:0 8px}
   .gd-status{flex:none; display:inline-flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink3); white-space:nowrap; padding:4px 6px; border-radius:6px}
   .gd-status .ic{width:18px; height:18px}
@@ -59,6 +59,7 @@
   .gd-btn.apv-ok{background:#146C2E; color:#fff} .gd-btn.apv-ok:hover{background:#0F5A25; box-shadow:0 1px 2px rgba(0,0,0,.25)}
   .gd-btn.apv-alt{color:#B3261E; box-shadow:inset 0 0 0 1px #B3261E} .gd-btn.apv-alt:hover{background:#FCEEEE}
   .gd-btn.apv-desf{height:30px; padding:0 10px; font-size:12.5px; color:var(--ink3)}
+  .gd-btn.apv-prod{background:#0B57D0; color:#fff} .gd-btn.apv-prod:hover{background:#0A4DB8; box-shadow:0 1px 2px rgba(0,0,0,.25)}   /* v3.90 */
   .gd-apvst{display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px; border-radius:15px; font-size:13px; font-weight:500; white-space:nowrap}
   .gd-apvst.env{background:#FFF3E0; color:#8A4B00} .gd-apvst.ok{background:#E6F4EA; color:#146C2E}
   .gd-apvst .ic{width:16px; height:16px}
@@ -296,6 +297,7 @@
   .gd-carregando i{width:22px; height:22px; border:3px solid #D3E3FD; border-top-color:var(--blue); border-radius:50%; animation:gira .8s linear infinite}
   @keyframes gira{to{transform:rotate(360deg)}}
 
+  @media (max-width:1200px){ #bMatriz .rot{display:none} #bMatriz{padding:0 12px} }   /* v3.90: sobra espaço pro título e pros menus */
   @media (max-width:900px){
     :root{--page-w:100%; --page-pad:28px}
     .gd-pagewrap{width:auto; margin:10px}
@@ -1800,6 +1802,8 @@ async function cliqueRelogioDoc(){
 // A Elis manda pra aprovação daqui (ou da tarefa de copy); o ADMIN (Zion e Maria) aprova ou pede alteração daqui
 // ou da tela "Pra aprovar" do painel. Sem login (PC local), todo mundo pode aprovar, como no resto do painel.
 function podeAprovar(){ return !D || !D.eu || D.eu.papel === 'admin'; }
+/** v3.90: aberto dentro do painel e o painel ligado ao MKT Hub (lá abre a tela da task de produção). */
+function painelComHub(){ if(!EMBUTIDO) return false; try{ return typeof parent.painelTemHub === 'function' && !!parent.painelTemHub(); }catch(e){ return false; } }
 function temTextoAgora(){ return !!(page && (page.textContent || '').replace(/\u200b/g,'').trim()); }
 function pintaAprovacao(){
   const box = $('#gdAprov'); if(!box) return;
@@ -1814,13 +1818,18 @@ function pintaAprovacao(){
     h = adm ? '<button class="gd-btn apv-alt" id="apvAlt" title="volta pra quem escreveu, com o que precisa mudar">Pedir alteração</button><button class="gd-btn apv-ok" id="apvOk">'+ic('ok')+'Aprovar</button>'
       : '<span class="gd-apvst env" title="mandada '+esc(fmtQuando(a.em))+(a.por ? ' por '+esc(a.por) : '')+'">em aprovação</span>';
   } else if(a.st === 'aprovado'){
-    h = '<span class="gd-apvst ok">'+ic('ok')+'aprovada'+(a.ap ? ' por '+esc(a.ap) : '')+'</span>'+(adm ? '<button class="gd-btn apv-desf" id="apvDesf" title="volta pra esperando aprovação">desfazer</button>' : '');
+    // v3.90: aprovada e ainda sem task: o ADMIN cria a task de produção no MKT Hub (a tela abre no painel). Com o
+    // botão, o selo fica curto (quem aprovou continua na faixa logo abaixo)
+    const prod = adm && !p.taskId && painelComHub();
+    h = '<span class="gd-apvst ok"'+(a.ap ? ' title="aprovada por '+esc(a.ap)+'"' : '')+'>'+ic('ok')+'aprovada'+(a.ap && !prod ? ' por '+esc(a.ap) : '')+'</span>'+(adm ? '<button class="gd-btn apv-desf" id="apvDesf" title="volta pra esperando aprovação">desfazer</button>' : '');
+    if(prod) h += '<button class="gd-btn apv-prod" id="apvProd" title="criar a task de produção (arte ou vídeo) no MKT Hub, com esta copy de briefing">'+ic('enviar')+'Criar task</button>';
   }
   box.innerHTML = h; box.hidden = !h;
   const liga = (id, f)=>{ const b = document.getElementById(id); if(b) b.onclick = f; };
   liga('apvManda', async ()=>{ await salvarAgora(); acaoCopy('enviar'); });
   liga('apvOk', ()=> acaoCopy('aprovar'));
   liga('apvDesf', ()=> acaoCopy('reabrir'));
+  liga('apvProd', async ()=>{ await salvarAgora(); avisaPai('producao'); });
   liga('apvAlt', ()=> dialogo('Pedir alteração', '<label>O que precisa mudar? (quem escreveu vê isso no documento e no card)</label><textarea id="dlAlt" maxlength="500" placeholder="ex.: gancho fraco, abrir com o número"></textarea>',
     [{r:'Cancelar'}, {r:'Mandar pedido', forte:true, f: ov=>{ const n = ov.querySelector('#dlAlt').value.trim(); if(!n){ ov.querySelector('#dlAlt').focus(); return false; } acaoCopy('alterar', n); }}]));
 }

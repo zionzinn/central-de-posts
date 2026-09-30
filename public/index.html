@@ -332,6 +332,13 @@
     <div class="aplista" id="apLista"></div>
   </div>
 </div></div>
+<!-- v3.90: copy aprovada vira task de produção no MKT Hub (tela do ADMIN) -->
+<div class="ov" id="ovProd"><div class="modal" style="position:relative; width:min(760px,100%)">
+  <button class="mclose" data-close="ovProd">✕</button>
+  <div class="mhead"><div class="mtit">Task de produção no MKT Hub</div><div class="ectx" id="prSub"></div></div>
+  <div class="mbody" id="prBody"><div class="dcvazio">carregando…</div></div>
+  <div class="mfoot" id="prFoot"></div>
+</div></div>
 <div class="ov" id="ovArq"><div class="modal" style="position:relative; width:min(580px,100%)">
   <button class="mclose" data-close="ovArq">✕</button>
   <div class="mhead"><div class="mtit">Arquivar documentos antigos</div><div class="ectx">baixa um .zip com os documentos e só depois tira eles do servidor</div></div>
@@ -406,7 +413,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.89'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.90'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2284,6 +2291,8 @@ window.addEventListener('message', ev=>{
   if(ev.data.tipo === 'fechar') fecharDoc();
   if(ev.data.tipo === 'excluido'){ const s = S.slots.find(x=>x.docId===ev.data.docId); if(s) delete s.docId; }
   if(ev.data.tipo === 'aprov') loadState(false, true).then(()=>{ render(); pintaBtnAprovar(); }).catch(()=>{});   // v3.89
+  // v3.90: o documento pede a tela da task de produção (se veio da tarefa, volta pra ela depois dessa tela, não antes)
+  if(ev.data.tipo === 'producao' && ev.data.slotId){ const volta = TF.voltar; TF.voltar = null; fecharDoc(); setTimeout(()=>{ TF.voltar = volta; abrirProducao(ev.data.slotId); }, 250); }
 });
 let DOCS_LISTA = [], DOCS_CONTA = '';
 async function abrirListaDocs(){
@@ -2379,6 +2388,7 @@ function desenhaAprovar(){
     let acoes = '<button class="mbtn" data-apabre="'+s.id+'">'+icon('doc')+'Abrir</button>';
     if(adm && a.st === 'enviado') acoes += '<button class="bt-edit alterar" data-rot="Pedir alteração" style="--w:136px" data-apalt="'+s.id+'" aria-label="Pedir alteração">'+icon('pencil')+'</button><button class="bt-aprovar mini" data-apok="'+s.id+'"><span class="bt-txt"><span>Aprovar</span></span></button>';
     if(adm && a.st !== 'enviado') acoes += '<button class="ti-desf" data-apdesf="'+s.id+'" title="Voltar pra esperando aprovação">desfazer</button>';
+    if(adm && a.st === 'aprovado' && !s.taskId && S.temFonte) acoes += '<button class="mbtn primary" data-approd="'+s.id+'">'+icon('hub')+'Criar task no MKT Hub</button>';   // v3.90
     const aberto = AP.aberto.has(s.id);
     h += '<div class="apit st-'+a.st+'" data-id="'+s.id+'">'+
       '<div class="aplin"><span class="cdot" style="background:'+contaCor(s.conta)+'"></span><span class="apconta">'+esc(contaCurta(s.conta))+'</span>'+
@@ -2398,6 +2408,7 @@ function desenhaAprovar(){
   L.querySelectorAll('[data-apexp]').forEach(b => b.onclick = () => { const id = b.dataset.apexp; if(AP.aberto.has(id)) AP.aberto.delete(id); else AP.aberto.add(id); desenhaAprovar(); });
   L.querySelectorAll('[data-apok]').forEach(b => b.onclick = () => apAcao(b.dataset.apok, 'aprovar'));
   L.querySelectorAll('[data-apdesf]').forEach(b => b.onclick = () => apAcao(b.dataset.apdesf, 'reabrir'));
+  L.querySelectorAll('[data-approd]').forEach(b => b.onclick = () => abrirProducao(b.dataset.approd));
   L.querySelectorAll('[data-apalt]').forEach(b => b.onclick = () => { AP.alt = b.dataset.apalt; desenhaAprovar(); setTimeout(() => { const x = $('#apAltTxt'); if(x) x.focus(); }, 30); });
   L.querySelectorAll('[data-apaltcancela]').forEach(b => b.onclick = () => { AP.alt = null; desenhaAprovar(); });
   L.querySelectorAll('[data-apaltmanda]').forEach(b => b.onclick = () => { const n = ($('#apAltTxt').value || '').trim(); if(!n){ toast('Escreva o que precisa mudar', true); return; } apAcao(b.dataset.apaltmanda, 'alterar', n); });
@@ -2430,6 +2441,91 @@ async function apAcao(sid, acao, nota){
   }catch(e){ toast(e.message, true); }
 }
 $('#btnAprovar').onclick = () => abrirAprovar();
+
+// ================= v3.90: task de produção no MKT Hub =================
+// Copy aprovada → o ADMIN cria aqui a task de arte ou vídeo: título, tipo, formato, responsável, entrega, data do
+// post, pontos e prioridade (já vem tudo sugerido); o briefing é a copy aprovada e a matriz. O post fica ligado à
+// task no dia dele; a copy continua guardada (ícone do documento no card).
+const PR = { sid: null, op: null, tipos: new Set(), formato: '', resp: '', prior: 'media' };
+/** O documento (iframe) pergunta se o painel está ligado ao Hub, pra mostrar "Criar task de produção". */
+function painelTemHub(){ return !!S.temFonte && souAdmin(); }
+async function abrirProducao(sid){
+  // o post pode não estar na tela (semana, ou documento aberto pela lista): o que falta vem do servidor
+  const s = S.slots.find(x => x.id === sid);
+  PR.sid = sid; PR.op = null;
+  $('#prSub').textContent = s ? (s.date ? 'post de '+tfDia(s.date) : 'post sem dia')+' · '+nomeConta(s.conta)+' · '+slotTitulo(s) : '';
+  $('#prBody').innerHTML = '<div class="dcvazio">carregando o que o MKT Hub tem…</div>'; $('#prFoot').innerHTML = '';
+  $('#ovProd').classList.add('open');
+  let op;
+  try{ op = await api('/api/slots/'+sid+'/producao'); }
+  catch(e){ if(PR.sid === sid) $('#prBody').innerHTML = '<div class="dcvazio">Não consegui abrir: '+esc(e.message)+'</div>'; return; }
+  if(PR.sid !== sid || !$('#ovProd').classList.contains('open')) return;   // abriu outro post (ou fechou) no meio
+  PR.op = op;
+  if(!s && op.post) $('#prSub').textContent = (op.post.date ? 'post de '+tfDia(op.post.date) : 'post sem dia')+' · '+op.post.conta+' · '+op.post.titulo;
+  const g = PR.op.sugestao || {};
+  PR.tipos = new Set(Array.isArray(g.tipo) ? g.tipo : g.tipo ? [g.tipo] : []); PR.formato = g.formato || ''; PR.resp = g.responsavel || ''; PR.prior = g.prioridade || 'media';
+  desenhaProducao();
+}
+function desenhaProducao(){
+  const o = PR.op, g = o.sugestao || {};
+  if(!o.aprovada){ $('#prBody').innerHTML = '<div class="dcvazio">A copy deste post ainda não foi aprovada.</div>'; return; }
+  if(o.taskId && !(o.prod && o.prod.dataPostPend !== undefined)){ $('#prBody').innerHTML = '<div class="dcvazio">Este post já tem task de produção'+(o.prod && o.prod.codigo ? ' ('+esc(o.prod.codigo)+')' : '')+'.</div>'; return; }
+  if(o.taskId && o.prod){   // criada, mas a data do post não foi pro Hub
+    $('#prBody').innerHTML = '<div class="pr-aviso">A task '+esc(o.prod.codigo || '')+' foi criada, mas a data do post ainda não foi pro Hub.</div>';
+    $('#prFoot').innerHTML = '<button class="mbtn primary" id="prCriar">Mandar a data do post de novo</button><span class="note" id="prMsg"></span>';
+    $('#prCriar').onclick = criaProducao; return;
+  }
+  const chips = (lista, sel, attr) => lista.map(v => '<button type="button" class="echip'+(sel(v) ? ' on' : '')+'" '+attr+'="'+esc(v)+'">'+esc(v)+'</button>').join('');
+  const rotPrior = { urgente:'urgente', alta:'alta', media:'média', baixa:'baixa' };
+  const bloqueio = o.erro ? '<div class="pr-aviso erro">'+esc(o.erro)+'</div>' : !o.escrita ? '<div class="pr-aviso erro">A chave do MKT Hub no Render é de nível <b>'+esc(o.nivel || 'leitura')+'</b>: pra criar a task, a MKH_CHAVE precisa ser de nível completa.</div>' : '';
+  // um envio anterior ficou sem resposta: mandar de novo repete aquele envio (o Hub devolve a task, se já criou)
+  const pendente = o.pendente ? '<div class="pr-aviso">Um envio anterior deste post ficou sem resposta do MKT Hub. "Criar" manda de novo o mesmo pedido (o que está abaixo): se a task já foi criada, o post só é ligado a ela. Nada duplica.</div>' : '';
+  $('#prBody').innerHTML = bloqueio+pendente+
+    '<div class="pr-grid">'+
+      '<label class="pr-l">Título</label><input id="prTitulo" class="pr-inp" maxlength="200" value="'+esc(g.titulo || '')+'">'+
+      '<label class="pr-l">Tipo <small>pode mais de um</small></label><div class="echips pr-chips" id="prTipos">'+chips(o.tipos || [], v => PR.tipos.has(v), 'data-prtipo')+'</div>'+
+      '<label class="pr-l">Formato</label><div class="echips pr-chips" id="prFormatos">'+chips(o.formatos || [], v => v === PR.formato, 'data-prfmt')+'</div>'+
+      '<label class="pr-l">Responsável</label><div class="echips pr-chips" id="prResp">'+(o.pessoas || []).map(p => '<button type="button" class="echip'+(p.id === PR.resp ? ' on' : '')+'" data-prresp="'+esc(p.id)+'">'+esc(p.nome)+'</button>').join('')+'</div>'+
+      // a data do post é a do calendário (uma fonte só): aparece aqui e acompanha o post no Hub quando ele muda de dia
+      '<label class="pr-l">Datas</label><div class="pr-datas"><span>entrega <input type="date" id="prPrazo" value="'+esc(g.prazo || '')+'"></span>'+
+        '<span class="pr-post" id="prDataPost" data-iso="'+esc(g.dataPost || '')+'" title="o dia do post no calendário: se o post mudar de dia, a data muda no Hub junto">post no ar <b>'+(g.dataPost ? esc(tfDia(g.dataPost)) : 'sem dia')+'</b></span></div>'+
+      '<label class="pr-l">Pontos e prioridade</label><div class="pr-datas"><input type="number" id="prPontos" min="1" max="100" value="'+(g.pontos || 1)+'" aria-label="pontos"><div class="echips pr-chips" id="prPrior">'+chips(o.prioridades || [], v => v === PR.prior, 'data-prprior').replace(/>(urgente|alta|media|baixa)</g, (m, k) => '>'+rotPrior[k]+'<')+'</div></div>'+
+    '</div>'+
+    '<details class="pr-brief"><summary>Briefing que vai pro Hub (a copy aprovada e a matriz)</summary><pre>'+esc(o.briefing || '')+'</pre></details>';
+  $('#prFoot').innerHTML = '<button class="mbtn primary" id="prCriar"'+(bloqueio ? ' disabled' : '')+'>'+icon('hub')+'Criar no MKT Hub</button><span class="note" id="prMsg">'+(o.empresa ? 'nasce em Pendente, na empresa '+esc(o.empresa.nome) : '')+'</span>';
+  const B = $('#prBody');
+  B.querySelectorAll('[data-prtipo]').forEach(b => b.onclick = () => { const v = b.dataset.prtipo; if(PR.tipos.has(v)) PR.tipos.delete(v); else PR.tipos.add(v); b.classList.toggle('on', PR.tipos.has(v)); });
+  const unico = (sel, attr, set) => B.querySelectorAll('['+attr+']').forEach(b => b.onclick = () => { set(b.getAttribute(attr)); B.querySelectorAll(sel+' ['+attr+']').forEach(x => x.classList.toggle('on', x === b)); });
+  // trocou o formato: o [FORMATO] do começo do título acompanha (se o título ainda começa com ele)
+  unico('#prFormatos', 'data-prfmt', v => { PR.formato = v; const t = $('#prTitulo'); if(t && /^\[[^\]]*\]\s*/.test(t.value)) t.value = t.value.replace(/^\[[^\]]*\]\s*/, '['+v.toUpperCase()+'] '); });
+  unico('#prResp', 'data-prresp', v => { PR.resp = v; });
+  unico('#prPrior', 'data-prprior', v => { PR.prior = v; });
+  if(o.pendente) B.querySelectorAll('.pr-grid input, .pr-grid button').forEach(x => { x.disabled = true; });   // repete igual: nada muda aqui
+  $('#prCriar').onclick = criaProducao;
+}
+async function criaProducao(){
+  const bt = $('#prCriar'), msg = $('#prMsg');
+  const o = PR.op, pronta = o && o.taskId;
+  const corpo = pronta ? {} : {
+    titulo: ($('#prTitulo').value || '').trim(), tipo: [...PR.tipos], formato: PR.formato, responsavel: PR.resp,
+    prazo: $('#prPrazo').value, pontos: parseInt($('#prPontos').value), prioridade: PR.prior,
+    quem: (PERFIL.get()||{}).nome || '',
+  };
+  if(!pronta){
+    const falta = !corpo.titulo ? 'o título' : !corpo.tipo.length ? 'o tipo' : !corpo.formato ? 'o formato' : !corpo.responsavel ? 'o responsável' : !corpo.prazo ? 'a data de entrega' : '';
+    if(falta){ msg.textContent = 'Falta '+falta+'.'; msg.classList.add('erro'); return; }
+  }
+  bt.disabled = true; msg.classList.remove('erro'); msg.textContent = 'criando no MKT Hub…';
+  try{
+    const r = await api('/api/slots/'+PR.sid+'/producao', {method:'POST', body:JSON.stringify(corpo)});
+    closeOv('ovProd');
+    await loadState(false, true); render();
+    if($('#ovAprovar').classList.contains('open')) desenhaAprovar();
+    const s = S.slots.find(x => x.id === PR.sid), dia = s ? s.date : (o && o.post ? o.post.date : null);
+    if(r.aviso) toast(r.aviso, true, 9000);
+    else toast('Task '+(r.prod && r.prod.codigo ? r.prod.codigo+' ' : '')+'criada no MKT Hub e ligada ao post'+(dia ? ' de '+brData(dia) : ''));
+  }catch(e){ msg.textContent = e.message; msg.classList.add('erro'); bt.disabled = false; }
+}
 $('#dcExc').addEventListener('change', abrirListaDocs);
 $('#btnDocs').onclick = abrirListaDocs;
 

@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.89'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.90'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -360,6 +360,7 @@ const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('
 // v3.84: a tarefa de matriz ou copy vira no Hub uma tarefa mãe com uma subtarefa por post (só com a chave de nível completa)
 const rotaHubEnvio = require('./lib/hubenvio.js')({ db, saveDb, readBody, json, hub: rotaHub, tempo: rotaTempo, itens: rotaTarefas.itens, soAdmin, gravaJa: () => gravarAgora() });
 rotaTarefas.hubPublico = rotaHubEnvio.publico;
+rotaHub.depois = rotaHubEnvio.reenviaDatas;   // v3.90: depois de cada leitura do Hub, a data do post que não foi na hora vai de novo
 // v3.82: login pelo Zoho (liga só com ZOHO_CLIENT_ID e ZOHO_CLIENT_SECRET; sem elas, senha opcional como antes)
 const AUTH = require('./lib/auth.js')({ json, parseCookies, segredo: config.secret });
 /** Post novo a partir do que veio da tela (e do banco, v3.83). Não grava: quem chama põe em db.slots. */
@@ -450,7 +451,7 @@ const server = http.createServer(async (req, res) => {
     // ---------- documentos (copy) ----------
     if (p.startsWith('/api/docs') && await rotaDocs(req, res, p, u)) return;
     // ---------- tarefas e relógio (v3.80); mandar a tarefa pro MKT Hub (v3.84, antes: a /hub de cada tarefa é de lá) ----------
-    if ((/^\/api\/tarefas\/t[0-9a-f]{8}\/hub$/.test(p) || p === '/api/hub/escrita' || p === '/api/hub/config') && await rotaHubEnvio(req, res, p, u)) return;
+    if ((/^\/api\/tarefas\/t[0-9a-f]{8}\/hub$/.test(p) || /^\/api\/slots\/[a-z0-9]+\/producao$/i.test(p) || p === '/api/hub/escrita' || p === '/api/hub/config') && await rotaHubEnvio(req, res, p, u)) return;   // v3.90: task de produção
     if ((p.startsWith('/api/tarefas') || /^\/api\/slots\/[a-z0-9]+\/copy$/i.test(p)) && await rotaTarefas(req, res, p, u)) return;   // v3.89: a copy de um post
     if (p.startsWith('/api/tempo') && await rotaTempo(req, res, p, u)) return;
     if (p.startsWith('/api/banco') && await rotaBanco(req, res, p)) return;
@@ -522,6 +523,7 @@ const server = http.createServer(async (req, res) => {
         undoSlots('reajustar ' + mover.length + ' post' + (mover.length > 1 ? 's' : ''), mover);
         for (const s of mover) s.date = addDiaISO(s.date, dias);
         saveDb();
+        for (const s of mover) rotaHubEnvio.moveDataPost(s);      // v3.90: a data do post acompanha no Hub
       }
       return json(res, 200, { ok: true, movidos: mover.length });
     }
@@ -555,6 +557,7 @@ const server = http.createServer(async (req, res) => {
           (op === 'banco' ? ' pro banco' : (' (' + (dias > 0 ? '+' : '') + dias + ' dia' + (Math.abs(dias) > 1 ? 's' : '') + ')')), validos);
         for (const s of validos) s.date = op === 'banco' ? null : addDiaISO(s.date, dias);
         saveDb();
+        for (const s of validos) rotaHubEnvio.moveDataPost(s);    // v3.90
       }
       return json(res, 200, { ok: true, movidos: validos.length, pulados });
     }
@@ -572,7 +575,13 @@ const server = http.createServer(async (req, res) => {
           if (i >= 0) {
             const atual = db.slots[i];
             for (const k of ['m', 'c']) if (noHub(atual, k) || noHub(cp, k)) { const ap = Object.assign({}, cp.aprov); if (atual.aprov && atual.aprov[k]) ap[k] = atual.aprov[k]; else delete ap[k]; cp.aprov = ap; }
+            // v3.90: a task de produção no Hub não se desfaz no Ctrl+Z: o que o post sabe dela (e o envio que está no ar,
+            // com a chave que não deixa duplicar) fica como está agora. A ligação só é segurada se o post está ligado a
+            // ela agora (desfazer o "tirar o link" continua valendo)
+            if (atual.prod) cp.prod = atual.prod; else delete cp.prod;
+            if (atual.prod && atual.prod.id && atual.taskId === atual.prod.id) { cp.taskId = atual.taskId; cp.taskUrl = atual.taskUrl; }
             db.slots[i] = cp;
+            if (cp.prod && cp.prod.id && cp.date !== atual.date) rotaHubEnvio.moveDataPost(cp);
           } else db.slots.push(cp);
         }
         saveDb();
@@ -647,6 +656,7 @@ const server = http.createServer(async (req, res) => {
         if (slot.taskId) { slot.vaga = false; slot.sugestao = false; }
       }
       saveDb();
+      if ('date' in b) rotaHubEnvio.moveDataPost(slot);      // v3.90: mudou de dia, a data do post acompanha no Hub
       return json(res, 200, { ok: true, slot: rotaHub.sobrepoe([slot])[0], aviso: (lig && lig.aviso) || undefined });
     }
 

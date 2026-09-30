@@ -431,10 +431,15 @@ function tfLinha(s, t, dona, aprova) {
     const url = linkDaTask(s);
     const cod = s.hub && s.hub.codigo ? s.hub.codigo : (/^MKT-\d+$/i.test(s.taskId || '') ? s.taskId : 'produção');
     const et = s.hub && s.hub.etapa ? '<i style="background:' + esc(s.hub.etapa.cor) + '"></i>' + esc(s.hub.etapa.nome) : '';
+    // v3.90: com o Hub ligado, o ADMIN cria a task aqui (tela de produção); ligar uma que já existe continua
+    const cria = !s.taskId && S.temFonte && souAdmin();
     acoes += s.taskId
       ? (url ? '<a class="ti-prod" href="' + esc(url) + '" target="_blank" rel="noopener" title="Task de produção no MKT Hub (arte ou vídeo)">' : '<span class="ti-prod" title="Task de produção (arte ou vídeo)">') + icon('hub') + esc(cod) + (et ? '<span class="ti-et">' + et + '</span>' : '') + (url ? '</a>' : '</span>')
         + '<button class="ti-desf" data-ligar="' + s.id + '" title="Trocar a task de produção">trocar</button>'
-      : '<button class="mbtn ti-ligar" data-ligar="' + s.id + '" title="Escolher a task de arte ou vídeo deste post no MKT Hub">' + icon('hub') + 'Ligar a task de produção</button>';
+      : cria
+        ? '<button class="mbtn primary ti-criaprod" data-tfprod="' + s.id + '" title="Criar a task de arte ou vídeo no MKT Hub com esta copy de briefing">' + icon('hub') + 'Criar no MKT Hub</button>'
+          + '<button class="ti-desf" data-ligar="' + s.id + '" title="Escolher uma task de arte ou vídeo que já existe no MKT Hub">ligar uma que existe</button>'
+        : '<button class="mbtn ti-ligar" data-ligar="' + s.id + '" title="Escolher a task de arte ou vídeo deste post no MKT Hub">' + icon('hub') + 'Ligar a task de produção</button>';
   }
   const aberto = TF.exp.has(s.id);
   const notas = [];
@@ -583,6 +588,8 @@ function tfLigaFolha(t, novo, dona) {
   if (altTxt) altTxt.addEventListener('keydown', ev => { if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); tfPedeAlteracao(t, TF.alt); } });
   body.querySelectorAll('[data-reabre]').forEach(b => b.onclick = () => tfReabrir(t, b.dataset.reabre));
   body.querySelectorAll('[data-ligar]').forEach(b => b.onclick = () => tfAbreLigar(b.dataset.ligar, t));
+  // v3.90: criar a task de produção (fechou a tela, volta pra tarefa)
+  body.querySelectorAll('[data-tfprod]').forEach(b => b.onclick = () => { TF.voltar = t.id; TF.ligar = null; closeOv('ovTarefa'); abrirProducao(b.dataset.tfprod); });
   tfLigaLigar(t);
   const env = $('#tfEnviar'); if (env) env.onclick = () => tfEnviar(t);
   const tudo = $('#tfAprovarTudo'); if (tudo) tudo.onclick = () => tfAprovar(t, tfSlots(t).filter(s => (tfAprov(s, tfK(t)) || {}).st === 'enviado').map(s => s.id), tudo);
@@ -789,6 +796,10 @@ function tfInit() {
   new MutationObserver(() => {
     if (!$('#ovEdit').classList.contains('open') && TF.voltar && !document.querySelector('.ov.open')) { const id = TF.voltar; TF.voltar = null; setTimeout(() => abrirTarefa(id), 120); }
   }).observe($('#ovEdit'), { attributes: true, attributeFilter: ['class'] });
+  // v3.90: a tela da task de produção também volta pra tarefa quando fecha
+  new MutationObserver(() => {
+    if (!$('#ovProd').classList.contains('open') && TF.voltar && !document.querySelector('.ov.open')) { const id = TF.voltar; TF.voltar = null; setTimeout(() => abrirTarefa(id), 120); }
+  }).observe($('#ovProd'), { attributes: true, attributeFilter: ['class'] });
   new MutationObserver(() => {
     tfSincFoco(); tfPintaPill();
     if ($('#ovDoc').hidden && TF.voltar) { const id = TF.voltar; TF.voltar = null; setTimeout(() => abrirTarefa(id), 120); }
