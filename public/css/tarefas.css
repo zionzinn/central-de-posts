@@ -303,7 +303,7 @@ a.ti-sub:hover{background:var(--fill-2); color:var(--ink)}
 .aptexto{margin:8px 0 2px; padding:10px 12px; border-radius:8px; background:var(--cell); font-size:13px; line-height:1.5; color:var(--ink-2); white-space:pre-wrap; max-height:260px; overflow:auto}
 @media (max-width:700px){ .aprovbtn .ab-rot{display:none} .apacoes{margin-left:0} }
 
-/* ================= v3.90 / v3.92: task de produção no MKT Hub (tela do ADMIN) =================
+/* ================= v3.90 / v3.92 / v3.93: task de produção no MKT Hub (tela do ADMIN) =================
    v3.92: rótulo em cima, o que produzir e depois quem e quando; formato e prioridade em controle segmentado (trilho
    cinza, o escolhido elevado); tipos em cápsulas com check; responsável num menu; o amarelo só no botão principal */
 .pr-ctx{display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0; margin-top:3px}
@@ -319,7 +319,7 @@ a.ti-sub:hover{background:var(--fill-2); color:var(--ink)}
 .pr-sel{appearance:none; -webkit-appearance:none; cursor:pointer; padding-right:34px;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5 5 6.5 8 3.5' fill='none' stroke='%238E8E93' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat:no-repeat; background-position:right 13px center}
-.pr-inp:focus,.pr-sel:focus,.pr-step input:focus{outline:none; box-shadow:0 0 0 3px color-mix(in srgb, var(--focus) 40%, transparent)}
+.pr-inp:focus,.pr-sel:focus,.pr-step input:focus,.pr-pessoa[aria-expanded=true]{outline:none; box-shadow:0 0 0 3px color-mix(in srgb, var(--focus) 40%, transparent)}
 .pr-seg{display:flex; gap:2px; padding:2px; border-radius:10px; background:var(--fill-3)}
 .pr-segb{flex:1; min-width:0; height:32px; padding:0 8px; border:0; border-radius:8px; background:transparent; color:var(--ink-2); font:inherit; font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; transition:background var(--t), color var(--t)}
 .pr-segb:hover{background:var(--fill-4); color:var(--ink)}
@@ -345,17 +345,40 @@ a.ti-sub:hover{background:var(--fill-2); color:var(--ink)}
 .pr-step button:hover{background:var(--fill-4); color:var(--ink)}
 .pr-step input{width:46px; height:36px; border:0; background:transparent; color:var(--ink); text-align:center; font:inherit; font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; -moz-appearance:textfield}
 .pr-step input::-webkit-outer-spin-button,.pr-step input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
-.pr-brief{border-radius:10px; background:var(--fill-4)}
-.pr-brief summary{list-style:none; display:flex; align-items:center; gap:9px; padding:10px 12px; font-size:13px; color:var(--ink-3); cursor:pointer}
-.pr-brief summary::-webkit-details-marker{display:none}
-.pr-brief summary b{margin-right:4px; font-weight:600; color:var(--ink)}
-.pr-brief summary .ic{width:15px; height:15px; flex:none}
-.pr-brief summary .ic:last-child{margin-left:auto; transition:transform var(--t)}
-.pr-brief[open] summary .ic:last-child{transform:rotate(90deg)}
-.pr-brief pre{margin:0; padding:2px 14px 12px 36px; font:12.5px/1.55 inherit; font-family:inherit; color:var(--ink-2); white-space:pre-wrap; max-height:220px; overflow:auto}
+/* v3.93: briefing editável (o texto daqui é o que vai pro Hub) */
+.pr-txt{display:block; width:100%; min-width:0; min-height:120px; max-height:60vh; resize:vertical; border:0; border-radius:10px; background:var(--fill-3); color:var(--ink);
+  padding:10px 12px; font:inherit; font-size:13.5px; line-height:1.55; overflow:auto}
+.pr-txt:focus{outline:none; box-shadow:0 0 0 3px color-mix(in srgb, var(--focus) 40%, transparent)}
+.pr-txt:disabled{color:var(--ink-2); cursor:default}
+.pr-briefpe{display:flex; justify-content:flex-end; margin-top:-4px; min-height:0}
+.pr-briefpe .pr-mais{height:26px}
+/* v3.93: Responsável num menu do próprio painel (HIG: pop-up button); o nativo abria branco no Windows */
+.pr-menu{position:relative; min-width:0}
+.pr-pessoa{display:flex; align-items:center; gap:8px; text-align:left}
+.pr-pessoa .pr-nome{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.pr-pessoa.vazio .pr-nome{color:var(--ink-3)}
+.pr-pessoa.faltando{box-shadow:0 0 0 2px color-mix(in srgb, var(--red) 55%, transparent)}
+.pr-pessoa:disabled{cursor:default; opacity:.7}
+.pr-av{flex:none; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%;
+  background:var(--fill-2); color:var(--ink); font-size:9.5px; font-weight:650; letter-spacing:.02em}
+.pr-lista{position:absolute; top:calc(100% + 6px); left:0; z-index:8; min-width:100%; width:max-content; max-width:min(320px, 86vw); max-height:300px; overflow:auto; padding:5px;
+  background:var(--elev-2); border:1px solid var(--glass-borda); border-radius:12px; box-shadow:var(--hard), inset 0 1px 0 var(--glass-luz);
+  animation:menuin .16s cubic-bezier(.2,.8,.2,1) both; transform-origin:top left}
+.pr-lista.acima{top:auto; bottom:calc(100% + 6px); transform-origin:bottom left}
+html[data-modo="claro"] .pr-lista{background:var(--elev)}   /* o menu fica acima da folha: um tom mais claro no escuro, branco no claro */
+.pr-lista [role=option]{display:flex; align-items:center; gap:9px; width:100%; min-height:34px; padding:0 10px 0 7px; border:0; border-radius:8px;
+  background:transparent; color:var(--ink); font:inherit; font-size:13.5px; text-align:left; cursor:pointer}
+.pr-lista [role=option]:hover,.pr-lista [role=option]:focus{outline:none; background:var(--fill-3)}
+.pr-lista [role=option]:focus-visible{box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--focus) 55%, transparent)}
+.pr-lista [role=option] .pr-nome{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.pr-lista [role=option] .ic{flex:none; width:14px; height:14px; color:var(--blue); visibility:hidden}
+.pr-lista [aria-selected=true]{font-weight:600}
+.pr-lista [aria-selected=true] .ic{visibility:visible}
+.pr-lvazio{padding:10px 12px; font-size:12.5px; color:var(--ink-3)}
 .pr-aviso{margin:0 0 16px; padding:9px 12px; border-radius:10px; font-size:12.5px; line-height:1.45; background:color-mix(in srgb, var(--orange) 12%, var(--fill-4)); border:1px solid color-mix(in srgb, var(--orange) 35%, transparent); color:var(--ink)}
 .pr-aviso.erro{background:color-mix(in srgb, var(--red) 10%, var(--fill-4)); border-color:color-mix(in srgb, var(--red) 35%, transparent)}
-.pr-foot{justify-content:space-between; gap:12px}
+/* v3.93: o rodapé fica sempre à vista (briefing longo empurrava o Criar pra baixo da tela) */
+.pr-foot{justify-content:space-between; gap:12px; position:sticky; bottom:0; z-index:5; background:var(--elev); border-top:1px solid var(--hair-2); padding-top:14px; border-radius:0 0 20px 20px}
 .pr-foot .pr-msg{flex:1; min-width:0; text-align:right}
 #prMsg.erro{color:var(--red)}
 #ovProd .mfoot .mbtn{min-height:36px; padding:0 16px}

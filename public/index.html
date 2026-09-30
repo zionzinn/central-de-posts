@@ -413,7 +413,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.92'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.93'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2470,7 +2470,7 @@ function painelTemHub(){ return !!S.temFonte && souAdmin(); }
 async function abrirProducao(sid){
   // o post pode não estar na tela (semana, ou documento aberto pela lista): o que falta vem do servidor
   const s = S.slots.find(x => x.id === sid);
-  PR.sid = sid; PR.op = null; PR.maisTipos = false;
+  PR.sid = sid; PR.op = null; PR.maisTipos = false; prFechaResp();
   prSubtitulo(s ? { conta: s.conta, date: s.date, titulo: slotTitulo(s) } : null);
   $('#prBody').innerHTML = '<div class="dcvazio">carregando o que o MKT Hub tem…</div>'; $('#prFoot').innerHTML = '';
   $('#ovProd').classList.add('open');
@@ -2512,7 +2512,6 @@ function desenhaProducao(){
   const formatos = PR_FORMATOS.filter(v => (o.formatos || PR_FORMATOS).includes(v)).concat((o.formatos || []).filter(v => !PR_FORMATOS.includes(v)));
   const seg = (id, rot, lista, sel, attr) => '<div class="pr-seg" id="'+id+'" role="radiogroup" aria-label="'+rot+'">'+lista.map(([v, r]) =>
     '<button type="button" role="radio" aria-checked="'+(v === sel)+'" class="pr-segb'+(v === sel ? ' on' : '')+'" '+attr+'="'+esc(v)+'">'+esc(r)+'</button>').join('')+'</div>';
-  const pessoas = (o.pessoas || []).map(p => '<option value="'+esc(p.id)+'"'+(p.id === PR.resp ? ' selected' : '')+'>'+esc(p.nome)+'</option>').join('');
   $('#prBody').innerHTML = bloqueio+pendente+
     '<div class="pr-form">'+
       '<div class="pr-campo"><label class="pr-l" for="prTitulo">Título da task</label><input id="prTitulo" class="pr-inp" maxlength="200" value="'+esc(g.titulo || '')+'"></div>'+
@@ -2520,7 +2519,8 @@ function desenhaProducao(){
       '<div class="pr-campo"><span class="pr-l">Tipo <small>pode marcar mais de um</small></span><div class="pr-tipos" id="prTipos"></div></div>'+
       '<div class="pr-sep" role="presentation"></div>'+
       '<div class="pr-linha pr-l3">'+
-        '<div class="pr-campo"><label class="pr-l" for="prResp">Responsável</label><select id="prResp" class="pr-sel"><option value="">Escolher…</option>'+pessoas+'</select></div>'+
+        // v3.93: menu do próprio painel (o <select> nativo abria branco no Windows, fora do tema)
+        '<div class="pr-campo"><span class="pr-l" id="prRespRot">Responsável</span><div class="pr-menu"><button type="button" id="prResp" class="pr-sel pr-pessoa" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="prRespRot prResp"></button></div></div>'+
         '<div class="pr-campo"><label class="pr-l" for="prPrazo">Entrega</label><input type="date" id="prPrazo" class="pr-inp" value="'+esc(g.prazo || '')+'"></div>'+
         // a data do post é a do calendário (uma fonte só): aparece aqui e acompanha o post no Hub quando ele muda de dia
         '<div class="pr-campo"><span class="pr-l">Post no ar <small>do calendário</small></span><div class="pr-ro" id="prDataPost" data-iso="'+esc(g.dataPost || '')+'" title="O dia do post no calendário. Se o post mudar de dia, a data muda no Hub junto.">'+icon('calendar')+'<b>'+(g.dataPost ? esc(tfDia(g.dataPost)) : 'sem dia')+'</b></div></div>'+
@@ -2529,7 +2529,10 @@ function desenhaProducao(){
         '<div class="pr-campo"><span class="pr-l">Prioridade</span>'+seg('prPrior', 'Prioridade', PR_PRIOR, PR.prior, 'data-prprior')+'</div>'+
         '<div class="pr-campo"><label class="pr-l" for="prPontos">Pontos</label><div class="pr-step"><button type="button" data-prstep="-1" aria-label="Um ponto a menos">−</button><input type="number" id="prPontos" min="1" max="100" value="'+(g.pontos || 1)+'"><button type="button" data-prstep="1" aria-label="Um ponto a mais">+</button></div></div>'+
       '</div>'+
-      '<details class="pr-brief"><summary>'+icon('doc')+'<span><b>Briefing</b> a copy aprovada e a matriz do post</span>'+icon('chevR')+'</summary><pre>'+esc(o.briefing || '')+'</pre></details>'+
+      // v3.93 (pedido do Zion): só a copy aprovada, sem a matriz, e dá pra mudar o que vai (o texto daqui é o que vai pro Hub)
+      '<div class="pr-campo"><label class="pr-l" for="prBrief">Briefing <small>vai assim pro MKT Hub</small></label>'+
+        '<textarea id="prBrief" class="pr-txt" rows="7" spellcheck="true">'+esc(o.briefing || '')+'</textarea>'+
+        '<div class="pr-briefpe"><button type="button" class="pr-mais" id="prBriefVolta" hidden>Voltar ao texto da copy</button></div></div>'+
     '</div>';
   $('#prFoot').innerHTML = '<button class="mbtn" id="prCancelar">Cancelar</button>'+
     '<span class="note pr-msg" id="prMsg">'+(o.empresa ? 'Nasce em Pendente, na '+esc(o.empresa.nome)+'.' : '')+'</span>'+
@@ -2542,9 +2545,17 @@ function desenhaProducao(){
   // trocou o formato: o [FORMATO] do começo do título acompanha (se o título ainda começa com ele)
   unico('prFormatos', 'data-prfmt', v => { PR.formato = v; const t = $('#prTitulo'); if(t && /^\[[^\]]*\]\s*/.test(t.value)) t.value = t.value.replace(/^\[[^\]]*\]\s*/, '['+v.toUpperCase()+'] '); });
   unico('prPrior', 'data-prprior', v => { PR.prior = v; });
-  $('#prResp').onchange = ev => { PR.resp = ev.target.value; ev.target.classList.remove('faltando'); prErro(''); };
+  prDesenhaResp();
+  $('#prResp').onclick = prAbreResp;
+  $('#prResp').onkeydown = ev => { if((ev.key === 'ArrowDown' || ev.key === 'ArrowUp') && !PR_MENU){ ev.preventDefault(); prAbreResp(); } };
+  const tb = $('#prBrief'), volta = $('#prBriefVolta');
+  const cresce = max => { tb.style.height = 'auto'; tb.style.height = Math.min(max, tb.scrollHeight + 2) + 'px'; };
+  const mudou = () => { volta.hidden = !!o.pendente || tb.value.trim() === String(o.briefingCopy || o.briefing || '').trim(); };
+  tb.oninput = () => { cresce(280); mudou(); prErro(''); };
+  volta.onclick = () => { tb.value = o.briefingCopy || o.briefing || ''; cresce(200); mudou(); tb.focus(); };
+  requestAnimationFrame(() => cresce(200));
   B.querySelectorAll('[data-prstep]').forEach(b => b.onclick = () => { const i = $('#prPontos'); i.value = String(Math.min(100, Math.max(1, (parseInt(i.value) || 1) + (+b.dataset.prstep)))); });
-  if(o.pendente) B.querySelectorAll('.pr-form input, .pr-form button, .pr-form select').forEach(x => { x.disabled = true; });   // repete igual: nada muda aqui
+  if(o.pendente) B.querySelectorAll('.pr-form input, .pr-form button, .pr-form textarea').forEach(x => { x.disabled = true; });   // repete igual: nada muda aqui
   $('#prCancelar').onclick = () => closeOv('ovProd');
   $('#prCriar').onclick = criaProducao;
 }
@@ -2563,6 +2574,58 @@ function prDesenhaTipos(){
   const m = $('#prTiposMais'); if(m) m.onclick = () => { PR.maisTipos = !PR.maisTipos; prDesenhaTipos(); };
   if(PR.op && PR.op.pendente) el.querySelectorAll('button').forEach(x => { x.disabled = true; });
 }
+/** v3.93: o botão do Responsável mostra quem está escolhido (iniciais + nome) ou "Escolher…". */
+function prRespNome(){ const p = ((PR.op && PR.op.pessoas) || []).find(x => x.id === PR.resp); return p ? p.nome : ''; }
+function prAvatar(nome){ return '<span class="pr-av" aria-hidden="true">'+esc(initials(nome))+'</span>'; }
+function prDesenhaResp(){
+  const b = $('#prResp'); if(!b) return;
+  const nome = prRespNome();
+  b.classList.toggle('vazio', !nome);
+  b.innerHTML = nome ? prAvatar(nome)+'<span class="pr-nome">'+esc(nome)+'</span>' : '<span class="pr-nome">Escolher…</span>';
+}
+/**
+ * v3.93: menu do Responsável no tema do painel (HIG: pop-up button). Setas sobem e descem, letra pula pro nome,
+ * Enter escolhe, Esc fecha só o menu (a tela continua aberta), clique fora fecha. Abre pra cima se não cabe embaixo.
+ */
+let PR_MENU = null;
+function prFechaResp(){ if(PR_MENU) PR_MENU.fecha(false); }
+function prAbreResp(){
+  if(PR_MENU){ PR_MENU.fecha(true); return; }
+  const bt = $('#prResp'); if(!bt || bt.disabled) return;
+  const pess = (PR.op && PR.op.pessoas) || [], semAc = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const m = document.createElement('div');
+  m.className = 'pr-lista'; m.id = 'prRespLista'; m.setAttribute('role', 'listbox'); m.setAttribute('aria-labelledby', 'prRespRot');
+  m.innerHTML = pess.map(p => '<button type="button" role="option" tabindex="-1" aria-selected="'+(p.id === PR.resp)+'" data-prpessoa="'+esc(p.id)+'">'+prAvatar(p.nome)+'<span class="pr-nome">'+esc(p.nome)+'</span>'+icon('check')+'</button>').join('')
+    || '<div class="pr-lvazio">Nenhuma pessoa ativa no MKT Hub.</div>';
+  bt.parentElement.appendChild(m);
+  const r = bt.getBoundingClientRect();
+  if(innerHeight - r.bottom < m.offsetHeight + 12 && r.top > innerHeight - r.bottom) m.classList.add('acima');
+  bt.setAttribute('aria-expanded', 'true');
+  const ops = [...m.querySelectorAll('[role=option]')];
+  const foca = i => { if(ops.length) ops[(i + ops.length) % ops.length].focus(); };
+  const fora = ev => { if(!m.contains(ev.target) && !bt.contains(ev.target)) fecha(false); };
+  const tecla = ev => {
+    const i = ops.indexOf(document.activeElement);
+    if(ev.key === 'Escape'){ ev.preventDefault(); ev.stopPropagation(); fecha(true); }
+    else if(ev.key === 'Tab') fecha(false);
+    else if(ev.key === 'ArrowDown'){ ev.preventDefault(); foca(i + 1); }
+    else if(ev.key === 'ArrowUp'){ ev.preventDefault(); foca(i < 0 ? -1 : i - 1); }
+    else if(ev.key === 'Home' || ev.key === 'End'){ ev.preventDefault(); foca(ev.key === 'Home' ? 0 : -1); }
+    else if(ev.key.length === 1 && /\S/.test(ev.key) && !ev.ctrlKey && !ev.metaKey){
+      const l = semAc(ev.key), j = ops.map((_, k) => (i + 1 + k) % ops.length).find(k => semAc(ops[k].textContent.trim()).startsWith(l));
+      if(j !== undefined) foca(j);
+    }
+  };
+  function fecha(voltaFoco){
+    document.removeEventListener('mousedown', fora, true); document.removeEventListener('keydown', tecla, true);
+    m.remove(); bt.setAttribute('aria-expanded', 'false'); PR_MENU = null;
+    if(voltaFoco) bt.focus();
+  }
+  ops.forEach(b => b.onclick = () => { PR.resp = b.dataset.prpessoa; fecha(true); prDesenhaResp(); bt.classList.remove('faltando'); prErro(''); });
+  document.addEventListener('mousedown', fora, true); document.addEventListener('keydown', tecla, true);
+  PR_MENU = { fecha };
+  foca(Math.max(0, ops.findIndex(b => b.dataset.prpessoa === PR.resp)));
+}
 /** Mensagem do rodapé (erro em vermelho) sem apagar o aviso de onde a task nasce. */
 function prErro(txt){
   const m = $('#prMsg'); if(!m) return;
@@ -2574,19 +2637,19 @@ async function criaProducao(){
   const o = PR.op, pronta = o && o.taskId;
   const corpo = pronta ? {} : {
     titulo: ($('#prTitulo').value || '').trim(), tipo: [...PR.tipos], formato: PR.formato, responsavel: PR.resp,
-    prazo: $('#prPrazo').value, pontos: parseInt($('#prPontos').value), prioridade: PR.prior,
+    prazo: $('#prPrazo').value, pontos: parseInt($('#prPontos').value), prioridade: PR.prior, briefing: $('#prBrief').value,
     quem: (PERFIL.get()||{}).nome || '',
   };
   if(!pronta){
     // o que falta fica marcado no próprio campo, e o foco vai pra ele
-    const falta = !corpo.titulo ? ['o título', '#prTitulo'] : !corpo.formato ? ['o formato', '#prFormatos button'] : !corpo.tipo.length ? ['o tipo', '#prTipos button'] : !corpo.responsavel ? ['o responsável', '#prResp'] : !corpo.prazo ? ['a data de entrega', '#prPrazo'] : null;
+    const falta = !corpo.titulo ? ['o título', '#prTitulo'] : !corpo.formato ? ['o formato', '#prFormatos button'] : !corpo.tipo.length ? ['o tipo', '#prTipos button'] : !corpo.responsavel ? ['o responsável', '#prResp'] : !corpo.prazo ? ['a data de entrega', '#prPrazo'] : !corpo.briefing.trim() ? ['o briefing', '#prBrief'] : null;
     if(falta){
       prErro('Falta '+falta[0]+'.');
       const el = document.querySelector(falta[1]); if(el){ el.focus(); if(el.id === 'prResp') el.classList.add('faltando'); }
       return;
     }
   }
-  bt.disabled = true; msg.classList.remove('erro'); msg.textContent = 'criando no MKT Hub…';
+  prFechaResp(); bt.disabled = true; msg.classList.remove('erro'); msg.textContent = 'criando no MKT Hub…';
   try{
     const r = await api('/api/slots/'+PR.sid+'/producao', {method:'POST', body:JSON.stringify(corpo)});
     closeOv('ovProd');
