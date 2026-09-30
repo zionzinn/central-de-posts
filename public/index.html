@@ -321,7 +321,7 @@
 <div id="ovDoc" hidden><iframe id="docFrame" title="Documento da copy"></iframe></div>
 <div class="ov" id="ovDocs"><div class="modal" style="position:relative; width:min(900px,100%)">
   <button class="mclose" data-close="ovDocs">✕</button>
-  <div class="mhead"><div class="mtit">Documentos</div><div class="ectx">as copys escritas no painel, da mais recente pra mais antiga</div></div>
+  <div class="mhead"><div class="mtit">Documentos</div><div class="ectx">as copys escritas no painel, da mais recente pra mais antiga · botão do meio (ou Ctrl+clique) abre em outra aba</div></div>
   <div class="mbody">
     <div class="dcuso" id="dcUso" hidden></div>
     <div class="dcfil">
@@ -406,7 +406,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.86'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.87'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2280,13 +2280,15 @@ function desenhaListaDocs(){
   const quando = iso => { if(!iso) return ''; const d = new Date(iso); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
   $('#dcLista').innerHTML = l.length ? '' : '<div class="dcvazio">'+(DOCS_LISTA.length ? 'Nada com esse filtro.' : ($('#dcExc').checked ? 'Nenhum documento excluído.' : 'Nenhum documento ainda. Abra um card da matriz ou um post e clique em "Escrever a copy".'))+'</div>';
   l.forEach(d=>{
-    const row = document.createElement('div'); row.className = 'dcl';
+    // v3.87: cada documento é um link de verdade (/doc.html?id=…): o botão do meio, o Ctrl+clique e o "abrir em nova
+    // guia" do clique direito abrem em outra aba, sozinho; o clique normal continua abrindo aqui dentro, em tela cheia
+    const row = document.createElement('a'); row.className = 'dcl'; row.href = '/doc.html?id='+encodeURIComponent(d.id);
     row.innerHTML = '<span class="dci">'+icon('doc')+'</span><b>'+esc(d.titulo)+'</b>'+
       '<small><span class="cdot" style="background:'+contaCor(d.conta)+'"></span>'+esc(d.contaNome||'')+(d.date?' · post de '+brData(d.date).slice(0,5):' · sem dia')+' · '+d.palavras+' palavra'+(d.palavras===1?'':'s')+
         (d.temMatriz?' <span class="tg">matriz</span>':'')+(d.taskId?' <span class="tg ok">tem task</span>':'')+(!d.postExiste?' <span class="tg">post excluído</span>':'')+'</small>'+
       '<span class="dcr">'+(d.excluido?'<button class="mbtn">Restaurar</button>':esc(quando(d.atualizadoEm))+(d.por?'<br>'+esc(d.por):''))+'</span>';
-    if(d.excluido) row.querySelector('.mbtn').onclick = async ev=>{ ev.stopPropagation(); try{ await api('/api/docs/'+d.id+'/restaurar', {method:'POST'}); toast('Documento restaurado'); await loadState(false, true); abrirListaDocs(); }catch(e){ toast(e.message, true); } };
-    row.onclick = ()=> abrirDoc(d.id);
+    if(d.excluido) row.querySelector('.mbtn').onclick = async ev=>{ ev.preventDefault(); ev.stopPropagation(); try{ await api('/api/docs/'+d.id+'/restaurar', {method:'POST'}); toast('Documento restaurado'); await loadState(false, true); abrirListaDocs(); }catch(e){ toast(e.message, true); } };
+    row.onclick = ev=>{ if(ev.button || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return; ev.preventDefault(); abrirDoc(d.id); };
     $('#dcLista').appendChild(row);
   });
 }
