@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.88'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.89'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -451,7 +451,7 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith('/api/docs') && await rotaDocs(req, res, p, u)) return;
     // ---------- tarefas e relógio (v3.80); mandar a tarefa pro MKT Hub (v3.84, antes: a /hub de cada tarefa é de lá) ----------
     if ((/^\/api\/tarefas\/t[0-9a-f]{8}\/hub$/.test(p) || p === '/api/hub/escrita' || p === '/api/hub/config') && await rotaHubEnvio(req, res, p, u)) return;
-    if (p.startsWith('/api/tarefas') && await rotaTarefas(req, res, p, u)) return;
+    if ((p.startsWith('/api/tarefas') || /^\/api\/slots\/[a-z0-9]+\/copy$/i.test(p)) && await rotaTarefas(req, res, p, u)) return;   // v3.89: a copy de um post
     if (p.startsWith('/api/tempo') && await rotaTempo(req, res, p, u)) return;
     if (p.startsWith('/api/banco') && await rotaBanco(req, res, p)) return;
     // ---------- MKT Hub (v3.81): status, artes e comentários das tasks de produção ----------

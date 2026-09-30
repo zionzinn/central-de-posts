@@ -51,6 +51,19 @@
   .gd-btn.cinza{background:var(--tb)} .gd-btn.cinza:hover{background:#E1E8F4}
   .gd-btn.on{background:var(--on); color:#041E49}
   .gd-btn.share{background:var(--share); color:#001D35} .gd-btn.share:hover{background:var(--share-h); box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  /* v3.89: aprovação da copy aqui no documento (mandar, aprovar, pedir alteração, desfazer) */
+  .gd-apv{display:flex; align-items:center; gap:6px}
+  .gd-apv .gd-btn{height:36px; padding:0 14px}
+  .gd-btn.apv-manda{background:#0B57D0; color:#fff} .gd-btn.apv-manda:hover{background:#0A4DB8; box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .gd-btn.apv-manda:disabled{background:var(--tb); color:var(--ink3); cursor:default; box-shadow:none}
+  .gd-btn.apv-ok{background:#146C2E; color:#fff} .gd-btn.apv-ok:hover{background:#0F5A25; box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .gd-btn.apv-alt{color:#B3261E; box-shadow:inset 0 0 0 1px #B3261E} .gd-btn.apv-alt:hover{background:#FCEEEE}
+  .gd-btn.apv-desf{height:30px; padding:0 10px; font-size:12.5px; color:var(--ink3)}
+  .gd-apvst{display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px; border-radius:15px; font-size:13px; font-weight:500; white-space:nowrap}
+  .gd-apvst.env{background:#FFF3E0; color:#8A4B00} .gd-apvst.ok{background:#E6F4EA; color:#146C2E}
+  .gd-apvst .ic{width:16px; height:16px}
+  .gd-dlg textarea{width:100%; min-height:88px; border:1px solid #747775; border-radius:4px; padding:10px 12px; font:15px var(--ui); color:var(--ink); resize:vertical}
+  .gd-dlg textarea:focus{outline:2px solid var(--blue); border-color:transparent}
   .gd-btn[disabled]{opacity:.45; cursor:not-allowed}
   .gd-btn .ic{width:19px; height:19px}
   .gd-x{width:40px; height:40px; border-radius:50%; border:0; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--ink2)}
@@ -325,6 +338,7 @@
   <div class="gd-right">
     <div class="gd-pres" id="pres"></div>
     <div class="gd-rel" id="gdRel" hidden><span class="nf gd-nf" id="gdNf" role="timer" hidden></span><button class="rl-btn" id="gdRelBtn"></button></div>
+    <div class="gd-apv" id="gdAprov" hidden></div>
     <button class="gd-btn cinza" id="bMatriz" title="rever o que foi preenchido na matriz deste post (Ctrl+Alt+M)"></button>
     <button class="gd-copiar" id="bCopiar" title="copia o documento inteiro: formatado pra colar no MKT Hub ou no Docs, e texto limpo pra colar no Instagram"><span class="cp-a"></span><span class="cp-b" aria-hidden="true">Copiado</span></button>
     <button class="gd-x" id="bFechar" title="fechar e voltar pro painel (salva antes)"></button>
@@ -370,6 +384,7 @@ const LIMITE_IG = 2200;   // limite de caracteres da legenda do Instagram
 
 // ---------------- ícones (traço simples, 24x24) ----------------
 const IC = {
+  ok:'<path d="M4.5 12.5l5 5L19.5 7"/>',   // v3.89: aprovar
   undo:'<path d="M9 7L4.5 11.5 9 16"/><path d="M4.5 11.5H15a4.5 4.5 0 0 1 0 9h-3"/>',
   redo:'<path d="M15 7l4.5 4.5L15 16"/><path d="M19.5 11.5H9a4.5 4.5 0 0 0 0 9h3"/>',
   print:'<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="1.5"/><path d="M7 14h10v6H7z"/>',
@@ -718,6 +733,7 @@ function statusSalvo(iso, por){
 function mudou(){
   if(LEITURA) return;
   SUJO = true;
+  { const bm = document.getElementById('apvManda'); if(bm && bm.disabled !== !temTextoAgora()) pintaAprovacao(); }   // v3.89: escreveu, dá pra mandar
   status('Salvando…', 'salvando');
   clearTimeout(T_SALVAR); T_SALVAR = setTimeout(salvar, 1100);
   agendaContagem(); guardaRascunho();
@@ -840,7 +856,7 @@ async function carregar(){
   }
   $('#carregando').remove();
   presenca();
-  avisoAprovacao(); relogioDoc();                  // v3.80
+  avisoAprovacao(); relogioDoc(); pintaAprovacao();   // v3.80 e v3.89 (aprovar aqui)
   // abre com o cursor no começo, igual abrir um documento
   if(!LEITURA){ page.focus({preventScroll:true}); try{ const r=document.createRange(); r.setStart(page.firstChild||page,0); r.collapse(true); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }catch(e){} }
   atualizaToolbar();
@@ -1780,6 +1796,46 @@ async function cliqueRelogioDoc(){
   if(r && r.reg) toast(r.curto ? 'O relógio anterior tinha menos de 30 s e não contou.' : 'Relógio anterior salvo: '+CRON.fmtLongo(r.reg.seg)+'.');
   focoDoc();
 }
+// ---------------- v3.89: aprovação da copy aqui no documento ----------------
+// A Elis manda pra aprovação daqui (ou da tarefa de copy); o ADMIN (Zion e Maria) aprova ou pede alteração daqui
+// ou da tela "Pra aprovar" do painel. Sem login (PC local), todo mundo pode aprovar, como no resto do painel.
+function podeAprovar(){ return !D || !D.eu || D.eu.papel === 'admin'; }
+function temTextoAgora(){ return !!(page && (page.textContent || '').replace(/\u200b/g,'').trim()); }
+function pintaAprovacao(){
+  const box = $('#gdAprov'); if(!box) return;
+  const p = D && D.post;
+  if(!p || D.doc.excluido){ box.innerHTML = ''; box.hidden = true; return; }
+  const a = p.aprov, adm = podeAprovar();
+  let h = '';
+  if(!a || a.st === 'alterar'){
+    const vazio = !temTextoAgora();
+    h = '<button class="gd-btn apv-manda" id="apvManda"'+(vazio ? ' disabled title="escreva a copy antes de mandar"' : ' title="a copy vai pra aprovação aqui no B.O.N.E (Zion ou Maria)"')+'>'+ic('enviar')+(a ? 'Mandar de novo' : 'Mandar pra aprovação')+'</button>';
+  } else if(a.st === 'enviado'){
+    h = adm ? '<button class="gd-btn apv-alt" id="apvAlt" title="volta pra quem escreveu, com o que precisa mudar">Pedir alteração</button><button class="gd-btn apv-ok" id="apvOk">'+ic('ok')+'Aprovar</button>'
+      : '<span class="gd-apvst env" title="mandada '+esc(fmtQuando(a.em))+(a.por ? ' por '+esc(a.por) : '')+'">em aprovação</span>';
+  } else if(a.st === 'aprovado'){
+    h = '<span class="gd-apvst ok">'+ic('ok')+'aprovada'+(a.ap ? ' por '+esc(a.ap) : '')+'</span>'+(adm ? '<button class="gd-btn apv-desf" id="apvDesf" title="volta pra esperando aprovação">desfazer</button>' : '');
+  }
+  box.innerHTML = h; box.hidden = !h;
+  const liga = (id, f)=>{ const b = document.getElementById(id); if(b) b.onclick = f; };
+  liga('apvManda', async ()=>{ await salvarAgora(); acaoCopy('enviar'); });
+  liga('apvOk', ()=> acaoCopy('aprovar'));
+  liga('apvDesf', ()=> acaoCopy('reabrir'));
+  liga('apvAlt', ()=> dialogo('Pedir alteração', '<label>O que precisa mudar? (quem escreveu vê isso no documento e no card)</label><textarea id="dlAlt" maxlength="500" placeholder="ex.: gancho fraco, abrir com o número"></textarea>',
+    [{r:'Cancelar'}, {r:'Mandar pedido', forte:true, f: ov=>{ const n = ov.querySelector('#dlAlt').value.trim(); if(!n){ ov.querySelector('#dlAlt').focus(); return false; } acaoCopy('alterar', n); }}]));
+}
+async function acaoCopy(acao, nota){
+  const box = $('#gdAprov'); box.querySelectorAll('button').forEach(b=>{ b.disabled = true; });
+  try{
+    const r = await api('/api/slots/'+D.post.id+'/copy', {method:'POST', body:JSON.stringify({ acao, nota: nota || '', quem: EU })});
+    D.post.aprov = r.aprov;
+    tiraFaixa('aprov'); avisoAprovacao();
+    toast(acao === 'enviar' ? 'Copy mandada pra aprovação' : acao === 'aprovar' ? 'Copy aprovada' : acao === 'alterar' ? 'Pedido de alteração mandado' : 'Voltou pra esperando aprovação');
+    avisaPai('aprov');
+  }catch(e){ toast(esc(e.message)); }
+  pintaAprovacao();
+}
+
 /** Aviso da aprovação desta copy (pedido de alteração em vermelho, com a nota). */
 function avisoAprovacao(){
   const a = D && D.post ? D.post.aprov : null;

@@ -540,8 +540,7 @@ async function tfCarregaTexto(sid, docId) {
   const el = document.querySelector('[data-copy="' + sid + '"]'); if (!el) return;
   try {
     const r = await api('/api/docs/' + docId);
-    const div = document.createElement('div'); div.innerHTML = r.doc.html || '';
-    const txt = (div.innerText || div.textContent || '').trim();
+    const txt = htmlParaTexto(r.doc.html);                // v3.89: com as quebras de linha
     const alvo = document.querySelector('[data-copy="' + sid + '"]'); if (!alvo) return;
     alvo.textContent = txt ? (txt.length > 1400 ? txt.slice(0, 1400) + '…' : txt) : 'Documento vazio.';
   } catch (e) { el.textContent = 'Não consegui carregar o texto: ' + e.message; }

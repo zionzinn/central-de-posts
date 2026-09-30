@@ -52,6 +52,8 @@
     <div class="legend" id="legend"></div>
     <div class="spacer"></div>
     <div class="acoes">
+    <!-- v3.89: copys esperando aprovação (ADMIN) ou as suas em aprovação e pra alterar (Usuário) -->
+    <button class="aprovbtn" id="btnAprovar" hidden><span class="ab-ic"></span><span class="ab-rot" id="aprovRot">Pra aprovar</span><b class="ab-n" id="aprovN"></b></button>
     <!-- v3.78: Bancos, Configurações e Docs num leque (abre no hover, no Tab ou no toque) -->
     <div class="leque" id="leque" role="group" aria-label="Bancos, configurações e documentos">
       <button class="lq lq-c" id="btnConfig" data-tip="Configurações (Ctrl+,)" aria-label="Configurações"></button>
@@ -321,6 +323,15 @@
     <div class="dclista" id="dcLista"></div>
   </div>
 </div></div>
+<!-- v3.89: Pra aprovar: as copys de todas as empresas, por dia (aprovar e pedir alteração aqui mesmo) -->
+<div class="ov" id="ovAprovar"><div class="modal" style="position:relative; width:min(980px,100%)">
+  <button class="mclose" data-close="ovAprovar">✕</button>
+  <div class="mhead"><div class="mtit" id="apTit">Pra aprovar</div><div class="ectx" id="apSub"></div></div>
+  <div class="mbody">
+    <div class="apabas" id="apAbas" role="tablist"></div>
+    <div class="aplista" id="apLista"></div>
+  </div>
+</div></div>
 <div class="ov" id="ovArq"><div class="modal" style="position:relative; width:min(580px,100%)">
   <button class="mclose" data-close="ovArq">✕</button>
   <div class="mhead"><div class="mtit">Arquivar documentos antigos</div><div class="ectx">baixa um .zip com os documentos e só depois tira eles do servidor</div></div>
@@ -395,7 +406,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.88'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.89'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -588,6 +599,16 @@ function isSugestao(s){ return !!s.sugestao && !s.taskId; }
 // Card amarelo = post ainda na matriz (sem task). A regra (tipos, rotação A/B, CTA...) vem do servidor
 // (lib/matriz-seubone.js) no /api/state, pra existir num lugar só.
 function isMatriz(s){ return !!s.matrizSB && !s.taskId; }
+/** v3.89: card de COPY: o post tem documento e ainda não tem task de produção (o card da matriz vira o da copy). */
+function isCopy(s){ return !!s.docId && !s.taskId && !s.postado && !isVaga(s) && !isSugestao(s); }
+/** v3.89: estado da copy do post (a aprovação é aqui no B.O.N.E). */
+function copyEstado(s){
+  const a = s.aprov && s.aprov.c;
+  if(a && a.st==='aprovado') return { cod:'aprovado', rot:'aprovada', cor:'var(--green)' };
+  if(a && a.st==='enviado') return { cod:'enviado', rot:'em aprovação', cor:'var(--orange)' };
+  if(a && a.st==='alterar') return { cod:'alterar', rot:'pra alterar', cor:'var(--red)' };
+  return { cod:'escrevendo', rot:'escrevendo', cor:'var(--blue)' };
+}
 const MZ_OBJ_COR = { Atrair:'#00D2E0', Provar:'#6D7CFF', Converter:'#FF9230' };   // teal, índigo, laranja do sistema
 const MZ_ST_COR = { 'Não iniciado':'#8E8E93', 'Briefing criado':'#6D7CFF', 'Em produção':'#FF9230', 'Em aprovação':'#00D2E0', 'Aprovado':'#00DAC3', 'Postado':'#30D158' };
 function mzCfg(){ return S.matrizSB || { tipos:{}, semanas:{A:[],B:[]}, ancora:'2026-09-28', status:[], obrigatorios:[], regras:[], checklist:[] }; }
@@ -610,6 +631,7 @@ function mzObjCor(tipo){ const t = mzCfg().tipos[tipo]; return t ? (MZ_OBJ_COR[t
 function stInfo(s){
   if(isVaga(s)) return {label:'falta criar', color:'#FF4D4D'};
   if(isSugestao(s)) return {label:'sugestão', color:'#C77DFF'};
+  if(isCopy(s)){ const c = copyEstado(s); return {label:'copy '+c.rot, color:{aprovado:'#30D158', enviado:'#FF9230', alterar:'#FF4245', escrevendo:'#0091FF'}[c.cod]}; }   // v3.89
   if(isMatriz(s)){ const st = mzStatus(s); return {label:st.toLowerCase(), color:MZ_ST_COR[st]||'#8C897C'}; }
   if(s.postado) return {label:'postado', color:'#2FD06A'};
   if(s.statusCache){
@@ -777,11 +799,12 @@ function passaFiltro(s){
   if(f==='semtask') return !s.taskId;
   if(f==='contadiv') return !!contaDivergente(s);
   if(f==='vagas') return isVaga(s);
-  if(f==='matriz') return isMatriz(s);
+  if(f==='matriz') return isMatriz(s) && !isCopy(s);
+  if(f==='copy') return isCopy(s);                    // v3.89
   if(f==='sugestoes') return isSugestao(s);
   if(f==='atrasados') return !s.postado && !!s.date && s.date < hojeStr();
   const fb = FILTRO_ALIAS[f] || f;
-  if(BUCKETS[fb]) return !isMatriz(s) && !isVaga(s) && !isSugestao(s) && stBucket(s)===fb;
+  if(BUCKETS[fb]) return !isMatriz(s) && !isCopy(s) && !isVaga(s) && !isSugestao(s) && stBucket(s)===fb;
   return !s.postado && (FILTRO_GRUPOS[f]||[]).includes(st);
 }
 // filtros antigos que viraram os grupos do card (v3.65)
@@ -861,7 +884,7 @@ function render(){
   // e o painel ficaria preso em "arrastando" (clique não abre, atualização para, rolagem automática solta).
   if(S.dragging){ S._renderDepois = true; return; }
   S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba);
-  renderTabs(); renderFaixa(); renderLegend(); renderDrawer(); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); }
+  renderTabs(); renderFaixa(); renderLegend(); renderDrawer(); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); pintaBtnAprovar(); }
 
 function renderTabs(){
   const el = $('#tabs');
@@ -989,7 +1012,7 @@ function renderLegend(){
   fs.className = 'filtro' + (S.filtro!=='todos' ? ' on' : '');
   [['todos','Todos os posts'],['atrasados','Atrasados'],['afazer','A fazer'],
    ['producao','Em produção'],['alterar','Alterar'],['aprovar','Pra aprovar'],['pronto','Prontos (publicar)'],
-   ['postados','Postados'],['semtask','Sem task'],['contadiv','Conta divergente'],['vagas','Falta criar'],['matriz','Matriz (amarelos)'],['sugestoes','Sugestões da pauta']]
+   ['postados','Postados'],['semtask','Sem task'],['contadiv','Conta divergente'],['vagas','Falta criar'],['matriz','Matriz (amarelos)'],['copy','Copy (azuis)'],['sugestoes','Sugestões da pauta']]
     .forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; fs.appendChild(o); });
   fs.value = S.filtro;
   fs.onchange = ()=>{ S.filtro = fs.value; render(); };
@@ -1015,11 +1038,12 @@ function cardEl(s){
   const d = document.createElement('div');
   const vaga = isVaga(s);
   const sug = isSugestao(s);
-  const mz = isMatriz(s);
+  const cp = isCopy(s);                    // v3.89: o post já tem a copy (documento): o card da matriz vira o da copy
+  const mz = isMatriz(s) && !cp;
   const bk = BUCKETS[stBucket(s)];
-  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(vaga?' vaga':'')+(sug?' sugestao':'')+(mz?' mz':'')+(multi?' temconta':'');
+  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(vaga?' vaga':'')+(sug?' sugestao':'')+(mz?' mz':'')+(cp?' cp':'')+(multi?' temconta':'');
   if(multi) d.style.setProperty('--corconta', cor);
-  if(!mz && !vaga && !sug) d.style.setProperty('--cc', bk.cor);   // v3.75: fundo tingido + barrinha na cor do status
+  if(!mz && !cp && !vaga && !sug) d.style.setProperty('--cc', bk.cor);   // v3.75: fundo tingido + barrinha na cor do status
   d.draggable = true; d.dataset.id = s.id;
   const resp = s.assigneeCache || s.responsavelManual || '';   // v3.88: sem o "Quem faz" da matriz (saiu)
   const cdiv = contaDivergente(s);
@@ -1033,12 +1057,24 @@ function cardEl(s){
       [s.conta].concat(clb).map(c=>'<span class="cdot" style="background:'+contaCor(c)+'"></span>').join('')+'</span>':'')+
     (cdiv?'<span class="tagic t-cdiv" title="O nome da task diz '+esc(nomeConta(cdiv.sugerida))+', mas este post está em '+esc(nomeConta(s.conta))+'. Clique pra mover pra '+esc(nomeConta(cdiv.sugerida))+' (Ctrl+Z desfaz).">'+icon('alerta')+'</span>':'')+
     (!mz && s.matrizSB?'<span class="mk t-mz" title="Este post veio da matriz: clique pra ver tema, tese, gancho...">M</span>':'')+
-    (s.docId?'<span class="mk t-doc" title="Tem documento de copy: clique pra abrir">'+icon('doc')+'</span>':'')+
-    tfChipsCard(s);   // v3.80: M e C com a bolinha do estado da aprovação
+    (s.docId && !cp?'<span class="mk t-doc" title="Tem documento de copy: clique pra abrir">'+icon('doc')+'</span>':'')+
+    (cp ? '' : tfChipsCard(s));   // v3.80: C com a bolinha do estado da aprovação (no card da copy, o estado já está escrito)
   const parecer = (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'alt')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Alteração pedida')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'pencil')+(s.parecer.veredito==='aprovado'?'APROVADO':'ALTERAR')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '');
   // selo da conta: nome por extenso na cor da marca. Só em aba com mais de uma conta.
   const contatag = multi?'<div class="contatag" style="background:'+cor+'; color:'+corTexto(cor)+'">'+esc(contaCurta(s.conta))+'</div>':'';
-  if(mz){
+  if(cp){
+    // v3.89 COPY: faixa azul no topo dizendo COPY + o tipo do dia; o clique abre o documento. A matriz fica no M.
+    const m = s.matrizSB || null, ce = copyEstado(s);
+    const tipo = m ? (m.tipo || 'Em aberto') : (s.formato ? cap(s.formato) : '');
+    const gmPede = s.date && S.aba==='SEUBONÉ' && gmCadenciaDia(s.date);
+    d.innerHTML =
+      '<div class="cpband" title="Card da copy: clique pra abrir o documento"><span class="cplbl">'+icon('doc')+'Copy</span>'+(tipo?'<span class="cptipo">'+esc(tipo)+'</span>':'')+
+        (gmPede||isGm(s)?'<span class="mzstar" title="Dia de grande marca na capa">'+icon('star')+'</span>':'')+'</div>'+
+      contatag+
+      '<div class="tit">'+esc(slotTitulo(s))+'</div>'+
+      '<div class="meta"><span class="stx" style="--stc:'+ce.cor+'" title="'+esc(ce.cod==='alterar' && s.aprov.c.nota ? 'Pra alterar: '+s.aprov.c.nota : 'Copy '+ce.rot)+'"><i></i>'+ce.rot+'</span>'+alertas+avatar+'</div>'+
+      '<button class="qdel bin mini" title="Excluir este post do painel">'+BIN_SVG+'</button>';
+  } else if(mz){
     // MATRIZ: faixa amarela sólida no topo dizendo MATRIZ + o tipo do dia. Não tem como confundir com post.
     const m = s.matrizSB; const mzp = mzProgresso(m); const st = mzStatus(s);
     const tipoCfg = mzCfg().tipos[m.tipo];
@@ -1091,6 +1127,7 @@ function cardEl(s){
   d.addEventListener('click', ev=>{
     if(S.dragging) return;
     if(ev.ctrlKey || ev.metaKey){ toggleSelecao(s.id); return; }
+    if(cp){ abrirCopy(s.id); return; }        // v3.89: o card da copy abre o documento
     if(mz){ openMatriz(s.id); return; }
     openTask(s.id);
   });
@@ -1328,8 +1365,9 @@ function celulaDia(c, di, porDia, semana){
 /** Legenda das 6 cores no cabeçalho do mês, já com a contagem. Clique = filtra por aquele grupo (clique de novo tira). */
 function legendaMes(mes){
   const doMes = slotsVisiveis().filter(s=>s.date && s.date.startsWith(mes));
-  const cont = {}; let nmz = 0;
+  const cont = {}; let nmz = 0, ncp = 0;
   doMes.forEach(s=>{
+    if(isCopy(s)){ ncp++; return; }                   // v3.89: o card da copy (azul)
     if(isMatriz(s) && !s.postado){ nmz++; return; }
     if(isVaga(s) || isSugestao(s)) return;
     const b = stBucket(s); cont[b] = (cont[b]||0)+1;
@@ -1337,7 +1375,8 @@ function legendaMes(mes){
   const f = FILTRO_ALIAS[S.filtro] || S.filtro;
   return '<span class="mesleg">'+
     BUCKET_ORDEM.map(k=>'<button class="lgb'+(cont[k]?'':' zero')+(f===k?' on':'')+'" data-f="'+k+'" style="--stc:'+BUCKETS[k].cor+'" title="'+esc(BUCKETS[k].rot+': '+BUCKETS[k].dica+' · clique pra ver só estes')+'"><i></i>'+BUCKETS[k].rot+' <b>'+(cont[k]||0)+'</b></button>').join('')+
-    (S.aba==='SEUBONÉ' && nmz ? '<button class="lgb lgmz'+(f==='matriz'?' on':'')+'" data-f="matriz" title="Cards da matriz ainda sem task · clique pra ver só eles"><i></i>Matriz <b>'+nmz+'</b></button>' : '')+
+    (S.aba==='SEUBONÉ' && nmz ? '<button class="lgb lgmz'+(f==='matriz'?' on':'')+'" data-f="matriz" title="Cards da matriz ainda sem copy · clique pra ver só eles"><i></i>Matriz <b>'+nmz+'</b></button>' : '')+
+    (ncp ? '<button class="lgb lgcp'+(f==='copy'?' on':'')+'" data-f="copy" title="Cards da copy (tem documento e ainda não tem task de produção) · clique pra ver só eles"><i></i>Copy <b>'+ncp+'</b></button>' : '')+
   '</span>';
 }
 /** Bloco de um mês inteiro no fluxo: título grudento + grade de semanas. */
@@ -2244,6 +2283,7 @@ window.addEventListener('message', ev=>{
   if(ev.origin !== location.origin || !ev.data || ev.data.bone !== 'doc') return;
   if(ev.data.tipo === 'fechar') fecharDoc();
   if(ev.data.tipo === 'excluido'){ const s = S.slots.find(x=>x.docId===ev.data.docId); if(s) delete s.docId; }
+  if(ev.data.tipo === 'aprov') loadState(false, true).then(()=>{ render(); pintaBtnAprovar(); }).catch(()=>{});   // v3.89
 });
 let DOCS_LISTA = [], DOCS_CONTA = '';
 async function abrirListaDocs(){
@@ -2282,6 +2322,114 @@ function desenhaListaDocs(){
   });
 }
 $('#dcBusca').addEventListener('input', desenhaListaDocs);
+
+// ================= v3.89: Pra aprovar (as copys de todas as empresas) =================
+// O ADMIN (Zion e Maria) aprova ou pede alteração aqui, com o texto aberto; quem escreve (Usuário) vê as suas em
+// aprovação, pra alterar e aprovadas. É a mesma aprovação da tarefa de copy e do documento (slot.aprov.c).
+const AP = { aba: null, docs: null, aberto: new Set(), alt: null };
+const apChave = t => String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+function apMinha(a){ return !S.eu || !a || apChave(a.por) === apChave(S.eu.nome); }
+function apItens(){
+  const adm = souAdmin();
+  return S.slots.filter(s => s.aprov && s.aprov.c && s.date && (adm || apMinha(s.aprov.c)))
+    .map(s => ({ s, a: s.aprov.c }))
+    .sort((x, y) => x.s.date.localeCompare(y.s.date) || slotTitulo(x.s).localeCompare(slotTitulo(y.s)));
+}
+function apGrupos(){
+  const l = apItens();
+  return {
+    esperando: l.filter(x => x.a.st === 'enviado'),
+    alterar: l.filter(x => x.a.st === 'alterar'),
+    aprovadas: l.filter(x => x.a.st === 'aprovado' && !x.s.taskId && !x.s.postado),   // aprovadas que ainda não viraram task de produção
+  };
+}
+function pintaBtnAprovar(){
+  const b = $('#btnAprovar'); if(!b) return;
+  const g = apGrupos(), adm = souAdmin();
+  const n = adm ? g.esperando.length : g.alterar.length;
+  b.hidden = !(adm || g.esperando.length || g.alterar.length || g.aprovadas.length);
+  $('#aprovRot').textContent = adm ? 'Pra aprovar' : (g.alterar.length ? 'Pra alterar' : 'Minhas copys');
+  $('#aprovN').textContent = n ? String(n) : '';
+  b.classList.toggle('tem', !!n); b.classList.toggle('alt', !adm && !!g.alterar.length);
+  b.dataset.tip = adm ? 'Copys esperando aprovação, de todas as empresas' : 'As suas copys: em aprovação, pra alterar e aprovadas';
+}
+async function abrirAprovar(aba){
+  const g = apGrupos(), adm = souAdmin();
+  AP.aba = aba || (adm ? (g.esperando.length ? 'esperando' : g.aprovadas.length ? 'aprovadas' : 'esperando') : (g.alterar.length ? 'alterar' : 'esperando'));
+  AP.alt = null;
+  $('#ovAprovar').classList.add('open');
+  desenhaAprovar();
+  try{ const r = await api('/api/docs'); AP.docs = new Map(r.docs.map(d => [d.id, d])); desenhaAprovar(); }catch(e){}
+}
+function desenhaAprovar(){
+  const g = apGrupos(), adm = souAdmin();
+  $('#apTit').textContent = adm ? 'Pra aprovar' : 'Minhas copys';
+  $('#apSub').textContent = adm ? 'as copys mandadas pra aprovação, de todas as empresas, por dia' : 'as suas copys que foram pra aprovação';
+  const abas = [['esperando', adm ? 'Esperando' : 'Em aprovação'], ['alterar', 'Pra alterar'], ['aprovadas', 'Aprovadas sem task']];
+  $('#apAbas').innerHTML = abas.map(([k, r]) => '<button role="tab" class="echip'+(AP.aba===k?' on':'')+'" data-ap="'+k+'" aria-selected="'+(AP.aba===k)+'">'+r+' <span class="apn">'+g[k].length+'</span></button>').join('');
+  $('#apAbas').querySelectorAll('[data-ap]').forEach(b => b.onclick = () => { AP.aba = b.dataset.ap; AP.alt = null; desenhaAprovar(); });
+  const l = g[AP.aba] || [];
+  const vazio = { esperando: adm ? 'Nada esperando aprovação.' : 'Nenhuma copy sua em aprovação.', alterar: 'Nenhuma copy pra alterar.', aprovadas: 'Nenhuma copy aprovada esperando a task de produção.' }[AP.aba];
+  if(!l.length){ $('#apLista').innerHTML = '<div class="dcvazio">'+vazio+'</div>'; return; }
+  let dia = '', h = '';
+  for(const {s, a} of l){
+    if(s.date !== dia){ dia = s.date; h += '<div class="apdia">'+tfDia(s.date)+'</div>'; }
+    const d = AP.docs && s.docId ? AP.docs.get(s.docId) : null, m = s.matrizSB || {};
+    const meta = [m.tipo, m.formato || s.formato, d ? d.palavras+' palavra'+(d.palavras===1?'':'s') : '', a.por ? 'mandada por '+a.por+(a.em ? ' em '+fmtDataHora(Date.parse(a.em)) : '') : ''].filter(Boolean).map(esc).join(' · ');
+    let acoes = '<button class="mbtn" data-apabre="'+s.id+'">'+icon('doc')+'Abrir</button>';
+    if(adm && a.st === 'enviado') acoes += '<button class="bt-edit alterar" data-rot="Pedir alteração" style="--w:136px" data-apalt="'+s.id+'" aria-label="Pedir alteração">'+icon('pencil')+'</button><button class="bt-aprovar mini" data-apok="'+s.id+'"><span class="bt-txt"><span>Aprovar</span></span></button>';
+    if(adm && a.st !== 'enviado') acoes += '<button class="ti-desf" data-apdesf="'+s.id+'" title="Voltar pra esperando aprovação">desfazer</button>';
+    const aberto = AP.aberto.has(s.id);
+    h += '<div class="apit st-'+a.st+'" data-id="'+s.id+'">'+
+      '<div class="aplin"><span class="cdot" style="background:'+contaCor(s.conta)+'"></span><span class="apconta">'+esc(contaCurta(s.conta))+'</span>'+
+        '<button class="aptit" data-apexp="'+s.id+'" aria-expanded="'+aberto+'">'+esc(slotTitulo(s))+'</button>'+
+        '<span class="apacoes">'+acoes+'</span></div>'+
+      '<div class="apmeta">'+meta+'</div>'+
+      (a.st === 'alterar' && a.nota ? '<div class="ti-nota alt">'+icon('pencil')+'<span><b>'+esc(a.ap || 'Pedido')+':</b> '+esc(a.nota)+'</span></div>' : '')+
+      (a.st === 'enviado' && a.pedido ? '<div class="ti-nota">'+icon('undo')+'<span><b>Tinha sido pedido:</b> '+esc(a.pedido)+'</span></div>' : '')+
+      (a.st === 'aprovado' && a.ap ? '<div class="ti-nota ok">'+icon('check')+'<span>Aprovada por <b>'+esc(a.ap)+'</b>'+(a.apEm ? ' em '+fmtDataHora(Date.parse(a.apEm)) : '')+'</span></div>' : '')+
+      (AP.alt === s.id ? '<div class="ti-altbox"><textarea id="apAltTxt" rows="2" maxlength="500" placeholder="O que precisa mudar? (quem escreveu vê isso no documento e no card)"></textarea><div><button class="mbtn" data-apaltcancela="1">Cancelar</button><button class="mbtn primary" data-apaltmanda="'+s.id+'">Mandar pedido</button></div></div>' : '')+
+      (aberto ? '<div class="aptexto" data-aptexto="'+s.id+'">carregando o texto…</div>' : '')+
+    '</div>';
+  }
+  $('#apLista').innerHTML = h;
+  const L = $('#apLista');
+  L.querySelectorAll('[data-apabre]').forEach(b => b.onclick = () => { closeOv('ovAprovar'); abrirCopy(b.dataset.apabre); });
+  L.querySelectorAll('[data-apexp]').forEach(b => b.onclick = () => { const id = b.dataset.apexp; if(AP.aberto.has(id)) AP.aberto.delete(id); else AP.aberto.add(id); desenhaAprovar(); });
+  L.querySelectorAll('[data-apok]').forEach(b => b.onclick = () => apAcao(b.dataset.apok, 'aprovar'));
+  L.querySelectorAll('[data-apdesf]').forEach(b => b.onclick = () => apAcao(b.dataset.apdesf, 'reabrir'));
+  L.querySelectorAll('[data-apalt]').forEach(b => b.onclick = () => { AP.alt = b.dataset.apalt; desenhaAprovar(); setTimeout(() => { const x = $('#apAltTxt'); if(x) x.focus(); }, 30); });
+  L.querySelectorAll('[data-apaltcancela]').forEach(b => b.onclick = () => { AP.alt = null; desenhaAprovar(); });
+  L.querySelectorAll('[data-apaltmanda]').forEach(b => b.onclick = () => { const n = ($('#apAltTxt').value || '').trim(); if(!n){ toast('Escreva o que precisa mudar', true); return; } apAcao(b.dataset.apaltmanda, 'alterar', n); });
+  const altTxt = $('#apAltTxt');
+  if(altTxt) altTxt.addEventListener('keydown', ev => { if(ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); const n = altTxt.value.trim(); if(n) apAcao(AP.alt, 'alterar', n); } });
+  L.querySelectorAll('[data-aptexto]').forEach(el => apCarregaTexto(el.dataset.aptexto));
+}
+/** v3.89: texto do documento com as quebras de linha (innerText fora da tela não quebra os parágrafos). */
+function htmlParaTexto(html){
+  const div = document.createElement('div');
+  div.innerHTML = String(html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|h[1-6]|li|blockquote|tr)>/gi, '$&\n');
+  return (div.textContent || '').replace(/\u200b/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+async function apCarregaTexto(sid){
+  const s = S.slots.find(x => x.id === sid); if(!s || !s.docId) return;
+  try{
+    const r = await api('/api/docs/'+s.docId);
+    const txt = htmlParaTexto(r.doc.html);
+    const el = document.querySelector('[data-aptexto="'+sid+'"]'); if(!el) return;
+    el.textContent = txt ? (txt.length > 2400 ? txt.slice(0, 2400)+'…' : txt) : 'Documento vazio.';
+  }catch(e){ const el = document.querySelector('[data-aptexto="'+sid+'"]'); if(el) el.textContent = 'Não consegui carregar o texto: '+e.message; }
+}
+async function apAcao(sid, acao, nota){
+  try{
+    await api('/api/slots/'+sid+'/copy', {method:'POST', body:JSON.stringify({ acao, nota: nota || '', quem: (PERFIL.get()||{}).nome || '' })});
+    AP.alt = null;
+    await loadState(false, true); render();
+    if($('#ovAprovar').classList.contains('open')) desenhaAprovar();
+    toast(acao === 'aprovar' ? 'Copy aprovada · Ctrl+Z desfaz' : acao === 'alterar' ? 'Pedido de alteração mandado · Ctrl+Z desfaz' : 'Voltou pra esperando aprovação · Ctrl+Z desfaz');
+  }catch(e){ toast(e.message, true); }
+}
+$('#btnAprovar').onclick = () => abrirAprovar();
 $('#dcExc').addEventListener('change', abrirListaDocs);
 $('#btnDocs').onclick = abrirListaDocs;
 
@@ -3379,6 +3527,7 @@ function initIcons(){
   $('#mNext').innerHTML = icon('chevR');
   $('#btnDrawer').innerHTML = icon('box');
   $('#btnDocs').innerHTML = icon('doc') + '<span class="lq-dot"></span>';
+  $('#btnAprovar .ab-ic').innerHTML = icon('check');   // v3.89
   $('#fabMain').innerHTML = icon('plus');
   $('#atMain').innerHTML = icon('share');
   $('#mzEditar').innerHTML = icon('pencil');
