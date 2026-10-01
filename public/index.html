@@ -415,7 +415,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.97'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.98'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -621,6 +621,8 @@ function bancoNomeSec(sec){ return ((typeof BANCO_SEC !== 'undefined' && BANCO_S
 function bancoRotulo(b){ return (b.tipo==='bruto' ? 'Vídeo bruto' : bancoNomeSec(b.sec)) + (b.pessoa ? ' · '+b.pessoa : ''); }
 function bancoIcone(sec){ return ((typeof BANCO_SEC !== 'undefined' && BANCO_SEC[sec]) || {}).icone || 'box'; }
 /** v3.89: estado da copy do post (a aprovação é aqui no B.O.N.E). */
+// v3.98 (pedido do Zion): a copy em aprovação diz de quem é a vez: "esperando a aprovação de maria"
+const QUEM_APROVA_COPY = 'Maria';
 function copyEstado(s){
   const a = s.aprov && s.aprov.c;
   if(a && a.st==='aprovado') return { cod:'aprovado', rot:'aprovada', cor:'var(--green)' };
@@ -830,6 +832,7 @@ function passaFiltro(s){
   if(f==='matriz') return isMatriz(s) && !isCopy(s) && !isBanco(s);
   if(f==='copy') return isCopy(s);                    // v3.89
   if(f==='banco') return isBanco(s);                  // v3.96
+  if(f==='aprovacao') return isCopy(s) && copyEstado(s).cod==='enviado';   // v3.98: copy esperando a Maria
   if(f==='sugestoes') return isSugestao(s);
   if(f==='atrasados') return !s.postado && !!s.date && s.date < hojeStr();
   const fb = FILTRO_ALIAS[f] || f;
@@ -1041,7 +1044,7 @@ function renderLegend(){
   fs.className = 'filtro' + (S.filtro!=='todos' ? ' on' : '');
   [['todos','Todos os posts'],['atrasados','Atrasados'],['afazer','A fazer'],
    ['producao','Em produção'],['alterar','Alterar'],['aprovar','Pra aprovar'],['pronto','Prontos (publicar)'],
-   ['postados','Postados'],['semtask','Sem task'],['contadiv','Conta divergente'],['vagas','Falta criar'],['matriz','Matriz (amarelos)'],['copy','Copy (azuis)'],['banco','Do banco'],['sugestoes','Sugestões da pauta']]
+   ['postados','Postados'],['semtask','Sem task'],['contadiv','Conta divergente'],['vagas','Falta criar'],['matriz','Matriz (amarelos)'],['copy','Copy (azuis)'],['aprovacao','Copy esperando a '+QUEM_APROVA_COPY],['banco','Do banco'],['sugestoes','Sugestões da pauta']]
     .forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; fs.appendChild(o); });
   fs.value = S.filtro;
   fs.onchange = ()=>{ S.filtro = fs.value; render(); };
@@ -1107,15 +1110,22 @@ function cardEl(s){
       '<button class="qdel bin mini" title="Excluir este post do painel">'+BIN_SVG+'</button>';
   } else if(cp){
     // v3.89 COPY: faixa azul no topo dizendo COPY + o tipo do dia; o clique abre o documento. A matriz fica no M.
-    const m = s.matrizSB || null, ce = copyEstado(s);
+    // v3.98: em aprovação, o card fica laranja ("Copy pronta" e a etiqueta "Esperando a Maria"); pra alterar, vermelho
+    const m = s.matrizSB || null, ce = copyEstado(s), a = s.aprov && s.aprov.c;
     const tipo = m ? (m.tipo || 'Em aberto') : (s.formato ? cap(s.formato) : '');
     const gmPede = s.date && S.aba==='SEUBONÉ' && gmCadenciaDia(s.date);
+    if(ce.cod==='enviado' || ce.cod==='alterar') d.classList.add(ce.cod==='enviado' ? 'env' : 'alt');
+    const dica = ce.cod==='enviado' ? 'Copy pronta, esperando a aprovação da '+QUEM_APROVA_COPY+(a && a.por ? ' (enviada por '+a.por+(a.em ? ' '+brData(a.em.slice(0,10)) : '')+')' : '')
+      : ce.cod==='alterar' ? 'Pra alterar'+(a && a.nota ? ': '+a.nota : '') : 'Copy '+ce.rot;
+    const etiqueta = ce.cod==='enviado' ? '<span class="cpetq env" title="'+esc(dica)+'">'+icon('clock')+'Esperando a '+esc(QUEM_APROVA_COPY)+'</span>'
+      : ce.cod==='alterar' ? '<span class="cpetq alt" title="'+esc(dica)+'">'+icon('pencil')+'Pra alterar</span>'
+      : '<span class="stx" style="--stc:'+ce.cor+'" title="'+esc(dica)+'"><i></i>'+ce.rot+'</span>';
     d.innerHTML =
-      '<div class="cpband" title="Card da copy: clique pra abrir o documento"><span class="cplbl">'+icon('doc')+'Copy</span>'+(tipo?'<span class="cptipo">'+esc(tipo)+'</span>':'')+
+      '<div class="cpband" title="Card da copy: clique pra abrir o documento"><span class="cplbl">'+icon('doc')+(ce.cod==='enviado' ? 'Copy pronta' : 'Copy')+'</span>'+(tipo?'<span class="cptipo">'+esc(tipo)+'</span>':'')+
         (gmPede||isGm(s)?'<span class="mzstar" title="Dia de grande marca na capa">'+icon('star')+'</span>':'')+'</div>'+
       contatag+
       '<div class="tit">'+esc(slotTitulo(s))+'</div>'+
-      '<div class="meta"><span class="stx" style="--stc:'+ce.cor+'" title="'+esc(ce.cod==='alterar' && s.aprov.c.nota ? 'Pra alterar: '+s.aprov.c.nota : 'Copy '+ce.rot)+'"><i></i>'+ce.rot+'</span>'+alertas+avatar+'</div>'+
+      '<div class="meta">'+etiqueta+alertas+avatar+'</div>'+
       '<button class="qdel bin mini" title="Excluir este post do painel">'+BIN_SVG+'</button>';
   } else if(mz){
     // MATRIZ: faixa amarela sólida no topo dizendo MATRIZ + o tipo do dia. Não tem como confundir com post.
@@ -1527,9 +1537,9 @@ function celulaDia(c, di, porDia, semana){
 /** Legenda das 6 cores no cabeçalho do mês, já com a contagem. Clique = filtra por aquele grupo (clique de novo tira). */
 function legendaMes(mes){
   const doMes = slotsVisiveis().filter(s=>s.date && s.date.startsWith(mes));
-  const cont = {}; let nmz = 0, ncp = 0, nbk = 0;
+  const cont = {}; let nmz = 0, ncp = 0, nbk = 0, nenv = 0;
   doMes.forEach(s=>{
-    if(isCopy(s)){ ncp++; return; }                   // v3.89: o card da copy (azul)
+    if(isCopy(s)){ ncp++; if(copyEstado(s).cod==='enviado') nenv++; return; }   // v3.89: o card da copy (azul); v3.98: os esperando a Maria
     if(isBanco(s)){ nbk++; return; }                  // v3.96: post do banco
     if(isMatriz(s) && !s.postado){ nmz++; return; }
     if(isVaga(s) || isSugestao(s)) return;
@@ -1540,6 +1550,7 @@ function legendaMes(mes){
     BUCKET_ORDEM.map(k=>'<button class="lgb'+(cont[k]?'':' zero')+(f===k?' on':'')+'" data-f="'+k+'" style="--stc:'+BUCKETS[k].cor+'" title="'+esc(BUCKETS[k].rot+': '+BUCKETS[k].dica+' · clique pra ver só estes')+'"><i></i>'+BUCKETS[k].rot+' <b>'+(cont[k]||0)+'</b></button>').join('')+
     (S.aba==='SEUBONÉ' && nmz ? '<button class="lgb lgmz'+(f==='matriz'?' on':'')+'" data-f="matriz" title="Cards da matriz ainda sem copy · clique pra ver só eles"><i></i>Matriz <b>'+nmz+'</b></button>' : '')+
     (ncp ? '<button class="lgb lgcp'+(f==='copy'?' on':'')+'" data-f="copy" title="Cards da copy (tem documento e ainda não tem task de produção) · clique pra ver só eles"><i></i>Copy <b>'+ncp+'</b></button>' : '')+
+    (nenv ? '<button class="lgb lgenv'+(f==='aprovacao'?' on':'')+'" data-f="aprovacao" title="Copys prontas esperando a aprovação da '+QUEM_APROVA_COPY+' · clique pra ver só elas"><i></i>Esperando a '+QUEM_APROVA_COPY+' <b>'+nenv+'</b></button>' : '')+
     (nbk ? '<button class="lgb lgbk'+(f==='banco'?' on':'')+'" data-f="banco" title="Posts com material do banco (corte, depoimento, Drive) e ainda sem task · clique pra ver só eles"><i></i>Do banco <b>'+nbk+'</b></button>' : '')+
   '</span>';
 }

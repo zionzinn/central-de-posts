@@ -288,6 +288,8 @@
   .gd-bolha a{color:var(--blue); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px}
   .gd-bolha button{width:32px; height:32px; border-radius:50%; border:0; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--ink2)}
   .gd-bolha button:hover{background:var(--hover)}
+  .gd-bolha button.abre{width:auto; border-radius:16px; padding:0 12px 0 10px; gap:6px; color:var(--blue); font-weight:500; font-size:13.5px; white-space:nowrap}   /* v3.98 */
+  .gd-bolha button.abre .ic{width:16px; height:16px}
 
   .gd-toast{position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:#1F1F1F; color:#F2F2F2; border-radius:4px; padding:13px 18px; font-size:14px; z-index:300; box-shadow:0 3px 5px rgba(0,0,0,.2); max-width:min(640px,92vw); display:flex; gap:16px; align-items:center}
   .gd-toast a,.gd-toast button{color:#A8C7FA; font-weight:500; background:none; border:0; cursor:pointer; font-size:14px; text-decoration:none}
@@ -393,6 +395,7 @@ const IC = {
   pincel:'<path d="M5 4h11v5H5z"/><path d="M16 6.5h2.5V11h-7v3"/><path d="M11.5 14v6"/>',
   seta:'<path d="M7 10l5 5 5-5"/>',
   link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  abrir:'<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M9 5H6.5A2.5 2.5 0 0 0 4 7.5v10A2.5 2.5 0 0 0 6.5 20h10a2.5 2.5 0 0 0 2.5-2.5V15"/>',   // v3.98
   img:'<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="M20.5 16l-5-5-8.5 8.5"/>',
   alL:'<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>', alC:'<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',
   alR:'<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>', alJ:'<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>',
@@ -516,6 +519,43 @@ function limpaNo(el){
     if(tag==='A' && !alvo.getAttribute('href')){ desembrulha(alvo); continue; }
   }
 }
+// v3.98 (pedido do Zion: "preciso conseguir clicar em link dentro do docs"): endereço escrito ou colado como texto vira
+// link de verdade, como no Google Docs (no carregar, no colar e ao fechar o endereço com espaço ou Enter). O clique no
+// link mostra a bolha com "Abrir"; Ctrl+clique (ou ⌘+clique) abre direto numa aba nova. O que já é link não muda.
+const RE_URL = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+function linkDe(u){ return /^www\./i.test(u) ? 'https://'+u : u; }
+function aparaUrl(u){ const m = u.match(/[.,;:!?)\]}'"\u2026]+$/); return m ? u.slice(0, u.length - m[0].length) : u; }
+function linkaTexto(root){
+  const doc = root.ownerDocument, nos = [];
+  const w = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  while(w.nextNode()){ const n = w.currentNode; RE_URL.lastIndex = 0; if(RE_URL.test(n.data) && !(n.parentElement && n.parentElement.closest('a'))) nos.push(n); }
+  for(const n of nos){
+    const t = n.data, frag = doc.createDocumentFragment(); let ult = 0, m; RE_URL.lastIndex = 0;
+    while((m = RE_URL.exec(t))){
+      const u = aparaUrl(m[0]); if(u.length < 8) continue;
+      if(m.index > ult) frag.appendChild(doc.createTextNode(t.slice(ult, m.index)));
+      const a = doc.createElement('a'); a.setAttribute('href', linkDe(u)); a.textContent = u; frag.appendChild(a);
+      ult = m.index + u.length;
+    }
+    if(!ult) continue;
+    if(ult < t.length) frag.appendChild(doc.createTextNode(t.slice(ult)));
+    n.replaceWith(frag);
+  }
+}
+/** Texto puro (o que se cola de fora) em HTML, com os endereços já como link. */
+function htmlComLinks(t){ const d = document.createElement('div'); d.textContent = t; linkaTexto(d); return d.innerHTML; }
+/** Fechou um endereço com espaço ou Enter: ele vira link (o cursor fica onde estava, fora do link). */
+function autolinkNo(n, fimTexto){
+  if(!n || n.nodeType !== 3 || !page.contains(n) || (n.parentElement && n.parentElement.closest('a'))) return null;
+  const m = n.data.slice(0, fimTexto).match(/(?:^|[\s(\[])((?:https?:\/\/|www\.)[^\s<>"']+)$/); if(!m) return null;
+  const u = aparaUrl(m[1]); if(u.length < 8) return null;
+  const ini = fimTexto - m[1].length, fim = ini + u.length;
+  const r = document.createRange(); r.setStart(n, ini); r.setEnd(n, fim);
+  const a = document.createElement('a'); a.setAttribute('href', linkDe(u));
+  r.surroundContents(a);
+  return { a, fim };
+}
+function abreLink(h){ if(!/^(https?:|mailto:|tel:)/i.test(h || '')) return; window.open(h, '_blank', 'noopener'); }
 /** Texto solto na raiz vira parágrafo, e parágrafo vazio ganha <br> pra dar pra clicar nele. */
 function normalizaRaiz(root){
   let grupo = null;
@@ -532,7 +572,7 @@ function normalizaRaiz(root){
 }
 function limpa(html){
   const d = new DOMParser().parseFromString('<!doctype html><body>'+String(html||'')+'</body>', 'text/html');
-  limpaNo(d.body); normalizaRaiz(d.body);
+  limpaNo(d.body); linkaTexto(d.body); normalizaRaiz(d.body);   // v3.98: endereço solto vira link
   return d.body.innerHTML;
 }
 
@@ -1290,9 +1330,12 @@ function bolhaLink(){
   const a = dentro('a'); if(!a || document.activeElement!==page) return;
   const r = a.getBoundingClientRect();
   const d = document.createElement('div'); d.className = 'gd-bolha';
-  d.innerHTML = ic('link')+'<a href="'+esc(a.getAttribute('href'))+'" target="_blank" rel="noopener">'+esc(a.getAttribute('href'))+'</a><button title="copiar o link">'+ic('copiar')+'</button><button title="editar o link">'+ic('lapis')+'</button><button title="remover o link">'+ic('x')+'</button>';
-  d.addEventListener('mousedown', e=>{ if(e.target.tagName!=='A') e.preventDefault(); });
-  const [bc, be, bx] = d.querySelectorAll('button');
+  d.innerHTML = ic('link')+'<a href="'+esc(a.getAttribute('href'))+'" target="_blank" rel="noopener" title="Abrir em outra aba">'+esc(a.getAttribute('href'))+'</a>'+
+    '<button class="abre" title="Abrir em outra aba (ou Ctrl+clique no link)">'+ic('abrir')+'Abrir</button>'+   // v3.98
+    '<button title="copiar o link">'+ic('copiar')+'</button><button title="editar o link">'+ic('lapis')+'</button><button title="remover o link">'+ic('x')+'</button>';
+  d.addEventListener('mousedown', e=>{ e.preventDefault(); });   // v3.98: o cursor fica na folha (a bolha não some antes do clique)
+  const [bo, bc, be, bx] = d.querySelectorAll('button');
+  bo.onclick = ()=>{ abreLink(a.getAttribute('href')); };
   bc.onclick = ()=>{ copiaTexto(a.getAttribute('href')); toast('Link copiado.'); };
   be.onclick = ()=>{ d.remove(); dialogoLink(); };
   bx.onclick = ()=>{ d.remove(); cmd(()=>{ const r2=document.createRange(); r2.selectNodeContents(a); const s=getSelection(); s.removeAllRanges(); s.addRange(r2); ex('unlink'); }); };
@@ -1680,6 +1723,21 @@ page.addEventListener('beforeinput', e=>{
 page.addEventListener('input', e=>{
   ULTIMA_TECLA = Date.now();
   consertaFont(true);
+  // v3.98: endereço fechado com espaço vira link (o cursor volta pro mesmo lugar, depois do link)
+  if(e.inputType==='insertText' && e.data && /\s$/.test(e.data)){
+    const s = getSelection();
+    if(s.rangeCount && s.isCollapsed){
+      const r = s.getRangeAt(0), n = r.startContainer, off = r.startOffset;
+      const f = n.nodeType===3 && off >= e.data.length ? autolinkNo(n, off - e.data.length) : null;
+      if(f && f.a.nextSibling && f.a.nextSibling.nodeType===3){ const r2 = document.createRange(); r2.setStart(f.a.nextSibling, Math.max(0, off - f.fim)); r2.collapse(true); s.removeAllRanges(); s.addRange(r2); }
+    }
+  }
+  // e com Enter: o endereço que ficou no fim do parágrafo de cima
+  if(e.inputType==='insertParagraph'){
+    const s = getSelection(), atual = s.rangeCount ? (s.getRangeAt(0).startContainer.nodeType===1 ? s.getRangeAt(0).startContainer : s.getRangeAt(0).startContainer.parentElement) : null;
+    const bloco = atual && atual.closest('p,li,h1,h2,h3,td,th,blockquote'), ant = bloco && bloco.previousElementSibling;
+    if(ant){ const w = document.createTreeWalker(ant, NodeFilter.SHOW_TEXT); let ult = null; while(w.nextNode()) ult = w.currentNode; if(ult) autolinkNo(ult, ult.data.length); }
+  }
   if(e.inputType==='insertParagraph'){ const li = dentro('ul.chk > li'); if(li && !li.textContent.trim()) li.removeAttribute('data-checked'); arrumaEstrutura(); }
   // apagou tudo (Ctrl+A e Delete): volta a ser uma folha limpa, sem sobrar lista, título ou tamanho do texto que estava antes
   if(!page.firstElementChild || (/^delete/.test(e.inputType) && !page.textContent.replace(/[\u200B\s]/g,'') && !page.querySelector('img,table,hr'))){ page.innerHTML = '<p><br></p>'; const r=document.createRange(); r.setStart(page.firstChild,0); r.collapse(true); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }
@@ -1712,7 +1770,11 @@ page.addEventListener('paste', e=>{
   if(!html && !txt){ if(temImg) toast('Imagem colada não entra: aqui a imagem vai por link. Use Inserir > Imagem (por link).'); return; }
   cmd(()=>{
     if(html && !semFmt){ const h = htmlParaColar(html); if(/<img/i.test(html) && !/<img/i.test(h)) setTimeout(()=>toast('As imagens coladas ficaram de fora (só entra imagem por link).'), 60); ex('insertHTML', h); }
-    else { const linhas = String(txt).replace(/\r\n?/g,'\n').split('\n'); if(linhas.length===1) ex('insertText', txt); else ex('insertHTML', linhas.map(l=>'<p>'+(esc(l)||'<br>')+'</p>').join('')); }
+    else {
+      const linhas = String(txt).replace(/\r\n?/g,'\n').split('\n');
+      if(linhas.length===1){ if(/https?:\/\/|www\./i.test(txt)) ex('insertHTML', htmlComLinks(txt)); else ex('insertText', txt); }   // v3.98: endereço entra como link
+      else ex('insertHTML', linhas.map(l=>'<p>'+(htmlComLinks(l)||'<br>')+'</p>').join(''));
+    }
   });
 });
 // arrastar coisa de fora pra dentro da folha: passa pela mesma limpeza do colar
@@ -1729,6 +1791,12 @@ page.addEventListener('drop', e=>{
   cmd(()=>{ if(html) ex('insertHTML', htmlParaColar(html)); else ex('insertText', txt); });
 });
 page.addEventListener('click', e=>{ $$('.gd-page img.sel').forEach(i=>i.classList.remove('sel')); if(e.target.tagName==='IMG') e.target.classList.add('sel'); });
+// v3.98: Ctrl+clique (⌘+clique no Mac) no link abre numa aba nova; com a folha travada, o clique simples abre
+page.addEventListener('click', e=>{
+  const a = e.target.closest && e.target.closest('a[href]'); if(!a || !page.contains(a)) return;
+  if(e.ctrlKey || e.metaKey || !page.isContentEditable){ e.preventDefault(); e.stopPropagation(); $$('.gd-bolha').forEach(b=>b.remove()); abreLink(a.getAttribute('href')); }
+});
+page.addEventListener('auxclick', e=>{ const a = e.button===1 && e.target.closest && e.target.closest('a[href]'); if(a && page.contains(a)){ e.preventDefault(); abreLink(a.getAttribute('href')); } });
 window.addEventListener('resize', ajustaTitulo);
 
 // ======================================================================
@@ -1852,7 +1920,7 @@ function avisoAprovacao(){
   if(!a) return;
   // v3.88: a aprovação é sempre aqui no B.O.N.E (a copy não vai mais pro MKT Hub)
   if(a.st === 'alterar') faixa('aprov', '<b>'+esc(a.ap || 'Pedido')+' pediu alteração nesta copy:</b> '+esc(a.nota || ''), [], 'verm');
-  else if(a.st === 'enviado') faixa('aprov', 'Esta copy está em aprovação desde '+fmtQuando(a.em)+'.', [], 'azul');
+  else if(a.st === 'enviado') faixa('aprov', '<b>Copy pronta, esperando a aprovação da Maria</b> pra ir pra produção. Enviada'+(a.por ? ' por '+esc(a.por) : '')+' '+fmtQuando(a.em)+'.', []);   // v3.98: amarelo, bem à vista
   else if(a.st === 'aprovado') faixa('aprov', 'Copy aprovada'+(a.ap ? ' por <b>'+esc(a.ap)+'</b>' : '')+'.', [], 'verde');
 }
 

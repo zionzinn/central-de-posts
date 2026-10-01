@@ -76,7 +76,7 @@ function tfEstado(s, t) {
   if (t.tipo === 'matriz') return s.banco ? { cod: 'feita', rot: 'do banco', cor: 'var(--indigo)' } : tfPronto(s, t) ? { cod: 'feita', rot: 'preenchida', cor: 'var(--green)' } : { cod: 'fazer', rot: 'a preencher', cor: 'var(--gray)' };   // v3.88; v3.96: do banco
   const a = tfAprov(s, tfK(t));
   if (a && a.st === 'aprovado') return { cod: 'aprovado', rot: 'aprovada', cor: 'var(--green)' };
-  if (a && a.st === 'enviado') return { cod: 'enviado', rot: 'em aprovação', cor: 'var(--orange)' };
+  if (a && a.st === 'enviado') return { cod: 'enviado', rot: 'esperando a ' + QUEM_APROVA_COPY, cor: 'var(--orange)' };   // v3.98
   if (a && a.st === 'alterar') return { cod: 'alterar', rot: 'pra alterar', cor: 'var(--red)' };
   if (tfPronto(s, t)) return { cod: 'pronto', rot: 'pronta pra mandar', cor: 'var(--blue)' };
   return { cod: 'fazer', rot: 'a fazer', cor: 'var(--gray)' };
@@ -164,7 +164,7 @@ function tfCardHtml(aba, tipo) {
   }
   const c = tfConta(t), dona = tfSouDona(t), aprova = tfPodeAprovar(t), pct = n => c.total ? (n / c.total * 100).toFixed(1) : 0;
   const chips = [];
-  if (c.enviado) chips.push('<span class="tc-chip env"><i></i>' + c.enviado + (aprova && !dona ? ' pra aprovar' : ' em aprovação') + '</span>');
+  if (c.enviado) chips.push('<span class="tc-chip env"><i></i>' + c.enviado + (aprova && !dona ? ' pra aprovar' : ' esperando a ' + QUEM_APROVA_COPY) + '</span>');   // v3.98
   if (c.alterar) chips.push('<span class="tc-chip alt"><i></i>' + c.alterar + ' pra alterar</span>');
   return '<div class="tcard" style="--tc:' + T.cor + '" data-id="' + t.id + '">' +
     '<button class="tc-abre" data-id="' + t.id + '" aria-label="Abrir a tarefa de ' + T.nome + '">' +
@@ -734,7 +734,7 @@ function tfPintaMzRel(e) {
 /** Bolinha + C no card, na cor do estado da aprovação da copy. A palavra vai na dica. (v3.88: a matriz não tem mais aprovação.) */
 function tfChipsCard(s) {
   const a = s.aprov && s.aprov.c; if (!a) return '';
-  const rot = { enviado: 'em aprovação', aprovado: 'aprovada', alterar: 'pra alterar' };
+  const rot = { enviado: 'pronta, esperando a ' + QUEM_APROVA_COPY, aprovado: 'aprovada', alterar: 'pra alterar' };   // v3.98
   return '<span class="apv st-' + a.st + '" title="Copy ' + rot[a.st] + (a.st === 'alterar' && a.nota ? ': ' + esc(a.nota) : '') + '"><i></i>C</span>';
 }
 
