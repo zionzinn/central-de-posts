@@ -607,9 +607,13 @@ async function tfSalvaCfg(mud) {
   const t = tfPorId(TF.aberta); if (!t) return;
   try {
     const r = await api('/api/tarefas/' + t.id, { method: 'PATCH', body: JSON.stringify(mud) });
+    // v3.95 (o Zion mudou o período e os cards não apareciam): com card novo, recarrega o estado ANTES de desenhar
+    // (a lista da tarefa e o calendário só mostram o card que já está no S.slots)
+    if (r.cards) await loadState(false, true);
     const i = S.tarefas.findIndex(x => x.id === t.id); if (i >= 0) S.tarefas[i] = r.tarefa;
     TF.sel = null; tfDesenha(); tfCarregaDetalhe(); renderFaixa();
     tfMsg('salvo');
+    if (r.cards) toast(r.cards + ' card' + (r.cards > 1 ? 's' : '') + ' novo' + (r.cards > 1 ? 's' : '') + ' da matriz no calendário');
   } catch (e) { tfDesenha(); tfMsg(e.message, true); }
 }
 async function tfCriar() {

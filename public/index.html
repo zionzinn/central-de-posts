@@ -413,7 +413,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.94'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.95'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2789,6 +2789,7 @@ const fmtMB = b => (b/1048576 >= 10 ? Math.round(b/1048576) : (b/1048576).toFixe
 const fmtGB = b => (b/1e9 >= 10 ? Math.round(b/1e9) : (b/1e9).toFixed(1).replace('.', ',')) + ' GB';
 const fmtTam = b => b >= 1048576 ? fmtMB(b) : Math.max(1, Math.round(b/1024)) + ' KB';
 function mostraUso(u){
+  if(!souAdmin()) u = null;                          // v3.95: o uso do Render é só do ADMIN (o servidor nem manda)
   S.uso = u || null;
   renderUsoCap(S.uso);
   const el = $('#usoAviso'), bt = $('#btnDocs');

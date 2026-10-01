@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.94'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.95'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -376,7 +376,8 @@ const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('
 // v3.84: a tarefa de matriz ou copy vira no Hub uma tarefa mãe com uma subtarefa por post (só com a chave de nível completa)
 const rotaHubEnvio = require('./lib/hubenvio.js')({ db, saveDb, readBody, json, hub: rotaHub, tempo: rotaTempo, itens: rotaTarefas.itens, soAdmin, gravaJa: () => gravarAgora() });
 rotaTarefas.hubPublico = rotaHubEnvio.publico;
-rotaHub.depois = rotaHubEnvio.reenviaDatas;   // v3.90: depois de cada leitura do Hub, a data do post que não foi na hora vai de novo
+// v3.90: depois de cada leitura do Hub, a data do post que não foi na hora vai de novo; v3.95: e a limpeza do Vídeo fábrica
+rotaHub.depois = async () => { await rotaHubEnvio.reenviaDatas(); limpezaV395Hub(); };
 // v3.82: login pelo Zoho (liga só com ZOHO_CLIENT_ID e ZOHO_CLIENT_SECRET; sem elas, senha opcional como antes)
 const AUTH = require('./lib/auth.js')({ json, parseCookies, segredo: config.secret });
 /** Post novo a partir do que veio da tela (e do banco, v3.83). Não grava: quem chama põe em db.slots. */
@@ -497,7 +498,7 @@ const server = http.createServer(async (req, res) => {
         eu: req.eu || null, zoho: AUTH.ligado(),          // v3.82: quem está logado e se o login é pelo Zoho
         equipe: AUTH.ligado() ? AUTH.usuarios().map(x => x.nome) : undefined,   // nomes pro "quem faz" (60 bytes)
         gmCadencia: db.gmCadencia,
-        uso: USO.curto(),
+        uso: !req.eu || req.eu.papel === 'admin' ? USO.curto() : undefined,   // v3.95: o uso do Render é só do ADMIN
         // v3.91: as regras das matrizes saíram daqui (eram 10 KB comprimidos em toda resposta cheia): GET /api/matrizes
       });
       // v3.72: o painel pergunta a cada 20 s; se nada mudou, a resposta é um 304 de ~0,3 KB em vez de ~17 KB.
@@ -515,7 +516,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---------- uso de banda do mês (v3.72) ----------
-    if (p === '/api/uso' && req.method === 'GET') return json(res, 200, USO.resumo());
+    if (p === '/api/uso' && req.method === 'GET') {
+      if (req.eu && req.eu.papel !== 'admin') return json(res, 403, { erro: 'só ADMIN (Zion ou Maria) vê o uso do Render' });   // v3.95
+      return json(res, 200, USO.resumo());
+    }
 
     // ---------- criar post (calendário, banco ou criativo) ----------
     if (p === '/api/slots' && req.method === 'POST') {
@@ -875,6 +879,60 @@ function limpezaV388() {
   } catch (e) { console.log('[v3.88] limpeza falhou:', e.message); }
 }
 
+// v3.95 (pedido do Zion em 01/10/2026: "preciso remover todas as TASKS DE VÍDEO FÁBRICA"; resposta dele: "esses e a
+// versão comercial"): saem do painel os posts de "Vídeo fábrica" ([EDIÇÃO] Vídeo fábrica [03_OUT], [10_OUT]...) e a
+// "Versão comercial da fantástica fábrica de bonés". No MKT Hub nada muda. Uma vez só: na subida, pelo título guardado
+// no post; e nos 10 minutos depois da primeira leitura completa do Hub, pelo título da task do Hub (post ligado a uma
+// task do Hub não guarda o título). Backup antes de tirar; os documentos desses posts vão pra lixeira (dá pra
+// restaurar); o resumo do que saiu fica 30 dias em db.removidosV395.
+const V395_RE = /v[ií]deo\s+(da\s+)?f[aá]brica|vers[aã]o\s+comercial\s+da\s+fant[aá]stica\s+f[aá]brica/i;
+const V395_JANELA_HUB = 10 * 60e3;
+let v395HubDesde = 0;
+function v395Tira(lista, onde) {
+  if (!lista.length) return 0;
+  const agora = new Date().toISOString();
+  const bk = backupAgora('antes da limpeza v3.95 (' + onde + '): tasks de Vídeo fábrica');
+  let docs = 0;
+  for (const { s } of lista) {
+    const d = s.docId && db.docs ? db.docs[s.docId] : null;
+    if (d && !d.excluido) { d.excluido = true; d.excluidoEm = agora; docs++; }
+  }
+  const fora = new Set(lista.map(x => x.s.id));
+  db.slots = db.slots.filter(s => !fora.has(s.id));
+  const r = db.removidosV395 || (db.removidosV395 = { em: agora, ate: new Date(Date.now() + 30 * 86400000).toISOString(),
+    motivo: 'tasks de Vídeo fábrica e a versão comercial da fantástica fábrica de bonés (pedido do Zion em 01/10/2026)', backups: [], slots: [] });
+  r.backups.push(bk);
+  for (const { s, titulo } of lista) r.slots.push({ id: s.id, conta: s.conta, date: s.date, titulo, taskId: s.taskId || null, docId: s.docId || null, onde });
+  r.docs = (r.docs || 0) + docs;
+  return lista.length;
+}
+function limpezaV395() {
+  try {
+    if (!db.migracoes || typeof db.migracoes !== 'object') db.migracoes = {};
+    if (db.removidosV395 && Date.now() > Date.parse(db.removidosV395.ate || 0)) { delete db.removidosV395; saveDb(); }
+    if (db.migracoes.v395 && db.migracoes.v395.subida) return;
+    const tit = s => [s.titulo, s.tituloCache].filter(Boolean).join(' · ');
+    const n = v395Tira(db.slots.filter(s => V395_RE.test(tit(s))).map(s => ({ s, titulo: tit(s) })), 'subida');
+    db.migracoes.v395 = Object.assign({}, db.migracoes.v395, { subida: { em: new Date().toISOString(), posts: n } });
+    saveDb();
+    console.log('[v3.95] Vídeo fábrica: ' + n + ' post(s) saíram pelo título guardado');
+  } catch (e) { console.log('[v3.95] limpeza falhou:', e.message); }
+}
+/** Depois de cada leitura do Hub: posts ligados a uma task do Hub de Vídeo fábrica (até 10 min depois da primeira completa). */
+function limpezaV395Hub() {
+  try {
+    const m = db.migracoes && db.migracoes.v395;
+    if (!m || m.hub || !rotaHub.ligado() || !rotaHub.completa()) return;
+    if (!v395HubDesde) v395HubDesde = Date.now();
+    const vistos = rotaHub.sobrepoe(db.slots.filter(s => s.taskId));
+    const lista = vistos.filter(v => v.hub && V395_RE.test(v.tituloCache || '')).map(v => ({ s: db.slots.find(x => x.id === v.id), titulo: v.tituloCache })).filter(x => x.s);
+    const n = v395Tira(lista, 'hub');
+    if (n) { m.hubPosts = (m.hubPosts || 0) + n; console.log('[v3.95] Vídeo fábrica: ' + n + ' post(s) saíram pelo título da task do Hub'); }
+    if (Date.now() - v395HubDesde > V395_JANELA_HUB) m.hub = { em: new Date().toISOString(), posts: m.hubPosts || 0 };
+    if (n || m.hub) saveDb();
+  } catch (e) { console.log('[v3.95] limpeza pelo Hub falhou:', e.message); }
+}
+
 // ---------------- backup diário automático ----------------
 function backupDiario() {
   try {
@@ -897,6 +955,7 @@ setInterval(faxinaTarefas, 6 * 3600_000);
 limpezaV377();                                    // v3.77 (dados antigos): catálogo sai, matriz no lugar
 rotaBanco.migra(backupAgora, m => console.log(m)); // v3.83: o banco antigo sai (guardado 30 dias em removidosV383)
 limpezaV388();                                    // v3.88: fluxo novo da copywriter (cards vazios e o que sai de 01/10 em diante)
+limpezaV395();                                    // v3.95: saem as tasks de Vídeo fábrica (e a versão comercial)
 
 server.listen(PORT, () => {
   console.log('');
