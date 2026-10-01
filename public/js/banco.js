@@ -17,8 +17,8 @@ const BANCO_SEC = {
     vazio:'Guarde os links do Drive com o que é cada um. Arraste pro dia quantas vezes precisar; sai daqui no Concluído.' },
   referencia: { nome:'Referência de posts', icone:'bookmark', fica:true, padrao:'Referência', phUrl:'link do post (Instagram, TikTok, YouTube…)', phTit:'nota: por que é boa (opcional)',
     vazio:'Guarde posts que inspiram, de qualquer rede. Arraste pro dia pra virar post; sai daqui no Concluído.' },
-  cortes: { nome:'Cortes de podcasts', icone:'mic', fica:true, padrao:'Corte de podcast', phUrl:'link do corte (Drive ou outro site)', phTit:'título (vazio: o nome do arquivo no Drive)',
-    vazio:'Guarde os cortes prontos (link do Drive ou de outro site). Arraste pro dia; sai daqui no Concluído.' },
+  cortes: { nome:'Cortes de podcasts', icone:'mic', fica:true, padrao:'Corte de podcast', phUrl:'link do corte ou do bruto (Drive)', phTit:'título (vazio: o nome do arquivo no Drive)',
+    vazio:'Crie a pasta da pessoa em "+ pessoa" e guarde nela os vídeos brutos e os cortes. Arraste o corte pro dia ou use "Do banco" no card do dia; fica aqui e mostra onde foi usado.' },
   // v3.96 (pedido do Zion): depoimentos de clientes e alunos. Fica no banco e mostra quantas vezes e onde foi usado.
   depoimentos: { nome:'Depoimentos', icone:'msg', fica:true, padrao:'Depoimento', phUrl:'link do depoimento (Drive, Instagram, YouTube…)', phTit:'de quem é e sobre o quê (vazio: o nome no Drive)',
     vazio:'Guarde os depoimentos de clientes e alunos. Arraste pro dia ou use "Do banco" no card do dia; fica aqui e mostra onde já foi usado.' },
@@ -52,17 +52,20 @@ function bancoOrigem(url){
   if(de('x.com','twitter.com')) return { icone:'link', nome:'X', resto:path };
   return { icone:'link', nome:h || 'link', resto:path };
 }
-function bancoMatch(it){ return matchBusca([it.titulo, it.url, bancoOrigem(it.url).nome, (BANCO_SEC[it.sec]||{}).nome].join(' ')); }
+function bancoMatch(it){ return matchBusca([it.titulo, it.url, bancoOrigem(it.url).nome, (BANCO_SEC[it.sec]||{}).nome, bancoNomePasta(it.pasta), it.tipo==='bruto' ? 'bruto' : ''].join(' ')); }
+// v3.97: o que é material (corte e depoimento) mostra "nunca usado" em destaque, pra saltar aos olhos
+function bancoMostraNunca(it){ return (it.sec==='cortes' && it.tipo!=='bruto') || /^depoimentos/.test(it.sec); }
 function bancoItemEl(it){
   const o = bancoOrigem(it.url), sec = BANCO_SEC[it.sec] || BANCO_SEC.drive;
   const d = document.createElement('div');
   d.className = 'ref bk'; d.draggable = true; d.dataset.id = it.id;
-  d.title = 'Arraste pro dia pra virar post' + (it.por ? ' · guardado por '+it.por : '');
+  d.title = 'Arraste pro dia pra virar post' + (it.sec==='cortes' ? ', ou pra outra pasta' : '') + (it.por ? ' · guardado por '+it.por : '');
   d.innerHTML =
     '<div class="ic-wrap">'+icon(o.icone)+'</div>'+
-    '<div class="rb"><div class="rn">'+esc(it.titulo || sec.padrao)+'</div>'+
+    '<div class="rb"><div class="rn">'+(it.tipo==='bruto' ? '<span class="bk-bruto">bruto</span>' : '')+esc(it.titulo || (it.tipo==='bruto' ? 'Vídeo bruto' : sec.padrao))+'</div>'+
       '<div class="ru"><b>'+esc(o.nome)+'</b>'+(it.tituloDrive && it.tituloDrive !== it.titulo ? ' · '+esc(it.tituloDrive) : o.resto ? ' · '+esc(o.resto) : '')+'</div>'+
-      (sec.fica && (it.usos || it.usadoDia) ? '<button type="button" class="usochip" data-a="onde" aria-expanded="'+(S.bancoOnde===it.id)+'" title="'+esc(bancoUsoTitulo(it))+': clique pra ver onde">'+esc(bancoUsoTxt(it))+'</button>' : '')+
+      (sec.fica && (it.usos || it.usadoDia) ? '<button type="button" class="usochip" data-a="onde" aria-expanded="'+(S.bancoOnde===it.id)+'" title="'+esc(bancoUsoTitulo(it))+': clique pra ver onde">'+esc(bancoUsoTxt(it))+'</button>'
+        : bancoMostraNunca(it) ? '<span class="usochip nunca" title="Ainda não virou post">nunca usado</span>' : '')+
       (S.bancoOnde===it.id ? bancoOndeHtml(it) : '')+'</div>'+
     '<div class="ra">'+
       '<a href="'+esc(it.url)+'" target="_blank" rel="noopener" title="Abrir o link" aria-label="Abrir o link">'+icon('external','s')+'</a>'+
@@ -73,8 +76,8 @@ function bancoItemEl(it){
   d.addEventListener('dragstart', ev=>{ S.dragging=true; d.classList.add('dragging'); ev.dataTransfer.setData('text/plain','bk:'+it.id); ev.dataTransfer.effectAllowed='move'; });
   d.addEventListener('dragend', ()=>{ S.dragging=false; d.classList.remove('dragging'); });
   d.querySelector('[data-a=edit]').onclick = ()=>{
-    S.bancoEdit = it.id; renderDrawer();
-    const f = document.querySelector('#drBody .refform[data-sec="'+it.sec+'"] .bkU'); if(f){ f.focus(); f.select(); }
+    S.bancoEdit = it.id; if(it.sec==='cortes') bancoAbertas().add(bancoPastaDe(it) || 'semp'); renderDrawer();
+    const f = document.querySelector('#drBody .refform[data-sec="'+it.sec+'"]'+(it.sec==='cortes' ? '[data-pasta="'+bancoPastaDe(it)+'"]' : '')+' .bkU'); if(f){ f.focus(); f.select(); }
   };
   d.querySelector('[data-a=tira]').onclick = ()=> bancoTirar(it);
   const on = d.querySelector('[data-a=onde]');
@@ -110,18 +113,33 @@ function bancoUsoTitulo(it){
 }
 /** v3.96: os materiais da empresa pro "Do banco" do card do dia (cortes, depoimentos, Reutilizar e Drive). */
 function bancoMateriais(aba){
-  const secs = bancoSecoes(aba).filter(k=>BANCO_MATERIAL.includes(k));
-  return secs.map(k=>({ sec:k, itens:(S.banco||[]).filter(x=>x.aba===aba && x.sec===k) })).filter(g=>g.itens.length);
+  const out = [];
+  for(const k of bancoSecoes(aba).filter(k=>BANCO_MATERIAL.includes(k))){
+    const itens = (S.banco||[]).filter(x=>x.aba===aba && x.sec===k);
+    if(!itens.length) continue;
+    if(k !== 'cortes'){ out.push({ sec:k, itens }); continue; }
+    // v3.97: um grupo por pessoa, com o bruto primeiro; os de antes (sem pessoa) no fim
+    const ord = l => l.filter(x=>x.tipo==='bruto').concat(l.filter(x=>x.tipo!=='bruto'));
+    bancoPastasDa(aba).forEach(p=>{ const l = itens.filter(x=>x.pasta===p.id); if(l.length) out.push({ sec:k, nome:'Cortes · '+p.nome, pessoa:p.nome, itens:ord(l) }); });
+    const sem = itens.filter(x=>!bancoPastaDe(x));
+    if(sem.length) out.push(sem.length === itens.length ? { sec:k, itens:ord(sem) } : { sec:k, nome:'Cortes · sem pessoa', pessoa:'', itens:ord(sem) });
+  }
+  return out;
 }
 /** Link + texto de uma seção. Enter guarda; editando, Esc cancela. */
-function bancoForm(sk){
-  const sec = BANCO_SEC[sk];
-  const ed = S.bancoEdit ? (S.banco||[]).find(x=>x.id===S.bancoEdit && x.sec===sk && x.aba===S.aba) : null;
+function bancoForm(sk, pasta){
+  const sec = BANCO_SEC[sk], corte = sk==='cortes';           // v3.97: nos cortes, o formulário é o da pasta (pessoa)
+  pasta = pasta || '';
+  const ed = S.bancoEdit ? (S.banco||[]).find(x=>x.id===S.bancoEdit && x.sec===sk && x.aba===S.aba && (!corte || bancoPastaDe(x)===pasta)) : null;
   const adm = souAdmin(), comUso = adm && sec.fica;            // v3.96: título e uso à mão só pro ADMIN
   const f = document.createElement('div'); f.className = 'refform'; f.dataset.sec = sk;
+  const tipo0 = ed ? (ed.tipo || 'corte') : 'corte';
+  if(corte){ f.dataset.pasta = pasta; f.dataset.tipo = tipo0; }
   f.innerHTML =
-    '<div class="bk-add"><input class="bkU" placeholder="'+esc(sec.phUrl)+'" autocomplete="off" inputmode="url" aria-label="Link pra guardar em '+esc(sec.nome)+'">'+
+    '<div class="bk-add"><input class="bkU" placeholder="'+esc(sec.phUrl)+'" autocomplete="off" inputmode="url" aria-label="Link pra guardar em '+esc(corte && pasta ? bancoNomePasta(pasta) : sec.nome)+'">'+
       '<button class="bk-mais" title="'+(ed ? 'Salvar a edição (Enter)' : 'Guardar (Enter)')+'" aria-label="'+(ed ? 'Salvar a edição' : 'Guardar')+'">'+icon(ed ? 'check' : 'plus')+'</button></div>'+
+    (corte ? '<div class="bk-add bk-tipolinha"'+(ed ? '' : ' hidden')+'><span class="bk-tiporot">esse link é</span><div class="bk-tipo" role="radiogroup" aria-label="É um corte ou o vídeo bruto?">'+
+      [['corte','um corte'],['bruto','o vídeo bruto']].map(([v, r])=>'<button type="button" role="radio" data-tipo="'+v+'" aria-checked="'+(v===tipo0)+'">'+r+'</button>').join('')+'</div></div>' : '')+
     (adm ? '<div class="bk-add bkT-linha"'+(ed ? '' : ' hidden')+'><input class="bkT" placeholder="'+esc(sec.phTit)+'" maxlength="140" autocomplete="off" aria-label="Título">'+
       (ed && !comUso ? '<button class="rfcancel">cancelar</button>' : '')+'</div>' : '')+
     (comUso ? '<div class="bk-add bk-uso"'+(ed ? '' : ' hidden')+'>'+
@@ -130,9 +148,13 @@ function bancoForm(sk){
       (ed ? '<button class="rfcancel">cancelar</button>' : '')+'</div>' : '')+
     (ed && !adm ? '<div class="bk-add"><button class="rfcancel">cancelar</button></div>' : '');
   const iu = f.querySelector('.bkU'), itx = f.querySelector('.bkT'), inN = f.querySelector('.bkN'), inD = f.querySelector('.bkD');
-  const linhas = [...f.querySelectorAll('.bkT-linha, .bk-uso')];
+  const linhas = [...f.querySelectorAll('.bkT-linha, .bk-uso, .bk-tipolinha')];
   if(ed){ iu.value = ed.url; if(itx) itx.value = ed.titulo || ''; if(inN) inN.value = ed.usos || ''; if(inD) inD.value = ed.usadoDia || ''; }
-  const salvar = ()=> bancoSalvar(sk, { iu, itx, inN, inD, bt: f.querySelector('.bk-mais') }, ed);
+  f.querySelectorAll('.bk-tipo [data-tipo]').forEach(b=> b.onclick = ()=>{
+    f.dataset.tipo = b.dataset.tipo;
+    f.querySelectorAll('.bk-tipo [data-tipo]').forEach(x=> x.setAttribute('aria-checked', String(x===b)));
+  });
+  const salvar = ()=> bancoSalvar(sk, { iu, itx, inN, inD, bt: f.querySelector('.bk-mais'), pasta: corte ? pasta : undefined, tipo: corte ? ()=>f.dataset.tipo : null }, ed);
   f.querySelector('.bk-mais').onclick = salvar;
   // os campos do ADMIN aparecem quando já tem link (o formulário vazio ocupa 1 linha só)
   iu.addEventListener('input', ()=>{ if(!ed) linhas.forEach(l=> l.hidden = !iu.value.trim()); });
@@ -158,6 +180,11 @@ async function bancoSalvar(sk, c, ed){
   if(c.itx && antes('titulo', c.itx.value.trim())) corpo.titulo = c.itx.value.trim();
   if(c.inN && antes('usos', c.inN.value.trim())) corpo.usos = c.inN.value.trim();
   if(c.inD && antes('usadoDia', c.inD.value)) corpo.usadoDia = c.inD.value;
+  if(c.tipo){                                                 // v3.97: a pasta (pessoa) e se é corte ou o bruto
+    const t = c.tipo();
+    if(!ed){ if(c.pasta) corpo.pasta = c.pasta; corpo.tipo = t; }
+    else if((ed.tipo || 'corte') !== t) corpo.tipo = t;
+  }
   c.bt.disabled = true; c.bt.classList.add('carregando');
   try{
     const r = ed ? await api('/api/banco/'+ed.id, {method:'PATCH', body:JSON.stringify(corpo)})
@@ -168,8 +195,8 @@ async function bancoSalvar(sk, c, ed){
     const d = r.drive;
     if(d && d.ok) toast((ed ? 'Atualizado' : 'Guardado')+' com o nome do Drive: "'+r.item.titulo+'" · Ctrl+Z desfaz', false, 4200);
     else if(d) toast((ed ? 'Atualizado' : 'Guardado')+' sem o nome: '+bancoMotivoDrive(d.motivo)+(souAdmin() ? '. Dá pra escrever o título no lápis.' : '. Um ADMIN pode dar o título.'), false, 7000);
-    else toast((ed ? 'Atualizado' : 'Guardado em '+BANCO_SEC[sk].nome)+' · Ctrl+Z desfaz');
-    if(!ed){ const nf = document.querySelector('#drBody .refform[data-sec="'+sk+'"] .bkU'); if(nf) nf.focus(); }
+    else toast((ed ? 'Atualizado' : 'Guardado em '+(c.pasta ? bancoNomePasta(c.pasta) : BANCO_SEC[sk].nome))+' · Ctrl+Z desfaz');
+    if(!ed){ const nf = document.querySelector('#drBody .refform[data-sec="'+sk+'"]'+(c.pasta !== undefined ? '[data-pasta="'+c.pasta+'"]' : '')+' .bkU'); if(nf) nf.focus(); }
   }catch(e){ toast(e.message, true); }
   finally{ if(c.bt.isConnected){ c.bt.disabled = false; c.bt.classList.remove('carregando'); } }
 }
@@ -211,7 +238,7 @@ async function bancoUsar(id, date, ev){
     toast('Post criado em '+brData(date)+(lista.length>1 ? ' na '+contaCurta(conta) : '')+(r.saiu ? ' · saiu do banco' : '')+' · Ctrl+Z desfaz');
   }catch(e){ toast(e.message, true); }
 }
-function renderDrawer(){
+function renderDrawer(preserva){
   document.body.classList.toggle('drawer-open', S.drawer);
   $('#drawer').classList.toggle('open', S.drawer);
   const secs = bancoSecoes(S.aba);
@@ -221,10 +248,13 @@ function renderDrawer(){
   const dn = $('#drawerN'); if(dn) dn.textContent = total ? total : '';
   if(!S.drawer) return;
   $('#drTitle').innerHTML = icon('box') + 'Banco · ' + esc(nomeAba(S.aba));
+  // v3.97: no redesenho do painel (mudança de outra pessoa a cada 20 s), o que estava sendo digitado na gaveta fica
+  const digitado = preserva ? bancoDigitado() : null;
   const body = $('#drBody'); body.innerHTML = '';
   for(const sk of secs){
     const sec = BANCO_SEC[sk], lista = itens.filter(x=>x.sec===sk), vis = lista.filter(bancoMatch);
     const el = drawerSec(icon(sec.icone)+' '+esc(sec.nome), vis.length, w=>{
+      if(sk==='cortes') return bancoCortesFill(w, lista, vis);   // v3.97: pastas por pessoa
       w.appendChild(bancoForm(sk));
       if(!lista.length) w.insertAdjacentHTML('beforeend','<div class="dr-empty">'+esc(sec.vazio)+'</div>');
       else if(!vis.length) w.insertAdjacentHTML('beforeend','<div class="dr-empty">nada com essa busca aqui</div>');
@@ -245,4 +275,167 @@ function renderDrawer(){
     el.classList.add('semdia'); el.dataset.sec = 'semdia';
     body.appendChild(el);
   }
+  if(digitado) bancoRestaura(digitado);
+}
+
+// ================= v3.97: cortes de podcast em pastas por pessoa =================
+// Pedido do Zion: "colocar cortes e o vídeo bruto separadamente. e separar por pessoa também, então seria tipo uma
+// pasta com o nome da pessoa e dentro teria o bruto + os cortes, o link separadamente de cada corte sinalizando o que
+// foi utilizado e quantas vezes". Respostas dele: vários brutos por pessoa; Carbone e Weevo. As pastas vêm do servidor
+// (S.bancoPastas); o corte guarda a pasta (it.pasta) e o bruto tem it.tipo = 'bruto'. Corte sem pasta: "Sem pessoa".
+/** v3.97: o que tem nos campos da gaveta (e o corte ou bruto marcado), pra voltar depois do redesenho. */
+function bancoChave(el){
+  const f = el.closest('.refform, .bkp-cab'), p = el.closest('.bk-pasta');
+  return [f ? (f.dataset.sec || 'pasta') : '', p ? p.dataset.pasta : '', f && f.classList.contains('bkp-nova') ? 'nova' : '', el.className].join('|');
+}
+function bancoDigitado(){
+  const a = document.activeElement, l = [];
+  document.querySelectorAll('#drBody input').forEach(i=>{
+    if(!i.value && i !== a) return;
+    let sel = null; try{ if(i === a && i.selectionStart != null) sel = [i.selectionStart, i.selectionEnd]; }catch(e){}
+    l.push({ k: bancoChave(i), v: i.value, foco: i === a, sel });
+  });
+  document.querySelectorAll('#drBody .refform[data-tipo="bruto"]').forEach(f=> l.push({ k: bancoChave(f), tipo: 'bruto' }));
+  return l;
+}
+function bancoRestaura(l){
+  const ins = [...document.querySelectorAll('#drBody input')], fs = [...document.querySelectorAll('#drBody .refform[data-tipo]')];
+  for(const g of l){
+    if(g.tipo){ const f = fs.find(x=>bancoChave(x)===g.k); const b = f && f.querySelector('.bk-tipo [data-tipo="'+g.tipo+'"]'); if(b) b.click(); continue; }
+    const i = ins.find(x=>bancoChave(x)===g.k); if(!i) continue;
+    if(i.value !== g.v){ i.value = g.v; if(i.classList.contains('bkU')) i.dispatchEvent(new Event('input')); }   // mostra as linhas do link
+    if(g.foco){ i.focus(); try{ if(g.sel) i.setSelectionRange(g.sel[0], g.sel[1]); }catch(e){} }
+  }
+}
+/** As pastas abertas na gaveta (só na memória; o painel define S depois que este arquivo carrega). */
+function bancoAbertas(){ return S.bancoPastaAberta || (S.bancoPastaAberta = new Set()); }
+function bancoPastasDa(aba){ return (S.bancoPastas||[]).filter(p=>p.aba===aba).sort((a, b)=>a.nome.localeCompare(b.nome, 'pt-BR')); }
+function bancoNomePasta(id){ const p = id ? (S.bancoPastas||[]).find(x=>x.id===id) : null; return p ? p.nome : ''; }
+/** A pasta do item, se ela ainda existe ('' = "Sem pessoa"). */
+function bancoPastaDe(it){ return it.pasta && (S.bancoPastas||[]).some(p=>p.id===it.pasta) ? it.pasta : ''; }
+/** A seção dos cortes: "+ pessoa" em cima e uma pasta por pessoa (abre e fecha); "Sem pessoa" no fim, se tiver. */
+function bancoCortesFill(w, lista, vis){
+  w.appendChild(bancoNovaPasta());
+  const pastas = bancoPastasDa(S.aba);
+  const grupos = pastas.map(p=>({ p, itens: lista.filter(x=>bancoPastaDe(x)===p.id) }));
+  const sem = lista.filter(x=>!bancoPastaDe(x));
+  if(sem.length) grupos.push({ p:null, itens:sem });
+  if(!grupos.length){ w.insertAdjacentHTML('beforeend', '<div class="dr-empty">'+esc(BANCO_SEC.cortes.vazio)+'</div>'); return; }
+  let algum = false;
+  for(const g of grupos){
+    const casa = g.itens.filter(x=>vis.includes(x)), nomeCasa = !!S.busca && !!g.p && matchBusca(g.p.nome);
+    if(S.busca && !casa.length && !nomeCasa) continue;
+    algum = true;
+    w.appendChild(bancoPastaEl(g.p, g.itens, S.busca && !nomeCasa ? casa : g.itens));
+  }
+  if(!algum) w.insertAdjacentHTML('beforeend', '<div class="dr-empty">nada com essa busca aqui</div>');
+}
+/** "+ pessoa": cria a pasta e já abre ela, com o foco no link. Nome repetido abre a que já existe. */
+function bancoNovaPasta(){
+  const f = document.createElement('div'); f.className = 'refform bkp-nova';
+  f.innerHTML = '<div class="bk-add"><input class="bkPn" placeholder="+ pessoa (nome de quem fala)" maxlength="60" autocomplete="off" aria-label="Nome da pessoa (pasta nova)">'+
+    '<button class="bk-mais" title="Criar a pasta (Enter)" aria-label="Criar a pasta">'+icon('plus')+'</button></div>';
+  const inp = f.querySelector('.bkPn'), bt = f.querySelector('.bk-mais');
+  const cria = async ()=>{
+    const nome = inp.value.trim(); if(!nome){ inp.focus(); return; }
+    if(bt.disabled) return; bt.disabled = true;
+    try{
+      const r = await api('/api/banco/pastas', {method:'POST', body:JSON.stringify({ aba:S.aba, nome })});
+      S.bancoPastas = (S.bancoPastas||[]).concat([r.pasta]);
+      bancoAbertas().add(r.pasta.id); renderDrawer();
+      toast('Pasta "'+r.pasta.nome+'" criada: cole o link do bruto e dos cortes · Ctrl+Z desfaz');
+      const nf = document.querySelector('#drBody .refform[data-sec="cortes"][data-pasta="'+r.pasta.id+'"] .bkU'); if(nf) nf.focus();
+    }catch(e){
+      const ja = e.status === 409 && bancoPastasDa(S.aba).find(p=>p.nome.toLowerCase() === nome.toLowerCase());
+      if(ja){ bancoAbertas().add(ja.id); renderDrawer(); }
+      toast(e.message, true);
+    }finally{ if(bt.isConnected) bt.disabled = false; }
+  };
+  bt.onclick = cria;
+  inp.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); cria(); } });
+  return f;
+}
+/** Uma pasta: o cabeçalho (nome, quantos brutos e cortes, quantos nunca usados) e, aberta, o formulário e os links. */
+function bancoPastaEl(p, itens, mostrar){
+  const id = p ? p.id : 'semp';
+  const editando = S.bancoEdit && itens.some(x=>x.id===S.bancoEdit);
+  const aberta = !!S.busca || bancoAbertas().has(id) || editando;
+  const brutos = itens.filter(x=>x.tipo==='bruto'), cortes = itens.filter(x=>x.tipo!=='bruto');
+  const nunca = cortes.filter(x=>!x.usos && !x.usadoDia).length;
+  const resumo = [brutos.length ? brutos.length+' bruto'+(brutos.length>1?'s':'') : '', cortes.length+' corte'+(cortes.length===1?'':'s')].filter(Boolean).join(' · ');
+  const el = document.createElement('div'); el.className = 'bk-pasta'+(aberta ? ' aberta' : '')+(p ? '' : ' sem'); el.dataset.pasta = p ? p.id : '';
+  const renomeando = p && S.bancoRenomeia === p.id;
+  el.innerHTML = '<div class="bkp-cab">'+
+    (renomeando
+      ? '<div class="bkp-ren-form">'+icon('folder')+'<input class="bkp-nome" maxlength="60" value="'+esc(p.nome)+'" aria-label="Novo nome da pasta"><button type="button" class="bkp-ok" title="Salvar (Enter)" aria-label="Salvar o nome">'+icon('check','s')+'</button></div>'
+      : '<button type="button" class="bkp-abre" aria-expanded="'+aberta+'" title="'+(aberta ? 'Fechar' : 'Abrir')+' a pasta'+(p ? '' : ' (cortes guardados antes das pastas: arraste cada um pra pasta da pessoa)')+'">'+
+          icon('folder')+'<span class="bkp-txt"><b>'+esc(p ? p.nome : 'Sem pessoa')+'</b><span class="bkp-resumo">'+resumo+(nunca ? ' · <em>'+nunca+' nunca usado'+(nunca>1?'s':'')+'</em>' : '')+'</span></span>'+icon('chevR','bkp-seta')+'</button>'+
+        (p ? '<button type="button" class="bkp-ic" data-a="ren" title="Renomear a pasta" aria-label="Renomear a pasta">'+icon('pencil','s')+'</button>' : '')+
+        (p && !itens.length ? '<button type="button" class="bkp-ic bin mini" data-a="del" title="Excluir a pasta vazia (Ctrl+Z desfaz)" aria-label="Excluir a pasta">'+BIN_SVG+'</button>' : ''))+
+    '</div>';
+  if(aberta){
+    const corpo = document.createElement('div'); corpo.className = 'bkp-corpo';
+    if(p || editando) corpo.appendChild(bancoForm('cortes', p ? p.id : ''));   // "Sem pessoa" só ganha o formulário pra editar
+    const ord = mostrar.filter(x=>x.tipo==='bruto').concat(mostrar.filter(x=>x.tipo!=='bruto'));
+    ord.forEach(it=>corpo.appendChild(bancoItemEl(it)));
+    if(!itens.length) corpo.insertAdjacentHTML('beforeend', '<div class="dr-empty">Pasta vazia: cole o link do vídeo bruto ou de um corte.</div>');
+    el.appendChild(corpo);
+  }
+  const ab = el.querySelector('.bkp-abre');
+  if(ab) ab.onclick = ()=>{ if(bancoAbertas().has(id)) bancoAbertas().delete(id); else bancoAbertas().add(id); renderDrawer(); };
+  const ren = el.querySelector('[data-a=ren]');
+  if(ren) ren.onclick = ()=>{ S.bancoRenomeia = p.id; renderDrawer(); const i = document.querySelector('#drBody .bkp-nome'); if(i){ i.focus(); i.select(); } };
+  const del = el.querySelector('[data-a=del]');
+  if(del) del.onclick = ()=> bancoPastaExclui(p);
+  const inN = el.querySelector('.bkp-nome');
+  if(inN){
+    const salva = ()=> bancoPastaRenomeia(p, inN.value.trim());
+    el.querySelector('.bkp-ok').onclick = salva;
+    inN.addEventListener('keydown', ev=>{
+      if(ev.key==='Enter'){ ev.preventDefault(); salva(); }
+      else if(ev.key==='Escape'){ ev.stopPropagation(); S.bancoRenomeia = null; renderDrawer(); }
+    });
+  }
+  // arrastar um corte (ou bruto) pra cá muda a pessoa dele; o resto (post, outra seção) segue pro que já fazia
+  const arrastado = ()=>{ const d = document.querySelector('#drBody .ref.bk.dragging'); const it = d && (S.banco||[]).find(x=>x.id===d.dataset.id); return it && it.sec==='cortes' && it.aba===S.aba ? it : null; };
+  el.addEventListener('dragover', ev=>{ if(!arrastado()) return; ev.preventDefault(); ev.stopPropagation(); ev.dataTransfer.dropEffect = 'move'; el.classList.add('soltar'); });
+  el.addEventListener('dragleave', ev=>{ if(!el.contains(ev.relatedTarget)) el.classList.remove('soltar'); });
+  el.addEventListener('drop', ev=>{
+    el.classList.remove('soltar');
+    const v = ev.dataTransfer.getData('text/plain');
+    if(!v.startsWith('bk:')) return;
+    const it = (S.banco||[]).find(x=>x.id===v.slice(3));
+    if(!it || it.sec !== 'cortes' || it.aba !== S.aba) return;
+    ev.preventDefault(); ev.stopPropagation();
+    if(bancoPastaDe(it) === (p ? p.id : '')) return;
+    bancoMudaPasta(it, p);
+  });
+  return el;
+}
+async function bancoMudaPasta(it, p){
+  try{
+    const r = await api('/api/banco/'+it.id, {method:'PATCH', body:JSON.stringify({ pasta: p ? p.id : '' })});
+    const i = S.banco.findIndex(x=>x.id===it.id); if(i>=0) S.banco[i] = r.item;
+    if(p) bancoAbertas().add(p.id);
+    renderDrawer();
+    toast((it.tipo==='bruto' ? 'Bruto' : 'Corte')+' movido pra '+(p ? 'pasta "'+p.nome+'"' : '"Sem pessoa"')+' · Ctrl+Z desfaz');
+  }catch(e){ toast(e.message, true); }
+}
+async function bancoPastaRenomeia(p, nome){
+  if(!nome){ toast('Diga o nome da pessoa', true); return; }
+  if(nome === p.nome){ S.bancoRenomeia = null; renderDrawer(); return; }
+  try{
+    const r = await api('/api/banco/pastas/'+p.id, {method:'PATCH', body:JSON.stringify({ nome })});
+    const i = S.bancoPastas.findIndex(x=>x.id===p.id); if(i>=0) S.bancoPastas[i] = r.pasta;
+    S.bancoRenomeia = null; renderDrawer();
+    toast('Pasta renomeada pra "'+r.pasta.nome+'" · Ctrl+Z desfaz');
+  }catch(e){ toast(e.message, true); }
+}
+async function bancoPastaExclui(p){
+  try{
+    await api('/api/banco/pastas/'+p.id, {method:'DELETE'});
+    S.bancoPastas = (S.bancoPastas||[]).filter(x=>x.id!==p.id); bancoAbertas().delete(p.id);
+    renderDrawer();
+    toast('Pasta "'+p.nome+'" excluída · Ctrl+Z desfaz');
+  }catch(e){ toast(e.message, true); }
 }

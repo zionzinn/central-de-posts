@@ -415,7 +415,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.96'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.97'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -556,11 +556,11 @@ async function loadState(fresh, silencioso){
   // assinatura barata do que aparece na tela: se nada mudou, o modo silencioso não redesenha
   // v3.70: a assinatura cobre o post INTEIRO (formato, GM, obs, matriz...) e as referências: mudança
   // feita por outra pessoa aparece no próximo ciclo de 20 s. Antes só o poll de 90 s (removido) pegava isso.
-  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.banco||[]) + '#' + JSON.stringify(j.tarefas||[]);
+  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.banco||[]) + '#' + JSON.stringify(j.bancoPastas||[]) + '#' + JSON.stringify(j.tarefas||[]);
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
   if(pm){ const r = await pm; if(r && r.matrizes) S.matrizes = r.matrizes; }
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, hubEscrita:!!j.hubEscrita, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia});
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], bancoPastas:j.bancoPastas||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, hubEscrita:!!j.hubEscrita, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   contaNaTela();                                        // v3.82: nome da conta no perfil e o que cada papel vê
@@ -617,6 +617,8 @@ function isCopy(s){ return !!s.docId && !s.taskId && !s.postado && !isVaga(s) &&
 /** v3.96: post do BANCO: o card do dia ganhou um material do banco ("Do banco") e ainda não tem copy nem task. */
 function isBanco(s){ return !!s.banco && !s.taskId && !s.postado && !isCopy(s) && !isVaga(s) && !isSugestao(s); }
 function bancoNomeSec(sec){ return ((typeof BANCO_SEC !== 'undefined' && BANCO_SEC[sec]) || {}).padrao || 'Banco'; }
+/** v3.97: o rótulo do material no post: a seção (ou "Vídeo bruto") e a pessoa dos cortes. */
+function bancoRotulo(b){ return (b.tipo==='bruto' ? 'Vídeo bruto' : bancoNomeSec(b.sec)) + (b.pessoa ? ' · '+b.pessoa : ''); }
 function bancoIcone(sec){ return ((typeof BANCO_SEC !== 'undefined' && BANCO_SEC[sec]) || {}).icone || 'box'; }
 /** v3.89: estado da copy do post (a aprovação é aqui no B.O.N.E). */
 function copyEstado(s){
@@ -911,7 +913,7 @@ function render(){
   // e o painel ficaria preso em "arrastando" (clique não abre, atualização para, rolagem automática solta).
   if(S.dragging){ S._renderDepois = true; return; }
   S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba);
-  renderTabs(); renderFaixa(); renderLegend(); renderDrawer(); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); pintaBtnAprovar(); }
+  renderTabs(); renderFaixa(); renderLegend(); renderDrawer(true); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); pintaBtnAprovar(); }
 
 function renderTabs(){
   const el = $('#tabs');
@@ -1088,7 +1090,7 @@ function cardEl(s){
     (cdiv?'<span class="tagic t-cdiv" title="O nome da task diz '+esc(nomeConta(cdiv.sugerida))+', mas este post está em '+esc(nomeConta(s.conta))+'. Clique pra mover pra '+esc(nomeConta(cdiv.sugerida))+' (Ctrl+Z desfaz).">'+icon('alerta')+'</span>':'')+
     (!mz && s.matrizSB?'<span class="mk t-mz" title="Este post veio da matriz: clique pra ver tema, tese, gancho...">M</span>':'')+
     (s.docId && !cp?'<span class="mk t-doc" title="Tem documento de copy: clique pra abrir">'+icon('doc')+'</span>':'')+
-    (s.banco && !bco?'<span class="mk t-bco" title="Material do banco: '+esc(bancoNomeSec(s.banco.sec)+(s.banco.titulo ? ' · '+s.banco.titulo : ''))+'">'+icon(bancoIcone(s.banco.sec))+'</span>':'')+   // v3.96
+    (s.banco && !bco?'<span class="mk t-bco" title="Material do banco: '+esc(bancoRotulo(s.banco)+(s.banco.titulo ? ' · '+s.banco.titulo : ''))+'">'+icon(bancoIcone(s.banco.sec))+'</span>':'')+   // v3.96
     (cp ? '' : tfChipsCard(s));   // v3.80: C com a bolinha do estado da aprovação (no card da copy, o estado já está escrito)
   const parecer = (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'alt')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Alteração pedida')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'pencil')+(s.parecer.veredito==='aprovado'?'APROVADO':'ALTERAR')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '');
   // selo da conta: nome por extenso na cor da marca. Só em aba com mais de uma conta.
@@ -1097,10 +1099,10 @@ function cardEl(s){
     // v3.96 BANCO: faixa no topo dizendo de qual banco veio (corte, depoimento, Drive...) e o título do material
     const gmPede = s.date && S.aba==='SEUBONÉ' && gmCadenciaDia(s.date);
     d.innerHTML =
-      '<div class="bcoband" title="Post do banco: clique pra abrir"><span class="bcolbl">'+icon(bancoIcone(s.banco.sec))+'Banco</span><span class="bcotipo">'+esc(bancoNomeSec(s.banco.sec))+'</span>'+
+      '<div class="bcoband" title="Post do banco: clique pra abrir"><span class="bcolbl">'+icon(bancoIcone(s.banco.sec))+'Banco</span><span class="bcotipo">'+esc(bancoRotulo(s.banco))+'</span>'+
         (gmPede||isGm(s)?'<span class="mzstar" title="Dia de grande marca na capa">'+icon('star')+'</span>':'')+'</div>'+
       contatag+
-      '<div class="tit">'+esc(s.banco.titulo || (s.matrizSB && s.matrizSB.tema) || bancoNomeSec(s.banco.sec))+'</div>'+
+      '<div class="tit">'+esc(s.banco.titulo || (s.matrizSB && s.matrizSB.tema) || bancoRotulo(s.banco))+'</div>'+
       '<div class="meta"><span class="stx" style="--stc:var(--indigo)" title="Material escolhido no banco; a copy é opcional"><i></i>material escolhido</span>'+alertas+avatar+'</div>'+
       '<button class="qdel bin mini" title="Excluir este post do painel">'+BIN_SVG+'</button>';
   } else if(cp){
@@ -1955,7 +1957,7 @@ function tRowDraw(s){
     const w = document.createElement('span'); w.className = 'bkancora'; row.appendChild(w);
     const bb = document.createElement('button'); bb.type = 'button'; bb.className = 'mbtn mzbancobt'; bb.id = 'tBanco';
     bb.setAttribute('aria-haspopup', 'listbox'); bb.setAttribute('aria-expanded', 'false');
-    bb.innerHTML = s.banco ? icon(bancoIcone(s.banco.sec))+'<span class="bkb-t">'+esc(bancoNomeSec(s.banco.sec)+(s.banco.titulo ? ': '+s.banco.titulo : ''))+'</span>' : icon('box')+'Do banco';
+    bb.innerHTML = s.banco ? icon(bancoIcone(s.banco.sec))+'<span class="bkb-t">'+esc(bancoRotulo(s.banco)+(s.banco.titulo ? ': '+s.banco.titulo : ''))+'</span>' : icon('box')+'Do banco';
     bb.dataset.tip = s.banco ? 'Material do banco deste post: clique pra trocar ou tirar' : 'Usar um material do banco (corte, depoimento, Drive) no lugar de escrever a copy';
     bb.onclick = ev=> abrirDoBanco(ev.currentTarget, s.id);
     w.appendChild(bb);
@@ -3181,7 +3183,7 @@ function mzDesenhaBanco(s){
   const mexe = !s.taskId && !s.postado, podeTask = mexe && S.temFonte && souAdmin();   // com task (ou postado): só mostra
   box.hidden = false;
   box.innerHTML = '<span class="mzbco-ic">'+icon(bancoIcone(b.sec))+'</span>'+
-    '<span class="mzbco-txt"><b>Do banco · '+esc(bancoNomeSec(b.sec))+'</b><span>'+esc(b.titulo || 'sem título')+'</span>'+
+    '<span class="mzbco-txt"><b>Do banco · '+esc(bancoRotulo(b))+'</b><span>'+esc(b.titulo || 'sem título')+'</span>'+
       '<small>'+(mexe ? 'A copy é opcional: escreva se precisar de legenda.' : s.taskId ? 'Já tem task de produção com este material.' : 'Já foi postado.')+'</small></span>'+
     '<span class="mzbco-acoes">'+
       (url ? '<a class="mbtn" href="'+esc(url)+'" target="_blank" rel="noopener">'+icon('external')+'Abrir</a>' : '')+
@@ -3206,10 +3208,10 @@ function abrirDoBanco(ancora, sid){
   const m = document.createElement('div');
   m.className = 'bkpick'; m.id = 'bkPick'; m.setAttribute('role', 'listbox'); m.setAttribute('aria-label', 'Materiais do banco da '+nomeAba(aba));
   m.innerHTML = (total > 6 ? '<input class="bkpick-busca" id="bkPickBusca" placeholder="buscar no banco" autocomplete="off" aria-label="Buscar no banco">' : '')+
-    '<div class="bkpick-lista">'+(grupos.map(g=>'<div class="bkpick-sec">'+icon(BANCO_SEC[g.sec].icone)+esc(BANCO_SEC[g.sec].nome)+'</div>'+
+    '<div class="bkpick-lista">'+(grupos.map(g=>'<div class="bkpick-sec">'+icon(g.pessoa !== undefined ? 'folder' : BANCO_SEC[g.sec].icone)+esc(g.nome || BANCO_SEC[g.sec].nome)+'</div>'+
       g.itens.map(it=>{ const o = bancoOrigem(it.url);
-        return '<button type="button" role="option" tabindex="-1" data-bkid="'+esc(it.id)+'" aria-selected="'+(!!s.banco && s.banco.id===it.id)+'">'+
-          '<span class="bkpick-t">'+esc(it.titulo || BANCO_SEC[g.sec].padrao)+'</span>'+
+        return '<button type="button" role="option" tabindex="-1" data-bkid="'+esc(it.id)+'" aria-selected="'+(!!s.banco && s.banco.id===it.id)+'" data-busca="'+esc([it.titulo, g.pessoa || '', it.tipo==='bruto' ? 'bruto' : '', o.nome].join(' ').toLowerCase())+'">'+
+          '<span class="bkpick-t">'+(it.tipo==='bruto' ? '<span class="bk-bruto">bruto</span>' : '')+esc(it.titulo || (it.tipo==='bruto' ? 'Vídeo bruto' : BANCO_SEC[g.sec].padrao))+'</span>'+
           '<span class="bkpick-o">'+esc(o.nome)+(it.usos || it.usadoDia ? ' · '+esc(bancoUsoTxt(it)) : ' · nunca usado')+(BANCO_SEC[g.sec].fica ? '' : ' · sai do banco')+'</span></button>'; }).join('')).join('')
       || '<div class="bkpick-vazio">O banco da '+esc(nomeAba(aba))+' não tem material ainda. Guarde cortes, depoimentos ou links do Drive na gaveta do banco.</div>')+
     (sid && s.banco ? '<button type="button" role="option" tabindex="-1" class="bkpick-tira" data-bktira="1">'+icon('x')+'<span class="bkpick-t">Tirar o material deste post</span></button>' : '')+'</div>';
@@ -3237,7 +3239,7 @@ function abrirDoBanco(ancora, sid){
   const tira = m.querySelector('[data-bktira]'); if(tira) tira.onclick = ()=>{ fecha(false); mzBancoTira(s.id); };
   const busca = m.querySelector('#bkPickBusca');
   if(busca) busca.oninput = ()=>{ const q = busca.value.trim().toLowerCase();
-    m.querySelectorAll('[data-bkid]').forEach(b=>{ b.hidden = !!q && !b.textContent.toLowerCase().includes(q); }); };
+    m.querySelectorAll('[data-bkid]').forEach(b=>{ b.hidden = !!q && !(b.dataset.busca || b.textContent.toLowerCase()).includes(q); }); };
   document.addEventListener('mousedown', fora, true); document.addEventListener('keydown', tecla, true);
   BK_MENU = { fecha };
   if(busca) busca.focus(); else foca(0);

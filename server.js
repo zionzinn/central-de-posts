@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.96'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.97'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -490,7 +490,7 @@ const server = http.createServer(async (req, res) => {
       const corpo = JSON.stringify({
         versao: VERSAO,
         contas: db.contas, abas: db.abas,
-        slots: rotaHub.sobrepoe(slots), banco: db.banco,   // v3.81: status do Hub por cima dos posts (sem gravar); v3.83: banco de cada empresa
+        slots: rotaHub.sobrepoe(slots), banco: db.banco, bancoPastas: db.bancoPastas || [],   // v3.97: pastas por pessoa nos cortes   // v3.81: status do Hub por cima dos posts (sem gravar); v3.83: banco de cada empresa
         tarefas: rotaTarefas.publicas(),                  // v3.80: tarefas abertas (matriz e copy), com os posts de cada uma
         temFonte: rotaHub.ligado(),                       // v3.81: true com a chave do MKT Hub (artes e comentários das tasks)
         hubEscrita: rotaHubEnvio.escrita(),               // v3.84: true com a chave de nível completa (a tarefa vai pro Hub)
