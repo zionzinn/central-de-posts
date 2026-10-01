@@ -19,7 +19,7 @@ const TF_TIPOS = {
   matriz: { nome: 'Matriz', k: 'm', cor: 'var(--mz)', icone: 'calmz',
     exp: 'Escolha os dias e crie a tarefa: cada dia ganha um card amarelo da matriz. Preencha formato, ângulo, pauta quente, tema, tese, gancho e descrição de cada um. Dê play no relógio quando começar: o painel anota sozinho em qual card você está. Não precisa terminar a matriz pra começar a copy.' },
   copy: { nome: 'Copy', k: 'c', cor: 'var(--blue)', icone: 'doc',
-    exp: 'Escreva a copy de cada post do período no documento dele: o card da matriz vira o card da copy. Dê play no relógio quando começar: o painel anota sozinho em qual documento você está. Terminou, mande pra aprovação: o Zion ou a Maria aprovam aqui no B.O.N.E. Copy aprovada vira task de produção no MKT Hub.' },
+    exp: 'Escreva a copy de cada post do período no documento dele: o card da matriz vira o card da copy, e dia sem post ganha um post com o nome do dia (01_10). Dê play no relógio quando começar: o painel anota sozinho em qual documento você está. Terminou, mande pra aprovação: o Zion ou a Maria aprovam aqui no B.O.N.E. Copy aprovada vira task de produção no MKT Hub.' },
 };
 const TF_DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const TF_ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.8v12.4a.8.8 0 0 0 1.2.7l9.6-6.2a.8.8 0 0 0 0-1.4L9.7 5.1a.8.8 0 0 0-1.2.7z"/></svg>';
@@ -66,6 +66,23 @@ function tfItensPrevia(tipo, aba, de, ate) {
   return S.slots.filter(s => s.date && s.date >= de && s.date <= ate && contas.has(s.conta) && !s.postado && !(s.sugestao && !s.taskId) && (tipo !== 'matriz' || !!s.matrizSB))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
+/**
+ * v4.00 (pedido do Zion: "a terafa POST pode vim sem necessáriamente ter a tarefa MATRIZ antes, em alguns casos. então,
+ * ela deve criar as tarefinhas com o nome: dia_mês (exemplo 01_10)"): prévia da tarefa de copy nova, dia a dia. Os posts que já existem e,
+ * em cada conta marcada que não tem post no dia, o post novo "DD_MM" (mesma regra do servidor: criaPostsCopy).
+ */
+function tfNomeDoDia(iso) { return iso.slice(8, 10) + '_' + iso.slice(5, 7); }
+function tfPreviaCopy(aba, de, ate, contas) {
+  const existentes = tfItensPrevia('copy', aba, de, ate), linhas = [];
+  for (let d = de; d <= ate && linhas.length < 400; d = tfSoma(d, 1)) {
+    for (const s of existentes) if (s.date === d) linhas.push({ d, s });
+    for (const c of contas || []) {
+      if (S.slots.some(s => s.date === d && (s.conta === c || (s.collab || []).includes(c)) && !(s.sugestao && !s.taskId))) continue;
+      linhas.push({ d, novo: true, conta: c, nome: tfNomeDoDia(d) });
+    }
+  }
+  return linhas;
+}
 /** A matriz está preenchida (os 7 campos) ou a copy está pronta pra mandar (documento com texto)? */
 function tfPronto(s, t) {
   if (t.tipo === 'matriz') return !!s.banco || !!(s.matrizSB && mzProgresso(s.matrizSB, mzContaDe(s)).cheio);   // v3.96: material do banco resolve o card
@@ -76,7 +93,7 @@ function tfEstado(s, t) {
   if (t.tipo === 'matriz') return s.banco ? { cod: 'feita', rot: 'do banco', cor: 'var(--indigo)' } : tfPronto(s, t) ? { cod: 'feita', rot: 'preenchida', cor: 'var(--green)' } : { cod: 'fazer', rot: 'a preencher', cor: 'var(--gray)' };   // v3.88; v3.96: do banco
   const a = tfAprov(s, tfK(t));
   if (a && a.st === 'aprovado') return { cod: 'aprovado', rot: 'aprovada', cor: 'var(--green)' };
-  if (a && a.st === 'enviado') return { cod: 'enviado', rot: 'esperando a ' + QUEM_APROVA_COPY, cor: 'var(--orange)' };   // v3.98
+  if (a && a.st === 'enviado') return { cod: 'enviado', rot: 'esperando aprovação', cor: 'var(--orange)' };   // v3.98; v4.00: aprovação (não "a Maria")
   if (a && a.st === 'alterar') return { cod: 'alterar', rot: 'pra alterar', cor: 'var(--red)' };
   if (tfPronto(s, t)) return { cod: 'pronto', rot: 'pronta pra mandar', cor: 'var(--blue)' };
   return { cod: 'fazer', rot: 'a fazer', cor: 'var(--gray)' };
@@ -164,7 +181,7 @@ function tfCardHtml(aba, tipo) {
   }
   const c = tfConta(t), dona = tfSouDona(t), aprova = tfPodeAprovar(t), pct = n => c.total ? (n / c.total * 100).toFixed(1) : 0;
   const chips = [];
-  if (c.enviado) chips.push('<span class="tc-chip env"><i></i>' + c.enviado + (aprova && !dona ? ' pra aprovar' : ' esperando a ' + QUEM_APROVA_COPY) + '</span>');   // v3.98
+  if (c.enviado) chips.push('<span class="tc-chip env"><i></i>' + c.enviado + (aprova && !dona ? ' pra aprovar' : ' esperando aprovação') + '</span>');   // v3.98
   if (c.alterar) chips.push('<span class="tc-chip alt"><i></i>' + c.alterar + ' pra alterar</span>');
   return '<div class="tcard" style="--tc:' + T.cor + '" data-id="' + t.id + '">' +
     '<button class="tc-abre" data-id="' + t.id + '" aria-label="Abrir a tarefa de ' + T.nome + '">' +
@@ -301,6 +318,7 @@ function novaTarefa(tipo, aba) {
   if (tipo === 'matriz' && !tfTemMatriz(aba)) { toast('Por enquanto a matriz existe só na SeuBoné e na Weevo', true); return; }
   TF.aberta = null; TF.det = null; TF.sel = null; TF.exp.clear(); TF.voltar = null;
   TF.novo = Object.assign({ tipo, aba, por: tfEu() }, tfSugerePeriodo(tipo, aba));
+  if (tipo === 'copy') TF.novo.contas = contasDaAba(aba);   // v4.00: todas marcadas (cada uma ganha o post DD_MM do dia sem post)
   tfDesenha();
   $('#ovTarefa').classList.add('open');
 }
@@ -352,6 +370,9 @@ function tfDesenha() {
         '<input type="date" id="tfDe" value="' + de + '" aria-label="começo"><span class="tf-a">a</span><input type="date" id="tfAte" value="' + ate + '" aria-label="fim"></div></div>' +
       '<div class="tf-campo"><span class="tf-lbl">Quem faz</span><input id="tfPor" class="tf-inp" maxlength="24" value="' + esc(por || '') + '" placeholder="nome" autocomplete="off"' + (S.equipe ? ' list="tfEquipe"' : '') + '>' +
         (S.equipe ? '<datalist id="tfEquipe">' + S.equipe.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist>' : '') + '</div>' +
+      (novo && tipo === 'copy' && contasDaAba(aba).length > 1 ? '<div class="tf-campo"><span class="tf-lbl">Post do dia em</span><div class="tf-per tf-contas">' +
+        contasDaAba(aba).map(c => { const on = (novo.contas || []).includes(c); return '<button type="button" class="echip' + (on ? ' on' : '') + '" data-conta="' + esc(c) + '" aria-pressed="' + on + '"><span class="tf-ck">' + (on ? icon('check') : '') + '</span>' + esc(nomeConta(c)) + '</button>'; }).join('') +
+      '</div></div>' : '') +
       '<span class="tf-cfgmsg" id="tfCfgMsg"></span>' +
     '</div>';
   let corpo = cfg;
@@ -380,14 +401,20 @@ function tfDesenha() {
           : x.fora ? '<span class="ti-tit">antes da matriz' + (inicio ? ' (começa em ' + brData(inicio) + ')' : '') + '</span>'
           : '<span class="ti-tit">card novo' + (x.tipo ? ' · ' + esc(x.tipo) : ' · slot em aberto') + '</span>') + '</div>').join('') + '</div>';
   } else {
-    const l = tfItensPrevia(tipo, aba, de, ate);
-    corpo += '<div class="tf-lhead"><b>Posts nesse período</b><span class="tf-n">' + l.length + '</span></div>' +
-      '<div class="tf-itens previa" id="tfItens">' + (l.length ? l.map(s => '<div class="ti"><span class="ti-dia">' + tfDia(s.date) + '</span><span class="ti-tit">' + esc(slotTitulo(s)) + '</span>' + (contasDaAba(aba).length > 1 ? '<span class="ti-conta">' + esc(contaCurta(s.conta)) + '</span>' : '') + '</div>').join('') : '<div class="tf-vazio">Nenhum post nesse período.</div>') + '</div>';
+    // v4.00: sem a matriz antes, a tarefa de copy cria o post "DD_MM" de cada dia sem post (nas contas marcadas)
+    const l = tfPreviaCopy(aba, de, ate, novo.contas), multi = contasDaAba(aba).length > 1;
+    const novos = l.filter(x => x.novo), nomes = [...new Set(novos.map(x => x.nome))];
+    corpo += '<div class="tf-lhead"><b>Posts nesse período</b><span class="tf-n">' + l.length + '</span><span class="tf-dica">' +
+      (novos.length ? novos.length + ' post' + (novos.length > 1 ? 's' : '') + ' novo' + (novos.length > 1 ? 's' : '') + ' com o nome do dia (' + nomes[0] + (nomes.length > 1 ? ' a ' + nomes[nomes.length - 1] : '') + ')' : 'nenhum post novo: os dias já têm post') + '</span></div>' +
+      '<div class="tf-itens previa" id="tfItens">' + (l.length ? l.map(x => x.novo
+        ? '<div class="ti novo"><span class="ti-dia">' + tfDia(x.d) + '</span><span class="ti-tit">post novo · ' + esc(x.nome) + '</span>' + (multi ? '<span class="ti-conta">' + esc(contaCurta(x.conta)) + '</span>' : '') + '</div>'
+        : '<div class="ti"><span class="ti-dia">' + tfDia(x.s.date) + '</span><span class="ti-tit">' + esc(slotTitulo(x.s)) + '</span>' + (multi ? '<span class="ti-conta">' + esc(contaCurta(x.s.conta)) + '</span>' : '') + '</div>').join('')
+        : '<div class="tf-vazio">Nenhum post nesse período' + (multi ? ': marque uma conta pra criar o post de cada dia' : '') + '.</div>') + '</div>';
   }
   $('#tfBody').innerHTML = corpo;
   // ---- rodapé ----
   let pe = '';
-  if (novo) pe = '<button class="mbtn primary" id="tfCriar">' + icon('plus') + 'Criar tarefa</button><span class="note">' + (tipo === 'matriz' ? 'cria os cards amarelos; depois é só dar play no relógio' : 'depois é só dar play no relógio') + '</span>';
+  if (novo) pe = '<button class="mbtn primary" id="tfCriar">' + icon('plus') + 'Criar tarefa</button><span class="note">' + (tipo === 'matriz' ? 'cria os cards amarelos; depois é só dar play no relógio' : 'cria o post de cada dia sem post (01_10...); depois é só dar play no relógio') + '</span>';
   else {
     const ss = tfSlots(t);
     if (t.tipo === 'copy') {                           // v3.88: a matriz não passa por aprovação
@@ -571,6 +598,13 @@ function tfLigaFolha(t, novo, dona) {
   iDe.onchange = muda; iAte.onchange = muda;
   iPor.onchange = () => { if (novo) novo.por = iPor.value.trim(); else tfSalvaCfg({ por: iPor.value.trim() }); };
   if (novo) {
+    // v4.00: marcar/desmarcar a conta em que a tarefa de copy cria o post do dia
+    body.querySelectorAll('[data-conta]').forEach(b => b.onclick = () => {
+      const c = b.dataset.conta, l = novo.contas || (novo.contas = []);
+      if (l.includes(c)) l.splice(l.indexOf(c), 1); else l.push(c);
+      tfDesenha();
+      const nb = document.querySelector('#tfBody [data-conta="' + c + '"]'); if (nb) nb.focus();
+    });
     $('#tfCriar').onclick = tfCriar;
     return;
   }
@@ -609,11 +643,12 @@ async function tfSalvaCfg(mud) {
     const r = await api('/api/tarefas/' + t.id, { method: 'PATCH', body: JSON.stringify(mud) });
     // v3.95 (o Zion mudou o período e os cards não apareciam): com card novo, recarrega o estado ANTES de desenhar
     // (a lista da tarefa e o calendário só mostram o card que já está no S.slots)
-    if (r.cards) await loadState(false, true);
+    if (r.cards || r.posts) await loadState(false, true);
     const i = S.tarefas.findIndex(x => x.id === t.id); if (i >= 0) S.tarefas[i] = r.tarefa;
     TF.sel = null; tfDesenha(); tfCarregaDetalhe(); renderFaixa();
     tfMsg('salvo');
     if (r.cards) toast(r.cards + ' card' + (r.cards > 1 ? 's' : '') + ' novo' + (r.cards > 1 ? 's' : '') + ' da matriz no calendário');
+    if (r.posts) toast(r.posts + ' post' + (r.posts > 1 ? 's' : '') + ' novo' + (r.posts > 1 ? 's' : '') + ' com o nome do dia no calendário');   // v4.00
   } catch (e) { tfDesenha(); tfMsg(e.message, true); }
 }
 async function tfCriar() {
@@ -625,8 +660,8 @@ async function tfCriar() {
     S.tarefas = (S.tarefas || []).concat(r.tarefa);
     TF.novo = null;
     toast(n.tipo === 'matriz' ? 'Tarefa de matriz criada · ' + (r.cards ? r.cards + ' card' + (r.cards > 1 ? 's' : '') + ' amarelo' + (r.cards > 1 ? 's' : '') + ' no calendário' : 'nenhum card novo (os dias já tinham post)')
-      : 'Tarefa de copy criada · ' + r.tarefa.itens.length + ' posts');
-    if (n.tipo === 'matriz' && r.cards) await loadState();          // os cards novos aparecem no calendário
+      : 'Tarefa de copy criada · ' + r.tarefa.itens.length + ' post' + (r.tarefa.itens.length === 1 ? '' : 's') + (r.posts ? ' (' + r.posts + ' novo' + (r.posts > 1 ? 's' : '') + ' com o nome do dia)' : ''));
+    if ((n.tipo === 'matriz' && r.cards) || (n.tipo === 'copy' && r.posts)) await loadState();   // os cards e posts novos aparecem no calendário
     renderFaixa();
     abrirTarefa(r.tarefa.id);
   } catch (e) { tfMsg(e.message, true); }
@@ -687,10 +722,14 @@ async function tfArquivar(t) {
   catch (err) { toast(err.message, true); }
 }
 async function tfExcluir(t) {
-  if (!confirm('Excluir a tarefa de ' + TF_TIPOS[t.tipo].nome.toLowerCase() + ' de ' + brData(t.de) + ' a ' + brData(t.ate) + '?\n\n(' + (t.tipo === 'matriz' ? 'Os cards amarelos que ela criou e continuam vazios saem junto; os preenchidos ficam. ' : 'As aprovações ficam nos posts. ') + 'O tempo continua no relatório.)')) return;
+  if (!confirm('Excluir a tarefa de ' + TF_TIPOS[t.tipo].nome.toLowerCase() + ' de ' + brData(t.de) + ' a ' + brData(t.ate) + '?\n\n(' + (t.tipo === 'matriz' ? 'Os cards amarelos que ela criou e continuam vazios saem junto; os preenchidos ficam. ' : 'As aprovações ficam nos posts. Os posts do dia (01_10...) que ela criou e ninguém mexeu saem junto. ') + 'O tempo continua no relatório.)')) return;
   const e = CRON.estado();
   if (e && e.tarefaId === t.id) await tfParar();
-  try { const r = await api('/api/tarefas/' + t.id, { method: 'DELETE' }); closeOv('ovTarefa'); await loadState(); toast('Tarefa excluída' + (r && r.cardsRemovidos ? ' · ' + r.cardsRemovidos + ' card' + (r.cardsRemovidos > 1 ? 's' : '') + ' vazio' + (r.cardsRemovidos > 1 ? 's' : '') + ' saíram junto' : '')); }
+  try {
+    const r = await api('/api/tarefas/' + t.id, { method: 'DELETE' }); closeOv('ovTarefa'); await loadState();
+    const n = r ? (r.cardsRemovidos || 0) + (r.postsRemovidos || 0) : 0;   // v4.00: os posts do dia que ninguém mexeu também
+    toast('Tarefa excluída' + (n ? ' · ' + n + (r.postsRemovidos ? ' post' : ' card') + (n > 1 ? 's vazios saíram' : ' vazio saiu') + ' junto' : ''));
+  }
   catch (err) { toast(err.message, true); }
 }
 /** Relógio grande da folha e o tempo de cada post (sem redesenhar a folha inteira). */
@@ -734,7 +773,7 @@ function tfPintaMzRel(e) {
 /** Bolinha + C no card, na cor do estado da aprovação da copy. A palavra vai na dica. (v3.88: a matriz não tem mais aprovação.) */
 function tfChipsCard(s) {
   const a = s.aprov && s.aprov.c; if (!a) return '';
-  const rot = { enviado: 'pronta, esperando a ' + QUEM_APROVA_COPY, aprovado: 'aprovada', alterar: 'pra alterar' };   // v3.98
+  const rot = { enviado: 'pronta, esperando aprovação', aprovado: 'aprovada', alterar: 'pra alterar' };   // v3.98; v4.00
   return '<span class="apv st-' + a.st + '" title="Copy ' + rot[a.st] + (a.st === 'alterar' && a.nota ? ': ' + esc(a.nota) : '') + '"><i></i>C</span>';
 }
 

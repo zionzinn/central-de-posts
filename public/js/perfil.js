@@ -9,7 +9,7 @@
      as copys aprovadas; o ADMIN vê tudo: quem decide é o servidor, lib/perfil.js)
    - a cabeça do personagem vira a bolinha de quem está online (aqui e no documento da copy)
    Os números vêm do GET /api/perfil, contados na hora e só quando a aba abre (nada novo no /api/state).
-   Sem nível nesta versão (v4.00).
+   Sem nível por enquanto (fica pra quando o Zion escolher a regra).
    ===================================================================== */
 'use strict';
 const PP = { aberto: false, alvo: null, dados: null, firma: '', pede: 0, timer: null, escolhido: null, donos: {}, meu: '', salvando: false, ofereceu: false, sugestao: false };
@@ -137,7 +137,7 @@ function ppAgora(p, souEu) {
     const x = a.alterar.itens[0];
     t.push({ cor: 'var(--red)', rot: 'Pra alterar', n: a.alterar.n, sub: (a.alterar.n > 1 ? 'copys' : 'copy') + ' · ' + contas(a.alterar.itens) + (x.quem ? ' · pedido de ' + x.quem : ''), acao: 'alterar' });
   }
-  if (a.esperando.n) t.push({ cor: 'var(--orange)', rot: 'Esperando a ' + QUEM_APROVA_COPY, n: a.esperando.n,
+  if (a.esperando.n) t.push({ cor: 'var(--orange)', rot: 'Esperando aprovação', n: a.esperando.n,
     sub: (a.esperando.n > 1 ? 'copys prontas' : 'copy pronta') + ' · ' + (a.esperando.n > 1 ? 'a mais antiga mandada ' : 'mandada ') + ppHa(a.esperando.itens[0].em), acao: 'esperando' });
   if (a.praAprovar && a.praAprovar.n) t.push({ cor: 'var(--orange)', rot: 'Pra aprovar', n: a.praAprovar.n,
     sub: (a.praAprovar.n > 1 ? 'copys esperando · a mais antiga mandada ' : 'copy esperando · mandada ') + ppHa(a.praAprovar.itens[0].em), acao: 'praAprovar' });

@@ -1930,7 +1930,7 @@ function avisoAprovacao(){
   if(!a) return;
   // v3.88: a aprovação é sempre aqui no B.O.N.E (a copy não vai mais pro MKT Hub)
   if(a.st === 'alterar') faixa('aprov', '<b>'+esc(a.ap || 'Pedido')+' pediu alteração nesta copy:</b> '+esc(a.nota || ''), [], 'verm');
-  else if(a.st === 'enviado') faixa('aprov', '<b>Copy pronta, esperando a aprovação da Maria</b> pra ir pra produção. Enviada'+(a.por ? ' por '+esc(a.por) : '')+' '+fmtQuando(a.em)+'.', []);   // v3.98: amarelo, bem à vista
+  else if(a.st === 'enviado') faixa('aprov', '<b>Copy pronta, esperando aprovação</b> pra ir pra produção. Enviada'+(a.por ? ' por '+esc(a.por) : '')+' '+fmtQuando(a.em)+'.', []);   // v3.98: amarelo, bem à vista
   else if(a.st === 'aprovado') faixa('aprov', 'Copy aprovada'+(a.ap ? ' por <b>'+esc(a.ap)+'</b>' : '')+'.', [], 'verde');
 }
 

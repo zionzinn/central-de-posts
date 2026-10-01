@@ -1379,8 +1379,8 @@ html[data-modo="claro"] .usochip.nunca{color:color-mix(in srgb, var(--orange) 72
 html[data-modo="claro"] .bk-tipo button[aria-checked=true]{background:#fff}
 
 /* ---- v3.98: copy em aprovação bem visível (pedido do Zion: "mais visível que ela já foi feita e está esperando a
-   aprovação de maria"). O card da copy fica laranja, com "Copy pronta" e a etiqueta cheia "Esperando a Maria";
-   pra alterar, vermelho com "Pra alterar". Sem piscar (HIG: elemento piscando atrapalha). ---- */
+   aprovação de maria"). O card da copy fica laranja, com "Copy pronta" e a etiqueta cheia "Esperando aprovação"
+   (v4.00; era "Esperando a Maria"); pra alterar, vermelho com "Pra alterar". Sem piscar (HIG: elemento piscando atrapalha). ---- */
 .card.cp.env{--cc:var(--orange); background:color-mix(in srgb, var(--orange) 13%, var(--cell)); border:1.5px solid color-mix(in srgb, var(--orange) 70%, transparent)}
 .card.cp.env:hover{border-color:var(--orange)}
 .card.cp.env .cpband{color:var(--orange)}

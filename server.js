@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.99'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '4.00'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -190,7 +190,8 @@ function novoSlotMatriz(iso, matrizSB, mzTarefa, conta) {
  */
 function diaOcupado(iso, mz) {
   if (mz.umPorDia) return db.slots.some(s => s.date === iso && (s.conta === mz.conta || (s.collab || []).includes(mz.conta)));
-  return db.slots.some(s => s.date === iso && s.conta === mz.conta && !!s.matrizSB);
+  // v4.00: o post do dia criado pela tarefa de copy (DD_MM) também é o post da matriz daquele dia na Weevo
+  return db.slots.some(s => s.date === iso && s.conta === mz.conta && (!!s.matrizSB || !!s.cpTarefa));
 }
 /**
  * v3.88: a tarefa de matriz cria os cards amarelos dos dias dela (v3.91: SeuBoné e Weevo). Dia ocupado fica como
@@ -211,6 +212,46 @@ function criaCardsMatriz(tf) {
 function limpaCardsMatriz(tf) {
   const sai = new Set(db.slots.filter(s => s.mzTarefa === tf.id && s.matrizSB && !s.taskId && !s.postado && !s.docId
     && !(s.aprov && s.aprov.c) && mzDe(s).vazio(s.matrizSB)).map(s => s.id));
+  if (sai.size) db.slots = db.slots.filter(s => !sai.has(s.id));
+  return sai.size;
+}
+// ---------------- v4.00: a tarefa de copy (POST) sem a de matriz ----------------
+// Pedido do Zion em 01/10/2026: "a terafa POST pode vim sem necessáriamente ter a tarefa MATRIZ antes, em alguns casos.
+// então, ela deve criar as tarefinhas com o nome: dia_mês (exemplo 01_10)" (a tarefa POST é a de copy). Escolha dele: as contas da empresa aparecem
+// na tarefa nova, todas marcadas; cada conta marcada ganha 1 post "DD_MM" em cada dia do período que ainda não tem post
+// dela (dia com post, card da matriz ou post já postado fica como está). O post guarda a tarefa que o criou (cpTarefa).
+/** O nome do post do dia: 01_10. */
+function nomeDoDia(iso) { return iso.slice(8, 10) + '_' + iso.slice(5, 7); }
+/** A conta já tem post nesse dia? (próprio ou collab; sugestão da pauta sem task não conta, igual aos itens da tarefa) */
+function temPostDaConta(iso, conta) {
+  return db.slots.some(s => s.date === iso && (s.conta === conta || (s.collab || []).includes(conta)) && !(s.sugestao && !s.taskId));
+}
+/** Cria os posts DD_MM da tarefa de copy nas contas dela (tf.contas). Devolve os ids criados. */
+function criaPostsCopy(tf) {
+  const contas = (Array.isArray(tf.contas) ? tf.contas : []).filter(c => db.contas[c] && db.contas[c].aba === tf.aba);
+  const criados = [];
+  for (let d = tf.de; d <= tf.ate; d = addDiaISO(d, 1)) {
+    for (const c of contas) {
+      if (temPostDaConta(d, c)) continue;
+      const slot = montaSlot({ conta: c, date: d, titulo: nomeDoDia(d) });
+      slot.cpTarefa = tf.id;
+      db.slots.push(slot); criados.push(slot.id);
+    }
+  }
+  return criados;
+}
+/**
+ * Excluir a tarefa de copy leva junto os posts DD_MM que ELA criou e que ninguém mexeu: continuam com o nome do dia em
+ * que estão, na conta em que nasceram, sem documento, task, aprovação, tempo no relógio, nota, GM, pino, collab etc.
+ */
+function limpaPostsCopy(tf) {
+  const contas = Array.isArray(tf.contas) ? tf.contas : [];
+  const temTempo = s => { const t = rotaTempo.tempoDoPost(s.id); return (t[0] || 0) + (t[1] || 0) > 0; };
+  const vazio = s => contas.includes(s.conta) && s.titulo === nomeDoDia(s.date || '') && !s.taskId && !s.postado && !s.docId
+    && !(s.aprov && s.aprov.c) && !s.banco && !s.matrizSB && !s.vaga && !s.gm && !s.fixo && !s.aprovado && !(s.collab || []).length
+    && !String(s.notas || '').trim() && !s.obs && !s.angulo && !s.drive && !s.linkRef && !s.formato && !String(s.responsavelManual || '').trim()
+    && !temTempo(s);
+  const sai = new Set(db.slots.filter(s => s.cpTarefa === tf.id && s.date && vazio(s)).map(s => s.id));
   if (sai.size) db.slots = db.slots.filter(s => !sai.has(s.id));
   return sai.size;
 }
@@ -384,6 +425,7 @@ const rotaTempo = require('./lib/tempo.js')({ db, saveDb, readBody, json, equipe
 const mzCheio = (m, s) => !!(s && s.banco) || (!!m && mzDe(s).OBRIGATORIOS.every(k => String(m[k] || '').trim()));
 const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, undoSlots, tempo: rotaTempo,
   criaCards: criaCardsMatriz, limpaCards: limpaCardsMatriz, mzCheio,
+  criaPosts: criaPostsCopy, limpaPosts: limpaPostsCopy,   // v4.00: a tarefa de copy cria os posts DD_MM
   abasMatriz: MZS.ABAS });   // v3.91: SeuBoné e Weevo
 // v3.81: MKT Hub (leitura; chave só na variável MKH_CHAVE). Sem chave, fica desligado.
 const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/docs.js').limpaHtml });
