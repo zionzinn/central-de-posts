@@ -68,12 +68,12 @@ function tfItensPrevia(tipo, aba, de, ate) {
 }
 /** A matriz está preenchida (os 7 campos) ou a copy está pronta pra mandar (documento com texto)? */
 function tfPronto(s, t) {
-  if (t.tipo === 'matriz') return !!(s.matrizSB && mzProgresso(s.matrizSB, mzContaDe(s)).cheio);
+  if (t.tipo === 'matriz') return !!s.banco || !!(s.matrizSB && mzProgresso(s.matrizSB, mzContaDe(s)).cheio);   // v3.96: material do banco resolve o card
   const d = TF.det && TF.det.docs ? TF.det.docs[s.id] : null;
   return !!(d && d.palavras >= 15);
 }
 function tfEstado(s, t) {
-  if (t.tipo === 'matriz') return tfPronto(s, t) ? { cod: 'feita', rot: 'preenchida', cor: 'var(--green)' } : { cod: 'fazer', rot: 'a preencher', cor: 'var(--gray)' };   // v3.88
+  if (t.tipo === 'matriz') return s.banco ? { cod: 'feita', rot: 'do banco', cor: 'var(--indigo)' } : tfPronto(s, t) ? { cod: 'feita', rot: 'preenchida', cor: 'var(--green)' } : { cod: 'fazer', rot: 'a preencher', cor: 'var(--gray)' };   // v3.88; v3.96: do banco
   const a = tfAprov(s, tfK(t));
   if (a && a.st === 'aprovado') return { cod: 'aprovado', rot: 'aprovada', cor: 'var(--green)' };
   if (a && a.st === 'enviado') return { cod: 'enviado', rot: 'em aprovação', cor: 'var(--orange)' };

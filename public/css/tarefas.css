@@ -52,6 +52,8 @@ html[data-modo="claro"]{--tp-m:#B38200; --tp-c:#0088FF}
 /* ---------- card da matriz: relógio e aviso da aprovação ---------- */
 .mzacoes{position:absolute; right:52px; top:16px; display:flex; align-items:center; gap:10px}
 .mzacoes .mbtn.mzcopytop{position:static}
+/* v3.96: com o "Do banco" a fileira ficou maior: na tela estreita ela desce pra baixo do título em vez de cobrir */
+@media (max-width:900px){ .mzhead .mzacoes{position:static; margin-top:12px; flex-wrap:wrap; gap:8px} }
 .mzrelw{display:flex; align-items:center; gap:8px}
 .mzrelw .nf{font-size:16px; font-weight:650}
 .mzrelw .rl-btn{--rl-t:32px}

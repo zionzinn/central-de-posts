@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.95'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.96'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -369,7 +369,7 @@ const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo
 // v3.80: tarefas da copywriter (matriz e copy por empresa, com aprovação post a post) e o relógio delas
 const rotaTempo = require('./lib/tempo.js')({ db, saveDb, readBody, json, equipe: () => AUTH.ligado() ? AUTH.usuarios().map(u => u.nome) : [] });
 const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, undoSlots, tempo: rotaTempo,
-  criaCards: criaCardsMatriz, limpaCards: limpaCardsMatriz, mzCheio: (m, s) => !!m && mzDe(s).OBRIGATORIOS.every(k => String(m[k] || '').trim()),   // v3.88
+  criaCards: criaCardsMatriz, limpaCards: limpaCardsMatriz, mzCheio: (m, s) => !!(s && s.banco) || (!!m && mzDe(s).OBRIGATORIOS.every(k => String(m[k] || '').trim())),   // v3.88; v3.96: com material do banco, o card está resolvido
   abasMatriz: MZS.ABAS });   // v3.91: SeuBoné e Weevo
 // v3.81: MKT Hub (leitura; chave só na variável MKH_CHAVE). Sem chave, fica desligado.
 const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/docs.js').limpaHtml });
@@ -956,6 +956,8 @@ limpezaV377();                                    // v3.77 (dados antigos): cat�
 rotaBanco.migra(backupAgora, m => console.log(m)); // v3.83: o banco antigo sai (guardado 30 dias em removidosV383)
 limpezaV388();                                    // v3.88: fluxo novo da copywriter (cards vazios e o que sai de 01/10 em diante)
 limpezaV395();                                    // v3.95: saem as tasks de Vídeo fábrica (e a versão comercial)
+// v3.96: itens do banco sem título com link do Drive ganham o nome do arquivo (uma vez só, em segundo plano)
+setTimeout(() => rotaBanco.nomesDoDrive(backupAgora, m => console.log(m)).catch(e => console.log('[v3.96] nome do Drive falhou:', e.message)), +process.env.BANCO_NOMES_MS || 8000);
 
 server.listen(PORT, () => {
   console.log('');

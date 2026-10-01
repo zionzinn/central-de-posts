@@ -1253,3 +1253,86 @@ main{padding-bottom:84px}
 .mzqd{font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); background:color-mix(in srgb, var(--mint) 20%, transparent); border-radius:999px; padding:0 6px; line-height:16px; margin:0 4px 0 -1px; align-self:center}
 .mzsug.on .mzqd{color:#000; background:rgba(0,0,0,.12)}
 .mzpede .mznota{color:var(--ink-2)}
+
+/* ---- v3.96: post do BANCO (o card do dia ganhou um material do banco: corte, depoimento, Drive; a copy é opcional).
+   Índigo e de borda cheia: já tem o material, falta só a task de produção. ---- */
+.card.bco{--cc:var(--indigo); background:color-mix(in srgb, var(--indigo) 9%, var(--cell)); border:1px solid color-mix(in srgb, var(--indigo) 45%, transparent); padding:6px 8px 7px}
+html[data-modo="claro"] .card.bco{background:color-mix(in srgb, var(--indigo) 6%, var(--cell)); border-color:color-mix(in srgb, var(--indigo) 50%, transparent)}
+.card.bco:hover{border-color:var(--indigo)}
+.card.bco::before{display:none}
+.card.bco .bcoband{display:flex; align-items:center; gap:5px; margin:0 0 3px; font-size:10.5px; font-weight:600; color:var(--indigo); line-height:1.3; min-width:0}
+.card.bco .bcolbl{flex:none; display:inline-flex; align-items:center; gap:3px}
+.card.bco .bcolbl .ic{width:11px; height:11px}
+.card.bco .bcotipo{font-weight:500; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0}
+.card.bco .bcotipo::before{content:"·"; margin-right:4px; font-weight:600}
+.card.bco .mzstar{margin-left:auto; display:inline-flex; flex:none}
+.card.bco .mzstar .ic{width:11px; height:11px; fill:var(--sb-ink); stroke:var(--sb-ink); stroke-width:1}
+.card.bco .tit{color:var(--ink); font-weight:600; -webkit-line-clamp:3}
+.card.bco .meta{margin-top:6px}
+.card.bco .qdel{top:4px}
+.lgb.lgbk{--stc:var(--indigo)}
+.lgb.lgbk i{background:transparent; border:1.5px solid var(--indigo)}
+.mk.t-bco{color:var(--indigo)}
+/* botão "Do banco" no card do dia, ao lado do "Escrever a copy" */
+.mbtn.mzbancobt{background:color-mix(in srgb, var(--indigo) 18%, transparent); color:var(--ink); font-weight:600; box-shadow:var(--hard-s)}
+.mbtn.mzbancobt:hover{background:color-mix(in srgb, var(--indigo) 28%, transparent)}
+.mbtn.mzbancobt .ic{color:var(--indigo)}
+/* a faixa do material escolhido, embaixo do título do card do dia */
+.mzbco{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:12px; padding:10px 12px; max-width:720px; border-radius:12px;
+  background:color-mix(in srgb, var(--indigo) 12%, var(--elev)); border:1px solid color-mix(in srgb, var(--indigo) 38%, transparent)}
+.mzbco-ic{width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--indigo); color:#fff; flex:none}
+.mzbco-ic .ic{width:18px; height:18px}
+.mzbco-txt{display:flex; flex-direction:column; gap:1px; min-width:0; flex:1 1 220px}
+.mzbco-txt b{font-size:11.5px; font-weight:650; color:var(--indigo)}
+html[data-modo="claro"] .mzbco-txt b{color:color-mix(in srgb, var(--indigo) 82%, #000)}
+.mzbco-txt span{font-size:14px; font-weight:550; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.mzbco-txt small{font-size:11.5px; color:var(--ink-3)}
+.mzbco-acoes{position:relative; display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.mzbco-acoes .mbtn{min-height:28px; padding:0 11px; font-size:12px}
+.mzbco-acoes .mbtn:not(.primary){background:var(--elev)}
+.mzbco-acoes .mbtn:not(.primary):hover{background:var(--fill-2)}
+/* a lista do banco ("Do banco" e "Trocar"): fundo sólido, por seção, com busca quando tem muitos */
+.bkpick{position:absolute; z-index:80; top:calc(100% + 6px); right:0; width:min(340px, calc(100vw - 32px)); max-height:min(400px, 62vh); display:flex; flex-direction:column;
+  background:var(--elev-2); border:1px solid var(--glass-borda); border-radius:14px; box-shadow:var(--hard), inset 0 1px 0 var(--glass-luz); padding:6px; text-align:left;
+  animation:menuin .16s cubic-bezier(.2,.8,.2,1) both; transform-origin:top right}
+html[data-modo="claro"] .bkpick{background:var(--elev)}
+.bkpick.acima{top:auto; bottom:calc(100% + 6px); transform-origin:bottom right}
+.bkpick.esq{right:auto; left:0; transform-origin:top left}
+.bkpick.esq.acima{transform-origin:bottom left}
+.bkancora{position:relative; display:inline-flex; min-width:0}
+.bkancora .mzbancobt{max-width:300px}
+.bkb-t{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.bkpick .bkpick-tira{flex-direction:row; align-items:center; gap:7px; margin-top:4px; border-top:1px solid var(--hair); border-radius:0 0 8px 8px; color:var(--ink-2)}
+.bkpick .bkpick-tira .ic{width:13px; height:13px}
+.bkpick .bkpick-busca{margin:2px 2px 6px; padding:8px 10px; font-size:13px; font-family:inherit; border:0; border-radius:8px; background:var(--fill-3); color:var(--ink)}
+.bkpick .bkpick-busca:focus{outline:none; box-shadow:0 0 0 3px color-mix(in srgb, var(--indigo) 40%, transparent)}
+.bkpick-lista{overflow:auto; display:flex; flex-direction:column; gap:1px; min-height:0}
+.bkpick-sec{display:flex; align-items:center; gap:6px; font-size:11px; font-weight:650; color:var(--ink-3); padding:8px 9px 3px}
+.bkpick-sec .ic{width:13px; height:13px}
+.bkpick [role=option]{display:flex; flex-direction:column; align-items:flex-start; gap:1px; width:100%; text-align:left; border:0; border-radius:8px; padding:7px 9px;
+  background:transparent; color:var(--ink); font-family:inherit; cursor:pointer}
+.bkpick [role=option]:is(:hover,:focus-visible){background:color-mix(in srgb, var(--indigo) 18%, transparent); outline:none}
+.bkpick [role=option][aria-selected=true]{background:color-mix(in srgb, var(--indigo) 26%, transparent)}
+.bkpick-t{font-size:13px; font-weight:550; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.bkpick-o{font-size:11px; color:var(--ink-3)}
+.bkpick-vazio{font-size:12.5px; line-height:1.45; color:var(--ink-2); padding:10px; max-width:42ch}
+/* gaveta do banco: "2x usado" abre a lista de onde o item virou post */
+button.usochip{cursor:pointer; font-family:inherit; line-height:1.5}
+button.usochip:hover{filter:brightness(1.06)}
+button.usochip[aria-expanded=true]{box-shadow:0 0 0 2px color-mix(in srgb, var(--sb) 45%, transparent)}
+.bk-onde{display:flex; flex-direction:column; gap:1px; margin-top:6px; padding:4px; border-radius:8px; background:var(--elev)}
+.bk-onde button{display:flex; align-items:center; gap:6px; border:0; border-radius:6px; padding:4px 6px; background:transparent; color:var(--ink); font-size:11.5px; font-family:inherit; text-align:left; cursor:pointer}
+.bk-onde button:hover{background:var(--fill-3)}
+.bk-onde .ic{width:12px; height:12px; flex:none; color:var(--ink-3)}
+.bk-ondev{display:flex; align-items:center; gap:6px; padding:3px 6px; font-size:11px; color:var(--ink-3)}
+/* v3.96: uso anotado à mão (só ADMIN): quantas vezes e o último uso, na mesma linha */
+.refform .bk-uso{align-items:center; flex-wrap:wrap; gap:6px 10px; font-size:12px; color:var(--ink-2)}
+.refform .bk-uso label{display:inline-flex; align-items:center; gap:6px; white-space:nowrap}
+.refform .bk-uso input{flex:none; padding:6px 8px; font-size:12.5px; font-variant-numeric:tabular-nums}
+.refform .bk-uso .bkN{width:58px}
+.refform .bk-uso .bkD{width:auto; min-width:0}
+.refform .bk-uso .rfcancel{margin-left:auto}
+.refform .bk-mais.carregando{opacity:.6; cursor:progress}
+.refform .bk-mais.carregando .ic{animation:bkgira .9s linear infinite}
+@keyframes bkgira{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){ .refform .bk-mais.carregando .ic{animation:none} }

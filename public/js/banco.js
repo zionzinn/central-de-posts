@@ -8,17 +8,29 @@
 // + um texto. Arrastar pro dia cria o post com o link (no campo Drive / referência). Reutilizar sai do banco ao virar
 // post; Drive, Referência e Cortes ficam (contam o uso) e saem no Concluído. No fim, "Sem dia": posts tirados do
 // calendário (só aparece quando tem). Servidor em lib/banco.js.
+// v3.96: o link do Drive já vem com o nome do arquivo e só o ADMIN escreve outro título; o ADMIN também anota à mão
+// quantas vezes o item foi usado e o último uso (os dois opcionais). Depoimentos da Weevo em Workshop e Imersão.
 const BANCO_SEC = {
   reutilizar: { nome:'Reutilizar', icone:'refresh', fica:false, padrao:'Post pra refazer', phUrl:'link do post antigo (Instagram, TikTok…)', phTit:'o que refazer (opcional)',
     vazio:'Guarde posts antigos que dá pra refazer. Arrastou pro dia, vira post e sai daqui.' },
-  drive: { nome:'Drive de conteúdos', icone:'folder', fica:true, padrao:'Conteúdo do Drive', phUrl:'link do Drive', phTit:'o que é (obrigatório)',
+  drive: { nome:'Drive de conteúdos', icone:'folder', fica:true, padrao:'Conteúdo do Drive', phUrl:'link do Drive', phTit:'título (vazio: o nome do arquivo no Drive)',
     vazio:'Guarde os links do Drive com o que é cada um. Arraste pro dia quantas vezes precisar; sai daqui no Concluído.' },
   referencia: { nome:'Referência de posts', icone:'bookmark', fica:true, padrao:'Referência', phUrl:'link do post (Instagram, TikTok, YouTube…)', phTit:'nota: por que é boa (opcional)',
     vazio:'Guarde posts que inspiram, de qualquer rede. Arraste pro dia pra virar post; sai daqui no Concluído.' },
-  cortes: { nome:'Cortes de podcasts', icone:'mic', fica:true, padrao:'Corte de podcast', phUrl:'link do corte (Drive ou outro site)', phTit:'título do corte (opcional)',
+  cortes: { nome:'Cortes de podcasts', icone:'mic', fica:true, padrao:'Corte de podcast', phUrl:'link do corte (Drive ou outro site)', phTit:'título (vazio: o nome do arquivo no Drive)',
     vazio:'Guarde os cortes prontos (link do Drive ou de outro site). Arraste pro dia; sai daqui no Concluído.' },
+  // v3.96 (pedido do Zion): depoimentos de clientes e alunos. Fica no banco e mostra quantas vezes e onde foi usado.
+  depoimentos: { nome:'Depoimentos', icone:'msg', fica:true, padrao:'Depoimento', phUrl:'link do depoimento (Drive, Instagram, YouTube…)', phTit:'de quem é e sobre o quê (vazio: o nome no Drive)',
+    vazio:'Guarde os depoimentos de clientes e alunos. Arraste pro dia ou use "Do banco" no card do dia; fica aqui e mostra onde já foi usado.' },
+  // v3.96 (pedido do Zion): na Weevo, os depoimentos separados em Workshop e Imersão
+  'depoimentos-workshop': { nome:'Depoimentos · Workshop', icone:'msg', fica:true, padrao:'Depoimento do Workshop', phUrl:'link do depoimento do Workshop', phTit:'de quem é e sobre o quê (vazio: o nome no Drive)',
+    vazio:'Depoimentos de quem fez o Workshop. Arraste pro dia ou use "Do banco" no card do dia; fica aqui e mostra onde já foi usado.' },
+  'depoimentos-imersao': { nome:'Depoimentos · Imersão', icone:'msg', fica:true, padrao:'Depoimento da Imersão', phUrl:'link do depoimento da Imersão', phTit:'de quem é e sobre o quê (vazio: o nome no Drive)',
+    vazio:'Depoimentos de quem fez a Imersão. Arraste pro dia ou use "Do banco" no card do dia; fica aqui e mostra onde já foi usado.' },
 };
-const BANCO_ABA = { 'SEUBONÉ':['reutilizar','drive','referencia'], 'CARBONE':['cortes','drive','referencia'], 'WEEVO':['cortes','drive','referencia'], 'ONEVO':['drive','referencia'] };
+// v3.96: o que pode ser o material de um post pelo "Do banco" (Referência é inspiração, não material)
+const BANCO_MATERIAL = ['cortes','depoimentos','depoimentos-workshop','depoimentos-imersao','reutilizar','drive'];
+const BANCO_ABA = { 'SEUBONÉ':['reutilizar','drive','referencia'], 'CARBONE':['cortes','depoimentos','drive','referencia'], 'WEEVO':['cortes','depoimentos-workshop','depoimentos-imersao','drive','referencia'], 'ONEVO':['drive','referencia'] };
 function bancoSecoes(aba){ return BANCO_ABA[aba] || ['drive','referencia']; }
 /** De onde é o link: ícone genérico (sem logo de marca), o nome da rede e o resto do endereço (no Drive, o tipo). */
 function bancoOrigem(url){
@@ -49,8 +61,9 @@ function bancoItemEl(it){
   d.innerHTML =
     '<div class="ic-wrap">'+icon(o.icone)+'</div>'+
     '<div class="rb"><div class="rn">'+esc(it.titulo || sec.padrao)+'</div>'+
-      '<div class="ru"><b>'+esc(o.nome)+'</b>'+(o.resto ? ' · '+esc(o.resto) : '')+'</div>'+
-      (sec.fica && it.usos ? '<span class="usochip" title="Já virou post '+it.usos+' vez'+(it.usos>1?'es':'')+'">'+it.usos+'x usado</span>' : '')+'</div>'+
+      '<div class="ru"><b>'+esc(o.nome)+'</b>'+(it.tituloDrive && it.tituloDrive !== it.titulo ? ' · '+esc(it.tituloDrive) : o.resto ? ' · '+esc(o.resto) : '')+'</div>'+
+      (sec.fica && (it.usos || it.usadoDia) ? '<button type="button" class="usochip" data-a="onde" aria-expanded="'+(S.bancoOnde===it.id)+'" title="'+esc(bancoUsoTitulo(it))+': clique pra ver onde">'+esc(bancoUsoTxt(it))+'</button>' : '')+
+      (S.bancoOnde===it.id ? bancoOndeHtml(it) : '')+'</div>'+
     '<div class="ra">'+
       '<a href="'+esc(it.url)+'" target="_blank" rel="noopener" title="Abrir o link" aria-label="Abrir o link">'+icon('external','s')+'</a>'+
       '<button data-a="edit" title="Editar" aria-label="Editar">'+icon('pencil','s')+'</button>'+
@@ -64,53 +77,101 @@ function bancoItemEl(it){
     const f = document.querySelector('#drBody .refform[data-sec="'+it.sec+'"] .bkU'); if(f){ f.focus(); f.select(); }
   };
   d.querySelector('[data-a=tira]').onclick = ()=> bancoTirar(it);
+  const on = d.querySelector('[data-a=onde]');
+  if(on){ on.onclick = ev=>{ ev.stopPropagation(); S.bancoOnde = S.bancoOnde===it.id ? null : it.id; renderDrawer(); }; on.draggable = false; }
+  d.querySelectorAll('[data-onde]').forEach(b=> b.onclick = ev=>{ ev.stopPropagation(); irParaPost(b.dataset.onde); });
   return d;
+}
+/** v3.96: onde o item já virou post (o mais novo primeiro). Clique leva até o post, que pisca. */
+function bancoOndeHtml(it){
+  const l = it.onde || [], semReg = Math.max(0, (it.usos || 0) - l.length);
+  const mao = semReg || it.usadoDia
+    ? '<span class="bk-ondev" title="Uso anotado à mão pelo ADMIN, ou de antes da v3.96 (sem o registro do post)">'+icon('pencil')+
+        (semReg ? semReg+' uso'+(semReg>1?'s':'')+' sem o post registrado' : 'anotado à mão')+(it.usadoDia ? ' · último uso '+brData(it.usadoDia)+'/'+it.usadoDia.slice(2,4) : '')+'</span>'
+    : '';
+  if(!l.length) return '<div class="bk-onde">'+mao+'</div>';
+  return '<div class="bk-onde">'+l.map(o=>{
+    const s = S.slots.find(x=>x.id===o.slot), d = (s && s.date) || o.date;
+    const rot = (d ? tfDia(d) : 'sem dia')+' · '+esc(contaCurta(s ? s.conta : o.conta));
+    return s ? '<button type="button" data-onde="'+esc(o.slot)+'" title="Ver esse post no calendário">'+icon('calendar')+rot+'</button>'
+             : '<span class="bk-ondev" title="Esse post foi excluído ou mudou de empresa">'+icon('calendar')+rot+' · post excluído</span>';
+  }).join('')+mao+'</div>';
+}
+/** v3.96: o último uso: o mais recente entre o dia anotado à mão e o dia dos posts registrados ('' se não tem). */
+function bancoUltimoUso(it){
+  return [it.usadoDia || ''].concat((it.onde || []).map(o=>{ const s = S.slots.find(x=>x.id===o.slot); return (s && s.date) || o.date || ''; }))
+    .filter(Boolean).sort().pop() || '';
+}
+/** v3.96: o texto do chip ("3x usado · 12/09") e a dica dele. */
+function bancoUsoTxt(it){ const u = bancoUltimoUso(it); return (it.usos ? it.usos+'x usado' : 'usado')+(u ? ' · '+brData(u) : ''); }
+function bancoUsoTitulo(it){
+  const u = bancoUltimoUso(it);
+  return (it.usos ? 'Usado '+it.usos+' vez'+(it.usos>1?'es':'') : 'Já foi usado')+(u ? ', o último em '+brData(u)+'/'+u.slice(0,4) : '');
+}
+/** v3.96: os materiais da empresa pro "Do banco" do card do dia (cortes, depoimentos, Reutilizar e Drive). */
+function bancoMateriais(aba){
+  const secs = bancoSecoes(aba).filter(k=>BANCO_MATERIAL.includes(k));
+  return secs.map(k=>({ sec:k, itens:(S.banco||[]).filter(x=>x.aba===aba && x.sec===k) })).filter(g=>g.itens.length);
 }
 /** Link + texto de uma seção. Enter guarda; editando, Esc cancela. */
 function bancoForm(sk){
   const sec = BANCO_SEC[sk];
   const ed = S.bancoEdit ? (S.banco||[]).find(x=>x.id===S.bancoEdit && x.sec===sk && x.aba===S.aba) : null;
+  const adm = souAdmin(), comUso = adm && sec.fica;            // v3.96: título e uso à mão só pro ADMIN
   const f = document.createElement('div'); f.className = 'refform'; f.dataset.sec = sk;
   f.innerHTML =
     '<div class="bk-add"><input class="bkU" placeholder="'+esc(sec.phUrl)+'" autocomplete="off" inputmode="url" aria-label="Link pra guardar em '+esc(sec.nome)+'">'+
       '<button class="bk-mais" title="'+(ed ? 'Salvar a edição (Enter)' : 'Guardar (Enter)')+'" aria-label="'+(ed ? 'Salvar a edição' : 'Guardar')+'">'+icon(ed ? 'check' : 'plus')+'</button></div>'+
-    '<div class="bk-add bkT-linha"'+(ed ? '' : ' hidden')+'><input class="bkT" placeholder="'+esc(sec.phTit)+'" maxlength="140" autocomplete="off" aria-label="'+(sk==='drive'?'O que é':'Texto')+'">'+
-      (ed ? '<button class="rfcancel">cancelar</button>' : '')+'</div>';
-  const iu = f.querySelector('.bkU'), itx = f.querySelector('.bkT'), linha = f.querySelector('.bkT-linha');
-  if(ed){ iu.value = ed.url; itx.value = ed.titulo || ''; }
-  const salvar = ()=> bancoSalvar(sk, iu, itx, ed);
+    (adm ? '<div class="bk-add bkT-linha"'+(ed ? '' : ' hidden')+'><input class="bkT" placeholder="'+esc(sec.phTit)+'" maxlength="140" autocomplete="off" aria-label="Título">'+
+      (ed && !comUso ? '<button class="rfcancel">cancelar</button>' : '')+'</div>' : '')+
+    (comUso ? '<div class="bk-add bk-uso"'+(ed ? '' : ' hidden')+'>'+
+      '<label title="Quantas vezes já foi usado, contando fora do painel (opcional; o painel soma quando vira post)">usado <input class="bkN" type="number" min="0" max="999" step="1" inputmode="numeric" placeholder="0" aria-label="Quantas vezes já foi usado"> vezes</label>'+
+      '<label title="O dia do último uso (opcional)">último <input class="bkD" type="date" aria-label="Dia do último uso"></label>'+
+      (ed ? '<button class="rfcancel">cancelar</button>' : '')+'</div>' : '')+
+    (ed && !adm ? '<div class="bk-add"><button class="rfcancel">cancelar</button></div>' : '');
+  const iu = f.querySelector('.bkU'), itx = f.querySelector('.bkT'), inN = f.querySelector('.bkN'), inD = f.querySelector('.bkD');
+  const linhas = [...f.querySelectorAll('.bkT-linha, .bk-uso')];
+  if(ed){ iu.value = ed.url; if(itx) itx.value = ed.titulo || ''; if(inN) inN.value = ed.usos || ''; if(inD) inD.value = ed.usadoDia || ''; }
+  const salvar = ()=> bancoSalvar(sk, { iu, itx, inN, inD, bt: f.querySelector('.bk-mais') }, ed);
   f.querySelector('.bk-mais').onclick = salvar;
-  // o campo do texto aparece quando já tem link (o formulário vazio ocupa 1 linha só)
-  iu.addEventListener('input', ()=>{ if(!ed) linha.hidden = !iu.value.trim(); });
-  iu.addEventListener('keydown', ev=>{
-    if(ev.key==='Enter'){ ev.preventDefault(); if(sk==='drive' && !itx.value.trim() && iu.value.trim()){ linha.hidden = false; itx.focus(); } else salvar(); }
-    else if(ev.key==='Escape' && ed){ ev.stopPropagation(); S.bancoEdit = null; renderDrawer(); }
-  });
-  itx.addEventListener('keydown', ev=>{
+  // os campos do ADMIN aparecem quando já tem link (o formulário vazio ocupa 1 linha só)
+  iu.addEventListener('input', ()=>{ if(!ed) linhas.forEach(l=> l.hidden = !iu.value.trim()); });
+  f.querySelectorAll('input').forEach(inp=> inp.addEventListener('keydown', ev=>{
     if(ev.key==='Enter'){ ev.preventDefault(); salvar(); }
     else if(ev.key==='Escape' && ed){ ev.stopPropagation(); S.bancoEdit = null; renderDrawer(); }
-  });
-  const c = f.querySelector('.rfcancel'); if(c) c.onclick = ()=>{ S.bancoEdit = null; renderDrawer(); };
+  }));
+  f.querySelectorAll('.rfcancel').forEach(c=> c.onclick = ()=>{ S.bancoEdit = null; renderDrawer(); });
   return f;
 }
-async function bancoSalvar(sk, iu, itx, ed){
-  const url = iu.value.trim(), titulo = itx.value.trim();
-  if(!/^https?:\/\/\S+$/i.test(url)){ toast('Cole o link completo (começa com https://)', true); iu.focus(); return; }
-  if(sk==='drive' && !titulo){ toast('Diga o que é esse conteúdo do Drive', true); itx.closest('.bkT-linha').hidden = false; itx.focus(); return; }
+/** v3.96: o motivo de o link do Drive não ter vindo com o nome do arquivo, pra pessoa saber o que fazer. */
+function bancoMotivoDrive(m){
+  return m==='restrito' ? 'o link do Drive está restrito (pra puxar o nome, ele precisa estar como "Qualquer pessoa com o link")'
+    : m==='nao-achou' ? 'o Drive não achou esse arquivo' : 'o Drive não respondeu a tempo';
+}
+async function bancoSalvar(sk, c, ed){
+  const url = c.iu.value.trim();
+  if(!/^https?:\/\/\S+$/i.test(url)){ toast('Cole o link completo (começa com https://)', true); c.iu.focus(); return; }
+  if(c.bt.disabled) return;
+  // v3.96: só o ADMIN manda título e uso à mão (o servidor confere); sem título, o link do Drive vem com o nome do arquivo
+  // só vai o que mudou no lápis (outra pessoa pode ter usado o item enquanto o formulário estava aberto)
+  const corpo = { url }, antes = (k, v) => String(ed ? (ed[k] || '') : '') !== v;
+  if(c.itx && antes('titulo', c.itx.value.trim())) corpo.titulo = c.itx.value.trim();
+  if(c.inN && antes('usos', c.inN.value.trim())) corpo.usos = c.inN.value.trim();
+  if(c.inD && antes('usadoDia', c.inD.value)) corpo.usadoDia = c.inD.value;
+  c.bt.disabled = true; c.bt.classList.add('carregando');
   try{
-    if(ed){
-      const r = await api('/api/banco/'+ed.id, {method:'PATCH', body:JSON.stringify({url, titulo})});
-      const i = S.banco.findIndex(x=>x.id===ed.id); if(i>=0) S.banco[i] = r.item;
-      S.bancoEdit = null; renderDrawer();
-      toast('Atualizado · Ctrl+Z desfaz');
-    } else {
-      const r = await api('/api/banco', {method:'POST', body:JSON.stringify({aba:S.aba, sec:sk, url, titulo})});
-      S.banco = [r.item].concat(S.banco||[]);
-      renderDrawer();
-      toast('Guardado em '+BANCO_SEC[sk].nome+' · Ctrl+Z desfaz');
-      const nf = document.querySelector('#drBody .refform[data-sec="'+sk+'"] .bkU'); if(nf) nf.focus();
-    }
+    const r = ed ? await api('/api/banco/'+ed.id, {method:'PATCH', body:JSON.stringify(corpo)})
+                 : await api('/api/banco', {method:'POST', body:JSON.stringify(Object.assign({aba:S.aba, sec:sk}, corpo))});
+    if(ed){ const i = S.banco.findIndex(x=>x.id===ed.id); if(i>=0) S.banco[i] = r.item; S.bancoEdit = null; }
+    else S.banco = [r.item].concat(S.banco||[]);
+    renderDrawer();
+    const d = r.drive;
+    if(d && d.ok) toast((ed ? 'Atualizado' : 'Guardado')+' com o nome do Drive: "'+r.item.titulo+'" · Ctrl+Z desfaz', false, 4200);
+    else if(d) toast((ed ? 'Atualizado' : 'Guardado')+' sem o nome: '+bancoMotivoDrive(d.motivo)+(souAdmin() ? '. Dá pra escrever o título no lápis.' : '. Um ADMIN pode dar o título.'), false, 7000);
+    else toast((ed ? 'Atualizado' : 'Guardado em '+BANCO_SEC[sk].nome)+' · Ctrl+Z desfaz');
+    if(!ed){ const nf = document.querySelector('#drBody .refform[data-sec="'+sk+'"] .bkU'); if(nf) nf.focus(); }
   }catch(e){ toast(e.message, true); }
+  finally{ if(c.bt.isConnected){ c.bt.disabled = false; c.bt.classList.remove('carregando'); } }
 }
 async function bancoTirar(it){
   try{

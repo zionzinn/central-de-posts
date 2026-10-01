@@ -257,8 +257,10 @@
     <div class="tf-aviso" id="mzAprov" hidden></div>
     <div class="mzacoes">
       <div class="mzrelw"><span class="nf" id="mzRelNf" role="timer" hidden></span><button class="rl-btn" id="mzRel"></button></div>
+      <button class="mbtn mzbancobt" id="mzBancoBtn" aria-haspopup="listbox" aria-expanded="false" data-tip="Usar um material do banco (corte, depoimento, Drive) no lugar de escrever a copy"></button>
       <button class="mbtn mzcopy mzcopytop" id="mzCopyTop" data-tip="Salvar a matriz e abrir o documento da copy deste post"></button>
     </div>
+    <div class="mzbco" id="mzBanco" hidden></div>
   </div>
   <div class="mzprogw"><div class="mzprogbar"><i id="mzProgBar"></i></div><span id="mzProgTxt"></span><span data-ib="progresso"></span></div>
   <div class="mbody mzbody">
@@ -413,7 +415,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.95'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.96'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -612,6 +614,10 @@ function isSugestao(s){ return !!s.sugestao && !s.taskId; }
 function isMatriz(s){ return !!s.matrizSB && !s.taskId; }
 /** v3.89: card de COPY: o post tem documento e ainda não tem task de produção (o card da matriz vira o da copy). */
 function isCopy(s){ return !!s.docId && !s.taskId && !s.postado && !isVaga(s) && !isSugestao(s); }
+/** v3.96: post do BANCO: o card do dia ganhou um material do banco ("Do banco") e ainda não tem copy nem task. */
+function isBanco(s){ return !!s.banco && !s.taskId && !s.postado && !isCopy(s) && !isVaga(s) && !isSugestao(s); }
+function bancoNomeSec(sec){ return ((typeof BANCO_SEC !== 'undefined' && BANCO_SEC[sec]) || {}).padrao || 'Banco'; }
+function bancoIcone(sec){ return ((typeof BANCO_SEC !== 'undefined' && BANCO_SEC[sec]) || {}).icone || 'box'; }
 /** v3.89: estado da copy do post (a aprovação é aqui no B.O.N.E). */
 function copyEstado(s){
   const a = s.aprov && s.aprov.c;
@@ -651,6 +657,7 @@ function stInfo(s){
   if(isVaga(s)) return {label:'falta criar', color:'#FF4D4D'};
   if(isSugestao(s)) return {label:'sugestão', color:'#C77DFF'};
   if(isCopy(s)){ const c = copyEstado(s); return {label:'copy '+c.rot, color:{aprovado:'#30D158', enviado:'#FF9230', alterar:'#FF4245', escrevendo:'#0091FF'}[c.cod]}; }   // v3.89
+  if(isBanco(s)) return {label:'do banco', color:'#6D7CFF'};                              // v3.96
   if(isMatriz(s)){ const st = mzStatus(s); return {label:st.toLowerCase(), color:MZ_ST_COR[st]||'#8C897C'}; }
   if(s.postado) return {label:'postado', color:'#2FD06A'};
   if(s.statusCache){
@@ -818,12 +825,13 @@ function passaFiltro(s){
   if(f==='semtask') return !s.taskId;
   if(f==='contadiv') return !!contaDivergente(s);
   if(f==='vagas') return isVaga(s);
-  if(f==='matriz') return isMatriz(s) && !isCopy(s);
+  if(f==='matriz') return isMatriz(s) && !isCopy(s) && !isBanco(s);
   if(f==='copy') return isCopy(s);                    // v3.89
+  if(f==='banco') return isBanco(s);                  // v3.96
   if(f==='sugestoes') return isSugestao(s);
   if(f==='atrasados') return !s.postado && !!s.date && s.date < hojeStr();
   const fb = FILTRO_ALIAS[f] || f;
-  if(BUCKETS[fb]) return !isMatriz(s) && !isCopy(s) && !isVaga(s) && !isSugestao(s) && stBucket(s)===fb;
+  if(BUCKETS[fb]) return !isMatriz(s) && !isCopy(s) && !isBanco(s) && !isVaga(s) && !isSugestao(s) && stBucket(s)===fb;
   return !s.postado && (FILTRO_GRUPOS[f]||[]).includes(st);
 }
 // filtros antigos que viraram os grupos do card (v3.65)
@@ -1031,7 +1039,7 @@ function renderLegend(){
   fs.className = 'filtro' + (S.filtro!=='todos' ? ' on' : '');
   [['todos','Todos os posts'],['atrasados','Atrasados'],['afazer','A fazer'],
    ['producao','Em produção'],['alterar','Alterar'],['aprovar','Pra aprovar'],['pronto','Prontos (publicar)'],
-   ['postados','Postados'],['semtask','Sem task'],['contadiv','Conta divergente'],['vagas','Falta criar'],['matriz','Matriz (amarelos)'],['copy','Copy (azuis)'],['sugestoes','Sugestões da pauta']]
+   ['postados','Postados'],['semtask','Sem task'],['contadiv','Conta divergente'],['vagas','Falta criar'],['matriz','Matriz (amarelos)'],['copy','Copy (azuis)'],['banco','Do banco'],['sugestoes','Sugestões da pauta']]
     .forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; fs.appendChild(o); });
   fs.value = S.filtro;
   fs.onchange = ()=>{ S.filtro = fs.value; render(); };
@@ -1058,11 +1066,12 @@ function cardEl(s){
   const vaga = isVaga(s);
   const sug = isSugestao(s);
   const cp = isCopy(s);                    // v3.89: o post já tem a copy (documento): o card da matriz vira o da copy
-  const mz = isMatriz(s) && !cp;
+  const bco = isBanco(s);                  // v3.96: o card do dia ganhou um material do banco (copy opcional)
+  const mz = isMatriz(s) && !cp && !bco;
   const bk = BUCKETS[stBucket(s)];
-  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(vaga?' vaga':'')+(sug?' sugestao':'')+(mz?' mz':'')+(cp?' cp':'')+(multi?' temconta':'');
+  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(vaga?' vaga':'')+(sug?' sugestao':'')+(mz?' mz':'')+(cp?' cp':'')+(bco?' bco':'')+(multi?' temconta':'');
   if(multi) d.style.setProperty('--corconta', cor);
-  if(!mz && !cp && !vaga && !sug) d.style.setProperty('--cc', bk.cor);   // v3.75: fundo tingido + barrinha na cor do status
+  if(!mz && !cp && !bco && !vaga && !sug) d.style.setProperty('--cc', bk.cor);   // v3.75: fundo tingido + barrinha na cor do status
   d.draggable = true; d.dataset.id = s.id;
   const resp = s.assigneeCache || s.responsavelManual || '';   // v3.88: sem o "Quem faz" da matriz (saiu)
   const cdiv = contaDivergente(s);
@@ -1079,11 +1088,22 @@ function cardEl(s){
     (cdiv?'<span class="tagic t-cdiv" title="O nome da task diz '+esc(nomeConta(cdiv.sugerida))+', mas este post está em '+esc(nomeConta(s.conta))+'. Clique pra mover pra '+esc(nomeConta(cdiv.sugerida))+' (Ctrl+Z desfaz).">'+icon('alerta')+'</span>':'')+
     (!mz && s.matrizSB?'<span class="mk t-mz" title="Este post veio da matriz: clique pra ver tema, tese, gancho...">M</span>':'')+
     (s.docId && !cp?'<span class="mk t-doc" title="Tem documento de copy: clique pra abrir">'+icon('doc')+'</span>':'')+
+    (s.banco && !bco?'<span class="mk t-bco" title="Material do banco: '+esc(bancoNomeSec(s.banco.sec)+(s.banco.titulo ? ' · '+s.banco.titulo : ''))+'">'+icon(bancoIcone(s.banco.sec))+'</span>':'')+   // v3.96
     (cp ? '' : tfChipsCard(s));   // v3.80: C com a bolinha do estado da aprovação (no card da copy, o estado já está escrito)
   const parecer = (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'alt')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Alteração pedida')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'pencil')+(s.parecer.veredito==='aprovado'?'APROVADO':'ALTERAR')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '');
   // selo da conta: nome por extenso na cor da marca. Só em aba com mais de uma conta.
   const contatag = multi?'<div class="contatag" style="background:'+cor+'; color:'+corTexto(cor)+'">'+esc(contaCurta(s.conta))+'</div>':'';
-  if(cp){
+  if(bco){
+    // v3.96 BANCO: faixa no topo dizendo de qual banco veio (corte, depoimento, Drive...) e o título do material
+    const gmPede = s.date && S.aba==='SEUBONÉ' && gmCadenciaDia(s.date);
+    d.innerHTML =
+      '<div class="bcoband" title="Post do banco: clique pra abrir"><span class="bcolbl">'+icon(bancoIcone(s.banco.sec))+'Banco</span><span class="bcotipo">'+esc(bancoNomeSec(s.banco.sec))+'</span>'+
+        (gmPede||isGm(s)?'<span class="mzstar" title="Dia de grande marca na capa">'+icon('star')+'</span>':'')+'</div>'+
+      contatag+
+      '<div class="tit">'+esc(s.banco.titulo || (s.matrizSB && s.matrizSB.tema) || bancoNomeSec(s.banco.sec))+'</div>'+
+      '<div class="meta"><span class="stx" style="--stc:var(--indigo)" title="Material escolhido no banco; a copy é opcional"><i></i>material escolhido</span>'+alertas+avatar+'</div>'+
+      '<button class="qdel bin mini" title="Excluir este post do painel">'+BIN_SVG+'</button>';
+  } else if(cp){
     // v3.89 COPY: faixa azul no topo dizendo COPY + o tipo do dia; o clique abre o documento. A matriz fica no M.
     const m = s.matrizSB || null, ce = copyEstado(s);
     const tipo = m ? (m.tipo || 'Em aberto') : (s.formato ? cap(s.formato) : '');
@@ -1149,6 +1169,7 @@ function cardEl(s){
     if(S.dragging) return;
     if(ev.ctrlKey || ev.metaKey){ toggleSelecao(s.id); return; }
     if(cp){ abrirCopy(s.id); return; }        // v3.89: o card da copy abre o documento
+    if(bco){ if(s.matrizSB) openMatriz(s.id); else openTask(s.id); return; }   // v3.96: o post do banco abre o card do dia
     if(mz){ openMatriz(s.id); return; }
     openTask(s.id);
   });
@@ -1504,9 +1525,10 @@ function celulaDia(c, di, porDia, semana){
 /** Legenda das 6 cores no cabeçalho do mês, já com a contagem. Clique = filtra por aquele grupo (clique de novo tira). */
 function legendaMes(mes){
   const doMes = slotsVisiveis().filter(s=>s.date && s.date.startsWith(mes));
-  const cont = {}; let nmz = 0, ncp = 0;
+  const cont = {}; let nmz = 0, ncp = 0, nbk = 0;
   doMes.forEach(s=>{
     if(isCopy(s)){ ncp++; return; }                   // v3.89: o card da copy (azul)
+    if(isBanco(s)){ nbk++; return; }                  // v3.96: post do banco
     if(isMatriz(s) && !s.postado){ nmz++; return; }
     if(isVaga(s) || isSugestao(s)) return;
     const b = stBucket(s); cont[b] = (cont[b]||0)+1;
@@ -1516,6 +1538,7 @@ function legendaMes(mes){
     BUCKET_ORDEM.map(k=>'<button class="lgb'+(cont[k]?'':' zero')+(f===k?' on':'')+'" data-f="'+k+'" style="--stc:'+BUCKETS[k].cor+'" title="'+esc(BUCKETS[k].rot+': '+BUCKETS[k].dica+' · clique pra ver só estes')+'"><i></i>'+BUCKETS[k].rot+' <b>'+(cont[k]||0)+'</b></button>').join('')+
     (S.aba==='SEUBONÉ' && nmz ? '<button class="lgb lgmz'+(f==='matriz'?' on':'')+'" data-f="matriz" title="Cards da matriz ainda sem copy · clique pra ver só eles"><i></i>Matriz <b>'+nmz+'</b></button>' : '')+
     (ncp ? '<button class="lgb lgcp'+(f==='copy'?' on':'')+'" data-f="copy" title="Cards da copy (tem documento e ainda não tem task de produção) · clique pra ver só eles"><i></i>Copy <b>'+ncp+'</b></button>' : '')+
+    (nbk ? '<button class="lgb lgbk'+(f==='banco'?' on':'')+'" data-f="banco" title="Posts com material do banco (corte, depoimento, Drive) e ainda sem task · clique pra ver só eles"><i></i>Do banco <b>'+nbk+'</b></button>' : '')+
   '</span>';
 }
 /** Bloco de um mês inteiro no fluxo: título grudento + grade de semanas. */
@@ -1787,6 +1810,7 @@ async function openTask(id){
 
 /** Cabeçalho do modal: ações em 1 clique com iconografia + tooltip. */
 function tRowDraw(s){
+  fechaDoBanco();                                   // v3.96: a lista do banco sai junto com a fileira antiga
   const st = stInfo(s);
   $('#tTit').textContent = slotTitulo(s);
   const row = $('#tRow');
@@ -1925,7 +1949,19 @@ function tRowDraw(s){
     };
   }
 
-  mk(icon('doc')+(s.docId?'Copy':'Escrever a copy'), '', s.docId ? 'Abrir o documento da copy deste post' : 'Criar o documento da copy deste post').onclick = ()=>{ closeOv('ovTask'); abrirCopy(s.id); };
+  // v3.96: "Do banco" no lugar da copy, nos posts sem card da matriz (Carbone, Onevo); o da matriz fica no card do dia
+  const abaT = S.contas[s.conta] && S.contas[s.conta].aba;
+  if(!s.matrizSB && !s.taskId && !s.postado && bancoSecoes(abaT).some(k=>BANCO_MATERIAL.includes(k))){
+    const w = document.createElement('span'); w.className = 'bkancora'; row.appendChild(w);
+    const bb = document.createElement('button'); bb.type = 'button'; bb.className = 'mbtn mzbancobt'; bb.id = 'tBanco';
+    bb.setAttribute('aria-haspopup', 'listbox'); bb.setAttribute('aria-expanded', 'false');
+    bb.innerHTML = s.banco ? icon(bancoIcone(s.banco.sec))+'<span class="bkb-t">'+esc(bancoNomeSec(s.banco.sec)+(s.banco.titulo ? ': '+s.banco.titulo : ''))+'</span>' : icon('box')+'Do banco';
+    bb.dataset.tip = s.banco ? 'Material do banco deste post: clique pra trocar ou tirar' : 'Usar um material do banco (corte, depoimento, Drive) no lugar de escrever a copy';
+    bb.onclick = ev=> abrirDoBanco(ev.currentTarget, s.id);
+    w.appendChild(bb);
+    if(isBanco(s) && S.temFonte && souAdmin()) mk(icon('hub')+'Criar task de produção', 'primary', 'Criar a task de arte ou vídeo no MKT Hub com o material do banco (a copy é opcional)').onclick = ()=>{ closeOv('ovTask'); abrirProducao(s.id); };
+  }
+  mk(icon('doc')+(s.docId?'Copy':'Escrever a copy'+(s.banco?' (opcional)':'')), '', s.docId ? 'Abrir o documento da copy deste post' : 'Criar o documento da copy deste post').onclick = ()=>{ closeOv('ovTask'); abrirCopy(s.id); };
   { const be = document.createElement('button'); be.className = 'bt-edit'; be.dataset.rot = 'Editar'; be.style.setProperty('--w','96px');
     be.dataset.tip = 'Editar o post (conta, data, links, collab)'; be.setAttribute('aria-label','Editar o post'); be.innerHTML = icon('pencil');
     be.onclick = ()=>{ closeOv('ovTask'); openEdit(s.id); }; row.appendChild(be); }
@@ -2650,7 +2686,7 @@ function desenhaProducao(){
       // v3.93 (pedido do Zion): só a copy aprovada, sem a matriz, e dá pra mudar o que vai (o texto daqui é o que vai pro Hub)
       '<div class="pr-campo"><label class="pr-l" for="prBrief">Briefing <small>vai assim pro MKT Hub</small></label>'+
         '<textarea id="prBrief" class="pr-txt" rows="7" spellcheck="true">'+esc(o.briefing || '')+'</textarea>'+
-        '<div class="pr-briefpe"><button type="button" class="pr-mais" id="prBriefVolta" hidden>Voltar ao texto da copy</button></div></div>'+
+        '<div class="pr-briefpe"><button type="button" class="pr-mais" id="prBriefVolta" hidden>'+(o.banco ? 'Voltar ao texto original' : 'Voltar ao texto da copy')+'</button></div></div>'+
     '</div>';
   $('#prFoot').innerHTML = '<button class="mbtn" id="prCancelar">Cancelar</button>'+
     '<span class="note pr-msg" id="prMsg">'+(o.empresa ? 'Nasce em Pendente, na '+esc(o.empresa.nome)+'.' : '')+'</span>'+
@@ -3089,6 +3125,7 @@ function openMatriz(id){
   $('#mzMsg').textContent = s.taskId ? 'Este post já tem task de produção. Aqui fica o planejamento da matriz.' : '';
   mzDesenhaTipo(s, tipo);
   $('#mzCopy').innerHTML = $('#mzCopyTop').innerHTML = icon('doc') + (s.docId ? 'Abrir a copy' : 'Escrever a copy');
+  mzDesenhaBanco(s);                              // v3.96: o material do banco (ou o botão Do banco)
   // dia de tipo fixo: link discreto pra trocar o tipo mesmo assim
   if(hoje && hoje.tipo && !$('#mzTrocar')){
     const a = document.createElement('button'); a.type='button'; a.id='mzTrocar'; a.className='mbtn'; a.style.cssText='padding:3px 9px; font-size:11px';
@@ -3125,6 +3162,108 @@ $('#mzExcluir').onclick = async ()=>{
   try{ await api('/api/slots/'+s.id, {method:'DELETE'}); closeOv('ovMz'); await loadState(); toast('Card da matriz excluído · Ctrl+Z desfaz'); }
   catch(e){ $('#mzMsg').textContent = 'Erro: '+e.message; }
 };
+
+// ================= v3.96: "Do banco" no card do dia =================
+// Pedido do Zion: "botão de ADICIONAR DO BANCO ao invés de fazer a copy, pq vamos utilizar alguns materiais do banco.
+// ... tem que ter um espaço para criar uma copy também se necessário, mas a ideia é utilizar do banco (podcast,
+// depoimento)". Decisão dele: o card vira post do banco, a copy fica opcional e dá pra criar a task de produção
+// mesmo sem copy. O material escolhido fica no post (slot.banco) e o item do banco guarda onde foi usado.
+function mzDesenhaBanco(s){
+  fechaDoBanco();                                   // a lista aberta de outro card não fica pendurada
+  const bt = $('#mzBancoBtn'), box = $('#mzBanco');
+  const aba = S.contas[s.conta] && S.contas[s.conta].aba;
+  const grupos = typeof bancoMateriais === 'function' ? bancoMateriais(aba) : [];
+  const temSec = (typeof bancoSecoes === 'function' ? bancoSecoes(aba) : []).some(k=>BANCO_MATERIAL.includes(k));
+  bt.hidden = !temSec || !!s.taskId || !!s.postado || !!s.banco;
+  bt.innerHTML = icon('box') + 'Do banco' + (grupos.length ? '' : ' (vazio)');
+  if(!s.banco){ box.hidden = true; box.innerHTML = ''; return; }
+  const b = s.banco, url = /^https?:\/\//i.test(b.url || '') ? b.url : '';
+  const mexe = !s.taskId && !s.postado, podeTask = mexe && S.temFonte && souAdmin();   // com task (ou postado): só mostra
+  box.hidden = false;
+  box.innerHTML = '<span class="mzbco-ic">'+icon(bancoIcone(b.sec))+'</span>'+
+    '<span class="mzbco-txt"><b>Do banco · '+esc(bancoNomeSec(b.sec))+'</b><span>'+esc(b.titulo || 'sem título')+'</span>'+
+      '<small>'+(mexe ? 'A copy é opcional: escreva se precisar de legenda.' : s.taskId ? 'Já tem task de produção com este material.' : 'Já foi postado.')+'</small></span>'+
+    '<span class="mzbco-acoes">'+
+      (url ? '<a class="mbtn" href="'+esc(url)+'" target="_blank" rel="noopener">'+icon('external')+'Abrir</a>' : '')+
+      (mexe ? '<button class="mbtn" id="mzBancoTroca" aria-haspopup="listbox">Trocar</button><button class="mbtn" id="mzBancoTira">Tirar</button>' : '')+
+      (podeTask ? '<button class="mbtn primary" id="mzBancoProd">'+icon('hub')+'Criar task de produção</button>' : '')+
+    '</span>';
+  $('#mzCopy').innerHTML = $('#mzCopyTop').innerHTML = icon('doc') + (s.docId ? 'Abrir a copy' : 'Escrever a copy (opcional)');
+  const tr = $('#mzBancoTroca'); if(tr) tr.onclick = ev=> abrirDoBanco(ev.currentTarget);
+  const ti = $('#mzBancoTira'); if(ti) ti.onclick = ()=> mzBancoTira(s.id);
+  const pt = $('#mzBancoProd'); if(pt) pt.onclick = ()=>{ closeOv('ovMz'); abrirProducao(s.id); };
+}
+$('#mzBancoBtn').onclick = ev=> abrirDoBanco(ev.currentTarget);
+let BK_MENU = null;
+function fechaDoBanco(){ if(BK_MENU) BK_MENU.fecha(false); }
+/** Lista dos materiais do banco da empresa, por seção (setas, Enter, Esc, letra; com busca quando tem muitos). */
+function abrirDoBanco(ancora, sid){
+  if(BK_MENU){ BK_MENU.fecha(true); return; }
+  const s = S.slots.find(x=>x.id===(sid || MZ_ATUAL)); if(!s) return;
+  const aba = S.contas[s.conta] && S.contas[s.conta].aba;
+  const grupos = bancoMateriais(aba);
+  const total = grupos.reduce((a, g)=>a + g.itens.length, 0);
+  const m = document.createElement('div');
+  m.className = 'bkpick'; m.id = 'bkPick'; m.setAttribute('role', 'listbox'); m.setAttribute('aria-label', 'Materiais do banco da '+nomeAba(aba));
+  m.innerHTML = (total > 6 ? '<input class="bkpick-busca" id="bkPickBusca" placeholder="buscar no banco" autocomplete="off" aria-label="Buscar no banco">' : '')+
+    '<div class="bkpick-lista">'+(grupos.map(g=>'<div class="bkpick-sec">'+icon(BANCO_SEC[g.sec].icone)+esc(BANCO_SEC[g.sec].nome)+'</div>'+
+      g.itens.map(it=>{ const o = bancoOrigem(it.url);
+        return '<button type="button" role="option" tabindex="-1" data-bkid="'+esc(it.id)+'" aria-selected="'+(!!s.banco && s.banco.id===it.id)+'">'+
+          '<span class="bkpick-t">'+esc(it.titulo || BANCO_SEC[g.sec].padrao)+'</span>'+
+          '<span class="bkpick-o">'+esc(o.nome)+(it.usos || it.usadoDia ? ' · '+esc(bancoUsoTxt(it)) : ' · nunca usado')+(BANCO_SEC[g.sec].fica ? '' : ' · sai do banco')+'</span></button>'; }).join('')).join('')
+      || '<div class="bkpick-vazio">O banco da '+esc(nomeAba(aba))+' não tem material ainda. Guarde cortes, depoimentos ou links do Drive na gaveta do banco.</div>')+
+    (sid && s.banco ? '<button type="button" role="option" tabindex="-1" class="bkpick-tira" data-bktira="1">'+icon('x')+'<span class="bkpick-t">Tirar o material deste post</span></button>' : '')+'</div>';
+  ancora.parentElement.appendChild(m);
+  const r = ancora.getBoundingClientRect();
+  if(innerHeight - r.bottom < m.offsetHeight + 12 && r.top > innerHeight - r.bottom) m.classList.add('acima');
+  if(r.right < m.offsetWidth + 16) m.classList.add('esq');          // botão perto da esquerda: abre pra direita
+  ancora.setAttribute('aria-expanded', 'true');
+  const ops = () => [...m.querySelectorAll('[role=option]')].filter(b=>!b.hidden);
+  const foca = i => { const l = ops(); if(l.length) l[(i + l.length) % l.length].focus(); };
+  const fora = ev => { if(!m.contains(ev.target) && !ancora.contains(ev.target)) fecha(false); };
+  const tecla = ev => {
+    const l = ops(), i = l.indexOf(document.activeElement);
+    if(ev.key === 'Escape'){ ev.preventDefault(); ev.stopPropagation(); fecha(true); }
+    else if(ev.key === 'Tab') fecha(false);
+    else if(ev.key === 'ArrowDown'){ ev.preventDefault(); foca(i + 1); }
+    else if(ev.key === 'ArrowUp'){ ev.preventDefault(); foca(i < 0 ? -1 : i - 1); }
+  };
+  function fecha(voltaFoco){
+    document.removeEventListener('mousedown', fora, true); document.removeEventListener('keydown', tecla, true);
+    m.remove(); ancora.setAttribute('aria-expanded', 'false'); BK_MENU = null;
+    if(voltaFoco && ancora.isConnected) ancora.focus();
+  }
+  m.querySelectorAll('[data-bkid]').forEach(b=> b.onclick = ()=>{ fecha(false); mzBancoUsa(s.id, b.dataset.bkid); });
+  const tira = m.querySelector('[data-bktira]'); if(tira) tira.onclick = ()=>{ fecha(false); mzBancoTira(s.id); };
+  const busca = m.querySelector('#bkPickBusca');
+  if(busca) busca.oninput = ()=>{ const q = busca.value.trim().toLowerCase();
+    m.querySelectorAll('[data-bkid]').forEach(b=>{ b.hidden = !!q && !b.textContent.toLowerCase().includes(q); }); };
+  document.addEventListener('mousedown', fora, true); document.addEventListener('keydown', tecla, true);
+  BK_MENU = { fecha };
+  if(busca) busca.focus(); else foca(0);
+}
+function bancoRedesenha(sid){
+  if($('#ovMz').classList.contains('open') && MZ_ATUAL===sid) openMatriz(sid);
+  const s = S.slots.find(x=>x.id===sid);
+  if(s && $('#ovTask').classList.contains('open') && S.taskSlot && S.taskSlot.id===sid){ S.taskSlot = s; tRowDraw(s); }
+}
+async function mzBancoUsa(sid, itemId){
+  try{
+    const r = await api('/api/banco/'+itemId+'/no-post', {method:'POST', body:JSON.stringify({ slot: sid })});
+    await loadState(false, true);
+    bancoRedesenha(sid);
+    toast('Material do banco no post'+(r.saiu ? ' · saiu do banco' : '')+' · Ctrl+Z desfaz');
+  }catch(e){ toast(e.message, true); }
+}
+async function mzBancoTira(sid){
+  try{
+    await api('/api/banco/solta', {method:'POST', body:JSON.stringify({ slot: sid })});
+    await loadState(false, true);
+    bancoRedesenha(sid);
+    const s = S.slots.find(x=>x.id===sid);
+    toast('Material tirado do post'+(s && s.matrizSB ? ': o card voltou pra matriz' : '')+' · Ctrl+Z desfaz');
+  }catch(e){ toast(e.message, true); }
+}
 /** Botão amarelo do dia: cria um card da matriz naquele dia (com o tipo da rotação) e já abre pra preencher. */
 async function criarCardMatriz(dateStr, conta){
   try{
