@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="/css/painel.css">
 <link rel="stylesheet" href="/css/relogio.css">
 <link rel="stylesheet" href="/css/tarefas.css">
+<link rel="stylesheet" href="/css/perfil.css">
 </head>
 <body>
 
@@ -412,10 +413,12 @@
 <script src="/js/tarefas.js"></script>
 <script src="/js/tempo.js"></script>
 <script src="/js/banco.js"></script>
+<script src="/js/personagens.js"></script>
+<script src="/js/perfil.js"></script>
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '3.98'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '3.99'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -3885,7 +3888,7 @@ document.addEventListener('keydown', ev=>{
 // cada movimento de mouse virava um envio pro servidor e um repasse pra cada pessoa online. Ficou só a
 // bolinha de quem está online e em qual aba, que custa quase nada: um aviso quando alguém entra, sai ou
 // troca de aba, e um sinal de vida de 8 bytes a cada 15 s.
-const AV = { id:null, nome:null, icone:'', cor:null, peers:new Map(), es:null, abaEnviada:null };
+const AV = { id:null, nome:null, icone:'', cor:null, personagem:'', peers:new Map(), es:null, abaEnviada:null };   // v3.99: personagem (aba Perfil)
 /** Perfil da pessoa neste navegador (sem login ainda): nome + ícone + cor, salvo local. */
 const PERFIL = {
   chave:'sb.perfil',
@@ -3912,7 +3915,7 @@ function aovivoConectar(){
   if(pf){ url += '&nome='+encodeURIComponent(pf.nome)+'&icone='+encodeURIComponent(pf.icone||'')+'&cor='+encodeURIComponent(pf.cor||''); }
   const es = new EventSource(url);
   AV.es = es; AV.abaEnviada = S.aba||'';
-  es.addEventListener('eu', e=>{ const d=JSON.parse(e.data); AV.nome=d.nome; AV.icone=d.icone||''; AV.cor=d.cor; renderPresenca(); });
+  es.addEventListener('eu', e=>{ const d=JSON.parse(e.data); AV.nome=d.nome; AV.icone=d.icone||''; AV.cor=d.cor; AV.personagem=d.personagem||''; renderPresenca(); });
   es.addEventListener('roster', e=>{ const arr=JSON.parse(e.data); AV.peers.clear(); arr.forEach(p=>AV.peers.set(p.id,p)); renderPresenca(); });
   // entrou também é "mudou o perfil" (nome/ícone/cor novos)
   es.addEventListener('entrou', e=>{ const p=JSON.parse(e.data); AV.peers.set(p.id, Object.assign(AV.peers.get(p.id)||{}, p)); renderPresenca(); });
@@ -3938,7 +3941,7 @@ function avisaMinhaAba(){
 }
 function renderPresenca(){
   const el=$('#presenca'); if(!el) return; el.innerHTML='';
-  if(AV.cor) el.appendChild(avPdot({nome:AV.nome, icone:AV.icone, cor:AV.cor}, true));
+  if(AV.cor) el.appendChild(avPdot({nome:AV.nome, icone:AV.icone, cor:AV.cor, personagem:AV.personagem}, true));
   for(const p of AV.peers.values()) el.appendChild(avPdot(p, false));
 }
 /** Clicar na bolinha de alguém leva pra aba em que a pessoa está. */
@@ -3955,11 +3958,12 @@ function avPdot(p, eu){
   const d=document.createElement('div'); d.className='pdot'+(eu?' eu':'')+(!eu && p.conta && p.conta!==S.aba?' fora':'');
   d.style.background=p.cor||'#888'; d.style.setProperty('--pc', p.cor||'#888');
   if(!eu) d.dataset.pid = p.id;
-  if(p.icone){ d.classList.add('ico'); d.textContent = p.icone; } else d.textContent = avIniciais(p.nome);
-  const onde = eu ? (p.nome+' (você) · clique pra editar seu perfil')
+  // v3.99: com personagem, a bolinha é a cabeça dele (public/js/perfil.js); sem, o ícone ou as iniciais de antes
+  if(ppPintaBolinha(d, p, eu)){ /* pintou */ } else if(p.icone){ d.classList.add('ico'); d.textContent = p.icone; } else d.textContent = avIniciais(p.nome);
+  const onde = eu ? (p.nome+' (você) · clique pra abrir o seu perfil'+(p.personagem ? '' : ' e escolher um personagem'))
     : (p.nome + (p.conta ? ' · em '+nomeAba(p.conta) : ' · online') + (p.conta && p.conta!==S.aba ? ' · clique pra ir pra essa aba' : ''));
   const tip=document.createElement('span'); tip.className='pd-tip'; tip.textContent=onde; d.appendChild(tip);
-  if(eu) d.onclick = openPerfil; else d.onclick = ()=> irPraAbaDe(p.id);
+  if(eu) d.onclick = ()=> abrirPerfil(); else d.onclick = ()=> irPraAbaDe(p.id);   // v3.99: a sua bolinha abre a aba Perfil
   return d;
 }
 // ---- modal de perfil (nome + ícone + cor) ----
@@ -3997,7 +4001,8 @@ async function salvarPerfil(){
   renderPresenca();
   $('#ovPerfil').classList.remove('open');
   toast(pf.icone+' Perfil salvo: '+pf.nome);
-  try{ if(AV.id) await api('/api/ao-vivo/perfil', {method:'POST', body:JSON.stringify({ id:AV.id, ...pf })}); }catch(e){}
+  try{ if(AV.id){ const r = await api('/api/ao-vivo/perfil', {method:'POST', body:JSON.stringify({ id:AV.id, ...pf })}); if(r && 'personagem' in r){ AV.personagem = r.personagem || ''; renderPresenca(); } } }catch(e){}
+  if(typeof PP !== 'undefined' && PP.aberto){ PP.dados = null; abrirPerfil(); }   // v3.99: trocou o nome (PC local) com o perfil aberto
 }
 
 // ================= pausa por inatividade (v3.72) =================

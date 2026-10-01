@@ -46,6 +46,9 @@
   .gd-right{display:flex; align-items:center; gap:8px; flex:none}
   .gd-pres{display:flex; gap:0}
   .gd-av{width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:500; color:#fff; border:2px solid #fff; margin-left:-6px; box-shadow:0 0 0 1px var(--line2)}
+  /* v3.99: quem tem personagem aparece com a cabeça dele (public/js/personagens.js) */
+  .gd-av.pg{overflow:hidden; padding:0}
+  .gd-av.pg svg{width:100%; height:100%; display:block}
   .gd-btn{display:inline-flex; align-items:center; gap:7px; height:40px; padding:0 16px; border-radius:20px; border:0; background:transparent; font-size:14px; font-weight:500; cursor:pointer; color:var(--ink2); white-space:nowrap}
   .gd-btn:hover{background:var(--hover)}
   .gd-btn.cinza{background:var(--tb)} .gd-btn.cinza:hover{background:#E1E8F4}
@@ -370,6 +373,7 @@
 <div class="gd-count" id="count" hidden title="clique pra ver a contagem completa (Ctrl+Shift+C)"></div>
 <script src="/js/cronometro.js"></script>
 <script src="/js/docx.js"></script>
+<script src="/js/personagens.js"></script>
 <script>
 'use strict';
 // ======================================================================
@@ -862,8 +866,14 @@ async function presenca(){
 function desenhaPresenca(){
   const el = $('#pres'); el.innerHTML = '';
   // uma bolinha por pessoa (a mesma pessoa em duas abas conta uma vez)
-  const vistos = new Set(); OUTROS = OUTROS.map(o=>({por: o.por===EU ? EU+' (em outra aba)' : o.por})).filter(o=>{ if(vistos.has(o.por)) return false; vistos.add(o.por); return true; });
-  OUTROS.forEach(o=>{ const d=document.createElement('div'); d.className='gd-av'; d.style.background=corDoNome(o.por); d.textContent=(o.por||'?').slice(0,1).toUpperCase(); d.title=o.por+' está com este documento aberto'; el.appendChild(d); });
+  const vistos = new Set(); OUTROS = OUTROS.map(o=>({por: o.por===EU ? EU+' (em outra aba)' : o.por, pg: o.pg || ''})).filter(o=>{ if(vistos.has(o.por)) return false; vistos.add(o.por); return true; });
+  OUTROS.forEach(o=>{
+    const d=document.createElement('div'); d.className='gd-av'; d.title=o.por+' está com este documento aberto';
+    const x = o.pg && window.PG ? PG.dados(o.pg) : null;   // v3.99: com personagem, a cabeça dele
+    if(x){ d.classList.add('pg'); d.style.background=x.fundo; d.innerHTML=PG.cabeca(o.pg); }
+    else { d.style.background=corDoNome(o.por); d.textContent=(o.por||'?').slice(0,1).toUpperCase(); }
+    el.appendChild(d);
+  });
   if(OUTROS.length && !AVISOU_OUTROS){
     AVISOU_OUTROS = true;
     faixa('outros', '<b>'+esc(OUTROS.map(o=>o.por).join(', '))+'</b> também '+(OUTROS.length>1?'estão':'está')+' com este documento aberto. Quando um para de digitar, o texto do outro aparece aqui sozinho; se os dois escreverem juntos, o painel pergunta antes de sobrescrever.', [{r:'Entendi', f:()=>tiraFaixa('outros')}], 'azul');

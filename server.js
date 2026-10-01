@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '3.98'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '3.99'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -348,11 +348,13 @@ function serveStatic(res, file) {
 // era o maior gasto de banda que sobrava. Agora só entrou/saiu/trocou de aba e o sinal de vida de 15 s.
 const AOVIVO_CORES = ['#FF5D5D', '#FFB020', '#3DDC97', '#4DA3FF', '#C77DFF', '#FF7AC6', '#00D0C0', '#8AE234', '#FF9F1C', '#5E9BFF'];
 const AOVIVO_BICHOS = ['Capivara Chique', 'Jacaré de Terno', 'Suricato Espião', 'Lagartixa MEI', 'Perereca Gamer', 'Gambá Perfumado', 'Pombo Sniper', 'Barata Ninja', 'Sapo Filósofo', 'Tatu Blindado', 'Preguiça Turbo', 'Ornitorrinco Confuso', 'Minhoca Executiva', 'Tamanduá Detetive', 'Quati Boêmio', 'Coruja Insone', 'Morcego Vegano', 'Lontra DJ', 'Furão Hacker', 'Cutia Ansiosa', 'Tucano Influencer', 'Bode Expiatório', 'Peixe-boi Voador', 'Galinha Cyberpunk', 'Porco Espião', 'Jegue Turbinado', 'Camaleão Indeciso', 'Pangolim Blindado', 'Jabuti Foguete', 'Preguiça CLT'];
-const aovivo = new Map();      // id -> { id, nome, icone, cor, conta, visto }
+const aovivo = new Map();      // id -> { id, nome, icone, cor, conta, visto, personagem }
 const aovivoSSE = new Map();   // id -> res (conexão aberta)
 function aovivoCorLivre() { const usadas = new Set([...aovivo.values()].map(p => p.cor)); return AOVIVO_CORES.find(c => !usadas.has(c)) || AOVIVO_CORES[Math.floor(Math.random() * AOVIVO_CORES.length)]; }
 function aovivoNomeLivre() { const usados = new Set([...aovivo.values()].map(p => p.nome)); const livres = AOVIVO_BICHOS.filter(n => !usados.has(n)); const pool = livres.length ? livres : AOVIVO_BICHOS; return pool[Math.floor(Math.random() * pool.length)]; }
-function aovivoRoster() { return [...aovivo.values()].map(p => ({ id: p.id, nome: p.nome, icone: p.icone || '', cor: p.cor, conta: p.conta })); }
+/** O que os outros recebem de cada pessoa online (v3.99: com o personagem, pra bolinha mostrar a cabeça dele). */
+function aovivoPublico(p) { return { id: p.id, nome: p.nome, icone: p.icone || '', cor: p.cor, conta: p.conta, personagem: p.personagem || '' }; }
+function aovivoRoster() { return [...aovivo.values()].map(aovivoPublico); }
 /** Limpa o perfil vindo do navegador: nome curto sem tag, ícone curto (emoji), cor em hex. */
 function aovivoPerfilLimpo(b) {
   const nome = String(b.nome || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
@@ -363,13 +365,25 @@ function aovivoPerfilLimpo(b) {
 function sseEnvia(res, evt, obj) { try { const t = 'event: ' + evt + '\ndata: ' + JSON.stringify(obj) + '\n\n'; res.write(t); USO.bruto(Buffer.byteLength(t)); } catch (e) {} }
 function aovivoBroadcast(evt, obj, exceto) { for (const [id, r] of aovivoSSE) { if (id === exceto) continue; sseEnvia(r, evt, obj); } }
 setInterval(() => { const t = Date.now(); for (const [id, p] of aovivo) { if (t - p.visto > 40000 && !aovivoSSE.has(id)) { aovivo.delete(id); aovivoBroadcast('saiu', { id }); } } }, 20000);
+/** v3.99: a pessoa trocou de personagem: a bolinha dela muda na hora pra todo mundo (e nas outras abas dela). */
+function aovivoPersonagem(nome, pg) {
+  for (const peer of aovivo.values()) {
+    if (semAcento(peer.nome) !== semAcento(nome)) continue;
+    peer.personagem = pg || '';
+    aovivoBroadcast('entrou', aovivoPublico(peer), peer.id);
+    const r = aovivoSSE.get(peer.id); if (r) sseEnvia(r, 'eu', aovivoPublico(peer));
+  }
+}
 
 // Documentos (a copy do post, editor estilo Docs em public/doc.html). Rotas em lib/docs.js.
-const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo, MZ, mzDe, backupAgora, usoInvalida: () => USO.invalida() });
+const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo, MZ, mzDe, backupAgora, usoInvalida: () => USO.invalida(),
+  personagemDoNome: n => rotaPerfil.doNome(n) });   // v3.99: a bolinha de quem está com o documento aberto mostra o personagem
 // v3.80: tarefas da copywriter (matriz e copy por empresa, com aprovação post a post) e o relógio delas
 const rotaTempo = require('./lib/tempo.js')({ db, saveDb, readBody, json, equipe: () => AUTH.ligado() ? AUTH.usuarios().map(u => u.nome) : [] });
+/** v3.88: o card da matriz está completo (os campos obrigatórios cheios); v3.96: com material do banco, está resolvido. */
+const mzCheio = (m, s) => !!(s && s.banco) || (!!m && mzDe(s).OBRIGATORIOS.every(k => String(m[k] || '').trim()));
 const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, undoSlots, tempo: rotaTempo,
-  criaCards: criaCardsMatriz, limpaCards: limpaCardsMatriz, mzCheio: (m, s) => !!(s && s.banco) || (!!m && mzDe(s).OBRIGATORIOS.every(k => String(m[k] || '').trim())),   // v3.88; v3.96: com material do banco, o card está resolvido
+  criaCards: criaCardsMatriz, limpaCards: limpaCardsMatriz, mzCheio,
   abasMatriz: MZS.ABAS });   // v3.91: SeuBoné e Weevo
 // v3.81: MKT Hub (leitura; chave só na variável MKH_CHAVE). Sem chave, fica desligado.
 const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/docs.js').limpaHtml });
@@ -380,6 +394,7 @@ rotaTarefas.hubPublico = rotaHubEnvio.publico;
 rotaHub.depois = async () => { await rotaHubEnvio.reenviaDatas(); limpezaV395Hub(); };
 // v3.82: login pelo Zoho (liga só com ZOHO_CLIENT_ID e ZOHO_CLIENT_SECRET; sem elas, senha opcional como antes)
 const AUTH = require('./lib/auth.js')({ json, parseCookies, segredo: config.secret });
+const USUARIOS_LOGIN = require('./lib/auth.js').USUARIOS;   // v3.99: o perfil reconhece a pessoa também pelo e-mail (Bia = anny.beatriz)
 /** Post novo a partir do que veio da tela (e do banco, v3.83). Não grava: quem chama põe em db.slots. */
 function montaSlot(b) {
   const lk = b.taskUrl ? taskDoLink(b.taskUrl) : { taskId: b.taskId || null, taskUrl: null };
@@ -403,6 +418,11 @@ function montaSlot(b) {
 }
 // v3.83: banco de cada empresa (Reutilizar, Drive de conteúdos, Referência de posts, Cortes de podcasts)
 const rotaBanco = require('./lib/banco.js')({ db, saveDb, readBody, json, pushUndo, montaSlot });
+// v3.99: aba Perfil (personagem de cada um, "Comigo agora", a semana e o time). Regras, quem vê o quê e custo em lib/perfil.js.
+const rotaPerfil = require('./lib/perfil.js')({ db, saveDb, readBody, json,
+  ligado: () => AUTH.ligado(), usuarios: () => AUTH.ligado() ? USUARIOS_LOGIN : [],
+  online: () => [...aovivo.values()].map(x => x.nome), itens: rotaTarefas.itens, mzCheio,
+  sobrepoe: slots => rotaHub.sobrepoe(slots), mudou: (eu, pg) => aovivoPersonagem(eu.nome, pg) });
 /**
  * v3.86: colou o link (ou o código MKT, ou o uuid) de uma tarefa do MKT Hub num post: acha a tarefa NA HORA (na memória
  * ou perguntando ao Hub; vale subtarefa), pra o post já nascer com título, etapa e responsável. Link de outro sistema
@@ -472,6 +492,7 @@ const server = http.createServer(async (req, res) => {
     if ((p.startsWith('/api/tarefas') || /^\/api\/slots\/[a-z0-9]+\/copy$/i.test(p)) && await rotaTarefas(req, res, p, u)) return;   // v3.89: a copy de um post
     if (p.startsWith('/api/tempo') && await rotaTempo(req, res, p, u)) return;
     if (p.startsWith('/api/banco') && await rotaBanco(req, res, p)) return;
+    if (p.startsWith('/api/perfil') && await rotaPerfil(req, res, p, u)) return;   // v3.99
     // ---------- MKT Hub (v3.81): status, artes e comentários das tasks de produção ----------
     if (p === '/api/hub/eu' && soAdmin(req, res)) return;     // v3.82: teste da chave do Hub é configuração (ADMIN)
     if ((p.startsWith('/api/hub') || p.startsWith('/api/task/')) && await rotaHub(req, res, p, u)) return;
@@ -710,12 +731,13 @@ const server = http.createServer(async (req, res) => {
       let peer = aovivo.get(id);
       if (!peer) { peer = { id, nome: pf.nome || aovivoNomeLivre(), icone: pf.icone || '', cor: pf.cor || aovivoCorLivre(), conta, visto: Date.now() }; aovivo.set(id, peer); }
       else { if (pf.nome) peer.nome = pf.nome; if (pf.icone) peer.icone = pf.icone; if (pf.cor) peer.cor = pf.cor; peer.conta = conta || peer.conta; peer.visto = Date.now(); }
+      peer.personagem = pf.nome ? rotaPerfil.doNome(peer.nome) : '';   // v3.99 (o bicho aleatório de quem não tem nome não tem personagem)
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
       res.write('retry: 3000\n\n');
       aovivoSSE.set(id, res);
-      sseEnvia(res, 'eu', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor });
+      sseEnvia(res, 'eu', aovivoPublico(peer));
       sseEnvia(res, 'roster', aovivoRoster().filter(x => x.id !== id));
-      aovivoBroadcast('entrou', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor, conta: peer.conta }, id);
+      aovivoBroadcast('entrou', aovivoPublico(peer), id);
       const ping = setInterval(() => { try { res.write(': ping\n\n'); USO.bruto(8); } catch (e) {} }, 15000);
       req.on('close', () => { clearInterval(ping); aovivoSSE.delete(id); aovivo.delete(id); aovivoBroadcast('saiu', { id }); });
       return;
@@ -741,8 +763,9 @@ const server = http.createServer(async (req, res) => {
       peer.icone = pf.icone || '';
       if (pf.cor) peer.cor = pf.cor;
       peer.visto = Date.now();
-      aovivoBroadcast('entrou', { id: peer.id, nome: peer.nome, icone: peer.icone, cor: peer.cor, conta: peer.conta }, peer.id);
-      return json(res, 200, { ok: true, nome: peer.nome, icone: peer.icone, cor: peer.cor });
+      peer.personagem = rotaPerfil.doNome(peer.nome);   // v3.99: mudou o nome (PC local): o personagem é o do nome novo
+      aovivoBroadcast('entrou', aovivoPublico(peer), peer.id);
+      return json(res, 200, { ok: true, nome: peer.nome, icone: peer.icone, cor: peer.cor, personagem: peer.personagem });
     }
 
     // ---------- manifesto e ícone do app instalável ----------

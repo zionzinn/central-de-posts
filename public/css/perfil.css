@@ -1,0 +1,174 @@
+@charset "utf-8";
+/* =====================================================================
+   B.O.N.E · aba Perfil (v3.99): a página do perfil, a escolha do personagem e a cabeça do personagem nas bolinhas.
+   Padrão do painel (DESIGN-APPLE.md): superfícies opacas, cor só como destaque e status sempre bolinha + palavra.
+   O card do personagem usa as cores dele (fixas, as mesmas no claro e no escuro); o resto vem dos tokens.
+   ===================================================================== */
+
+/* ---------- bolinha de quem está online com a cabeça do personagem ---------- */
+.pdot.pg{font-size:0}
+.pdot .pd-cab{position:absolute; inset:0; border-radius:50%; overflow:hidden; display:block}
+.pdot .pd-cab svg{width:100%; height:100%; display:block}
+/* a sua bolinha sem personagem pulsa 4 vezes ao abrir o painel (o convite pra escolher; nada abre por cima) */
+.pdot.eu.sempg{animation:pgPulso 1.8s ease-out .8s 4}
+@keyframes pgPulso{
+  0%{box-shadow:0 0 0 2px var(--page), 0 0 0 3.5px var(--sb), 0 0 0 3.5px color-mix(in srgb, var(--sb) 70%, transparent)}
+  80%,100%{box-shadow:0 0 0 2px var(--page), 0 0 0 3.5px var(--sb), 0 0 0 14px transparent}}
+
+/* ---------- a página ---------- */
+body.pp-on{overflow:hidden}
+.pp{position:fixed; inset:0; z-index:57; background:var(--page); color:var(--ink); overflow-y:auto; overscroll-behavior:contain;
+  animation:ppEntra .18s cubic-bezier(.2,.8,.2,1) both}
+.pp[hidden]{display:none}
+@keyframes ppEntra{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+.pp-top{position:sticky; top:0; z-index:3; display:flex; align-items:center; gap:14px; min-height:60px;
+  padding:10px 24px; padding-top:calc(10px + env(safe-area-inset-top, 0px));
+  background:var(--glass); -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px); border-bottom:1px solid var(--sep)}
+.pp-volta{display:inline-flex; align-items:center; gap:2px; height:34px; padding:0 14px 0 8px; border:0; border-radius:999px;
+  background:var(--fill-3); color:var(--ink); font:600 14px/1 Inter, system-ui, sans-serif; cursor:pointer; transition:background var(--t)}
+.pp-volta:hover{background:var(--fill-2)}
+.pp-volta .ic{width:18px; height:18px}
+.pp-tit:focus{outline:none}
+.pp-tit{margin:0; font-size:22px; font-weight:750; letter-spacing:-.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.pp-topdir{margin-left:auto; display:flex; gap:8px; align-items:center; flex:none}
+
+.pp-corpo{max-width:1320px; margin:0 auto; padding:22px 24px 56px; display:grid; grid-template-columns:360px minmax(0, 1fr); gap:24px; align-items:start}
+.pp-carrega,.pp-erro{grid-column:1 / -1; padding:60px 0; text-align:center; color:var(--ink-3); font-size:14px}
+.pp-erro{color:var(--ink-2)}
+.pp-esq{position:sticky; top:84px; display:flex; flex-direction:column; gap:14px}
+.pp-dir{display:flex; flex-direction:column; gap:22px; min-width:0}
+
+/* card do personagem */
+.pp-card{background:var(--bg); color:var(--tx); border-radius:28px; padding:16px 18px 20px}
+.pp-ctopo{display:flex; justify-content:space-between; align-items:center; min-height:26px}
+.pp-chip{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; letter-spacing:.04em; padding:5px 10px; border-radius:999px;
+  background:rgba(10,10,12,.82); color:#fff}
+.pp-chip.on{background:rgba(255,255,255,.72); color:#111; letter-spacing:0; font-weight:600}
+.pp-chip.on i{width:8px; height:8px; border-radius:50%; background:#248A3D}
+.pp-arte{--c:236px; position:relative; width:var(--c); max-width:100%; height:calc(var(--c) * 1.27); margin:10px auto 0}
+.pp-arte > i{position:absolute; left:0; right:0; top:0; height:var(--c); border-radius:50%; background:var(--ci)}
+.pp-arte svg{position:absolute; left:50%; top:calc(var(--c) * -0.23); width:calc(var(--c) * 1.15); height:calc(var(--c) * 1.53); transform:translateX(-50%)}
+.pp-nome{font-size:28px; font-weight:800; letter-spacing:-.02em; line-height:1.1; margin-top:2px; overflow-wrap:anywhere}
+.pp-classe{font-size:15px; font-weight:500; opacity:.82; margin-top:3px}
+.pp-trocar{margin-top:16px; width:100%; height:42px; border:0; border-radius:12px; background:rgba(10,10,12,.86); color:#fff;
+  font:600 14px Inter, system-ui, sans-serif; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; transition:transform var(--t), background var(--t)}
+.pp-trocar:hover{background:rgba(10,10,12,.95)}
+.pp-trocar:active{transform:scale(.985)}
+.pp-trocar .ic{width:17px; height:17px}
+.pp-card.vazio{--bg:var(--cell); --tx:var(--ink); border:1px dashed var(--hair)}
+.pp-card.vazio .pp-chip{background:var(--fill-3); color:var(--ink)}
+.pp-arte.vazia > i{background:var(--fill-4); border:2px dashed var(--hair)}
+.pp-arte.vazia span{position:absolute; left:0; right:0; top:0; height:var(--c); display:grid; place-items:center; font-size:84px; font-weight:800; color:var(--ink-4)}
+.pp-arte.vazia{height:calc(var(--c) + 6px)}
+.pp-trocar.primeira{background:var(--sb); color:var(--on-sb)}
+.pp-trocar.primeira:hover{background:var(--sb); filter:brightness(1.06)}
+
+/* seções e quadros */
+.pp-sec h2{margin:0 0 10px; font-size:17px; font-weight:700; letter-spacing:-.01em; display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+.pp-sec h2 small{font-size:13px; font-weight:500; color:var(--ink-3)}
+.pp-tiles{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px}
+.pp-tile{position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-height:118px; padding:14px 16px; border:0; border-radius:16px;
+  background:var(--cell); color:var(--ink); text-align:left; font:inherit; min-width:0}
+button.pp-tile{cursor:pointer; --cn:var(--c); background:color-mix(in srgb, var(--c) 9%, var(--cell)); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--c) 36%, transparent);
+  transition:transform var(--t), box-shadow var(--t)}
+html[data-modo="claro"] button.pp-tile{--cn:color-mix(in srgb, var(--c) 70%, #000)}
+button.pp-tile:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--c) 70%, transparent)}
+button.pp-tile:active{transform:scale(.99)}
+button.pp-tile:focus-visible{outline:none; box-shadow:inset 0 0 0 2px var(--focus)}
+.pp-tl{display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; color:var(--ink-2); padding-right:22px}
+.pp-dot{width:9px; height:9px; border-radius:50%; background:var(--c); flex:none}
+.pp-big{font-size:32px; font-weight:800; letter-spacing:-.02em; line-height:1.15; margin-top:6px; font-variant-numeric:tabular-nums; color:var(--cn, var(--ink))}
+.pp-ts{font-size:12.5px; color:var(--ink-3); line-height:1.4; overflow-wrap:anywhere}
+.pp-ir{position:absolute; right:12px; top:13px; display:flex; align-items:center; color:var(--ink-3); transition:transform var(--t), color var(--t)}
+.pp-ir .ic{width:16px; height:16px}
+button.pp-tile:hover .pp-ir{color:var(--ink-2); transform:translateX(2px)}
+.pp-tile.num .pp-tl{padding-right:0}
+.pp-vazio{display:flex; align-items:center; gap:10px; padding:18px 18px; border-radius:16px; background:var(--cell); color:var(--ink-2); font-size:14px}
+.pp-vazio .ic{width:20px; height:20px; color:var(--green); flex:none}
+.pp-vazio.cinza{color:var(--ink-3); font-size:13.5px}
+.pp-vazio.cinza .ic{color:var(--ink-3)}
+.pp-nota{margin:10px 2px 0; font-size:12.5px; color:var(--ink-3); line-height:1.45}
+
+/* tempo por dia (o gráfico é o mesmo do relatório: .tp-graf em tarefas.css) */
+.pp-box{margin-top:12px; background:var(--cell); border-radius:18px; padding:14px 16px 12px}
+.pp-boxh{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+.pp-boxh b{font-size:14px; font-weight:650}
+.pp-rel{margin-left:auto}
+.pp-rel .ic{width:14px; height:14px}
+.pp-graf{height:190px; margin-top:12px}
+.pp-graf .tp-col.futuro .tp-rot{color:var(--ink-4)}
+
+/* time */
+.pp-time{display:flex; flex-wrap:wrap; gap:10px}
+.pp-pess{display:flex; align-items:center; gap:10px; padding:6px 16px 6px 6px; border:0; border-radius:999px; background:var(--cell); color:var(--ink);
+  font:inherit; text-align:left; min-width:0}
+button.pp-pess{cursor:pointer; transition:background var(--t), box-shadow var(--t)}
+button.pp-pess:hover{background:var(--elev)}
+button.pp-pess:focus-visible{outline:none; box-shadow:0 0 0 2px var(--focus)}
+.pp-pess.vendo{box-shadow:0 0 0 2px var(--ink)}
+.pp-av{position:relative; width:40px; height:40px; flex:none}
+.pp-cab{display:block; width:40px; height:40px; border-radius:50%; overflow:hidden}
+.pp-cab svg{width:100%; height:100%; display:block}
+.pp-cab.ini{display:grid; place-items:center; background:var(--fill-3); color:var(--ink-2); font-size:13px; font-weight:700}
+.pp-av.on::after{content:""; position:absolute; right:-1px; bottom:-1px; width:12px; height:12px; border-radius:50%; background:var(--green); box-shadow:0 0 0 2.5px var(--cell)}
+.pp-pt{display:flex; flex-direction:column; min-width:0}
+.pp-pt b{font-size:13.5px; font-weight:650}
+.pp-pt small{font-size:12px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+/* ---------- escolher o personagem ---------- */
+.pg-modal{width:min(1220px, 100%)}
+.pg-sub{font-size:13px; color:var(--ink-3); margin-top:4px; line-height:1.45; padding-right:34px}
+.pg-grade{display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:12px}
+.pg-c{position:relative; display:flex; flex-direction:column; align-items:flex-start; padding:8px 10px 12px; border:0; border-radius:18px;
+  background:var(--bg); color:var(--tx); font:inherit; text-align:left; cursor:pointer; min-width:0; transition:transform var(--t), box-shadow var(--t)}
+.pg-c:hover{transform:translateY(-2px)}
+.pg-c:focus-visible{outline:none; box-shadow:0 0 0 3px var(--elev), 0 0 0 5px var(--focus)}
+.pg-c.sel{box-shadow:0 0 0 3px var(--elev), 0 0 0 6px var(--ink)}
+.pg-c b{font-size:15px; font-weight:800; margin-top:2px; line-height:1.2}
+.pg-c small{font-size:11.5px; font-weight:500; opacity:.82; line-height:1.3}
+.pg-arte{--c:118px; position:relative; width:var(--c); height:calc(var(--c) * 1.27); margin:8px auto 0; max-width:100%}
+.pg-arte > i{position:absolute; left:0; right:0; top:0; height:var(--c); border-radius:50%; background:var(--ci)}
+.pg-arte svg{position:absolute; left:50%; top:calc(var(--c) * -0.23); width:calc(var(--c) * 1.15); height:calc(var(--c) * 1.53); transform:translateX(-50%)}
+.pg-c.dono{cursor:not-allowed}
+.pg-c.dono:hover{transform:none}
+.pg-c.dono::after{content:""; position:absolute; inset:0; border-radius:18px; background:color-mix(in srgb, var(--elev) 64%, transparent)}
+.pg-tag{position:absolute; z-index:2; left:50%; top:42%; transform:translate(-50%, -50%); width:max-content; max-width:calc(100% - 16px); text-align:center; line-height:1.25;
+  font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:12px; background:rgba(10,10,12,.88); color:#fff; box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.pg-ok{position:absolute; z-index:2; right:9px; top:9px; width:26px; height:26px; border-radius:50%; background:#fff; color:#000; display:grid; place-items:center; box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.pg-ok .ic{width:16px; height:16px; stroke-width:3}
+.pg-nota{margin-right:auto; font-size:12.5px; color:var(--ink-3); line-height:1.4}
+#pgUsar:disabled{opacity:.55; cursor:default; filter:none}
+
+/* ---------- telas menores ---------- */
+@media (max-width: 1100px){
+  .pg-grade{grid-template-columns:repeat(4, minmax(0, 1fr))}
+}
+@media (max-width: 900px){
+  .pp-corpo{grid-template-columns:minmax(0, 1fr); padding:16px 16px 48px; gap:18px}
+  .pp-esq{position:static}
+  .pp-arte{--c:200px}
+  .pp-top{padding-left:16px; padding-right:16px; gap:10px}
+  .pp-tit{font-size:19px}
+}
+@media (max-width: 640px){
+  .pp-topdir .mbtn{padding:0 10px}
+  .pp-topdir .mbtn .ic{display:none}
+  .pp-tiles{grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px}
+  .pp-tile{min-height:104px; padding:12px 13px}
+  .pp-big{font-size:26px}
+  .pp-ir{display:none}
+  .pp-tl{padding-right:0}
+  .pg-grade{grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px}
+  .pg-arte{--c:104px}
+  .pg-modal .mfoot{flex-wrap:wrap}
+  .pp-hoje{display:none}
+  .pg-nota{flex-basis:100%}
+}
+@media (max-width: 420px){
+  .pp-volta span{display:none}
+  .pp-volta{padding:0 8px}
+}
+@media (prefers-reduced-motion: reduce){
+  .pp,.pdot.eu.sempg{animation:none}
+  .pg-c,.pp-tile,.pp-trocar{transition:none}
+}
