@@ -20,6 +20,7 @@
 <link rel="stylesheet" href="/css/perfil.css">
 <link rel="stylesheet" href="/css/linha.css">
 <link rel="stylesheet" href="/css/raias.css">
+<link rel="stylesheet" href="/css/captacao.css">
 </head>
 <body>
 
@@ -64,6 +65,8 @@
     <div class="spacer"></div>
     <div class="acoes">
     <!-- v3.89: copys esperando aprovação (ADMIN) ou as suas em aprovação e pra alterar (Usuário) -->
+    <!-- v4.03: quadro de captação (ADMIN): os vídeos da semana em blocos pro filmmaker; o número = vídeos dos próximos 14 dias sem bloco -->
+    <button class="aprovbtn capbtn" id="btnCap" hidden><span class="ab-ic"></span><span class="ab-rot">Captação</span><b class="ab-n" id="capN"></b></button>
     <button class="aprovbtn" id="btnAprovar" hidden><span class="ab-ic"></span><span class="ab-rot" id="aprovRot">Pra aprovar</span><b class="ab-n" id="aprovN"></b></button>
     <!-- v3.78: Bancos, Configurações e Docs num leque (abre no hover, no Tab ou no toque) -->
     <div class="leque" id="leque" role="group" aria-label="Bancos, configurações e documentos">
@@ -429,10 +432,11 @@
 <script src="/js/perfil.js"></script>
 <script src="/js/linha.js"></script>
 <script src="/js/raias.js"></script>
+<script src="/js/captacao.js"></script>
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.02'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.03'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -570,11 +574,11 @@ async function loadState(fresh, silencioso){
   // assinatura barata do que aparece na tela: se nada mudou, o modo silencioso não redesenha
   // v3.70: a assinatura cobre o post INTEIRO (formato, GM, obs, matriz...) e as referências: mudança
   // feita por outra pessoa aparece no próximo ciclo de 20 s. Antes só o poll de 90 s (removido) pegava isso.
-  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.banco||[]) + '#' + JSON.stringify(j.bancoPastas||[]) + '#' + JSON.stringify(j.tarefas||[]);
+  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.banco||[]) + '#' + JSON.stringify(j.bancoPastas||[]) + '#' + JSON.stringify(j.tarefas||[]) + '#' + JSON.stringify(j.capBlocos||[]) + '#' + (j.capPendentes||0);   // v4.03: blocos de captação
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
   if(pm){ const r = await pm; if(r && r.matrizes) S.matrizes = r.matrizes; }
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], bancoPastas:j.bancoPastas||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, hubEscrita:!!j.hubEscrita, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia});
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], bancoPastas:j.bancoPastas||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, hubEscrita:!!j.hubEscrita, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia, capBlocos:j.capBlocos||[], capPendentes:j.capPendentes||0});
   if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   contaNaTela();                                        // v3.82: nome da conta no perfil e o que cada papel vê
@@ -869,7 +873,7 @@ function render(){
   // e o painel ficaria preso em "arrastando" (clique não abre, atualização para, rolagem automática solta).
   if(S.dragging){ S._renderDepois = true; return; }
   S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba);
-  renderTabs(); renderFaixa(); renderLegend(); renderDrawer(true); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); pintaBtnAprovar();
+  renderTabs(); renderFaixa(); renderLegend(); renderDrawer(true); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); pintaBtnAprovar(); capBotao();
   S.lpPrevia = null; lpVer(); }
 
 function renderTabs(){
@@ -1112,7 +1116,7 @@ function dropZone(el, getDate){
           conta: slot.conta, date: novaData, taskId: slot.taskId||null, taskUrl: slot.taskUrl||null, titulo: slot.titulo||slot.tituloCache||null,
           formato: slot.formato||'', angulo: slot.angulo||'', obs: slot.obs||'', notas: slot.notas||'',
           gm: slot.gm||'', collab: slot.collab||[], drive: slot.drive||'', linkRef: slot.linkRef||'',
-          vaga: isVaga(slot)
+          vaga: isVaga(slot), peca: slot.peca||null   // v4.03: a cópia leva a peça (arte ou vídeo)
         })});
         await loadState();
         toast('Copiado pro dia '+brData(novaData)+(slot.taskId?' com o link da task':'')+' · Ctrl+Z desfaz');
@@ -2326,10 +2330,11 @@ function abrirDoc(id){
 }
 function fecharDoc(){
   $('#ovDoc').hidden = true; document.body.classList.remove('comdoc');
+  { const a = document.activeElement; if(a && a.id === 'docFrame') a.blur(); }   // v4.03: o foco volta pro painel (o Esc e os atalhos funcionam de novo)
   setTimeout(()=>{ $('#docFrame').src = 'about:blank'; }, 50);
   try{ if(location.hash.startsWith('#doc=')) history.replaceState(null, '', location.pathname+location.search); }catch(e){}
   // recarrega e redesenha (o modo silencioso não redesenha se só mudou o documento, e a marca do card precisa aparecer)
-  loadState(false, true).then(()=>render()).catch(()=>{});
+  loadState(false, true).then(()=>{ render(); capAoVoltar(); }).catch(()=>{});   // v4.03: o quadro de captação aberto também se atualiza
 }
 window.addEventListener('message', ev=>{
   if(ev.origin !== location.origin || !ev.data || ev.data.bone !== 'doc') return;
@@ -2486,6 +2491,7 @@ async function apAcao(sid, acao, nota){
   }catch(e){ toast(e.message, true); }
 }
 $('#btnAprovar').onclick = () => abrirAprovar();
+$('#btnCap').onclick = () => capAbrir();   // v4.03
 
 // ================= v3.90: task de produção no MKT Hub =================
 // Copy aprovada → o ADMIN cria aqui a task de arte ou vídeo: título, tipo, formato, responsável, entrega, data do
@@ -3672,7 +3678,7 @@ async function colarNoDia(dateStr){
         conta:s.conta, date:dateStr, taskId:s.taskId||null, taskUrl:s.taskUrl||null, titulo:s.titulo||s.tituloCache||null,
         formato:s.formato||'', angulo:s.angulo||'', obs:s.obs||'', notas:s.notas||'',
         gm:s.gm||'', collab:s.collab||[], drive:s.drive||'', linkRef:s.linkRef||'',
-        vaga: isVaga(s)
+        vaga: isVaga(s), peca: s.peca||null   // v4.03
       })});
       S.clip = null; // depois de colar, some com os botões "Colar aqui"
       await loadState();
@@ -3711,6 +3717,7 @@ document.addEventListener('keydown', async ev=>{
     if(r.ok){
       toast('Desfeito: '+r.desfeito);
       await loadState();
+      capAoVoltar();                                  // v4.03: com o quadro de captação aberto
       if(S.taskSlot && $('#ovTask').classList.contains('open')){
         const s2 = S.slots.find(x=>x.id===S.taskSlot.id);
         if(s2){ S.taskSlot = s2; tRowDraw(s2); } else closeOv('ovTask');
@@ -3904,6 +3911,7 @@ function initIcons(){
   $('#btnDrawer').innerHTML = icon('box');
   $('#btnDocs').innerHTML = icon('doc') + '<span class="lq-dot"></span>';
   $('#btnAprovar .ab-ic').innerHTML = icon('check');   // v3.89
+  $('#btnCap .ab-ic').innerHTML = icon('camera');      // v4.03
   $('#fabMain').innerHTML = icon('plus');
   $('#atMain').innerHTML = icon('share');
   $('#mzEditar').innerHTML = icon('pencil');

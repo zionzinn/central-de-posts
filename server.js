@@ -16,8 +16,9 @@ const crypto = require('node:crypto');
 const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
+const { pecaDoPost } = require('./lib/peca.js');   // v4.03: arte ou vídeo (o bloco de captação só aceita vídeo)
 
-const VERSAO = '4.02'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '4.03'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -211,7 +212,7 @@ function criaCardsMatriz(tf) {
 /** v3.88: excluir a tarefa de matriz leva junto os cards que ELA criou e que continuam vazios. Devolve quantos. */
 function limpaCardsMatriz(tf) {
   const sai = new Set(db.slots.filter(s => s.mzTarefa === tf.id && s.matrizSB && !s.taskId && !s.postado && !s.docId
-    && !(s.aprov && s.aprov.c) && mzDe(s).vazio(s.matrizSB)).map(s => s.id));
+    && !(s.aprov && s.aprov.c) && !s.capBloco && mzDe(s).vazio(s.matrizSB)).map(s => s.id));   // v4.03: no bloco de captação, fica
   if (sai.size) db.slots = db.slots.filter(s => !sai.has(s.id));
   return sai.size;
 }
@@ -250,6 +251,7 @@ function limpaPostsCopy(tf) {
   const vazio = s => contas.includes(s.conta) && s.titulo === nomeDoDia(s.date || '') && !s.taskId && !s.postado && !s.docId
     && !(s.aprov && s.aprov.c) && !s.banco && !s.matrizSB && !s.vaga && !s.gm && !s.fixo && !s.aprovado && !(s.collab || []).length
     && !String(s.notas || '').trim() && !s.obs && !s.angulo && !s.drive && !s.linkRef && !s.formato && !String(s.responsavelManual || '').trim()
+    && !s.peca && !s.capBloco                                   // v4.03: marcado como arte/vídeo ou no bloco de captação, fica
     && !temTempo(s);
   const sai = new Set(db.slots.filter(s => s.cpTarefa === tf.id && s.date && vazio(s)).map(s => s.id));
   if (sai.size) db.slots = db.slots.filter(s => !sai.has(s.id));
@@ -418,7 +420,8 @@ function aovivoPersonagem(nome, pg) {
 
 // Documentos (a copy do post, editor estilo Docs em public/doc.html). Rotas em lib/docs.js.
 const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo, MZ, mzDe, backupAgora, usoInvalida: () => USO.invalida(),
-  personagemDoNome: n => rotaPerfil.doNome(n) });   // v3.99: a bolinha de quem está com o documento aberto mostra o personagem
+  personagemDoNome: n => rotaPerfil.doNome(n),   // v3.99: a bolinha de quem está com o documento aberto mostra o personagem
+  comHub: s => rotaHub.sobrepoe([s])[0] });      // v4.03: a peça (arte ou vídeo) olha o nome da task do MKT Hub
 // v3.80: tarefas da copywriter (matriz e copy por empresa, com aprovação post a post) e o relógio delas
 const rotaTempo = require('./lib/tempo.js')({ db, saveDb, readBody, json, equipe: () => AUTH.ligado() ? AUTH.usuarios().map(u => u.nome) : [] });
 /** v3.88: o card da matriz está completo (os campos obrigatórios cheios); v3.96: com material do banco, está resolvido. */
@@ -430,6 +433,8 @@ const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, un
 // v3.81: MKT Hub (leitura; chave só na variável MKH_CHAVE). Sem chave, fica desligado.
 const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/docs.js').limpaHtml });
 // v3.84: a tarefa de matriz ou copy vira no Hub uma tarefa mãe com uma subtarefa por post (só com a chave de nível completa)
+// v4.03: quadro de captação (blocos de vídeos da semana) e a peça de cada post (arte ou vídeo)
+const rotaCaptacao = require('./lib/captacao.js')({ db, saveDb, readBody, json, soAdmin, hub: rotaHub, htmlParaTexto: require('./lib/hubenvio.js').htmlParaTexto });
 const rotaHubEnvio = require('./lib/hubenvio.js')({ db, saveDb, readBody, json, hub: rotaHub, tempo: rotaTempo, itens: rotaTarefas.itens, soAdmin, gravaJa: () => gravarAgora() });
 rotaTarefas.hubPublico = rotaHubEnvio.publico;
 // v3.90: depois de cada leitura do Hub, a data do post que não foi na hora vai de novo; v3.95: e a limpeza do Vídeo fábrica
@@ -451,6 +456,7 @@ function montaSlot(b) {
     drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: false, fixo: false,
     responsavelManual: String(b.responsavelManual || '').slice(0, 80), origem: 'painel',   // v3.83: sem "criativo" e "banco" (o banco antigo saiu)
     ...(b.matrizSB ? { matrizSB: mzDe(b).limpa(Object.assign({ tipo: b.date ? ((mzDe(b).tipoDoDia(b.date) || {}).tipo || '') : '' }, b.matrizSB)) } : {}),   // v3.91: a matriz da conta
+    ...(b.peca === 'arte' || b.peca === 'video' ? { peca: b.peca } : {}),   // v4.03: arte ou vídeo (a cópia de um post leva junto)
     tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: null,
   };
   // VAGA = "falta criar este post". Só faz sentido sem task: se já tem task, não falta criar.
@@ -535,6 +541,7 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith('/api/tempo') && await rotaTempo(req, res, p, u)) return;
     if (p.startsWith('/api/banco') && await rotaBanco(req, res, p)) return;
     if (p.startsWith('/api/perfil') && await rotaPerfil(req, res, p, u)) return;   // v3.99
+    if (p.startsWith('/api/captacao') && await rotaCaptacao(req, res, p, u)) return;   // v4.03: quadro de captação
     // ---------- MKT Hub (v3.81): status, artes e comentários das tasks de produção ----------
     if (p === '/api/hub/eu' && soAdmin(req, res)) return;     // v3.82: teste da chave do Hub é configuração (ADMIN)
     if ((p.startsWith('/api/hub') || p.startsWith('/api/task/')) && await rotaHub(req, res, p, u)) return;
@@ -555,6 +562,8 @@ const server = http.createServer(async (req, res) => {
         contas: db.contas, abas: db.abas,
         slots: rotaHub.sobrepoe(slots), banco: db.banco, bancoPastas: db.bancoPastas || [],   // v3.97: pastas por pessoa nos cortes   // v3.81: status do Hub por cima dos posts (sem gravar); v3.83: banco de cada empresa
         tarefas: rotaTarefas.publicas(),                  // v3.80: tarefas abertas (matriz e copy), com os posts de cada uma
+        capBlocos: rotaCaptacao.publicos(),               // v4.03: blocos de captação (o card do vídeo mostra o dia)
+        capPendentes: !req.eu || req.eu.papel === 'admin' ? rotaCaptacao.pendentes() : 0,   // v4.03: vídeos sem bloco nos próximos 14 dias
         temFonte: rotaHub.ligado(),                       // v3.81: true com a chave do MKT Hub (artes e comentários das tasks)
         hubEscrita: rotaHubEnvio.escrita(),               // v3.84: true com a chave de nível completa (a tarefa vai pro Hub)
         temSenha: !!config.senha,
@@ -698,6 +707,15 @@ const server = http.createServer(async (req, res) => {
         return json(res, 400, { erro: 'conta inválida: ' + b.conta });
       }
       const trocaConta = 'conta' in b && !!db.contas[b.conta] && b.conta !== slot.conta;
+      // v4.03: arte ou vídeo (null volta pro automático, pelo formato) e o bloco de captação (só ADMIN monta)
+      if ('peca' in b && b.peca !== null && b.peca !== 'arte' && b.peca !== 'video') return json(res, 400, { erro: 'peça inválida (arte ou vídeo)' });
+      if ('capBloco' in b) {
+        if (req.eu && req.eu.papel !== 'admin') return json(res, 403, { erro: 'só ADMIN (Zion ou Maria) monta os blocos de captação' });
+        if (b.capBloco !== null && !rotaCaptacao.existe(b.capBloco)) return json(res, 400, { erro: 'bloco de captação não encontrado' });
+        // só vídeo entra no bloco (a peça que vale é a de depois deste PATCH: a escolhida ou a do formato novo)
+        const depois = Object.assign({}, slot, 'peca' in b ? { peca: b.peca || undefined } : {}, 'formato' in b ? { formato: b.formato || '' } : {});
+        if (b.capBloco && pecaDoPost(rotaHub.sobrepoe([depois])[0]) !== 'video') return json(res, 400, { erro: 'só vídeo entra no bloco de captação' });
+      }
       const descUndo =
         trocaConta ? 'trocar pra ' + db.contas[b.conta].nome :
         'date' in b ? ((b.date || null) ? 'mover post pra ' + String(b.date).split('-').reverse().join('/') : 'mandar post pro banco') :
@@ -710,7 +728,9 @@ const server = http.createServer(async (req, res) => {
         'aprovado' in b ? 'mudar aprovação da arte' :
         'fixo' in b ? 'mudar pino de data fixa' :
         'collab' in b ? (Array.isArray(b.collab) && b.collab.length ? 'marcar collab' : 'tirar collab') :
-        'formato' in b && Object.keys(b).length === 1 ? 'mudar formato' : 'editar post';
+        'formato' in b && Object.keys(b).length === 1 ? 'mudar formato' :
+        'peca' in b ? (b.peca === 'video' ? 'marcar como vídeo' : b.peca === 'arte' ? 'marcar como arte' : 'peça pelo formato') :
+        'capBloco' in b ? (b.capBloco ? 'pôr no bloco de captação' : 'tirar do bloco de captação') : 'editar post';
       undoSlots(descUndo, [slot]);
       if (trocaConta) slot.conta = b.conta; // ANTES do collab: collab não pode conter a própria conta
       if ('date' in b) slot.date = b.date || null;
@@ -729,6 +749,9 @@ const server = http.createServer(async (req, res) => {
       if ('cat' in b) slot.cat = typeof b.cat === 'string' ? b.cat : '';
       if ('aprovado' in b) slot.aprovado = !!b.aprovado;
       if ('fixo' in b) slot.fixo = !!b.fixo;
+      if ('peca' in b) { if (b.peca) slot.peca = b.peca; else delete slot.peca; }            // v4.03
+      if ('capBloco' in b) { if (b.capBloco) slot.capBloco = b.capBloco; else delete slot.capBloco; }
+      if (slot.capBloco && pecaDoPost(rotaHub.sobrepoe([slot])[0]) !== 'video') delete slot.capBloco;   // virou arte (ou o formato mudou): sai do bloco
       if ('collab' in b) slot.collab = Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== slot.conta) : [];
       // trocou de conta sem mandar collab: tira a nova conta própria do collab (ninguém faz collab consigo)
       if (trocaConta) slot.collab = (slot.collab || []).filter(c => c !== slot.conta);

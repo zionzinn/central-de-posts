@@ -40,6 +40,15 @@
   .gd-status{flex:none; display:inline-flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink3); white-space:nowrap; padding:4px 6px; border-radius:6px}
   .gd-status .ic{width:18px; height:18px}
   .gd-status.erro{color:var(--red)}
+  /* v4.03: a peça do post (arte ou vídeo). Vídeo tem captação: a folha vira o roteiro pra captar */
+  .gd-peca{flex:none; display:inline-flex; align-items:center; gap:0; height:32px; padding:2px; border-radius:16px; box-shadow:inset 0 0 0 1px var(--line); margin:0 2px}
+  .gd-peca button{display:inline-flex; align-items:center; gap:5px; height:28px; padding:0 11px 0 8px; border:0; border-radius:14px; background:transparent; color:var(--ink2); font:500 13px var(--ui); cursor:pointer; white-space:nowrap}
+  .gd-peca button:hover{background:var(--hover)}
+  .gd-peca button .ic{width:17px; height:17px}
+  .gd-peca button.on{background:var(--on); color:#041E49}
+  .gd-peca button:disabled{cursor:default; opacity:.5}
+  .gd-peca button:focus-visible{outline:2px solid var(--blue); outline-offset:1px}
+  .gd-peca.aberto{box-shadow:inset 0 0 0 1.5px var(--blue)}
   .gd-menubar{display:flex; gap:0; margin-left:-2px; flex-wrap:wrap}
   .gd-menubar button{background:none; border:0; font-size:14px; padding:3px 8px 4px; border-radius:4px; cursor:pointer; color:var(--ink)}
   .gd-menubar button:hover,.gd-menubar button.aberto{background:var(--hover)}
@@ -306,7 +315,8 @@
   @media (max-width:900px){
     :root{--page-w:100%; --page-pad:28px}
     .gd-pagewrap{width:auto; margin:10px}
-    .gd-ruler,.gd-status span,.gd-btn .rot{display:none}
+    .gd-ruler,.gd-status span,.gd-btn .rot,.gd-peca .rot{display:none}
+    .gd-peca button{padding:0 8px}
     .gd-side{position:fixed; right:0; top:0; bottom:0; z-index:60; box-shadow:-4px 0 16px rgba(0,0,0,.15); width:min(360px,92vw)}
   }
   /* impressão / "Baixar PDF": só a folha, no tamanho A4 com margens de 2,54 cm */
@@ -331,6 +341,7 @@
   <div class="gd-tbox">
     <div class="gd-row1">
       <span class="gd-titlew"><span class="medida" id="tituloMedida"></span><input class="gd-title" id="titulo" spellcheck="false" aria-label="nome do documento"></span>
+      <span class="gd-peca" id="gdPeca" role="group" aria-label="O post é arte ou vídeo" hidden></span>
       <span class="gd-status" id="status" title=""></span>
     </div>
     <nav class="gd-menubar" id="menubar">
@@ -401,6 +412,7 @@ const IC = {
   link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   abrir:'<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M9 5H6.5A2.5 2.5 0 0 0 4 7.5v10A2.5 2.5 0 0 0 6.5 20h10a2.5 2.5 0 0 0 2.5-2.5V15"/>',   // v3.98
   img:'<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="M20.5 16l-5-5-8.5 8.5"/>',
+  camera:'<path d="M4 8.5a2 2 0 0 1 2-2h2l1.4-2h5.2l1.4 2h2a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8.5z"/><circle cx="12" cy="12.6" r="3.4"/>',   // v4.03: vídeo
   alL:'<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>', alC:'<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',
   alR:'<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>', alJ:'<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>',
   esp:'<path d="M11 6h9M11 12h9M11 18h9"/><path d="M5.5 4.5v15M3.5 7l2-2.5 2 2.5M3.5 17l2 2.5 2-2.5"/>',
@@ -895,6 +907,8 @@ async function carregar(){
   VERSAO = D.doc.versao; CHK = (D.doc.checklist||[]).slice();
   $('#titulo').value = D.doc.titulo || 'Documento sem título'; ajustaTitulo();
   page.innerHTML = limpa(D.doc.html);
+  // v4.03: vídeo com a folha vazia abre com o roteiro de captação (só vai pro servidor quando alguém escrever)
+  if(D.post && D.post.peca === 'video' && !D.doc.excluido && folhaVazia()) page.innerHTML = limpa(D.modeloRoteiro || '');
   document.execCommand('defaultParagraphSeparator', false, 'p');
   registra();
   statusSalvo(D.doc.atualizadoEm, D.doc.por);
@@ -909,10 +923,12 @@ async function carregar(){
   $('#carregando').remove();
   presenca();
   avisoAprovacao(); relogioDoc(); pintaAprovacao();   // v3.80 e v3.89 (aprovar aqui)
+  pintaPeca();                                         // v4.03: arte ou vídeo
   // abre com o cursor no começo, igual abrir um documento
   if(!LEITURA){ page.focus({preventScroll:true}); try{ const r=document.createRange(); r.setStart(page.firstChild||page,0); r.collapse(true); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }catch(e){} }
+  if(!LEITURA && soModeloRoteiro()) cursorNoOnde();   // v4.03: roteiro em branco: o cursor já espera no "Onde:"
   atualizaToolbar();
-  if(PARAMS.get('matriz')==='1' || (D.matriz && !(D.doc.html||'').replace(/<[^>]+>/g,'').trim())) abreLateral(true);
+  if(PARAMS.get('matriz')==='1' || (D.matriz && !temTextoAgora())) abreLateral(true);   // v4.03: só o modelo do roteiro conta como vazio
 }
 function erroTela(t, m){
   const c = $('#carregando'); if(c) c.remove();
@@ -1535,7 +1551,7 @@ function montaLateral(){
     h += '<div class="sb-sub" style="margin-top:14px">Este post não veio da matriz.</div>';
   }
   if(p){
-    h += '<div class="sb-sec">Post no painel</div>'+row('Conta', p.contaNome)+row('Dia', p.date ? dataBr(p.date) : 'sem dia (banco)')+row('Título no painel', p.titulo)+row('Formato', p.formato)+row('Status da task', p.status)+row('Responsável', p.responsavel)+row('Observação', p.obs)+
+    h += '<div class="sb-sec">Post no painel</div>'+row('Conta', p.contaNome)+row('Dia', p.date ? dataBr(p.date) : 'sem dia (banco)')+row('Título no painel', p.titulo)+row('Formato', p.formato)+row('Peça', p.peca ? (p.peca==='video' ? 'Vídeo (tem captação)' : 'Arte')+(p.pecaEscolhida ? '' : ', pelo formato') : 'em aberto (escolha no topo)')+row('Status da task', p.status)+row('Responsável', p.responsavel)+row('Observação', p.obs)+
       (linkDaTask(p) ? '<div class="sb-row"><span class="l">Task de produção</span><span class="v"><a href="'+esc(linkDaTask(p))+'" target="_blank" rel="noopener">abrir a task</a></span></div>' : row('Task de produção', ''));
   } else h += '<div class="sb-sub" style="margin-top:14px">O post deste documento foi excluído do painel. O texto continua aqui.</div>';
   $('#sideBody').innerHTML = h;
@@ -1883,7 +1899,7 @@ async function cliqueRelogioDoc(){
 function podeAprovar(){ return !D || !D.eu || D.eu.papel === 'admin'; }
 /** v3.90: aberto dentro do painel e o painel ligado ao MKT Hub (lá abre a tela da task de produção). */
 function painelComHub(){ if(!EMBUTIDO) return false; try{ return typeof parent.painelTemHub === 'function' && !!parent.painelTemHub(); }catch(e){ return false; } }
-function temTextoAgora(){ return !!(page && (page.textContent || '').replace(/\u200b/g,'').trim()); }
+function temTextoAgora(){ return !!(page && (page.textContent || '').replace(/\u200b/g,'').trim()) && !soModeloRoteiro(); }   // v4.03: só o modelo do roteiro não conta
 function pintaAprovacao(){
   const box = $('#gdAprov'); if(!box) return;
   const p = D && D.post;
@@ -1932,6 +1948,74 @@ function avisoAprovacao(){
   if(a.st === 'alterar') faixa('aprov', '<b>'+esc(a.ap || 'Pedido')+' pediu alteração nesta copy:</b> '+esc(a.nota || ''), [], 'verm');
   else if(a.st === 'enviado') faixa('aprov', '<b>Copy pronta, esperando aprovação</b> pra ir pra produção. Enviada'+(a.por ? ' por '+esc(a.por) : '')+' '+fmtQuando(a.em)+'.', []);   // v3.98: amarelo, bem à vista
   else if(a.st === 'aprovado') faixa('aprov', 'Copy aprovada'+(a.ap ? ' por <b>'+esc(a.ap)+'</b>' : '')+'.', [], 'verde');
+}
+
+// ---------------- v4.03: a peça do post (arte ou vídeo) ----------------
+// Pedido do Zion (02/10/2026): o doc se divide em arte e vídeo, só pra separar o que é arte do que é captação. No vídeo,
+// a Elis escreve só o roteiro pra captar daquele post; o Zion junta os roteiros da semana em blocos no quadro de
+// captação do painel. A peça vem do formato do post (Reels e vídeo = vídeo; carrossel, estático e story = arte); sem
+// formato claro, o doc pergunta. Um clique troca (fica gravada no post: slot.peca, lib/peca.js).
+const PECA_NOME = { arte:'Arte', video:'Vídeo' };
+const RE_MODELO = /roteiro de captação|onde:|quem aparece:|levar:|tomadas|\(o que gravar e o que falar\)/gi;
+/** A folha não tem nada (nem texto, nem imagem, nem tabela). */
+function folhaVazia(){ return !(page.textContent || '').replace(/\u200b/g,'').trim() && !page.querySelector('img,table,hr'); }
+/** A folha só tem o modelo do roteiro de captação, sem nada escrito. */
+function soModeloRoteiro(){
+  const t = (page.textContent || '').replace(/\u200b/g,'');
+  return /roteiro de captação/i.test(t) && !page.querySelector('img,table') && !t.replace(RE_MODELO,'').replace(/\s+/g,'');
+}
+function temModeloNaFolha(){ return /roteiro de captação/i.test(page.textContent || ''); }
+function pintaPeca(){
+  const box = $('#gdPeca'); if(!box) return;
+  const p = D && D.post;
+  if(!p || D.doc.excluido){ box.hidden = true; tiraFaixa('peca'); return; }
+  const auto = !!p.peca && !p.pecaEscolhida;
+  box.hidden = false; box.classList.toggle('aberto', !p.peca);
+  box.innerHTML = ['arte','video'].map(v => {
+    const dica = (v === 'video' ? 'Vídeo: tem captação. A folha vira o roteiro pra captar e o vídeo entra no quadro de captação'
+      : 'Arte: sem captação (carrossel, estático, story, corte de podcast ou edição do que já existe)') + (p.peca === v && auto && p.formato ? '. Veio do formato do post ('+p.formato+')' : '');
+    return '<button type="button" data-peca="'+v+'"'+(p.peca === v ? ' class="on"' : '')+' aria-pressed="'+(p.peca === v)+'"'+(LEITURA ? ' disabled' : '')+' title="'+esc(dica)+'">'+
+      ic(v === 'video' ? 'camera' : 'img')+'<span class="rot">'+PECA_NOME[v]+'</span></button>';
+  }).join('');
+  box.querySelectorAll('button').forEach(b => b.onclick = ()=> escolhePeca(b.dataset.peca));
+  if(!p.peca && !LEITURA) faixa('peca', '<b>Este post é arte ou vídeo?</b> No vídeo, a folha vira o roteiro pra captar e o post entra no quadro de captação.', [
+    { r:'Arte', f:()=> escolhePeca('arte') }, { r:'Vídeo', f:()=> escolhePeca('video') } ], 'azul');
+  else tiraFaixa('peca');
+}
+let TROCANDO_PECA = false;
+async function escolhePeca(v){
+  const p = D && D.post;
+  if(!p || LEITURA || TROCANDO_PECA || (p.peca === v && p.pecaEscolhida === v)) return;
+  TROCANDO_PECA = true;
+  try{ await api('/api/slots/'+p.id, {method:'PATCH', body:JSON.stringify({ peca:v })}); }
+  catch(e){ TROCANDO_PECA = false; toast(esc(e.message)); return; }
+  TROCANDO_PECA = false;
+  const antes = p.peca; p.peca = v; p.pecaEscolhida = v;
+  // vídeo: a folha vazia ganha o roteiro de captação; arte: o modelo que ninguém preencheu sai
+  if(v === 'video' && folhaVazia()) poeModelo(true);
+  else if(v === 'arte' && soModeloRoteiro()){ if(H.t) registra(); page.innerHTML = '<p><br></p>'; registra(); mudou(); }
+  pintaPeca(); pintaAprovacao(); montaLateral(); agendaContagem();
+  if(v !== antes){
+    const oferece = v === 'video' && !temModeloNaFolha();
+    toast(v === 'video' ? 'Agora é vídeo: entra no quadro de captação.' : 'Agora é arte.', oferece ? { r:'Pôr o modelo do roteiro', f:()=> poeModelo(false) } : null);
+  }
+  avisaPai('peca');
+}
+/** O modelo do roteiro de captação: na folha vazia, no lugar; com texto, em cima do que já tem. O cursor vai pro "Onde:". */
+function poeModelo(vazia){
+  if(LEITURA) return;
+  if(H.t) registra();
+  const m = limpa(D.modeloRoteiro || '');
+  page.innerHTML = vazia ? m : m + page.innerHTML;
+  registra(); mudou();
+  cursorNoOnde();
+}
+/** O cursor no fim da linha "Onde:" do roteiro (o primeiro campo pra preencher). */
+function cursorNoOnde(){
+  try{
+    const b = [...page.querySelectorAll('p > b')].find(x => /^onde:$/i.test(x.textContent.trim()));
+    if(b){ page.focus({preventScroll:true}); const r = document.createRange(); r.selectNodeContents(b.parentNode); r.collapse(false); const sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); }
+  }catch(e){}
 }
 
 // ======================================================================

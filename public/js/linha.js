@@ -164,7 +164,7 @@ function lpTitulo(s, e) {
   return { t: slotTitulo(s), vazio: false };
 }
 function lpContaTag(s) { return '<div class="contatag">' + esc(contaCurta(s.conta)) + '</div>'; }
-/** As marquinhas que pedem olho: grande marca, data fixa, collab e conta trocada (esta corrige em 1 clique). */
+/** As marquinhas que pedem olho: grande marca, data fixa, collab, a câmera do vídeo e conta trocada (esta corrige em 1 clique). */
 function lpMarcas(s, e) {
   let h = '';
   const gmPede = !isGm(s) && S.aba === 'SEUBONÉ' && s.date && (e.k === 'mz' || e.k === 'copy') && gmCadenciaDia(s.date);
@@ -174,6 +174,7 @@ function lpMarcas(s, e) {
   const clb = s.collab || [];
   if (clb.length) h += '<span class="lp-mk clb" title="Collab: ' + esc([s.conta].concat(clb).map(nomeConta).join(' + ')) + '">' +
     [s.conta].concat(clb).map(c => '<i style="background:' + contaCor(c) + '"></i>').join('') + '</span>';
+  h += capMarca(s, e);                                  // v4.03: vídeo (câmera), pra captar ou o dia da captação (js/captacao.js)
   const cdiv = contaDivergente(s);
   if (cdiv) h += '<button type="button" class="lp-mk cdiv" data-ac="cdiv" title="O nome da task diz ' + esc(nomeConta(cdiv.sugerida)) + ', mas este post está em ' +
     esc(nomeConta(s.conta)) + '. Clique pra mover pra ' + esc(nomeConta(cdiv.sugerida)) + ' (Ctrl+Z desfaz).">' + icon('alerta') + '</button>';
