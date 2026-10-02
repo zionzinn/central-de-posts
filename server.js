@@ -18,7 +18,7 @@ const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 const { pecaDoPost } = require('./lib/peca.js');   // v4.03: arte ou vídeo (o bloco de captação só aceita vídeo)
 
-const VERSAO = '4.04'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '4.05'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -179,7 +179,7 @@ function novoSlotMatriz(iso, matrizSB, mzTarefa, conta) {
   return {
     id: 's' + crypto.randomBytes(4).toString('hex'),
     conta: conta || MZ_CONTA, date: iso || null, taskId: null, titulo: null, formato: '', angulo: '', obs: '', notas: '',
-    gm: '', collab: [], drive: '', linkRef: '', aprovado: false, postado: false, fixo: false,
+    gm: '', collab: [], drive: '', linkRef: '', aprovado: false, postado: false,
     responsavelManual: '', origem: 'matriz', cat: '', fonteId: '', matrizSB,
     ...(mzTarefa ? { mzTarefa } : {}),        // v3.88: a tarefa de matriz que criou o card (excluir a tarefa leva os vazios)
     tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: new Date().toISOString(),
@@ -249,7 +249,7 @@ function limpaPostsCopy(tf) {
   const contas = Array.isArray(tf.contas) ? tf.contas : [];
   const temTempo = s => { const t = rotaTempo.tempoDoPost(s.id); return (t[0] || 0) + (t[1] || 0) > 0; };
   const vazio = s => contas.includes(s.conta) && s.titulo === nomeDoDia(s.date || '') && !s.taskId && !s.postado && !s.docId
-    && !(s.aprov && s.aprov.c) && !s.banco && !s.matrizSB && !s.vaga && !s.gm && !s.fixo && !s.aprovado && !(s.collab || []).length
+    && !(s.aprov && s.aprov.c) && !s.banco && !s.matrizSB && !s.vaga && !s.gm && !s.fixo && !s.aprovado && !(s.collab || []).length   // fixo: o pino de antes da v4.05 (quem cravou, mexeu)
     && !String(s.notas || '').trim() && !s.obs && !s.angulo && !s.drive && !s.linkRef && !s.formato && !String(s.responsavelManual || '').trim()
     && !s.peca && !s.capBloco                                   // v4.03: marcado como arte/vídeo ou no bloco de captação, fica
     && !temTempo(s);
@@ -454,7 +454,7 @@ function montaSlot(b) {
     notas: typeof b.notas === 'string' ? b.notas : '', // caderno livre do post (só do painel)
     gm: (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '',
     collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
-    drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: false, fixo: false,
+    drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: false,
     responsavelManual: String(b.responsavelManual || '').slice(0, 80), origem: 'painel',   // v3.83: sem "criativo" e "banco" (o banco antigo saiu)
     ...(b.matrizSB ? { matrizSB: mzDe(b).limpa(Object.assign({ tipo: b.date ? ((mzDe(b).tipoDoDia(b.date) || {}).tipo || '') : '' }, b.matrizSB)) } : {}),   // v3.91: a matriz da conta
     ...(b.peca === 'arte' || b.peca === 'video' ? { peca: b.peca } : {}),   // v4.03: arte ou vídeo (a cópia de um post leva junto)
@@ -606,26 +606,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, slot: rotaHub.sobrepoe([slot])[0], aviso: (lig && lig.aviso) || undefined });
     }
 
-    // ---------- EMPURRAR / REAJUSTAR: este post + todos os seguintes da conta ----------
-    // DELTA PURO: a base e todos os posts seguintes da MESMA conta (data >= base) andam
-    // EXATAMENTE o mesmo tanto de dias. Fixos (pino) e postados não se movem. Sem desvio
-    // esperto: mantém o espaçamento e é previsível (arrastou +1, todo mundo +1).
-    const mEmp = p.match(/^\/api\/slots\/([a-z0-9]+)\/empurrar$/i);
-    if (mEmp && req.method === 'POST') {
-      const base = db.slots.find(s => s.id === mEmp[1]);
-      if (!base || !base.date) return json(res, 400, { erro: 'post sem data' });
-      if (base.fixo) return json(res, 400, { erro: 'este post está com data fixa (pino); solte o pino pra empurrar' });
-      const b = await readBody(req);
-      const dias = Math.max(1, Math.min(60, parseInt(b.dias) || 1));
-      const mover = db.slots.filter(s => s.conta === base.conta && s.date && s.date >= base.date && !s.postado && !s.fixo);
-      if (mover.length) {
-        undoSlots('reajustar ' + mover.length + ' post' + (mover.length > 1 ? 's' : ''), mover);
-        for (const s of mover) s.date = addDiaISO(s.date, dias);
-        saveDb();
-        for (const s of mover) rotaHubEnvio.moveDataPost(s);      // v3.90: a data do post acompanha no Hub
-      }
-      return json(res, 200, { ok: true, movidos: mover.length });
-    }
+    // (v4.05: o EMPURRAR em cascata, este post + todos os seguintes da conta, saiu junto com o pino: decisão 32)
 
     // ---------- LOTE da seleção: mover N dias / banco / collab ----------
     if (p === '/api/slots/batch' && req.method === 'POST') {
@@ -649,7 +630,7 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { ok: true, modo: jaTem ? 'off' : 'on', afetados: alvos.length, contas });
       }
 
-      const validos = alvos.filter(s => op === 'banco' ? !!s.date : (!!s.date && !s.fixo && !s.postado));
+      const validos = alvos.filter(s => op === 'banco' ? !!s.date : (!!s.date && !s.postado));   // v4.05: sem pino (o fixo antigo não trava)
       const pulados = alvos.length - validos.length;
       if (validos.length) {
         undoSlots((op === 'banco' ? 'enviar ' : 'mover ') + validos.length + ' post' + (validos.length > 1 ? 's' : '') +
@@ -727,7 +708,6 @@ const server = http.createServer(async (req, res) => {
         'notas' in b && Object.keys(b).length === 1 ? 'editar observação' :
         'matrizSB' in b ? 'editar card da matriz' :
         'aprovado' in b ? 'mudar aprovação da arte' :
-        'fixo' in b ? 'mudar pino de data fixa' :
         'collab' in b ? (Array.isArray(b.collab) && b.collab.length ? 'marcar collab' : 'tirar collab') :
         'formato' in b && Object.keys(b).length === 1 ? 'mudar formato' :
         'peca' in b ? (b.peca === 'video' ? 'marcar como vídeo' : b.peca === 'arte' ? 'marcar como arte' : 'peça pelo formato') :
@@ -749,7 +729,6 @@ const server = http.createServer(async (req, res) => {
       if ('vaga' in b) slot.vaga = !!b.vaga; // vaga = falta criar este post
       if ('cat' in b) slot.cat = typeof b.cat === 'string' ? b.cat : '';
       if ('aprovado' in b) slot.aprovado = !!b.aprovado;
-      if ('fixo' in b) slot.fixo = !!b.fixo;
       if ('peca' in b) { if (b.peca) slot.peca = b.peca; else delete slot.peca; }            // v4.03
       if ('capBloco' in b) { if (b.capBloco) slot.capBloco = b.capBloco; else delete slot.capBloco; }
       if (slot.capBloco && pecaDoPost(rotaHub.sobrepoe([slot])[0]) !== 'video') delete slot.capBloco;   // virou arte (ou o formato mudou): sai do bloco

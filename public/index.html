@@ -436,7 +436,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.04'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.05'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -848,11 +848,11 @@ async function selBatch(op){
         : 'Collab desfeito nos '+r.afetados+' posts';
     } else if(op==='banco'){
       msg = r.movidos+' post'+(r.movidos>1?'s':'')+' pro banco';
-      if(r.pulados) msg += ' · '+r.pulados+' pulado'+(r.pulados>1?'s':'')+' (pino ou postado)';
+      if(r.pulados) msg += ' · '+r.pulados+' pulado'+(r.pulados>1?'s':'')+' (já no banco)';
     } else {
       const sinal = dias>0? '+'+dias : ''+dias;
       msg = r.movidos+' post'+(r.movidos>1?'s':'')+' '+sinal+' dia'+(Math.abs(dias)>1?'s':'')+' · seleção mantida';
-      if(r.pulados) msg += ' · '+r.pulados+' pulado'+(r.pulados>1?'s':'')+' (pino ou postado)';
+      if(r.pulados) msg += ' · '+r.pulados+' pulado'+(r.pulados>1?'s':'')+' (postado ou sem dia)';
     }
     toast(msg);
   }catch(e){ toast(e.message, true); }
@@ -1124,20 +1124,7 @@ function dropZone(el, getDate){
       return;
     }
     if(slot.date===novaData) return;
-    // SHIFT + arrastar pra frente: reajusta o resto do planejamento
-    // (o post vai pro dia solto e TODOS os seguintes da conta andam junto pelo mesmo delta; fixos e postados ficam)
-    if(ev.shiftKey && slot.date && novaData && !slot.postado){
-      const delta = Math.round((Date.parse(novaData+'T12:00:00Z') - Date.parse(slot.date+'T12:00:00Z'))/86400000);
-      if(delta>0){
-        if(slot.fixo){ toast('Esse post tem data fixa (pino). Solte o pino pra reajustar arrastando.', true); return; }
-        try{
-          const r = await api('/api/slots/'+slot.id+'/empurrar', {method:'POST', body:JSON.stringify({dias:delta})});
-          await loadState();
-          toast(r.movidos+' post'+(r.movidos===1?'':'s')+' reajustado'+(r.movidos===1?'':'s')+' +'+delta+' dia'+(delta>1?'s':'')+' · Ctrl+Z desfaz');
-        }catch(e){ toast(e.message, true); }
-        return;
-      }
-    }
+    // (v4.05: o Shift + arrastar, que empurrava em cascata o post e todos os seguintes da conta, saiu com o pino)
     const antiga = slot.date; slot.date = novaData; render();
     try{
       const r = await api('/api/slots/'+id, {method:'PATCH', body:JSON.stringify({date:novaData})});
@@ -1692,7 +1679,6 @@ function tRowDraw(s){
   const row = $('#tRow');
   const dateBr = s.date? s.date.split('-').reverse().join('/') : 'sem data';
   row.innerHTML =
-    (s.fixo?'<span class="fixopill" data-tip="Data fixa">'+icon('pin')+'</span>':'')+
     (isGm(s)?'<span class="gmpill">'+icon('star','s')+'GM</span>':'')+
     (s.aprovado?'<span class="aprpill" data-tip="Arte aprovada pela diretoria">'+icon('check','s')+'APR</span>':'')+
     lpChipEtapa(s)+   // v4.01: a etapa na cor dela (o nome exato da etapa no MKT Hub fica na linha do post, logo abaixo)
@@ -1776,30 +1762,6 @@ function tRowDraw(s){
       try{ await api('/api/slots/'+s.id,{method:'PATCH', body:JSON.stringify({aprovado:s.aprovado})}); toast(s.aprovado?'Arte aprovada':'Aprovação removida'); }
       catch(e){ s.aprovado = antes; render(); tRowDraw(s); toast(e.message,true); }
     };
-  }
-
-  // pino de data fixa + empurrar
-  if(s.date){
-    const px = mk(icon('pin'), 'iconb'+(s.fixo?' pinon':''), s.fixo? 'Soltar a data fixa (hoje o empurrar não move este post)' : 'Cravar a data: o empurrar nunca move este post');
-    px.onclick = async ()=>{
-      const antes = s.fixo; s.fixo = !antes; render(); tRowDraw(s);
-      try{ await api('/api/slots/'+s.id,{method:'PATCH', body:JSON.stringify({fixo:s.fixo})}); toast(s.fixo?'Data fixa cravada':'Pino solto: volta a se mover no empurrar'); }
-      catch(e){ s.fixo = antes; render(); tRowDraw(s); toast(e.message,true); }
-    };
-    if(!s.fixo){
-      const emp = mk(icon('ff'), 'iconb', 'Empurrar +1 dia este post e todos os seguintes da conta');
-      emp.onclick = async ()=>{
-        if(!confirm('Empurrar este post e todos os SEGUINTES da conta '+(S.contas[s.conta]?S.contas[s.conta].nome:'')+' em +1 dia?\n\nPosts com pino (data fixa) e já postados não se movem. Ctrl+Z desfaz.')) return;
-        emp.disabled = true;
-        try{
-          const r = await api('/api/slots/'+s.id+'/empurrar', {method:'POST', body:JSON.stringify({dias:1})});
-          await loadState();
-          toast(r.movidos+' post'+(r.movidos===1?'':'s')+' empurrado'+(r.movidos===1?'':'s')+' · Ctrl+Z desfaz');
-          const s2 = S.slots.find(x=>x.id===s.id);
-          if(s2){ S.taskSlot=s2; tRowDraw(s2); } else closeOv('ovTask');
-        }catch(e){ emp.disabled = false; toast(e.message, true); }
-      };
-    }
   }
 
   // GM (só SeuBoné)
@@ -3499,7 +3461,6 @@ $('#btnAjuda').onclick = (ev)=>{
     '<div><b>Arraste no vazio</b> pra selecionar vários posts</div>'+
     '<div><b>Arraste um card</b> pra mover de dia</div>'+
     '<div><kbd>Alt</kbd> + arrasta: <b>copia</b> o card</div>'+
-    '<div><kbd>Shift</kbd> + arrasta: <b>reajusta</b> a sequência</div>'+
     '<div><b>Clique</b> num card: abre as artes</div>'+
     '<div><b>+</b> do dia: criar ali (<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> escolhem) · <b>+</b> do canto: criar sem dia</div>'+
     '<div><kbd>1</kbd> a <kbd>4</kbd>: troca de empresa · <kbd>[</kbd> <kbd>]</kbd>: anterior e próxima · <b>arraste</b> a cápsula das empresas</div>'+

@@ -164,13 +164,12 @@ function lpTitulo(s, e) {
   return { t: slotTitulo(s), vazio: false };
 }
 function lpContaTag(s) { return '<div class="contatag">' + esc(contaCurta(s.conta)) + '</div>'; }
-/** As marquinhas que pedem olho: grande marca, data fixa, collab, a câmera do vídeo e conta trocada (esta corrige em 1 clique). */
+/** As marquinhas que pedem olho: grande marca, collab, a câmera do vídeo e conta trocada (esta corrige em 1 clique). v4.05: o pino saiu. */
 function lpMarcas(s, e) {
   let h = '';
   const gmPede = !isGm(s) && S.aba === 'SEUBONÉ' && s.date && (e.k === 'mz' || e.k === 'copy') && gmCadenciaDia(s.date);
   if (isGm(s)) h += '<span class="lp-mk gm" title="Grande marca na capa">' + icon('star') + '</span>';
   else if (gmPede) h += '<span class="lp-mk gm pede" title="Dia de grande marca na capa (GM)">' + icon('star') + '</span>';
-  if (s.fixo) h += '<span class="lp-mk pin" title="Data fixa: não se move no empurrar">' + icon('pin') + '</span>';
   const clb = s.collab || [];
   if (clb.length) h += '<span class="lp-mk clb" title="Collab: ' + esc([s.conta].concat(clb).map(nomeConta).join(' + ')) + '">' +
     [s.conta].concat(clb).map(c => '<i style="background:' + contaCor(c) + '"></i>').join('') + '</span>';

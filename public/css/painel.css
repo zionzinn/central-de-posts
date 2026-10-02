@@ -587,8 +587,6 @@ select.faltando{box-shadow:0 0 0 2px color-mix(in srgb, var(--red) 55%, transpar
 .gmpill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; background:var(--sb); color:var(--on-sb); border:0; border-radius:999px; padding:2px 9px}
 .aprpill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; background:var(--green); color:#000; border:0; border-radius:999px; padding:2px 9px}
 
-.fixopill{display:inline-flex; color:var(--orange)}
-.fixopill .ic{width:14px; height:14px}
 
 /* ---------- folhas (modais): cartão opaco elevado, fundo escurecido e desfocado (HIG > Sheets) ---------- */
 .ov{position:fixed; inset:0; background:rgba(0,0,0,.42); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
@@ -909,7 +907,6 @@ body.drawer-open .usoaviso{right:374px}
 .wpp-grid input{width:100%}
 
 .mbtn.iconb{padding:7px 9px}
-.mbtn.pinon{background:#FF8A3D; color:#000; border-color:var(--stroke)}
 select.mini{appearance:none; -webkit-appearance:none; border:0; border-radius:999px; background-color:var(--fill-3); color:var(--ink);
   font-size:12.5px; font-weight:500; padding:0 26px 0 12px; height:30px; cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5 5 6.5 8 3.5' fill='none' stroke='%238E8E93' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
