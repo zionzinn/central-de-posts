@@ -1,0 +1,282 @@
+@charset "utf-8";
+/* =====================================================================
+   B.O.N.E · v4.01 · LINHA DO POST (js/linha.js)
+   COR = onde o post está · PALAVRA = o que falta · DIA DO CALENDÁRIO = dia que sai · CAIXINHA = dia que fica pronto
+   Uma cor por etapa, a mesma no painel inteiro (paleta conferida no validador de cores: daltonismo e contraste,
+   claro e escuro). Laranja e vermelho são só alerta (pílula ou data), nunca etapa.
+   ===================================================================== */
+
+/* ---------- tokens das etapas ---------- */
+:root{
+  --e-mz:#FCC100; --e-copy:#0091FF; --e-prod:#FF8AD1; --e-pronto:#7EE0A1; --e-ar:#8E8E93;
+  --e-red:#FF4245; --e-orange:#FF9230; --e-red-on:#000;
+  /* as mesmas cores quando viram TEXTO (contraste de leitura em cima do fundo) */
+  --e-mz-t:#FCC100; --e-copy-t:#55B3FF; --e-prod-t:#FF9BD8; --e-pronto-t:#7EE0A1; --e-ar-t:rgba(235,235,245,.6);
+  --e-red-t:#FF6B6E; --e-orange-t:#FFA654;
+  --lp-tinta:13%; --lp-sombra:0 12px 28px rgba(0,0,0,.5); --lp-mola:cubic-bezier(.22,1.2,.36,1);
+}
+html[data-modo="claro"]{
+  --e-mz:#E0A800; --e-copy:#0077EE; --e-prod:#D63FA0; --e-pronto:#2AA557; --e-ar:#8E8E93;
+  --e-red:#E0262B; --e-orange:#E07000; --e-red-on:#fff;
+  --e-mz-t:#7A5A00; --e-copy-t:#0062C4; --e-prod-t:#B42D85; --e-pronto-t:#1D7A3D; --e-ar-t:rgba(60,60,67,.72);
+  --e-red-t:#C41E23; --e-orange-t:#A85300;
+  --lp-tinta:10%; --lp-sombra:0 2px 8px rgba(0,0,0,.08), 0 14px 30px rgba(0,0,0,.14);
+}
+.ic.cheio{fill:currentColor; stroke:none}
+
+/* ---------- o card ---------- */
+.card.lp{--c:var(--e-ar); --ct:var(--e-ar-t); position:relative; display:flex; flex-direction:column; gap:3px;
+  padding:10px 9px 7px 10px; border-radius:10px; outline-offset:2px;
+  background:color-mix(in srgb, var(--c) var(--lp-tinta), var(--cell)); border:1px solid color-mix(in srgb, var(--c) 36%, transparent);
+  transition:transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s, opacity .3s, filter .3s, background-color .25s, border-color .25s}
+.card.lp::before{display:none}
+.card.lp.e-mz{--c:var(--e-mz); --ct:var(--e-mz-t); border-style:dashed}
+.card.lp.e-copy{--c:var(--e-copy); --ct:var(--e-copy-t)}
+.card.lp.e-prod{--c:var(--e-prod); --ct:var(--e-prod-t)}
+.card.lp.e-pronto{--c:var(--e-pronto); --ct:var(--e-pronto-t)}
+.card.lp.e-ar{--c:var(--e-ar); --ct:var(--e-ar-t); opacity:.6}
+.card.lp:hover,.card.lp:focus-visible{transform:translateY(-2px); z-index:20; opacity:1;
+  background:color-mix(in srgb, var(--c) calc(var(--lp-tinta) + 5%), var(--cell));
+  box-shadow:var(--lp-sombra), 0 0 0 1.5px color-mix(in srgb, var(--c) 75%, transparent)}
+html[data-modo="claro"] .card.lp:hover,html[data-modo="claro"] .card.lp:focus-visible{box-shadow:var(--lp-sombra), 0 0 0 1.5px color-mix(in srgb, var(--c) 75%, transparent)}
+.card.lp:focus-visible{outline:none}
+.card.lp.dragging{opacity:.35; transform:none}
+.card.lp .contatag{margin:0}
+.card.lp .tit.vazio{color:var(--ink-3); font-weight:500}
+.card.lp.e-ar .tit{-webkit-line-clamp:1}
+body.lente-ent .card.lp{cursor:pointer}
+/* os botões do hover descem por baixo do card: a grade do mês deixa passar (os cantos redondos ficam nas 4 pontas) */
+.mesgrid{overflow:visible}
+.mesgrid > :first-child{border-top-left-radius:13px} .mesgrid > :nth-child(8){border-top-right-radius:13px}
+.mesgrid > :nth-last-child(8){border-bottom-left-radius:13px} .mesgrid > :last-child{border-bottom-right-radius:13px}
+
+/* barra da linha do post (em cima): cheia = feita · brilhando = agora · pontilhada = pulou */
+.lp-kp{position:absolute; left:10px; right:10px; top:0; height:4px; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:3px; pointer-events:none}
+.lp-kp i{border-radius:0 0 3px 3px; background:var(--fill-3); transition:background .5s, box-shadow .5s}
+.lp-kp i.s-mz{--sc:var(--e-mz)} .lp-kp i.s-copy{--sc:var(--e-copy)} .lp-kp i.s-prod{--sc:var(--e-prod)} .lp-kp i.s-pronto{--sc:var(--e-pronto)}
+.lp-kp i.f{background:var(--sc)}
+.lp-kp i.n{background:var(--sc); box-shadow:0 2px 10px color-mix(in srgb, var(--sc) 70%, transparent)}
+.lp-kp i.x{background:repeating-linear-gradient(90deg, var(--ink-4) 0 3px, transparent 3px 6px)}
+.card.lp.e-ar .lp-kp i.f{background:var(--e-ar)}
+.card.lp:hover .lp-kp i.n{animation:lp-pulsa 1.4s ease-in-out infinite}
+@keyframes lp-pulsa{50%{box-shadow:0 2px 14px color-mix(in srgb, var(--sc) 95%, transparent); filter:brightness(1.15)}}
+
+/* etapa escrita + o que falta (palavra) ou o alerta (pílula) */
+.lp-ka{display:flex; align-items:center; gap:6px; min-height:17px; min-width:0}
+.lp-et{font-size:9.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--ct); flex:none}
+.lp-sub{font-size:10.5px; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.lp-pil{display:inline-flex; align-items:center; gap:3px; height:17px; padding:0 6px 0 4px; border-radius:999px; font-size:10px; font-weight:700;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.lp-pil .ic{width:10px; height:10px; stroke-width:2.4}
+.lp-pil.or{background:var(--e-orange); color:#000}
+.lp-pil.red{background:var(--e-red); color:var(--e-red-on)}
+.lp-pil.ok{background:var(--e-pronto); color:#000}
+.lp-pil.neu{background:var(--fill-3); color:var(--ink-2)}
+
+/* a data que importa (entrega, dia que sai, ou os campos da matriz) + as marquinhas */
+.lp-pe{display:flex; align-items:center; gap:6px; min-height:15px; min-width:0}
+.lp-dt{display:flex; align-items:center; gap:3px; font-size:10.5px; color:var(--ink-2); white-space:nowrap; overflow:hidden; min-width:0; flex:1}
+.lp-dt > .ic{width:11px; height:11px; flex:none}
+.lp-dt > span{overflow:hidden; text-overflow:ellipsis}
+.lp-dt b{font-weight:700}
+.lp-dt.red b,.lp-dt.red > .ic{color:var(--e-red-t)}
+.lp-dt.or b,.lp-dt.or > .ic{color:var(--e-orange-t)}
+.lp-dt.feita{color:var(--ink-3)}
+.lp-dt.feita > .ic{color:var(--e-pronto-t)}
+.lp-dt.feita.red{color:var(--ink-2)}
+.lp-mzd{display:inline-flex; gap:2px; margin-left:4px}
+.lp-mzd i{width:5px; height:5px; border-radius:50%; background:var(--fill-3)}
+.lp-mzd i.f{background:var(--e-mz)}
+.lp-marcas{display:inline-flex; align-items:center; gap:4px; flex:none; margin-left:auto}
+.lp-mk{display:inline-flex; align-items:center; gap:2px; line-height:1; color:var(--ink-3)}
+.lp-mk .ic{width:12px; height:12px; stroke-width:2}
+.lp-mk.gm .ic{fill:var(--sb-ink); stroke:var(--sb-ink); stroke-width:1}
+.lp-mk.gm.pede .ic{fill:none; stroke-width:1.8}
+.lp-mk.pin{color:var(--e-orange-t)}
+.lp-mk.clb i{width:8px; height:8px; border-radius:50%}
+html[data-modo="claro"] .lp-mk.clb i{box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+.lp-mk.cdiv{width:18px; height:18px; border-radius:6px; justify-content:center; background:var(--e-red); color:var(--e-red-on); transition:transform .2s var(--lp-mola)}
+.lp-mk.cdiv .ic{width:11px; height:11px; stroke-width:2.2}
+.lp-mk.cdiv:hover{transform:scale(1.12)}
+
+/* de quem é a vez: bolinha no canto */
+.lp-av{position:absolute; right:-7px; top:-11px; width:21px; height:21px; box-sizing:border-box; border-radius:50%; background:var(--elev-2);
+  border:2px solid var(--cell); font-size:8.5px; font-weight:750; display:grid; place-items:center; color:var(--ink); z-index:2; cursor:default;
+  transition:opacity .15s, transform .3s var(--lp-mola)}
+html[data-modo="claro"] .lp-av{background:#E9E9EE}
+.card.lp:hover .lp-av{transform:scale(1.12)}
+
+/* botões do hover: a ação do momento (com texto) + atalhos só de ícone. Descem por baixo do card com mola (assim não
+   cobrem o + do dia nem a caixinha de entregas); o padding de cima é a ponte pro mouse não perder o card no caminho */
+.lp-acoes{position:absolute; right:4px; top:100%; padding-top:4px; display:flex; gap:4px; z-index:3; opacity:0; transform:translateY(-6px) scale(.92); transform-origin:top right;
+  transition:opacity .18s, transform .32s var(--lp-mola); pointer-events:none}
+.card.lp:hover .lp-acoes,.card.lp:focus-within .lp-acoes{opacity:1; transform:none; pointer-events:auto}
+.lp-ac{height:24px; padding:0 10px 0 8px; border-radius:999px; background:var(--elev); color:var(--ink); font-size:11px; font-weight:700; line-height:1;
+  box-shadow:0 6px 16px rgba(0,0,0,.45); border:1px solid var(--hair); display:inline-flex; align-items:center; gap:5px; white-space:nowrap; text-decoration:none;
+  cursor:pointer; transition:background .15s, color .15s, border-color .15s, transform .2s var(--lp-mola)}
+html[data-modo="claro"] .lp-ac{box-shadow:0 4px 14px rgba(0,0,0,.14)}
+.lp-ac .ic{width:12px; height:12px; stroke-width:2.1}
+.lp-ac:hover,.lp-ac:focus-visible{background:var(--c); color:#000; border-color:transparent; transform:scale(1.06); outline:none}
+.lp-ac.lp-ib{width:24px; padding:0; justify-content:center}
+.lp-ac.ac-postar:hover,.lp-ac.ac-postar:focus-visible{background:var(--e-pronto)}
+.lp-ac.lp-del{flex-direction:column; gap:0; color:var(--ink-2)}
+.lp-ac.lp-del svg{display:block}
+.lp-ac.lp-del .bin-top{width:10px; transform-origin:right; transition:transform .3s}
+.lp-ac.lp-del .bin-bottom{width:8px}
+.lp-ac.lp-del:hover,.lp-ac.lp-del:focus-visible{background:#D70015; color:#fff}
+.lp-ac.lp-del:hover .bin-top{transform:rotate(45deg)}
+/* a dica dos botões só de ícone abre em cima deles */
+.lp-acoes [data-tip]:hover::after{animation-delay:.25s}
+
+/* Postei: o card comemora (estouro nas cores das etapas + o check se desenhando) */
+.card.lp.lp-estoura{opacity:1}
+.lp-boom{position:absolute; left:50%; top:50%; width:8px; height:8px; margin:-4px; border-radius:50%; pointer-events:none; z-index:5;
+  box-shadow:0 -40px 0 0 var(--e-pronto), 36px -18px 0 0 var(--e-mz), 36px 20px 0 0 var(--e-copy), 0 40px 0 0 var(--e-prod), -36px 20px 0 0 var(--e-pronto), -36px -18px 0 0 var(--e-copy);
+  animation:lp-boom .75s ease-out forwards}
+@keyframes lp-boom{from{transform:scale(.25); opacity:1} to{transform:scale(1.35); opacity:0}}
+.lp-ok{position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; z-index:5; animation:lp-somebem .9s .5s ease forwards}
+.lp-ok svg{width:34px; height:34px; fill:none; stroke:var(--e-pronto); stroke-width:3; stroke-linecap:round; stroke-linejoin:round;
+  stroke-dasharray:30; stroke-dashoffset:30; animation:lp-desenha .45s .05s cubic-bezier(.2,.8,.2,1) forwards; filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))}
+@keyframes lp-desenha{to{stroke-dashoffset:0}}
+@keyframes lp-somebem{to{opacity:0}}
+
+/* troca de lente: o card que sai da vista some no lugar onde estava */
+.card.lp-fantasma{z-index:30; pointer-events:none; box-shadow:none}
+
+/* ---------- legenda: prévia (hover) e filtro (clique) apagam o que não é da etapa ---------- */
+body[data-lp-ver="mz"] .card[data-etapa]:not([data-etapa="mz"]),
+body[data-lp-ver="copy"] .card[data-etapa]:not([data-etapa="copy"]),
+body[data-lp-ver="prod"] .card[data-etapa]:not([data-etapa="prod"]),
+body[data-lp-ver="pronto"] .card[data-etapa]:not([data-etapa="pronto"]),
+body[data-lp-ver="ar"] .card[data-etapa]:not([data-etapa="ar"]),
+body[data-lp-ver="alerta"] .card[data-etapa]:not([data-alerta]){opacity:.12; filter:saturate(.2)}
+body[data-lp-ver] .card[data-etapa]:hover{opacity:1; filter:none}
+
+.mesleg.lp-leg{gap:12px; align-self:flex-end; align-items:flex-end}
+.lp-grp{display:flex; flex-direction:column; gap:4px}
+.lp-gl{font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); display:flex; align-items:center; gap:6px; line-height:11px; padding-left:3px; white-space:nowrap}
+.lp-gl::after{content:""; flex:1; height:1px; background:var(--hair); min-width:10px}
+.lp-chips{display:flex; gap:4px}
+.lp-lc{--c:var(--e-ar); display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 10px; border:0; border-radius:999px; background:var(--fill-4);
+  font:inherit; font-size:12px; font-weight:600; color:var(--ink); white-space:nowrap; cursor:pointer;
+  transition:background .18s, transform .25s var(--lp-mola), box-shadow .18s, opacity .18s}
+.lp-lc i{width:9px; height:9px; border-radius:3px; background:var(--c); flex:none; box-sizing:border-box}
+.lp-lc b{color:var(--ink-3); font-weight:600; font-variant-numeric:tabular-nums}
+.lp-lc.e-mz{--c:var(--e-mz)} .lp-lc.e-mz i{background:transparent; border:1.5px dashed var(--c)}
+.lp-lc.e-copy{--c:var(--e-copy)} .lp-lc.e-prod{--c:var(--e-prod)} .lp-lc.e-pronto{--c:var(--e-pronto)} .lp-lc.e-ar{--c:var(--e-ar)}
+.lp-lc.e-alerta{--c:var(--e-red); color:var(--e-red-t)} .lp-lc.e-alerta i{border-radius:50%}
+.lp-lc:hover,.lp-lc:focus-visible{background:var(--fill-3); transform:translateY(-2px); opacity:1}
+.lp-lc.zero{opacity:.5}
+.lp-lc.on{background:color-mix(in srgb, var(--c) 24%, transparent); box-shadow:inset 0 0 0 1.5px var(--c); opacity:1}
+.lp-lc.on b{color:var(--ink)}
+@media (max-width:1280px){ .lp-gl{display:none} .mesleg.lp-leg{gap:6px} }
+
+/* ---------- lente na barra: "Mostrar no dia que  sai | fica pronto" ---------- */
+.lente{display:flex; align-items:center; gap:8px}
+.lente .lt{font-size:12px; font-weight:500; color:var(--ink-3); white-space:nowrap}
+@media (max-width:1500px){ .lente .lt{display:none} }
+.lseg{position:relative; display:grid; grid-template-columns:1fr 1fr; background:var(--fill-3); border-radius:9px; padding:2px}
+.lpill{position:absolute; top:2px; bottom:2px; left:2px; width:calc(50% - 2px); border-radius:7px; background:var(--seg-on);
+  box-shadow:0 1px 1px rgba(0,0,0,.06), 0 2px 6px rgba(0,0,0,.14); transition:transform .42s var(--lp-mola), background-color .3s}
+#lente[data-lente="ent"] .lpill{transform:translateX(100%); background:color-mix(in srgb, var(--e-prod) 34%, var(--seg-on))}
+.lseg button{position:relative; z-index:1; height:26px; padding:0 12px; border-radius:7px; font-size:12.5px; font-weight:500; color:var(--ink-2);
+  display:inline-flex; align-items:center; justify-content:center; gap:6px; white-space:nowrap; transition:color .2s}
+.lseg button .ic{width:14px; height:14px; transition:transform .35s var(--lp-mola)}
+.lseg button:hover{color:var(--ink)}
+.lseg button:hover .ic{transform:translateY(-1px) scale(1.12)}
+.lseg button.on{color:var(--ink); font-weight:600}
+
+/* na lente "fica pronto" a célula é o dia da entrega: o tipo da matriz e a estrela do GM (do dia que sai) saem */
+body.lente-ent .mzdia, body.lente-ent .gmday{display:none}
+body.lente-ent .day.gmpede .dnum{color:var(--ink-2)}
+.mesfora{margin-left:8px; font-size:11.5px; font-weight:600; color:var(--e-prod-t); background:color-mix(in srgb, var(--e-prod) 13%, transparent);
+  padding:2px 9px; border-radius:999px; white-space:nowrap}
+
+/* ---------- hover: o outro dia do post acende e a seta liga os dois ---------- */
+#grid{position:relative}
+.lp-lsvg{position:absolute; left:0; top:0; pointer-events:none; z-index:13; overflow:visible}
+.lp-lig{fill:none; stroke:var(--lp-mc); stroke-width:2.2; stroke-linecap:round; stroke-dasharray:1; stroke-dashoffset:1;
+  animation:lp-desenha .7s .08s cubic-bezier(.3,.7,.2,1) forwards; filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
+.lp-seta{fill:none; stroke:var(--lp-mc); stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; opacity:0; animation:lp-aparece .2s .66s ease forwards}
+@keyframes lp-aparece{to{opacity:1}}
+.day.lp-alvo::after{content:""; position:absolute; inset:3px; border:2px dashed var(--lp-mc); border-radius:10px; pointer-events:none; z-index:12;
+  background:color-mix(in srgb, var(--lp-mc) 8%, transparent); animation:lp-marca .34s .06s cubic-bezier(.2,.8,.2,1) both}
+.lp-alvo-rot{position:absolute; left:50%; bottom:10px; z-index:14; max-width:calc(100% - 14px); width:max-content; display:inline-flex; align-items:center; gap:5px;
+  background:var(--lp-mc); color:var(--lp-mc-on,#000); font-weight:700; font-size:11px; line-height:1.25; padding:4px 10px; border-radius:999px; text-align:center;
+  box-shadow:0 6px 16px rgba(0,0,0,.35); pointer-events:none; animation:lp-rot .34s .12s cubic-bezier(.2,.8,.2,1) both}
+.lp-alvo-rot .ic{width:12px; height:12px; flex:none}
+@keyframes lp-marca{from{opacity:0; transform:scale(.95)} to{opacity:1; transform:none}}
+@keyframes lp-rot{from{opacity:0; transform:translate(-50%,6px)} to{opacity:1; transform:translate(-50%,0)}}
+.card.lp.lp-foco{box-shadow:0 0 0 2px var(--c), var(--lp-sombra); z-index:15; opacity:1; filter:none}
+
+/* ---------- etiqueta da etapa (cabeçalho da folha do post) ---------- */
+.lp-chip{--c:var(--e-ar); display:inline-flex; align-items:center; gap:6px; height:22px; padding:0 10px 0 8px; border-radius:999px; font-size:11.5px; font-weight:700;
+  color:var(--ink); background:color-mix(in srgb, var(--c) 18%, transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent); white-space:nowrap}
+.lp-chip i{width:8px; height:8px; border-radius:50%; background:var(--c)}
+.lp-chip span{font-weight:500; color:var(--ink-2)}
+.lp-chip span::before{content:"·"; margin-right:5px}
+.lp-chip.e-mz{--c:var(--e-mz)} .lp-chip.e-copy{--c:var(--e-copy)} .lp-chip.e-prod{--c:var(--e-prod)} .lp-chip.e-pronto{--c:var(--e-pronto)} .lp-chip.e-ar{--c:var(--e-ar)}
+/* bolinha das linhas do balão de entregas: a cor da etapa (antes vinha a cor de cada etapa do Hub) */
+.epdot.e-prod{background:var(--e-prod)} .epdot.e-pronto{background:var(--e-pronto)} .epdot.e-ar{background:var(--e-ar)}
+.epdot.e-copy{background:var(--e-copy)} .epdot.e-mz{background:var(--e-mz)}
+
+/* ---------- folha do post: a linha do post e as duas datas ---------- */
+.lpf{padding:14px 22px 2px}
+.lpf[hidden]{display:none}
+.lpf-sec{font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); margin:0 0 8px; display:flex; align-items:center; gap:8px}
+.lpf-sec::after{content:""; flex:1; height:1px; background:var(--hair)}
+.lpf-grupos{display:grid; gap:6px; margin-bottom:8px}
+.lpf-grupos span{font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); text-align:center; border-bottom:1.5px solid var(--hair); padding-bottom:4px}
+.lpf-grupos .bone{border-color:color-mix(in srgb, var(--e-copy) 55%, transparent)}
+.lpf-grupos .hub{border-color:color-mix(in srgb, var(--e-prod) 60%, transparent)}
+.lpf-nos{display:grid; position:relative; margin-bottom:16px}
+.lpf-trilho{position:absolute; left:calc(50% / var(--n)); right:calc(50% / var(--n)); top:14px; height:3px; border-radius:2px; background:var(--fill-3); overflow:hidden}
+.lpf-trilho i{position:absolute; left:0; top:0; bottom:0; border-radius:2px; background-repeat:no-repeat;
+  background-image:linear-gradient(90deg, var(--e-mz), var(--e-copy), var(--e-prod), var(--e-pronto), var(--e-ar)); transition:width .9s var(--lp-mola)}
+.lpf-nos.sem-mz .lpf-trilho i{background-image:linear-gradient(90deg, var(--e-copy), var(--e-prod), var(--e-pronto), var(--e-ar))}
+.lpf-no{display:flex; flex-direction:column; align-items:center; gap:5px; text-align:center; position:relative; z-index:1; min-width:0; padding:0 2px}
+.lpf-bo{width:30px; height:30px; border-radius:50%; display:grid; place-items:center; border:2px solid var(--fill-3); background:var(--elev); box-sizing:border-box;
+  transition:transform .3s var(--lp-mola)}
+.lpf-bo .ic{width:14px; height:14px; stroke-width:2.6}
+.lpf-no.s-mz{--sc:var(--e-mz)} .lpf-no.s-copy{--sc:var(--e-copy)} .lpf-no.s-prod{--sc:var(--e-prod)} .lpf-no.s-pronto{--sc:var(--e-pronto)} .lpf-no.s-ar{--sc:var(--e-ar)}
+.lpf-no.f .lpf-bo{background:var(--sc); border-color:var(--sc); color:#000}
+.lpf-no.n .lpf-bo{border-color:var(--sc); color:var(--sc); box-shadow:0 0 0 5px color-mix(in srgb, var(--sc) 22%, transparent); animation:lp-respira 2.4s ease-in-out infinite}
+.lpf-no.x .lpf-bo{border-style:dashed; color:var(--ink-4)}
+.lpf-no:hover .lpf-bo{transform:scale(1.12)}
+@keyframes lp-respira{50%{box-shadow:0 0 0 9px color-mix(in srgb, var(--sc) 8%, transparent)}}
+.lpf-no b{font-size:12px; font-weight:650}
+.lpf-no small{font-size:10.5px; color:var(--ink-3); line-height:1.25; overflow-wrap:anywhere}
+.lpf-no.n small{color:var(--ink-2)}
+.lpf-datas{display:grid; grid-template-columns:minmax(0,1fr) 92px minmax(0,1fr); align-items:stretch; margin-bottom:10px}
+.lpf-dc{border-radius:14px; padding:12px 14px; background:var(--cell); border:1px solid var(--hair); display:flex; flex-direction:column; gap:3px;
+  transition:border-color .2s, transform .25s var(--lp-mola), box-shadow .25s}
+.lpf-dc:hover{transform:translateY(-2px); box-shadow:var(--hard-s)}
+.lpf-dc.ent{border-color:color-mix(in srgb, var(--e-prod) 45%, var(--hair))}
+.lpf-dl{font-size:11px; color:var(--ink-3); display:flex; align-items:center; gap:6px; font-weight:600}
+.lpf-dl .ic{width:13px; height:13px}
+.lpf-dc.ent .lpf-dl .ic{color:var(--e-prod-t)}
+.lpf-dv{font-size:21px; font-weight:750; letter-spacing:-.01em; font-variant-numeric:tabular-nums}
+.lpf-dr{font-size:12px; font-weight:650}
+.lpf-dr.red{color:var(--e-red-t)} .lpf-dr.or{color:var(--e-orange-t)} .lpf-dr.feita{color:var(--e-pronto-t)} .lpf-dr.neu{color:var(--ink-2)}
+.lpf-src{font-size:10.5px; color:var(--ink-3)}
+.lpf-folga{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:10.5px; color:var(--ink-3); text-align:center; line-height:1.2; padding:0 6px}
+.lpf-folga svg{width:44px; height:10px; overflow:visible}
+.lpf-folga path{fill:none; stroke:var(--ink-4); stroke-width:2; stroke-linecap:round; stroke-dasharray:4 4; animation:lp-anda 1s linear infinite}
+@keyframes lp-anda{to{stroke-dashoffset:-8}}
+.lpf-folga.red{color:var(--e-red-t)} .lpf-folga.red path{stroke:var(--e-red)}
+.lpf-folga.or{color:var(--e-orange-t)}
+.lpf-nada{border-radius:14px; padding:12px 14px; border:1.5px dashed var(--hair); color:var(--ink-3); font-size:12px; line-height:1.45; display:flex; flex-direction:column; gap:6px; align-items:flex-start}
+.lpf-nada b{color:var(--ink-2); font-size:12.5px}
+.lpf-criar{margin-top:2px}
+.lpf-aviso{display:flex; align-items:flex-start; gap:6px; font-size:11.5px; color:var(--ink-3); margin:0 0 4px; line-height:1.45}
+.lpf-aviso .ic{width:13px; height:13px; flex:none; margin-top:1px}
+@media (max-width:640px){ .lpf-datas{grid-template-columns:1fr} .lpf-folga{padding:6px 0} }
+
+/* ---------- menos movimento ---------- */
+@media (prefers-reduced-motion: reduce){
+  .card.lp,.lp-acoes,.lpill,.lpf-trilho i,.lp-lc{transition:none !important}
+  .lp-lig,.lp-seta,.day.lp-alvo::after,.lp-alvo-rot,.lpf-no.n .lpf-bo,.lpf-folga path,.lp-kp i.n{animation:none !important}
+  .lp-lig{stroke-dashoffset:0} .lp-seta{opacity:1}
+  .lp-boom,.lp-ok{display:none}
+  .card.lp:hover{transform:none}
+}

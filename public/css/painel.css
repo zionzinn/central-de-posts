@@ -282,12 +282,6 @@ html[data-modo="claro"] :is(.dot,.cdot){box-shadow:inset 0 0 0 1px rgba(0,0,0,.1
 .chip.gmchip{background:color-mix(in srgb, var(--sb) 16%, transparent); color:var(--sb-ink); font-weight:600; cursor:default}
 .chip .ic{width:14px; height:14px}
 
-select.filtro{appearance:none; -webkit-appearance:none; border:0; border-radius:999px; background-color:var(--fill-3); color:var(--ink);
-  font-size:12.5px; font-weight:500; padding:0 30px 0 12px; height:28px; cursor:pointer;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5 5 6.5 8 3.5' fill='none' stroke='%238E8E93' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat; background-position:right 11px center; transition:background-color var(--t)}
-select.filtro:hover{background-color:var(--fill-2)}
-select.filtro.on{background-color:color-mix(in srgb, var(--sb) 18%, transparent); color:var(--sb-ink); font-weight:600}
 
 /* ---------- gaveta: painel lateral flutuante de vidro (HIG > Sidebars) ---------- */
 .drawer{position:fixed; top:calc(var(--htop,101px) + 8px); right:8px; bottom:8px; width:344px; z-index:55; border-radius:20px; overflow:hidden;
@@ -391,19 +385,8 @@ main.trocou{animation:fadeup .24s ease both}
 .mescabtop > b{font-size:26px; font-weight:700; letter-spacing:-.022em; color:var(--ink)}
 .mesbloco.atual .mescabtop > b::after{content:""; display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--sb); margin-left:9px; vertical-align:middle; transform:translateY(-3px)}
 .mescabtop .mesn{font-size:13px; font-weight:500; color:var(--ink-3)}
-/* legenda dos status com contagem (clique filtra) */
+/* legenda do mês (v4.01: 6 botões por etapa, desenho em css/linha.css) */
 .mesleg{margin-left:auto; display:flex; gap:2px; flex-wrap:wrap; justify-content:flex-end; align-self:center}
-.lgb{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:500; color:var(--ink-2); padding:0 9px; height:24px; border-radius:999px;
-  border:0; background:transparent; cursor:pointer; font-family:inherit; white-space:nowrap; transition:background var(--t)}
-.lgb i{width:7px; height:7px; border-radius:50%; background:var(--stc); flex:none}
-.lgb b{font-size:11.5px; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums}
-.lgb:hover{background:var(--fill-3)}
-.lgb.zero{opacity:.45}
-.lgb.on{background:color-mix(in srgb, var(--stc) 22%, transparent); color:var(--ink)}
-.lgb.lgmz{--stc:var(--mz)}
-.lgb.lgmz i{background:transparent; border:1.5px dashed var(--mz)}
-.lgb.lgcp{--stc:var(--blue)}   /* v3.89: cards da copy */
-.lgb.lgcp i{background:transparent; border:1.5px solid var(--blue)}
 @media (max-width:900px){ .mesleg{display:none} }
 .mesdows{display:grid; grid-template-columns:44px repeat(7,minmax(0,1fr)); gap:0; padding:0 0 8px}
 .mesdows div{font-size:12px; font-weight:600; color:var(--ink-3); padding:0 10px}
@@ -442,10 +425,8 @@ main.trocou{animation:fadeup .24s ease both}
 .vagabtn:hover{background:color-mix(in srgb, var(--red) 18%, transparent); color:var(--red)}
 .day.temvaga{box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--red) 55%, transparent)}
 .dleft{display:inline-flex; align-items:center; gap:4px; min-width:0; max-width:100%}
-.mzdia{font-size:10.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;
-  --c:var(--mz); color:color-mix(in srgb, var(--c) 80%, #fff); background:color-mix(in srgb, var(--c) 15%, transparent); padding:0 7px; border-radius:999px; line-height:17px}
-/* no claro a cor viva vira texto escuro da mesma família (amarelo/turquesa puros não se leem no branco) */
-html[data-modo="claro"] .mzdia{color:color-mix(in srgb, var(--c) 52%, #000); background:color-mix(in srgb, var(--c) 18%, transparent)}
+/* v4.01: o tipo do dia da matriz fica neutro (antes eram 4 cores de objetivo): a cor do painel é só da etapa do post */
+.mzdia{font-size:10.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px; color:var(--ink-3); padding:0 2px; line-height:17px}
 .gmday{color:var(--sb-ink); margin-left:2px; display:inline-flex}
 .gmday .ic{width:12px; height:12px; fill:var(--sb); stroke:var(--sb); stroke-width:1}
 .gmday.esperado{opacity:.9}
@@ -455,16 +436,15 @@ html[data-modo="claro"] .mzdia{color:color-mix(in srgb, var(--c) 52%, #000); bac
    vermelho se tem atrasada, laranja se tem em risco, apagado se já foi tudo entregue */
 .entbtn{flex:none; display:inline-flex; align-items:center; gap:3px; height:17px; padding:0 6px 0 5px; border:0; border-radius:999px;
   background:var(--fill-4); color:var(--ink-3); font:inherit; font-size:10.5px; font-weight:650; line-height:1; font-variant-numeric:tabular-nums; cursor:pointer;
-  transition:background var(--t), color var(--t)}
+  transition:background var(--t), color var(--t), transform .25s cubic-bezier(.22,1.2,.36,1)}
+.entbtn:hover{transform:scale(1.08)}
 .entbtn .ic{width:11px; height:11px; stroke-width:2}
 .entbtn:hover,.entbtn.on{background:var(--fill-3); color:var(--ink)}
 .entbtn:focus-visible{outline:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--focus) 55%, transparent)}
 .entbtn.feita{opacity:.6}
-.entbtn.risco{color:var(--orange)}
-.entbtn.atrasada{color:var(--red); background:color-mix(in srgb, var(--red) 14%, transparent)}
-.entbtn.atrasada:hover,.entbtn.atrasada.on{background:color-mix(in srgb, var(--red) 22%, transparent)}
-html[data-modo="claro"] .entbtn.risco{color:color-mix(in srgb, var(--orange) 72%, #000)}
-html[data-modo="claro"] .entbtn.atrasada{color:color-mix(in srgb, var(--red) 82%, #000)}
+.entbtn.risco{color:var(--e-orange-t); background:color-mix(in srgb, var(--e-orange) 12%, transparent)}
+.entbtn.atrasada{color:var(--e-red-t); background:color-mix(in srgb, var(--e-red) 14%, transparent)}
+.entbtn.atrasada:hover,.entbtn.atrasada.on{background:color-mix(in srgb, var(--e-red) 22%, transparent)}
 /* balão das entregas do dia */
 .entpop{position:fixed; z-index:75; width:min(360px, calc(100vw - 16px)); max-height:min(460px, calc(100vh - 16px)); display:flex; flex-direction:column; overflow:hidden;
   background:var(--elev-2); border:1px solid var(--glass-borda); border-radius:14px; box-shadow:var(--hard), inset 0 1px 0 var(--glass-luz);
@@ -489,20 +469,13 @@ html[data-modo="claro"] .entpop{background:var(--elev)}
 .epfim{flex:none; display:flex; align-items:center; gap:4px; margin-top:1px}
 .epselo{display:inline-flex; align-items:center; gap:3px; height:18px; padding:0 7px; border-radius:999px; font-size:10.5px; font-weight:650; white-space:nowrap}
 .epselo .ic{width:11px; height:11px}
-.epselo.atrasada{color:var(--red); background:color-mix(in srgb, var(--red) 14%, transparent)}
-.epselo.risco{color:var(--orange); background:color-mix(in srgb, var(--orange) 14%, transparent)}
-.epselo.feita{color:var(--green); background:color-mix(in srgb, var(--green) 12%, transparent)}
-html[data-modo="claro"] .epselo.atrasada{color:color-mix(in srgb, var(--red) 82%, #000)}
-html[data-modo="claro"] .epselo.risco{color:color-mix(in srgb, var(--orange) 70%, #000)}
-html[data-modo="claro"] .epselo.feita{color:color-mix(in srgb, var(--green) 68%, #000)}
+.epselo.atrasada{color:var(--e-red-t); background:color-mix(in srgb, var(--e-red) 14%, transparent)}
+.epselo.risco{color:var(--e-orange-t); background:color-mix(in srgb, var(--e-orange) 14%, transparent)}
+.epselo.feita{color:var(--e-pronto-t); background:color-mix(in srgb, var(--e-pronto) 14%, transparent)}
 .ephub{display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:6px; color:var(--ink-3)}
 .ephub:hover{background:var(--fill-2); color:var(--ink)}
 .ephub .ic{width:13px; height:13px}
 .epfoot{padding:8px 14px 11px; font-size:11px; color:var(--ink-3); border-top:1px solid var(--hair-2)}
-/* relógio no card: a entrega da task deste post atrasou (vermelho) ou está em risco (laranja) */
-.mk.t-ent.atrasada{color:var(--red)}
-.mk.t-ent.risco{color:var(--orange)}
-html[data-modo="claro"] .mk.t-ent.risco{color:color-mix(in srgb, var(--orange) 72%, #000)}
 /* ir até o post pelas entregas: o card pisca 2 vezes */
 .card.pisca{animation:cardpisca 1.1s ease-in-out 2}
 @keyframes cardpisca{0%,100%{box-shadow:0 0 0 0 transparent} 45%{box-shadow:0 0 0 3px var(--sb)}}
@@ -527,8 +500,6 @@ body.marcando .card{cursor:crosshair}
 .card:hover{background:color-mix(in srgb, var(--cc) calc(var(--tinta) + 8%), var(--cell)); z-index:3}
 html[data-modo="claro"] .card:hover{box-shadow:0 1px 2px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.08)}
 .card.dragging{opacity:.35}
-.card.postado{--cc:var(--green); opacity:.6}
-.card.postado:hover{opacity:.95}
 .card.clip{outline:2px dashed var(--sb); outline-offset:1px}
 .card.clip.cut{opacity:.5}
 .card.sel{outline:2px solid var(--blue); outline-offset:1px}
@@ -537,32 +508,8 @@ html[data-modo="claro"] .card:hover{box-shadow:0 1px 2px rgba(0,0,0,.06), 0 4px 
 .card .meta{display:flex; align-items:center; gap:6px; margin-top:4px; flex-wrap:wrap; min-height:16px}
 .obsline{font-size:11px; color:var(--ink-3); margin-top:4px; line-height:1.4;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
-/* status: bolinha + palavra */
-.stx{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:500; color:var(--ink-2); white-space:nowrap}
-.stx i{width:6px; height:6px; border-radius:50%; background:var(--stc); flex:none}
-/* marcas pequenas: só o que pede atenção */
-.mk{display:inline-flex; align-items:center; gap:2px; flex:none; line-height:1}
-.mk .ic{width:12px; height:12px; stroke-width:2}
-.mk.t-pin{color:var(--orange)}
-.mk.t-gm .ic{fill:var(--sb-ink); stroke:var(--sb-ink); stroke-width:1}
-
-.mk.t-clb .cdot{width:8px; height:8px; margin:0; border-radius:50%; transform:none}
-.mk.t-mz{color:var(--mz-txt); font-size:9.5px; font-weight:700; border:1px solid color-mix(in srgb, var(--mz) 70%, transparent); border-radius:5px; padding:0 3px; line-height:12px; cursor:pointer}
-.mk.t-doc{color:var(--ink-2); cursor:pointer}
-.mk.t-doc:hover{color:var(--sb-ink)}
-.tagic{width:18px; height:18px; border-radius:6px; border:0; display:inline-flex; align-items:center; justify-content:center; flex:none}
-.tagic .ic{width:11px; height:11px; stroke-width:2.2}
-.tagic.t-pin{background:var(--orange); color:#000}
-.tagic.t-gm{background:var(--sb); color:var(--on-sb)}
-
-.tagic.t-clb{background:var(--fill-2); color:var(--ink); width:auto; padding:0 5px; gap:3px}
-
-.tagic.t-cdiv{background:var(--red); color:#000; cursor:pointer}
-.tagic.t-cdiv:hover{filter:brightness(1.1)}
-.tagic.t-mz{color:var(--mz-txt); font-size:9px; font-weight:700; border:1px solid var(--mz); border-radius:5px; padding:0 3px; line-height:13px; cursor:pointer; background:transparent; width:auto; height:auto}
 /* select de conta sem escolha: pede decisão */
 select.faltando{box-shadow:0 0 0 2px color-mix(in srgb, var(--red) 55%, transparent) !important}
-.stpill{display:inline-flex; align-items:center; font-size:11px; font-weight:600; border:0; border-radius:999px; padding:2px 9px; line-height:1.3}
 
 .avatar{margin-left:auto; width:18px; height:18px; border-radius:50%; border:0; background:var(--fill-2); color:var(--ink-2);
   font-size:8.5px; font-weight:600; display:flex; align-items:center; justify-content:center}
@@ -571,15 +518,11 @@ select.faltando{box-shadow:0 0 0 2px color-mix(in srgb, var(--red) 55%, transpar
 .contatag{display:flex; align-items:center; gap:5px; background:none !important; color:var(--ink-2) !important; border:0; padding:0; margin-bottom:3px;
   font-size:10.5px; font-weight:600; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .contatag::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--corconta); flex:none}
-/* check de postado e ações rápidas do card (no hover) */
-.pcheck{position:absolute; top:-6px; right:-6px; background:var(--green); color:#000; width:20px; height:20px; border:2px solid var(--cell);
-  border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer}
-.pcheck .ic{width:11px; height:11px; stroke-width:2.6}
+/* ações rápidas do card de falta criar e de sugestão (no hover) */
 .qpost,.qvaga,.qfonte,.qdel{position:absolute; top:4px; opacity:0; background:var(--elev); border:0; box-shadow:0 1px 3px rgba(0,0,0,.25);
   color:var(--ink-2); width:24px; height:24px; border-radius:50%;
   display:flex; align-items:center; justify-content:center; z-index:4; transition:opacity var(--t), background var(--t), color var(--t)}
 .qpost,.qvaga,.qfonte{right:4px} .qdel{right:32px}
-.card.postado .qdel{right:4px}
 .card:hover .qpost,.card:hover .qvaga,.card:hover .qfonte,.card:hover .qdel,.card:focus-within .qpost{opacity:1}
 .qpost:hover,.qvaga:hover,.qfonte:hover{background:var(--green); color:#000}
 .qdel.bin{border-radius:7px} .qdel.bin:hover{background:#D70015; color:#fff}
@@ -588,7 +531,7 @@ select.faltando{box-shadow:0 0 0 2px color-mix(in srgb, var(--red) 55%, transpar
 /* falta criar (vermelho) e sugestão (roxo): espaço a preencher = tracejado, sem listras */
 .card.vaga{--cc:var(--red); background:color-mix(in srgb, var(--red) 9%, var(--cell)); border:1px dashed color-mix(in srgb, var(--red) 65%, transparent)}
 .card.sugestao{--cc:var(--purple); background:color-mix(in srgb, var(--purple) 9%, var(--cell)); border:1px dashed color-mix(in srgb, var(--purple) 65%, transparent)}
-.card.vaga::before,.card.sugestao::before,.card.mz::before,.card.cp::before{display:none}
+.card.vaga::before,.card.sugestao::before{display:none}
 .card.vaga .tit,.card.sugestao .tit{color:var(--ink); font-weight:600; -webkit-line-clamp:3}
 .card.vaga .vagatag,.card.sugestao .sugtag{display:inline-flex; align-items:center; gap:4px; border-radius:999px; font-size:10px; font-weight:600; padding:1px 8px; margin-bottom:4px; border:0}
 .card.vaga .vagatag{background:var(--red); color:#000}
@@ -596,46 +539,6 @@ select.faltando{box-shadow:0 0 0 2px color-mix(in srgb, var(--red) 55%, transpar
 .card.sugestao .sugtag{background:var(--purple); color:#000}
 .card.sugestao .sugtag svg{stroke:#000}
 .card.vaga .obsline{color:var(--ink-2); font-style:normal; font-weight:500}
-/* parecer antigo (vinha pela pauta, que saiu na v3.77): aprovado / alteração pedida */
-.card .vagatag.parecer{display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600; padding:1px 8px; border-radius:999px; margin-bottom:4px; border:0}
-.card .vagatag.parecer svg{width:10px; height:10px; stroke-width:2.6}
-.card .vagatag.parecer.ok{background:var(--green); color:#000} .card .vagatag.parecer.ok svg{stroke:#000}
-.card .vagatag.parecer.alt{background:var(--orange); color:#000} .card .vagatag.parecer.alt svg{stroke:#000}
-/* matriz da SeuBoné: card a preencher, tracejado na cor da marca */
-.card.mz{--cc:var(--mz); background:color-mix(in srgb, var(--mz) 7%, var(--cell)); border:1px dashed color-mix(in srgb, var(--mz) 60%, transparent); padding:6px 8px 7px}
-html[data-modo="claro"] .card.mz{background:color-mix(in srgb, var(--mz) 9%, var(--cell)); border-color:color-mix(in srgb, var(--mz) 80%, #000)}
-.card.mz:hover{border-style:solid}
-.card.mz .mzband{display:flex; align-items:center; gap:5px; margin:0 0 3px; font-size:10.5px; font-weight:600; color:var(--mz-txt); line-height:1.3; min-width:0}
-.card.mz .mzlbl{flex:none}
-.card.mz .mztipo{font-weight:500; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0}
-.card.mz .mztipo::before{content:"·"; margin-right:4px; font-weight:600}
-.card.mz .mzobj{width:7px; height:7px; border-radius:50%; flex:none}
-.card.mz .mzstar{margin-left:auto; display:inline-flex; flex:none}
-.card.mz .mzstar .ic{width:11px; height:11px; fill:var(--sb-ink); stroke:var(--sb-ink); stroke-width:1}
-.card.mz .tit{color:var(--ink); font-weight:600; -webkit-line-clamp:3}
-.card.mz .tit.vazio{color:var(--ink-3); font-weight:500}
-.card.mz .meta{margin-top:6px}
-.card.mz .qdel{top:4px}
-.card.mz.postado{--cc:var(--green); background:color-mix(in srgb, var(--green) 10%, var(--cell)); border-color:color-mix(in srgb, var(--green) 55%, transparent)}
-.card.mz.postado .mzband{color:var(--green)}
-/* v3.89: card da COPY (o post tem documento e ainda não tem task de produção): azul e de borda cheia (a matriz é
-   tracejada: está um passo antes). O clique abre o documento; o M abre a matriz. */
-.card.cp{--cc:var(--blue); background:color-mix(in srgb, var(--blue) 8%, var(--cell)); border:1px solid color-mix(in srgb, var(--blue) 42%, transparent); padding:6px 8px 7px}
-html[data-modo="claro"] .card.cp{background:color-mix(in srgb, var(--blue) 7%, var(--cell)); border-color:color-mix(in srgb, var(--blue) 55%, transparent)}
-.card.cp:hover{border-color:var(--blue)}
-.card.cp .cpband{display:flex; align-items:center; gap:5px; margin:0 0 3px; font-size:10.5px; font-weight:600; color:var(--blue); line-height:1.3; min-width:0}
-.card.cp .cplbl{flex:none; display:inline-flex; align-items:center; gap:3px}
-.card.cp .cplbl .ic{width:11px; height:11px}
-.card.cp .cptipo{font-weight:500; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0}
-.card.cp .cptipo::before{content:"·"; margin-right:4px; font-weight:600}
-.card.cp .mzstar{margin-left:auto; display:inline-flex; flex:none}
-.card.cp .mzstar .ic{width:11px; height:11px; fill:var(--sb-ink); stroke:var(--sb-ink); stroke-width:1}
-.card.cp .tit{color:var(--ink); font-weight:600; -webkit-line-clamp:3}
-.card.cp .meta{margin-top:6px}
-.card.cp .qdel{top:4px}
-.mzbar{flex:1; min-width:30px; height:4px; border-radius:4px; background:color-mix(in srgb, var(--mz) 20%, transparent); overflow:hidden}
-.mzbar i{display:block; height:100%; background:var(--mz); border-radius:4px}
-.mzn{font-size:10.5px; font-weight:600; color:var(--ink-3); font-variant-numeric:tabular-nums}
 
 /* fonte do banco (task que rende vários posts): cara de "estoque" */
 .usochip{font-size:10px; font-weight:600; padding:1px 7px; border-radius:999px; background:var(--sb); color:var(--on-sb); border:0}
@@ -882,8 +785,6 @@ body.drawer-open .usoaviso{right:374px}
 .arqprev b{color:var(--ink)}
 .arqprev.ok{border-color:var(--ok)}
 #arqApagar.confirma{background:var(--crit); color:#fff; border-color:var(--crit)}
-.mk.t-doc{color:var(--ink-2); cursor:pointer}
-.mk.t-doc:hover{color:var(--sb-ink)}
 /* ---- Novo post v3.65: passo 1 = escolha grande; passo 2 = só os campos do caminho ---- */
 #ovEdit .emodal{width:min(600px,100%)}
 .etopo{display:flex; align-items:center; gap:10px; min-width:0}
@@ -1254,25 +1155,6 @@ main{padding-bottom:84px}
 .mzsug.on .mzqd{color:#000; background:rgba(0,0,0,.12)}
 .mzpede .mznota{color:var(--ink-2)}
 
-/* ---- v3.96: post do BANCO (o card do dia ganhou um material do banco: corte, depoimento, Drive; a copy é opcional).
-   Índigo e de borda cheia: já tem o material, falta só a task de produção. ---- */
-.card.bco{--cc:var(--indigo); background:color-mix(in srgb, var(--indigo) 9%, var(--cell)); border:1px solid color-mix(in srgb, var(--indigo) 45%, transparent); padding:6px 8px 7px}
-html[data-modo="claro"] .card.bco{background:color-mix(in srgb, var(--indigo) 6%, var(--cell)); border-color:color-mix(in srgb, var(--indigo) 50%, transparent)}
-.card.bco:hover{border-color:var(--indigo)}
-.card.bco::before{display:none}
-.card.bco .bcoband{display:flex; align-items:center; gap:5px; margin:0 0 3px; font-size:10.5px; font-weight:600; color:var(--indigo); line-height:1.3; min-width:0}
-.card.bco .bcolbl{flex:none; display:inline-flex; align-items:center; gap:3px}
-.card.bco .bcolbl .ic{width:11px; height:11px}
-.card.bco .bcotipo{font-weight:500; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0}
-.card.bco .bcotipo::before{content:"·"; margin-right:4px; font-weight:600}
-.card.bco .mzstar{margin-left:auto; display:inline-flex; flex:none}
-.card.bco .mzstar .ic{width:11px; height:11px; fill:var(--sb-ink); stroke:var(--sb-ink); stroke-width:1}
-.card.bco .tit{color:var(--ink); font-weight:600; -webkit-line-clamp:3}
-.card.bco .meta{margin-top:6px}
-.card.bco .qdel{top:4px}
-.lgb.lgbk{--stc:var(--indigo)}
-.lgb.lgbk i{background:transparent; border:1.5px solid var(--indigo)}
-.mk.t-bco{color:var(--indigo)}
 /* botão "Do banco" no card do dia, ao lado do "Escrever a copy" */
 .mbtn.mzbancobt{background:color-mix(in srgb, var(--indigo) 18%, transparent); color:var(--ink); font-weight:600; box-shadow:var(--hard-s)}
 .mbtn.mzbancobt:hover{background:color-mix(in srgb, var(--indigo) 28%, transparent)}
@@ -1378,22 +1260,3 @@ html[data-modo="claro"] .usochip.nunca{color:color-mix(in srgb, var(--orange) 72
 .bk-tipo button[aria-checked=true]{background:var(--elev-2); color:var(--ink); font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,.18)}
 html[data-modo="claro"] .bk-tipo button[aria-checked=true]{background:#fff}
 
-/* ---- v3.98: copy em aprovação bem visível (pedido do Zion: "mais visível que ela já foi feita e está esperando a
-   aprovação de maria"). O card da copy fica laranja, com "Copy pronta" e a etiqueta cheia "Esperando aprovação"
-   (v4.00; era "Esperando a Maria"); pra alterar, vermelho com "Pra alterar". Sem piscar (HIG: elemento piscando atrapalha). ---- */
-.card.cp.env{--cc:var(--orange); background:color-mix(in srgb, var(--orange) 13%, var(--cell)); border:1.5px solid color-mix(in srgb, var(--orange) 70%, transparent)}
-.card.cp.env:hover{border-color:var(--orange)}
-.card.cp.env .cpband{color:var(--orange)}
-html[data-modo="claro"] .card.cp.env{background:color-mix(in srgb, var(--orange) 11%, var(--cell)); border-color:color-mix(in srgb, var(--orange) 80%, transparent)}
-html[data-modo="claro"] .card.cp.env .cpband{color:color-mix(in srgb, var(--orange) 70%, #000)}
-.card.cp.alt{--cc:var(--red); background:color-mix(in srgb, var(--red) 11%, var(--cell)); border:1.5px solid color-mix(in srgb, var(--red) 65%, transparent)}
-.card.cp.alt:hover{border-color:var(--red)}
-.card.cp.alt .cpband{color:var(--red)}
-html[data-modo="claro"] .card.cp.alt{background:color-mix(in srgb, var(--red) 8%, var(--cell)); border-color:color-mix(in srgb, var(--red) 70%, transparent)}
-html[data-modo="claro"] .card.cp.alt .cpband{color:color-mix(in srgb, var(--red) 80%, #000)}
-.cpetq{display:inline-flex; align-items:center; gap:4px; max-width:100%; min-width:0; padding:2px 8px 2px 6px; border-radius:999px; font-size:10.5px; font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.cpetq .ic{width:11px; height:11px; flex:none; stroke-width:2.4}
-.cpetq.env{background:var(--orange); color:#000}
-.cpetq.alt{background:var(--red); color:#fff}
-.lgb.lgenv{--stc:var(--orange)}
-.lgb.lgenv i{box-shadow:0 0 0 2px color-mix(in srgb, var(--orange) 35%, transparent)}

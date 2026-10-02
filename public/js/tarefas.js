@@ -769,14 +769,6 @@ function tfPintaMzRel(e) {
   if (nf) { const meu = st === 'rodando' || st === 'pausado'; nf.hidden = !meu; if (meu) CRON.pintaDigitos(nf, CRON.decorrido(e)); }
 }
 
-// ---------------- selo no card do calendário ----------------
-/** Bolinha + C no card, na cor do estado da aprovação da copy. A palavra vai na dica. (v3.88: a matriz não tem mais aprovação.) */
-function tfChipsCard(s) {
-  const a = s.aprov && s.aprov.c; if (!a) return '';
-  const rot = { enviado: 'pronta, esperando aprovação', aprovado: 'aprovada', alterar: 'pra alterar' };   // v3.98; v4.00
-  return '<span class="apv st-' + a.st + '" title="Copy ' + rot[a.st] + (a.st === 'alterar' && a.nota ? ': ' + esc(a.nota) : '') + '"><i></i>C</span>';
-}
-
 // ---------------- avisos: pra aprovar (quem aprova) e pra alterar (quem fez) ----------------
 function tfChecaAvisos(slots) {
   const agora = {};

@@ -43,12 +43,6 @@ html[data-modo="claro"]{--tp-m:#B38200; --tp-c:#0088FF}
 .tcard.vazio:hover .tc-cta{color:var(--ink)}
 @media (max-width:900px){ .tc-per,.tc-chip{display:none} }
 
-/* ---------- selo de aprovação no card do calendário: bolinha + letra (M matriz, C copy) ---------- */
-.apv{display:inline-flex; align-items:center; gap:3px; height:16px; padding:0 5px 0 4px; border-radius:8px; font-size:9.5px; font-weight:750; letter-spacing:.02em;
-  color:var(--ink-2); background:var(--fill-3); flex:none}
-.apv i{width:6px; height:6px; border-radius:50%; background:var(--gray)}
-.apv.st-enviado i{background:var(--orange)} .apv.st-aprovado i{background:var(--green)} .apv.st-alterar i{background:var(--red)}
-
 /* ---------- card da matriz: relógio e aviso da aprovação ---------- */
 .mzacoes{position:absolute; right:52px; top:16px; display:flex; align-items:center; gap:10px}
 .mzacoes .mbtn.mzcopytop{position:static}

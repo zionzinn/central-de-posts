@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="/css/relogio.css">
 <link rel="stylesheet" href="/css/tarefas.css">
 <link rel="stylesheet" href="/css/perfil.css">
+<link rel="stylesheet" href="/css/linha.css">
 </head>
 <body>
 
@@ -41,6 +42,14 @@
     <div class="vtoggle" id="vtoggle" role="group" aria-label="Visualização">
       <button data-v="mes" class="on">Mês</button>
       <button data-v="semana">Semana</button>
+    </div>
+    <!-- v4.01: lente. Cada post no dia em que ele SAI (padrão) ou no dia em que FICA PRONTO (entrega no MKT Hub) -->
+    <div class="lente" id="lente" role="radiogroup" aria-label="Mostrar cada post no dia em que ele">
+      <span class="lt">Mostrar no dia que</span>
+      <div class="lseg"><span class="lpill" aria-hidden="true"></span>
+        <button type="button" role="radio" data-l="sai" data-tip="Cada post no dia em que ele sai (vai ao ar)">sai</button>
+        <button type="button" role="radio" data-l="ent" data-tip="Cada post no dia em que ele fica pronto (entrega no MKT Hub)">fica pronto</button>
+      </div>
     </div>
     <div class="mnav">
       <div class="navgrupo">
@@ -120,6 +129,8 @@
     <div class="mtit" id="tTit"></div>
     <div class="mrow" id="tRow"></div>
   </div>
+  <!-- v4.01: a linha do post (no B.O.N.E, no MKT Hub, no Instagram) e as duas datas lado a lado (só mostram) -->
+  <div class="lpf" id="tLinha" hidden></div>
   <div class="mtabs" id="tTabs">
     <button class="mtab on" data-t="arquivos">Arquivos</button>
     <button class="mtab" data-t="comentarios">Comentários</button>
@@ -415,10 +426,11 @@
 <script src="/js/banco.js"></script>
 <script src="/js/personagens.js"></script>
 <script src="/js/perfil.js"></script>
+<script src="/js/linha.js"></script>
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.00'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.01'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -467,11 +479,6 @@ const ICONS = {
 };
 const BIN_SVG = '<svg class="bin-top" viewBox="0 0 39 7" fill="none" aria-hidden="true"><line y1="5" x2="39" y2="5" stroke="currentColor" stroke-width="4"/><line x1="12" y1="1.5" x2="26" y2="1.5" stroke="currentColor" stroke-width="3"/></svg><svg class="bin-bottom" viewBox="0 0 33 39" fill="none" aria-hidden="true"><path d="M2 0v34a3 3 0 0 0 3 3h23a3 3 0 0 0 3-3V0" stroke="currentColor" stroke-width="4"/><path d="M12 6v23M21 6v23" stroke="currentColor" stroke-width="4"/></svg>';
 function icon(nome, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[nome]||ICONS.link)+'</svg>'; }
-function corTexto(hex){
-  if(!hex || hex[0] !== '#' || hex.length < 7) return '#000';
-  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
-  return (r*299 + g*587 + b*114)/1000 > 140 ? '#000' : '#fff';
-}
 
 // ================= estado =================
 const $ = s => document.querySelector(s);
@@ -484,8 +491,9 @@ const S = {
   editing:null, taskSlot:null, dragging:false, lastSync:null,
   drawer:false, busca:'', bancoEdit:null,
   view:'mes', semIdx:0,
-  filtro:'todos', selecao:new Set(),
+  filtro:'todos', selecao:new Set(),   // v4.01: filtro = etapa da legenda (mz, copy, prod, pronto, ar, alerta): apaga o resto
   tarefas:[],   // v3.80: tarefas abertas da copywriter (matriz e copy), com os posts de cada uma
+  lente:'sai', lpPrevia:null, lpEstoura:null,   // v4.01: cada post no dia que SAI (ou 'ent': no dia que fica pronto)
 };
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 // paleta neo-brutal por marca (decisão do Zion 14/07/2026)
@@ -599,15 +607,6 @@ const DOWS_TIT = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];   // cabeçalho d
 // cola o link da task nele (aí o post existe, não falta mais criar).
 const VAGA_FORMATOS = ['estático','carrossel','reels'];
 function isVaga(s){ return !!s.vaga && !s.taskId; }
-// No ClickUp, "completo" quer dizer que a arte ficou pronta; pra quem posta, isso é
-// PUBLICAR. O painel mostra os dois com o mesmo rótulo e a mesma cor. O status real no
-// ClickUp não muda: isso é só leitura.
-const COR_PUBLICAR = '#FF375F';
-/** Pronto pra ir ao ar: o "publicar" do ClickUp e também o "completo". */
-function ehPublicar(s){
-  const st = (s.statusCache && s.statusCache.status) || '';
-  return st === 'publicar' || st === 'completo';
-}
 /** Sugestão de post vinda pela pauta (dia vazio). Deixa de ser sugestão quando você cola a task. */
 function isSugestao(s){ return !!s.sugestao && !s.taskId; }
 // ---- MATRIZ (SeuBoné e, v3.91, Weevo) ----
@@ -634,7 +633,6 @@ function copyEstado(s){
   return { cod:'escrevendo', rot:'escrevendo', cor:'var(--blue)' };
 }
 const MZ_OBJ_COR = { Atrair:'#00D2E0', Provar:'#6D7CFF', Converter:'#FF9230', Crescer:'#00DAC3' };   // teal, índigo, laranja e menta do sistema
-const MZ_ST_COR = { 'Não iniciado':'#8E8E93', 'Briefing criado':'#6D7CFF', 'Em produção':'#FF9230', 'Em aprovação':'#00D2E0', 'Aprovado':'#00DAC3', 'Postado':'#30D158' };
 const MZ_VAZIA = { nome:'', tipos:{}, semanas:{A:[],B:[]}, ancora:'2026-09-28', inicio:null, status:[], obrigatorios:[], regras:[], checklist:[], hacks:'', glossario:{ campos:{}, valores:{}, sugestoes:{} } };
 /** Regras da matriz de uma conta ('seubone' ou 'weevo'); sem conta, a da SeuBoné. */
 function mzCfg(conta){ const l = S.matrizes || {}; return l[conta || 'seubone'] || l.seubone || MZ_VAZIA; }
@@ -660,31 +658,8 @@ function mzTipoDoDia(iso, conta){
 function mzStatus(s){ return s.postado ? 'Postado' : ((s.matrizSB && s.matrizSB.status) || 'Não iniciado'); }
 function mzProgresso(m, conta){ const ob = mzCfg(conta).obrigatorios; const n = ob.filter(k=>m && m[k]).length; return { n, total: ob.length, cheio: n===ob.length }; }
 function mzObjCor(tipo, conta){ const t = mzCfg(conta).tipos[tipo]; return t ? (MZ_OBJ_COR[t.objetivo]||'#FCC100') : '#FCC100'; }
-function stInfo(s){
-  if(isVaga(s)) return {label:'falta criar', color:'#FF4D4D'};
-  if(isSugestao(s)) return {label:'sugestão', color:'#C77DFF'};
-  if(isCopy(s)){ const c = copyEstado(s); return {label:'copy '+c.rot, color:{aprovado:'#30D158', enviado:'#FF9230', alterar:'#FF4245', escrevendo:'#0091FF'}[c.cod]}; }   // v3.89
-  if(isBanco(s)) return {label:'do banco', color:'#6D7CFF'};                              // v3.96
-  if(isMatriz(s)){ const st = mzStatus(s); return {label:st.toLowerCase(), color:MZ_ST_COR[st]||'#8C897C'}; }
-  if(s.postado) return {label:'postado', color:'#2FD06A'};
-  if(s.statusCache){
-    if(ehPublicar(s)) return {label:'publicar', color:COR_PUBLICAR};
-    return {label:s.statusCache.nome || s.statusCache.status, color:s.statusCache.color};
-  }
-  if(s.taskId) return {label:'sem status', color:'#8C897C'};
-  return {label:'sem task', color:'#8C897C'};
-}
-// ---- v3.65 card essencial: 6 cores de status ----
-// O card mostra só EM QUE PÉ o post está. O status exato do ClickUp continua no modal do post.
-const BUCKETS = {
-  afazer:   {rot:'A fazer',  cor:'#8E8E93', dica:'sem task, pendente ou backlog'},              // cinza do sistema
-  producao: {rot:'Produção', cor:'#0091FF', dica:'em progresso, pré revisão ou revisão IA'},    // azul
-  alterar:  {rot:'Alterar',  cor:'#FF4245', dica:'pediram alteração'},                          // vermelho
-  aprovar:  {rot:'Aprovar',  cor:'#FF9230', dica:'aprovar, aprovação líder ou revisão solicitada'}, // laranja
-  pronto:   {rot:'Pronto',   cor:'#FF375F', dica:'publicar ou completo: é só postar'},          // rosa
-  postado:  {rot:'Postado',  cor:'#30D158', dica:'já foi ao ar'},                               // verde
-};
-const BUCKET_ORDEM = ['afazer','producao','alterar','aprovar','pronto','postado'];
+// v3.65 → v4.01: em que pé está a task de produção (MKT Hub). A cor e a palavra do card saem daqui na linha do post
+// (js/linha.js: pronto = Pronto; aprovar, alterar, produção e o resto = Produção, com pílula ou palavra).
 function stBucket(s){
   if(s.postado) return 'postado';
   if(!s.taskId) return 'afazer';
@@ -817,34 +792,6 @@ async function corrigirConta(s, sugerida){
     toast('Movido pra '+nomeConta(sugerida)+' · Ctrl+Z desfaz');
   }catch(e){ toast(e.message, true); }
 }
-// ---- filtro por situação ----
-const FILTRO_GRUPOS = {
-  pendentes: ['pendente','solicitado form','backlog'],
-  producao:  ['em progresso','alterar'],
-  aprovar:   ['aprovar','aprovação líder','revisão solicitada','revisão ia'],
-  publicar:  ['publicar','completo'], // "completo" no ClickUp = pronto pra publicar aqui
-};
-function passaFiltro(s){
-  const f = S.filtro;
-  if(!f || f==='todos') return true;
-  const st = (s.statusCache && s.statusCache.status) || '';
-  if(f==='postados') return s.postado;
-  if(f==='semtask') return !s.taskId;
-  if(f==='contadiv') return !!contaDivergente(s);
-  if(f==='vagas') return isVaga(s);
-  if(f==='matriz') return isMatriz(s) && !isCopy(s) && !isBanco(s);
-  if(f==='copy') return isCopy(s);                    // v3.89
-  if(f==='banco') return isBanco(s);                  // v3.96
-  if(f==='aprovacao') return isCopy(s) && copyEstado(s).cod==='enviado';   // v3.98: copy esperando aprovação
-  if(f==='sugestoes') return isSugestao(s);
-  if(f==='atrasados') return !s.postado && !!s.date && s.date < hojeStr();
-  const fb = FILTRO_ALIAS[f] || f;
-  if(BUCKETS[fb]) return !isMatriz(s) && !isCopy(s) && !isBanco(s) && !isVaga(s) && !isSugestao(s) && stBucket(s)===fb;
-  return !s.postado && (FILTRO_GRUPOS[f]||[]).includes(st);
-}
-// filtros antigos que viraram os grupos do card (v3.65)
-const FILTRO_ALIAS = { publicar:'pronto', pendentes:'afazer' };
-
 function slotsVisiveis(){
   const contas = contasDaAba(S.aba).filter(k=>!S.filtroConta.has(k));
   // post COLLAB aparece também nas abas das contas parceiras
@@ -919,7 +866,8 @@ function render(){
   // e o painel ficaria preso em "arrastando" (clique não abre, atualização para, rolagem automática solta).
   if(S.dragging){ S._renderDepois = true; return; }
   S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba);
-  renderTabs(); renderFaixa(); renderLegend(); renderDrawer(true); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); pintaBtnAprovar(); }
+  renderTabs(); renderFaixa(); renderLegend(); renderDrawer(true); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); pintaBtnAprovar();
+  S.lpPrevia = null; lpVer(); }
 
 function renderTabs(){
   const el = $('#tabs');
@@ -1043,15 +991,7 @@ function renderLegend(){
       el.appendChild(ch);
     }
   }
-  const fs = document.createElement('select');
-  fs.className = 'filtro' + (S.filtro!=='todos' ? ' on' : '');
-  [['todos','Todos os posts'],['atrasados','Atrasados'],['afazer','A fazer'],
-   ['producao','Em produção'],['alterar','Alterar'],['aprovar','Pra aprovar'],['pronto','Prontos (publicar)'],
-   ['postados','Postados'],['semtask','Sem task'],['contadiv','Conta divergente'],['vagas','Falta criar'],['matriz','Matriz (amarelos)'],['copy','Copy (azuis)'],['aprovacao','Copy esperando aprovação'],['banco','Do banco'],['sugestoes','Sugestões da pauta']]
-    .forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; fs.appendChild(o); });
-  fs.value = S.filtro;
-  fs.onchange = ()=>{ S.filtro = fs.value; render(); };
-  el.appendChild(fs);
+  // v4.01: o filtro de 16 opções saiu; a legenda de cada mês (6 botões por etapa) mostra e filtra
   if(S.aba==='SEUBONÉ'){
     const gm = document.createElement('span');
     gm.className='chip gmchip';
@@ -1065,111 +1005,44 @@ function renderLegend(){
 }
 
 // ================= card =================
+// v4.01: o card mostra a LINHA DO POST (js/linha.js): a cor diz onde o post está (Matriz e Copy no B.O.N.E, Produção e
+// Pronto no MKT Hub, No ar no Instagram), a palavra diz o que falta, a data diz o que importa (entrega ou dia que sai)
+// e a bolinha no canto diz de quem é a vez. As ações aparecem no hover. Falta criar e sugestão têm desenho próprio.
 function cardEl(s){
-  // v3.65 card essencial: título + 1 bolinha de status (6 cores) + só os alertas que pedem ação.
-  // O resto (formato, ângulo, observação, aprovado da planilha) fica dentro do post.
-  const cor = contaCor(s.conta);
-  const multi = contasDaAba(S.aba).length>1;
   const d = document.createElement('div');
-  const vaga = isVaga(s);
-  const sug = isSugestao(s);
-  const cp = isCopy(s);                    // v3.89: o post já tem a copy (documento): o card da matriz vira o da copy
-  const bco = isBanco(s);                  // v3.96: o card do dia ganhou um material do banco (copy opcional)
-  const mz = isMatriz(s) && !cp && !bco;
-  const bk = BUCKETS[stBucket(s)];
-  d.className='card'+(s.postado?' postado':'')+(isGm(s)?' gm':'')+(vaga?' vaga':'')+(sug?' sugestao':'')+(mz?' mz':'')+(cp?' cp':'')+(bco?' bco':'')+(multi?' temconta':'');
-  if(multi) d.style.setProperty('--corconta', cor);
-  if(!mz && !cp && !bco && !vaga && !sug) d.style.setProperty('--cc', bk.cor);   // v3.75: fundo tingido + barrinha na cor do status
-  d.draggable = true; d.dataset.id = s.id;
-  const resp = s.assigneeCache || s.responsavelManual || '';   // v3.88: sem o "Quem faz" da matriz (saiu)
-  const cdiv = contaDivergente(s);
-  const clb = (s.collab||[]);
-  if(S.selecao.has(s.id)) d.classList.add('sel');
-  const avatar = resp ? '<span class="avatar" title="'+esc(resp)+'">'+esc(initials(resp))+'</span>' : '';
-  const esit = entSit(s);                   // v3.94: a entrega da task deste post (MKT Hub) atrasou ou está em risco
-  const alertas =
-    (esit==='atrasada' || esit==='risco' ? '<span class="mk t-ent '+esit+'" title="'+esc(entDica(s, esit))+'">'+icon('clock')+'</span>' : '')+
-    (s.fixo?'<span class="mk t-pin" title="Data fixa: não se move no empurrar">'+icon('pin')+'</span>':'')+
-    (isGm(s) && !mz?'<span class="mk t-gm" title="Grande marca na capa">'+icon('star')+'</span>':'')+
-    (clb.length?'<span class="mk t-clb" title="Collab: '+esc([s.conta].concat(clb).map(c=>S.contas[c]?S.contas[c].nome:c).join(' + '))+'">'+
-      [s.conta].concat(clb).map(c=>'<span class="cdot" style="background:'+contaCor(c)+'"></span>').join('')+'</span>':'')+
-    (cdiv?'<span class="tagic t-cdiv" title="O nome da task diz '+esc(nomeConta(cdiv.sugerida))+', mas este post está em '+esc(nomeConta(s.conta))+'. Clique pra mover pra '+esc(nomeConta(cdiv.sugerida))+' (Ctrl+Z desfaz).">'+icon('alerta')+'</span>':'')+
-    (!mz && s.matrizSB?'<span class="mk t-mz" title="Este post veio da matriz: clique pra ver tema, tese, gancho...">M</span>':'')+
-    (s.docId && !cp?'<span class="mk t-doc" title="Tem documento de copy: clique pra abrir">'+icon('doc')+'</span>':'')+
-    (s.banco && !bco?'<span class="mk t-bco" title="Material do banco: '+esc(bancoRotulo(s.banco)+(s.banco.titulo ? ' · '+s.banco.titulo : ''))+'">'+icon(bancoIcone(s.banco.sec))+'</span>':'')+   // v3.96
-    (cp ? '' : tfChipsCard(s));   // v3.80: C com a bolinha do estado da aprovação (no card da copy, o estado já está escrito)
-  const parecer = (s.parecer && s.parecer.veredito ? '<div class="vagatag parecer '+(s.parecer.veredito==='aprovado'?'ok':'alt')+'" title="'+esc((s.parecer.veredito==='aprovado'?'Aprovado':'Alteração pedida')+' por '+(s.parecer.por||'')+(s.parecer.motivo?': '+s.parecer.motivo:''))+'">'+icon(s.parecer.veredito==='aprovado'?'check':'pencil')+(s.parecer.veredito==='aprovado'?'APROVADO':'ALTERAR')+(s.parecer.por?' · '+esc(s.parecer.por):'')+'</div>' : '');
-  // selo da conta: nome por extenso na cor da marca. Só em aba com mais de uma conta.
-  const contatag = multi?'<div class="contatag" style="background:'+cor+'; color:'+corTexto(cor)+'">'+esc(contaCurta(s.conta))+'</div>':'';
-  if(bco){
-    // v3.96 BANCO: faixa no topo dizendo de qual banco veio (corte, depoimento, Drive...) e o título do material
-    const gmPede = s.date && S.aba==='SEUBONÉ' && gmCadenciaDia(s.date);
+  const e = lpEtapa(s);
+  const multi = contasDaAba(S.aba).length>1;
+  if(multi) d.style.setProperty('--corconta', contaCor(s.conta));
+  if(e.k !== 'esp') lpMonta(d, s, e, multi);
+  else {
+    const vaga = isVaga(s), resp = s.assigneeCache || s.responsavelManual || '';
+    d.className = 'card'+(vaga?' vaga':' sugestao')+(multi?' temconta':'');
+    d.dataset.etapa = 'esp';
     d.innerHTML =
-      '<div class="bcoband" title="Post do banco: clique pra abrir"><span class="bcolbl">'+icon(bancoIcone(s.banco.sec))+'Banco</span><span class="bcotipo">'+esc(bancoRotulo(s.banco))+'</span>'+
-        (gmPede||isGm(s)?'<span class="mzstar" title="Dia de grande marca na capa">'+icon('star')+'</span>':'')+'</div>'+
-      contatag+
-      '<div class="tit">'+esc(s.banco.titulo || (s.matrizSB && s.matrizSB.tema) || bancoRotulo(s.banco))+'</div>'+
-      '<div class="meta"><span class="stx" style="--stc:var(--indigo)" title="Material escolhido no banco; a copy é opcional"><i></i>material escolhido</span>'+alertas+avatar+'</div>'+
-      '<button class="qdel bin mini" title="Excluir este post do painel">'+BIN_SVG+'</button>';
-  } else if(cp){
-    // v3.89 COPY: faixa azul no topo dizendo COPY + o tipo do dia; o clique abre o documento. A matriz fica no M.
-    // v3.98: em aprovação, o card fica laranja ("Copy pronta" e a etiqueta "Esperando aprovação", v4.00); pra alterar, vermelho
-    const m = s.matrizSB || null, ce = copyEstado(s), a = s.aprov && s.aprov.c;
-    const tipo = m ? (m.tipo || 'Em aberto') : (s.formato ? cap(s.formato) : '');
-    const gmPede = s.date && S.aba==='SEUBONÉ' && gmCadenciaDia(s.date);
-    if(ce.cod==='enviado' || ce.cod==='alterar') d.classList.add(ce.cod==='enviado' ? 'env' : 'alt');
-    const dica = ce.cod==='enviado' ? 'Copy pronta, esperando aprovação'+(a && a.por ? ' (enviada por '+a.por+(a.em ? ' '+brData(a.em.slice(0,10)) : '')+')' : '')
-      : ce.cod==='alterar' ? 'Pra alterar'+(a && a.nota ? ': '+a.nota : '') : 'Copy '+ce.rot;
-    const etiqueta = ce.cod==='enviado' ? '<span class="cpetq env" title="'+esc(dica)+'">'+icon('clock')+'Esperando aprovação</span>'
-      : ce.cod==='alterar' ? '<span class="cpetq alt" title="'+esc(dica)+'">'+icon('pencil')+'Pra alterar</span>'
-      : '<span class="stx" style="--stc:'+ce.cor+'" title="'+esc(dica)+'"><i></i>'+ce.rot+'</span>';
-    d.innerHTML =
-      '<div class="cpband" title="Card da copy: clique pra abrir o documento"><span class="cplbl">'+icon('doc')+(ce.cod==='enviado' ? 'Copy pronta' : 'Copy')+'</span>'+(tipo?'<span class="cptipo">'+esc(tipo)+'</span>':'')+
-        (gmPede||isGm(s)?'<span class="mzstar" title="Dia de grande marca na capa">'+icon('star')+'</span>':'')+'</div>'+
-      contatag+
-      '<div class="tit">'+esc(slotTitulo(s))+'</div>'+
-      '<div class="meta">'+etiqueta+alertas+avatar+'</div>'+
-      '<button class="qdel bin mini" title="Excluir este post do painel">'+BIN_SVG+'</button>';
-  } else if(mz){
-    // MATRIZ: faixa amarela sólida no topo dizendo MATRIZ + o tipo do dia. Não tem como confundir com post.
-    const m = s.matrizSB, mzk = mzContaDe(s); const mzp = mzProgresso(m, mzk); const st = mzStatus(s);
-    const tipoCfg = mzCfg(mzk).tipos[m.tipo];
-    const gmPede = s.date && S.aba==='SEUBONÉ' && gmCadenciaDia(s.date);
-    d.innerHTML =
-      '<div class="mzband" title="Card da matriz: clique pra preencher">'+
-        '<span class="mzobj" style="background:'+mzObjCor(m.tipo, mzk)+'" title="'+esc(tipoCfg? 'objetivo: '+tipoCfg.objetivo : 'tipo em aberto')+'"></span>'+
-        '<span class="mzlbl">Matriz</span><span class="mztipo">'+esc(m.tipo||'Em aberto')+'</span>'+
-        (gmPede||isGm(s)?'<span class="mzstar" title="Dia de grande marca na capa">'+icon('star')+'</span>':'')+
-      '</div>'+
-      contatag+
-      '<div class="tit'+(m.tema?'':' vazio')+'">'+esc(m.tema || (m.tipo ? 'a preencher' : 'escolher o tipo'))+'</div>'+
-      '<div class="meta">'+
-        (st==='Não iniciado'
-          ? '<span class="mzbar" title="'+mzp.n+' de '+mzp.total+' campos preenchidos"><i style="width:'+Math.round(100*mzp.n/mzp.total)+'%"></i></span><span class="mzn">'+mzp.n+'/'+mzp.total+'</span>'
-          : '<span class="stx" style="--stc:'+(MZ_ST_COR[st]||'#8C897C')+'"><i></i>'+esc(st.toLowerCase())+'</span>')+
-        alertas+ avatar+
-      '</div>'+
-      (s.postado?'<div class="pcheck" title="Clique pra desmarcar postado">'+icon('check')+'</div>':'')+
-      '<button class="qdel bin mini" title="Excluir este card da matriz">'+BIN_SVG+'</button>';
-  } else {
-    d.innerHTML =
-      (vaga?'<div class="vagatag">'+icon('alerta')+'Falta criar</div>':'')+
-      (sug?'<div class="vagatag sugtag" title="Ideia enviada pela pauta: cole o link da task pra virar post, ou apague">'+icon('sparkle')+'Sugestão'+(s.sugeridoPor?' · '+esc(s.sugeridoPor):'')+'</div>':'')+
-      parecer+ contatag+
-      '<div class="tit">'+esc(vaga? cap(s.formato||'post') : (sug? String(slotTitulo(s)).replace(/^SUGESTÃO:\s*/i,'') : slotTitulo(s)))+'</div>'+
-      // a obs da vaga aparece SEMPRE (é o "precisa ser sobre isso"); nos posts normais, só na visão Semana
-      ((vaga || S.view==='semana') && s.obs ? '<div class="obsline">'+esc(s.obs)+'</div>' : '')+
-      '<div class="meta">'+
-        (vaga||sug?'':'<span class="stx" style="--stc:'+bk.cor+'" title="'+esc(s.statusCache&&s.statusCache.status ? 'Status: '+s.statusCache.status : (s.taskId?'Sem status ainda':'Sem link de task ainda'))+'"><i></i>'+esc(s.taskId||s.postado? bk.rot : 'Sem task')+'</span>')+
-        alertas+
-        avatar+
-      '</div>'+
+      (vaga ? '<div class="vagatag">'+icon('alerta')+'Falta criar</div>'
+        : '<div class="vagatag sugtag" title="Ideia enviada pela pauta: cole o link da task pra virar post, ou apague">'+icon('sparkle')+'Sugestão'+(s.sugeridoPor?' · '+esc(s.sugeridoPor):'')+'</div>')+
+      (multi ? lpContaTag(s) : '')+
+      '<div class="tit">'+esc(vaga ? cap(s.formato||'post') : String(slotTitulo(s)).replace(/^SUGESTÃO:\s*/i,''))+'</div>'+
+      // a obs da vaga aparece SEMPRE (é o "precisa ser sobre isso")
+      (s.obs && (vaga || S.view==='semana') ? '<div class="obsline">'+esc(s.obs)+'</div>' : '')+
+      '<div class="meta">'+lpMarcas(s, e)+(resp ? '<span class="avatar" title="'+esc(resp)+'">'+esc(initials(resp))+'</span>' : '')+'</div>'+
       // na vaga, o botão de check dá BAIXA (já criei) em vez de marcar postado
-      (vaga? '<button class="qvaga" title="Já criei este post: dar baixa na sinalização">'+icon('check')+'</button>'
-       : (s.postado?'<div class="pcheck" title="Clique pra desmarcar postado">'+icon('check')+'</div>':'<button class="qpost" title="Marcar postado">'+icon('check')+'</button>'))+
+      (vaga ? '<button class="qvaga" title="Já criei este post: dar baixa na sinalização">'+icon('check')+'</button>'
+        : '<button class="qpost" title="Marcar postado">'+icon('check')+'</button>')+
       '<button class="qdel bin mini" title="Excluir este post do painel">'+BIN_SVG+'</button>';
+    const qv = d.querySelector('.qvaga');
+    if(qv) qv.onclick = ev=>{ ev.stopPropagation(); baixarVaga(s); };
+    const qp = d.querySelector('.qpost');
+    if(qp) qp.onclick = ev=>{ ev.stopPropagation(); togglePostado(s); };
+    d.querySelector('.qdel').onclick = ev=>{ ev.stopPropagation(); lpExclui(s); };
+    const cd = d.querySelector('[data-ac="cdiv"]');
+    if(cd) cd.onclick = ev=>{ ev.stopPropagation(); const c = contaDivergente(s); if(c) corrigirConta(s, c.sugerida); };
   }
+  // na lente "fica pronto" o card está no dia da entrega: arrastar mudaria o dia que SAI, então não arrasta
+  d.draggable = S.lente !== 'ent'; d.dataset.id = s.id;
+  if(S.selecao.has(s.id)) d.classList.add('sel');
   d.addEventListener('dragstart', ev=>{
+    lpDesliga();
     S.dragging=true; d.classList.add('dragging');
     const grupo = S.selecao.has(s.id) && S.selecao.size>1 && s.date;
     ev.dataTransfer.setData('text/plain', grupo? 'sel:'+s.id : s.id);
@@ -1177,41 +1050,21 @@ function cardEl(s){
     if(grupo) document.querySelectorAll('.card.sel').forEach(c=>c.classList.add('dragging'));
   });
   d.addEventListener('dragend', ()=>{ S.dragging=false; document.querySelectorAll('.card.dragging').forEach(c=>c.classList.remove('dragging')); });
-  d.addEventListener('mouseenter', ()=>{ S.hoverCard = s.id; });
-  d.addEventListener('mouseleave', ()=>{ if(S.hoverCard===s.id) S.hoverCard = null; });
+  // v4.01: o hover liga o dia que fica pronto ao dia que sai (seta + dia aceso), só nos posts com entrega no MKT Hub
+  d.addEventListener('mouseenter', ()=>{ S.hoverCard = s.id; if(s.hub && s.hub.prazo) lpQuando(()=> lpLigaCard(s, d)); });
+  d.addEventListener('mouseleave', ()=>{ if(S.hoverCard===s.id) S.hoverCard = null; lpDesliga(); });
   if(S.clip && S.clip.id===s.id){ d.classList.add('clip'); if(S.clip.modo==='recortar') d.classList.add('cut'); }
   d.addEventListener('click', ev=>{
     if(S.dragging) return;
     if(ev.ctrlKey || ev.metaKey){ toggleSelecao(s.id); return; }
-    if(cp){ abrirCopy(s.id); return; }        // v3.89: o card da copy abre o documento
-    if(bco){ if(s.matrizSB) openMatriz(s.id); else openTask(s.id); return; }   // v3.96: o post do banco abre o card do dia
-    if(mz){ openMatriz(s.id); return; }
+    lpDesliga();
+    if(isCopy(s)){ abrirCopy(s.id); return; }        // v3.89: o card da copy abre o documento
+    if(isBanco(s)){ if(s.matrizSB) openMatriz(s.id); else openTask(s.id); return; }   // v3.96: o post do banco abre o card do dia
+    if(isMatriz(s)){ openMatriz(s.id); return; }
     openTask(s.id);
   });
-  const tdoc = d.querySelector('.t-doc');
-  if(tdoc) tdoc.onclick = ev=>{ ev.stopPropagation(); abrirCopy(s.id); };
-  const tmz = d.querySelector('.t-mz');
-  if(tmz) tmz.onclick = ev=>{ ev.stopPropagation(); openMatriz(s.id); };
-  const cd = d.querySelector('.t-cdiv');
-  if(cd && cdiv) cd.onclick = ev=>{ ev.stopPropagation(); corrigirConta(s, cdiv.sugerida); };
-  const qv = d.querySelector('.qvaga');
-  if(qv) qv.onclick = ev=>{ ev.stopPropagation(); baixarVaga(s); };
-  const qp = d.querySelector('.qpost');
-  if(qp) qp.onclick = ev=>{ ev.stopPropagation(); togglePostado(s); };
-  const pc = d.querySelector('.pcheck');
-  if(pc) pc.onclick = ev=>{ ev.stopPropagation(); togglePostado(s); };
-  const qd = d.querySelector('.qdel');
-  if(qd) qd.onclick = async ev=>{
-    ev.stopPropagation();
-    if(!confirm('Excluir "'+slotTitulo(s)+'"?\n\n(Ctrl+Z desfaz.)')) return;
-    try{
-      await api('/api/slots/'+s.id, {method:'DELETE'});
-      S.slots = S.slots.filter(x=>x.id!==s.id);
-      S.selecao.delete(s.id);
-      render(); renderSelbar();
-      toast('Excluído · Ctrl+Z desfaz');
-    }catch(e){ toast(e.message, true); }
-  };
+  // teclado: Tab chega no card (as ações aparecem) e Enter abre
+  d.addEventListener('keydown', ev=>{ if((ev.key==='Enter' || ev.key===' ') && ev.target===d){ ev.preventDefault(); d.click(); } });
   return d;
 }
 
@@ -1373,12 +1226,13 @@ function rowsDoMes(mes){
   }
   return out;
 }
-/** Posts visíveis de um mês, já agrupados por dia e ordenados por conta. */
+/** Posts visíveis de um mês, já agrupados por dia e ordenados por conta.
+    v4.01: o dia é o da lente (o dia que sai ou, na lente "fica pronto", o da entrega no MKT Hub). O filtro da
+    legenda não tira card da grade: apaga o que não é da etapa (js/linha.js). */
 function postsPorDia(mes){
   const ordem = {'seubone':1,'carbone-edu':2,'carbone-club':3,'onevo-energia':4,'onevo-invest':5,'weevo':6};
   const porDia = {};
-  slotsVisiveis().filter(s=>s.date && s.date.startsWith(mes)).filter(passaFiltro)
-    .forEach(s=>{ (porDia[s.date] = porDia[s.date]||[]).push(s); });
+  slotsVisiveis().forEach(s=>{ const d = lpDiaNaLente(s); if(d && d.startsWith(mes)) (porDia[d] = porDia[d]||[]).push(s); });
   Object.values(porDia).forEach(a=>a.sort((x,z)=>(ordem[x.conta]||9)-(ordem[z.conta]||9)));
   return porDia;
 }
@@ -1400,13 +1254,6 @@ function entSit(s){
   return 'ok';
 }
 function entRiscoTxt(s){ const p = s.hub.prazo; return s.date && p > s.date ? 'depois do post' : p === hojeStr() ? 'vence hoje' : 'vence amanhã'; }
-/** Dica do relógio no card do post (só atrasada ou em risco). */
-function entDica(s, sit){
-  const onde = ' (' + (s.hub.codigo || 'MKT Hub') + (s.statusCache && s.statusCache.nome ? ', ' + s.statusCache.nome : '') + ')';
-  if(sit === 'atrasada') return 'Entrega atrasada: era pra ' + tfDia(s.hub.prazo) + ' no MKT Hub' + onde;
-  const r = entRiscoTxt(s);
-  return 'Entrega em risco: ' + (r === 'depois do post' ? 'marcada pra ' + tfDia(s.hub.prazo) + ', depois do dia do post' : r) + onde;
-}
 const ENT_ORDEM = { atrasada: 0, risco: 1, ok: 2, entregue: 3 };
 /** As entregas de cada dia na aba aberta (posts ligados a uma task do Hub com prazo). Refaz quando o estado muda. */
 function entMapa(){
@@ -1435,7 +1282,7 @@ function entLinha(s){
     : sit === 'risco' ? '<span class="epselo risco">'+esc(entRiscoTxt(s))+'</span>'
     : sit === 'entregue' ? '<span class="epselo feita">'+icon('check')+'entregue</span>' : '';
   return '<div class="eplin '+sit+'" role="button" tabindex="0" data-epsid="'+esc(s.id)+'" title="Ver o post no dia em que ele sai">'+
-    '<span class="epdot" style="background:'+esc(st.color || '#8E8E93')+'"></span>'+
+    '<span class="epdot e-'+lpEtapa(s).k+'"></span>'+
     '<span class="eptxt"><span class="eptit">'+(cod ? '<span class="epcod">'+esc(cod)+'</span>' : '')+esc(s.tituloCache || slotTitulo(s))+'</span>'+
       '<span class="epsub">'+esc(st.nome || 'sem etapa')+(s.assigneeCache ? ' · '+esc(s.assigneeCache) : '')+'</span>'+
       '<span class="eppost">'+icon('calendar')+'sai <b>'+(s.date ? esc(tfDia(s.date)) : 'sem dia')+'</b> · '+esc(nomeConta(s.conta))+'</span></span>'+
@@ -1489,7 +1336,8 @@ function irParaPost(sid){
     } else irParaMes(s.date.slice(0, 7));
     c = document.querySelector('.card[data-id="'+sid+'"]');
   }
-  if(!c) return toast('Esse post está escondido pelo filtro: volte pra "Todos os posts" pra ver.');
+  if(!c && S.lente === 'ent'){ lpTrocaLente('sai'); return irParaPost(sid); }
+  if(!c) return toast('Esse post não está na tela agora.');
   c.scrollIntoView({ block: 'center', behavior: 'smooth' });
   c.classList.remove('pisca'); void c.offsetWidth; c.classList.add('pisca');
   setTimeout(() => c.classList.remove('pisca'), 2600);
@@ -1512,23 +1360,34 @@ function celulaDia(c, di, porDia, semana){
   const mzd = mzk ? mzTipoDoDia(c.date, mzk) : null;
   const mzLabel = mzd ? (mzd.tipo || mzd.opcoes.join(' / ')) : '';
   const mzHacks = mzd && mzk === 'weevo' ? ' · e mais '+((new Date(mzUtc(c.date)).getUTCDay()+6)%7 >= 5 ? 2 : 4)+' hacks e virais (fora da matriz)' : '';
-  const ents = entMapa()[c.date] || [];                       // v3.94: o que vence neste dia no MKT Hub
+  // v3.94: o que vence neste dia no MKT Hub. v4.01: na lente "fica pronto" os próprios cards são as entregas,
+  // então a caixinha sai; e lá não se cria nem se arrasta post (o dia da célula é o da entrega, não o que sai).
+  const lenteEnt = S.lente === 'ent';
+  const ents = lenteEnt ? [] : (entMapa()[c.date] || []);
   cell.innerHTML = '<div class="day-top"><span class="dleft"><span class="dnum">'+c.dnum+ estrela + '</span>'+
-    (mzd ? '<span class="mzdia" style="--c:'+(mzd.tipo?mzObjCor(mzd.tipo, mzk):'#FCC100')+'" title="Matriz: '+esc(mzLabel)+' · semana '+mzd.semana+esc(mzHacks)+'">'+esc(mzd.tipo || 'Em aberto')+'</span>' : '')+
+    // v4.01: o tipo do dia da matriz fica neutro (cinza): a cor do painel é só da etapa do post
+    (mzd ? '<span class="mzdia" title="Matriz: '+esc(mzLabel)+' · semana '+mzd.semana+esc(mzHacks)+'">'+esc(mzd.tipo || 'Em aberto')+'</span>' : '')+
     (ents.length ? entBotao(ents) : '')+
     '</span><span class="day-acts">'+
-      (sb ? '' : '<button class="vagabtn" title="Sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>')+
-      '<button class="addbtn" title="Criar neste dia" aria-haspopup="menu">'+icon('plus','s')+'</button>'+
+      (sb || lenteEnt ? '' : '<button class="vagabtn" title="Sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>')+
+      (lenteEnt ? '' : '<button class="addbtn" title="Criar neste dia" aria-haspopup="menu">'+icon('plus','s')+'</button>')+
     '</span></div><div class="day-cards"></div>';
   const cardsEl = cell.querySelector('.day-cards');
   doDia.forEach(s=>cardsEl.appendChild(cardEl(s)));
   const dateStr = c.date;
   cell.addEventListener('mouseenter', ()=>{ S.hoverDay = dateStr; });
-  cell.querySelector('.addbtn').onclick = ev=>{ ev.stopPropagation(); abrirCriarDia(dateStr, ev.currentTarget); };
+  const ab = cell.querySelector('.addbtn');
+  if(ab) ab.onclick = ev=>{ ev.stopPropagation(); abrirCriarDia(dateStr, ev.currentTarget); };
   const vb = cell.querySelector('.vagabtn');
   if(vb) vb.onclick = ev=>{ ev.stopPropagation(); abrirPopVaga(dateStr, ev.currentTarget); };
   const eb = cell.querySelector('.entbtn');
-  if(eb) eb.onclick = ev=>{ ev.stopPropagation(); abrirEntregas(dateStr, eb); };
+  if(eb){
+    eb.onclick = ev=>{ ev.stopPropagation(); lpDesliga(); abrirEntregas(dateStr, eb); };
+    // v4.01: passar o mouse na caixinha liga ela aos posts que ficam prontos neste dia
+    eb.addEventListener('mouseenter', ()=> lpQuando(()=> lpLigaEntregas(dateStr, eb)));
+    eb.addEventListener('mouseleave', lpDesliga);
+  }
+  if(lenteEnt) return cell;
   if(S.clip){
     const cb = document.createElement('button'); cb.className='colar-aqui'; cb.innerHTML = icon('plus','s')+'Colar aqui';
     cb.onclick = (e)=>{ e.stopPropagation(); colarNoDia(dateStr); };
@@ -1537,31 +1396,13 @@ function celulaDia(c, di, porDia, semana){
   dropZone(cell, ()=>dateStr);
   return cell;
 }
-/** Legenda das 6 cores no cabeçalho do mês, já com a contagem. Clique = filtra por aquele grupo (clique de novo tira). */
-function legendaMes(mes){
-  const doMes = slotsVisiveis().filter(s=>s.date && s.date.startsWith(mes));
-  const cont = {}; let nmz = 0, ncp = 0, nbk = 0, nenv = 0;
-  doMes.forEach(s=>{
-    if(isCopy(s)){ ncp++; if(copyEstado(s).cod==='enviado') nenv++; return; }   // v3.89: o card da copy (azul); v3.98: os esperando aprovação
-    if(isBanco(s)){ nbk++; return; }                  // v3.96: post do banco
-    if(isMatriz(s) && !s.postado){ nmz++; return; }
-    if(isVaga(s) || isSugestao(s)) return;
-    const b = stBucket(s); cont[b] = (cont[b]||0)+1;
-  });
-  const f = FILTRO_ALIAS[S.filtro] || S.filtro;
-  return '<span class="mesleg">'+
-    BUCKET_ORDEM.map(k=>'<button class="lgb'+(cont[k]?'':' zero')+(f===k?' on':'')+'" data-f="'+k+'" style="--stc:'+BUCKETS[k].cor+'" title="'+esc(BUCKETS[k].rot+': '+BUCKETS[k].dica+' · clique pra ver só estes')+'"><i></i>'+BUCKETS[k].rot+' <b>'+(cont[k]||0)+'</b></button>').join('')+
-    (S.aba==='SEUBONÉ' && nmz ? '<button class="lgb lgmz'+(f==='matriz'?' on':'')+'" data-f="matriz" title="Cards da matriz ainda sem copy · clique pra ver só eles"><i></i>Matriz <b>'+nmz+'</b></button>' : '')+
-    (ncp ? '<button class="lgb lgcp'+(f==='copy'?' on':'')+'" data-f="copy" title="Cards da copy (tem documento e ainda não tem task de produção) · clique pra ver só eles"><i></i>Copy <b>'+ncp+'</b></button>' : '')+
-    (nenv ? '<button class="lgb lgenv'+(f==='aprovacao'?' on':'')+'" data-f="aprovacao" title="Copys prontas esperando aprovação · clique pra ver só elas"><i></i>Esperando aprovação <b>'+nenv+'</b></button>' : '')+
-    (nbk ? '<button class="lgb lgbk'+(f==='banco'?' on':'')+'" data-f="banco" title="Posts com material do banco (corte, depoimento, Drive) e ainda sem task · clique pra ver só eles"><i></i>Do banco <b>'+nbk+'</b></button>' : '')+
-  '</span>';
-}
 /** Bloco de um mês inteiro no fluxo: título grudento + grade de semanas. */
 function blocoMes(mes){
   const [y,m] = mes.split('-').map(Number);
   const porDia = postsPorDia(mes);
-  const n = Object.values(porDia).reduce((a,b)=>a+b.length, 0);
+  const lista = [].concat(...Object.values(porDia)), n = lista.length;
+  // v4.01: na lente "fica pronto" o mês conta as entregas e avisa quantos posts do mês ficaram fora (sem entrega)
+  const fora = S.lente === 'ent' ? slotsVisiveis().filter(s=>s.date && s.date.startsWith(mes) && !lpDiaNaLente(s)).length : 0;
   const bloco = document.createElement('section');
   bloco.className = 'mesbloco'+(mes===mesAtual()?' atual':'');
   bloco.dataset.mes = mes;
@@ -1569,10 +1410,12 @@ function blocoMes(mes){
   cab.className = 'mescab';
   cab.innerHTML =
     '<div class="mescabtop"><b>'+cap(MESES[m-1])+' '+y+'</b>'+
-      '<span class="mesn">'+n+' post'+(n===1?'':'s')+' · '+esc(nomeAba(S.aba))+'</span>'+legendaMes(mes)+'</div>'+
+      '<span class="mesn">'+(S.lente === 'ent'
+        ? n+' entrega'+(n===1?'':'s')+' · '+esc(nomeAba(S.aba))+(fora ? '<span class="mesfora" title="Matriz, copy e post sem task não têm entrega: voltam na lente sai">'+fora+' sem entrega fora da vista</span>' : '')
+        : n+' post'+(n===1?'':'s')+' · '+esc(nomeAba(S.aba)))+'</span>'+lpLegendaMes(lista)+'</div>'+
     '<div class="mesdows"><div></div>'+DOWS_TIT.map(d=>'<div>'+d+'</div>').join('')+'</div>';
   bloco.appendChild(cab);
-  cab.querySelectorAll('.lgb').forEach(b=> b.onclick = ()=>{ S.filtro = (S.filtro===b.dataset.f ? 'todos' : b.dataset.f); render(); });
+  lpLigaLegenda(cab);
   const g = document.createElement('div');
   g.className = 'mesgrid';
   rowsDoMes(mes).forEach((week, wi)=>{
@@ -1590,6 +1433,7 @@ function blocoMes(mes){
 function renderGrid(){
   const semana = S.view==='semana';
   const g = $('#grid');
+  lpDesliga();
   g.classList.toggle('fluxo', !semana);
   g.classList.toggle('withwk', semana ? false : false);
   $('#dows').classList.toggle('withwk', false);
@@ -1774,6 +1618,7 @@ function podeAtualizarSozinho(){
   if(document.hidden) return false;
   if(!document.getElementById('ovDoc').hidden) return false;   // documento aberto: nada de redesenhar por trás
   if(S.dragging || S.clip) return false;
+  if(document.querySelector('#grid .card:hover, .lp-lc:hover')) return false;   // v4.01: mouse num card (ou na legenda): não redesenha debaixo da mão (os botões do hover sumiriam)
   if(document.querySelector('.ov.open')) return false;      // qualquer modal aberto
   if(document.getElementById('vagapop')) return false;       // menu de sinalizar aberto
   const a = document.activeElement;
@@ -1827,7 +1672,6 @@ async function openTask(id){
 /** Cabeçalho do modal: ações em 1 clique com iconografia + tooltip. */
 function tRowDraw(s){
   fechaDoBanco();                                   // v3.96: a lista do banco sai junto com a fileira antiga
-  const st = stInfo(s);
   $('#tTit').textContent = slotTitulo(s);
   const row = $('#tRow');
   const dateBr = s.date? s.date.split('-').reverse().join('/') : 'sem data';
@@ -1835,8 +1679,9 @@ function tRowDraw(s){
     (s.fixo?'<span class="fixopill" data-tip="Data fixa">'+icon('pin')+'</span>':'')+
     (isGm(s)?'<span class="gmpill">'+icon('star','s')+'GM</span>':'')+
     (s.aprovado?'<span class="aprpill" data-tip="Arte aprovada pela diretoria">'+icon('check','s')+'APR</span>':'')+
-    '<span class="stpill" style="font-size:11px; background:'+st.color+'; color:'+corTexto(st.color)+'">'+esc(st.label)+'</span>'+
+    lpChipEtapa(s)+   // v4.01: a etapa na cor dela (o nome exato da etapa no MKT Hub fica na linha do post, logo abaixo)
     '<span class="note">'+esc(S.contas[s.conta].nome)+' · '+dateBr+'</span>';
+  lpFolha(s);
   const mk = (html, cls, tip) => {
     const b=document.createElement('button');
     b.className='mbtn'+(cls?' '+cls:'');
@@ -4068,6 +3913,7 @@ function initIcons(){
   $('#selBanco').innerHTML = icon('box') + 'Banco';
   $('#selLimpar').innerHTML = icon('x');
   tfInit();                                       // v3.80: faixa de tarefas, relógio e avisos de aprovação
+  lpInit();                                       // v4.01: lente "sai | fica pronto" na barra
   // botão só de ícone ganha nome pra leitor de tela (HIG > VoiceOver)
   document.querySelectorAll('button[data-tip]').forEach(b=>{ if(!b.getAttribute('aria-label') && !b.textContent.trim()) b.setAttribute('aria-label', b.dataset.tip); });
 }
