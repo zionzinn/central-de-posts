@@ -1,0 +1,32 @@
+/* v4.02: raias por conta (aba com mais de uma conta: Carbone e Onevo). Cada semana vira uma faixa por conta, alinhada nos
+   7 dias pelo subgrid: o dia ocupa 1 linha pro topo (número, entregas, botões) + 1 linha por conta. A cor do card segue
+   sendo só da etapa (v4.01); a conta é dita pela posição e pelo nome deitado na coluna da semana. */
+.raias{--raia-tinta:color-mix(in srgb, var(--ink) 4.5%, transparent)}
+html[data-modo="claro"] .raias{--raia-tinta:color-mix(in srgb, var(--ink) 3.2%, transparent)}
+.mesgrid.raias > .day, .mesgrid.raias > .wklabel,
+.grid.raias > .day, .grid.raias > .wklabel{grid-row:span var(--nr, 3); display:grid; grid-template-rows:subgrid; grid-template-columns:minmax(0, 1fr); gap:0}
+.mesgrid.raias > .day, .grid.raias > .day{padding:0; min-height:0}
+.raias > .day > .day-top{padding:6px 8px 3px}
+.raia{display:flex; flex-direction:column; gap:5px; padding:6px 7px 8px; min-height:50px}
+.raia + .raia{border-top:1px dashed var(--hair)}
+.raia.r2, .wk-raia.r2{background:var(--raia-tinta)}
+/* coluna da semana: "Sem N" no topo e o nome de cada faixa deitado (lê de baixo pra cima), com o ícone em pé */
+.raias > .wklabel{padding:0; align-items:stretch; justify-content:normal}
+.wk-sem{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:4px 0 2px}
+.wk-raia{display:flex; align-items:center; justify-content:center; min-height:0; overflow:hidden; padding:8px 0}
+.wk-raia + .wk-raia{border-top:1px dashed var(--hair)}
+.wk-rt{writing-mode:vertical-rl; transform:rotate(180deg); display:inline-flex; align-items:center; gap:6px; max-height:100%; min-height:0;
+  font-size:9.5px; font-weight:750; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-2); white-space:nowrap; transition:color var(--t)}
+.wk-rt > span{overflow:hidden; text-overflow:ellipsis}
+.wk-rt .ic{width:13px; height:13px; flex:none; transform:rotate(180deg); stroke-width:1.9}
+.wklabel:hover .wk-rt{color:var(--sb-ink)}
+/* cantos de baixo da grade do mês (a faixa pintada não pode passar do arredondado) */
+.mesgrid.raias > :last-child > .raia:last-child{border-bottom-right-radius:13px}
+.mesgrid.raias > :nth-last-child(8) > .wk-raia:last-child{border-bottom-left-radius:13px}
+/* visão Semana: a coluna dos nomes entra antes de segunda; as faixas ficam altas */
+.grid.raias{grid-template-columns:44px repeat(7, minmax(0, 1fr))}
+.grid.raias > .wklabel{border-radius:14px; background:var(--cell-fora); cursor:default}
+.grid.raias > .wklabel:hover .wk-rt{color:var(--ink-2)}
+.grid.raias > .day.big{min-height:0}
+.grid.raias .raia{min-height:180px}
+.grid.raias > .day > .raia:last-child, .grid.raias > .wklabel > .wk-raia:last-child{border-radius:0 0 14px 14px}

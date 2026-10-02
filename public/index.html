@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="/css/tarefas.css">
 <link rel="stylesheet" href="/css/perfil.css">
 <link rel="stylesheet" href="/css/linha.css">
+<link rel="stylesheet" href="/css/raias.css">
 </head>
 <body>
 
@@ -427,10 +428,11 @@
 <script src="/js/personagens.js"></script>
 <script src="/js/perfil.js"></script>
 <script src="/js/linha.js"></script>
+<script src="/js/raias.js"></script>
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.01'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.02'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -473,6 +475,7 @@ const ICONS = {
   hub:'<circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="4" r="1.8"/><circle cx="19" cy="16.5" r="1.8"/><circle cx="5" cy="16.5" r="1.8"/><path d="M12 5.8v3.6M17.4 15.5l-3.2-2M6.6 15.5l3.2-2"/>',
   camera:'<path d="M4 8.5a2 2 0 0 1 2-2h2l1.4-2h5.2l1.4 2h2a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8.5z"/><circle cx="12" cy="12.6" r="3.4"/>',
   apps:'<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>',
+  trend:'<path d="M3.5 17l5.5-5.5 4 4L20.5 8"/><path d="M15 8h5.5v5.5"/>',
   capelo:'<path d="M2.5 9.5L12 5l9.5 4.5L12 14 2.5 9.5z"/><path d="M6.5 11.5V16c1.4 1.4 3.3 2 5.5 2s4.1-.6 5.5-2v-4.5"/><path d="M21.5 9.5V14"/>',
   share:'<circle cx="17.5" cy="5.5" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/><path d="M8.7 10.8l6.6-3.9M8.7 13.2l6.6 3.9"/>',
   calmz:'<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10.2h16M8.2 3.5v4M15.8 3.5v4"/><path d="M12 12.3l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
@@ -1008,10 +1011,11 @@ function renderLegend(){
 // v4.01: o card mostra a LINHA DO POST (js/linha.js): a cor diz onde o post está (Matriz e Copy no B.O.N.E, Produção e
 // Pronto no MKT Hub, No ar no Instagram), a palavra diz o que falta, a data diz o que importa (entrega ou dia que sai)
 // e a bolinha no canto diz de quem é a vez. As ações aparecem no hover. Falta criar e sugestão têm desenho próprio.
-function cardEl(s){
+function cardEl(s, naRaia){
   const d = document.createElement('div');
   const e = lpEtapa(s);
-  const multi = contasDaAba(S.aba).length>1;
+  // v4.02: na faixa da própria conta (js/raias.js) o card não repete a conta; na gaveta e no collab de outra aba, repete
+  const multi = contasDaAba(S.aba).length>1 && !(naRaia && naRaiaPropria(s));
   if(multi) d.style.setProperty('--corconta', contaCor(s.conta));
   if(e.k !== 'esp') lpMonta(d, s, e, multi);
   else {
@@ -1230,10 +1234,9 @@ function rowsDoMes(mes){
     v4.01: o dia é o da lente (o dia que sai ou, na lente "fica pronto", o da entrega no MKT Hub). O filtro da
     legenda não tira card da grade: apaga o que não é da etapa (js/linha.js). */
 function postsPorDia(mes){
-  const ordem = {'seubone':1,'carbone-edu':2,'carbone-club':3,'onevo-energia':4,'onevo-invest':5,'weevo':6};
   const porDia = {};
   slotsVisiveis().forEach(s=>{ const d = lpDiaNaLente(s); if(d && d.startsWith(mes)) (porDia[d] = porDia[d]||[]).push(s); });
-  Object.values(porDia).forEach(a=>a.sort((x,z)=>(ordem[x.conta]||9)-(ordem[z.conta]||9)));
+  Object.values(porDia).forEach(a=>a.sort((x,z)=>(ORDEM_CONTA[x.conta]||9)-(ORDEM_CONTA[z.conta]||9)));
   return porDia;
 }
 // ================= v3.94: entregas do dia (prazo da task no MKT Hub) =================
@@ -1364,6 +1367,7 @@ function celulaDia(c, di, porDia, semana){
   // então a caixinha sai; e lá não se cria nem se arrasta post (o dia da célula é o da entrega, não o que sai).
   const lenteEnt = S.lente === 'ent';
   const ents = lenteEnt ? [] : (entMapa()[c.date] || []);
+  const raias = raiasDaAba();                                  // v4.02: uma faixa por conta (Carbone e Onevo)
   cell.innerHTML = '<div class="day-top"><span class="dleft"><span class="dnum">'+c.dnum+ estrela + '</span>'+
     // v4.01: o tipo do dia da matriz fica neutro (cinza): a cor do painel é só da etapa do post
     (mzd ? '<span class="mzdia" title="Matriz: '+esc(mzLabel)+' · semana '+mzd.semana+esc(mzHacks)+'">'+esc(mzd.tipo || 'Em aberto')+'</span>' : '')+
@@ -1371,9 +1375,9 @@ function celulaDia(c, di, porDia, semana){
     '</span><span class="day-acts">'+
       (sb || lenteEnt ? '' : '<button class="vagabtn" title="Sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>')+
       (lenteEnt ? '' : '<button class="addbtn" title="Criar neste dia" aria-haspopup="menu">'+icon('plus','s')+'</button>')+
-    '</span></div><div class="day-cards"></div>';
-  const cardsEl = cell.querySelector('.day-cards');
-  doDia.forEach(s=>cardsEl.appendChild(cardEl(s)));
+    '</span></div>'+(raias ? raiasHtml(raias) : '<div class="day-cards"></div>');
+  if(raias) raiasPreenche(cell, doDia, raias);
+  else { const cardsEl = cell.querySelector('.day-cards'); doDia.forEach(s=>cardsEl.appendChild(cardEl(s))); }
   const dateStr = c.date;
   cell.addEventListener('mouseenter', ()=>{ S.hoverDay = dateStr; });
   const ab = cell.querySelector('.addbtn');
@@ -1391,7 +1395,10 @@ function celulaDia(c, di, porDia, semana){
   if(S.clip){
     const cb = document.createElement('button'); cb.className='colar-aqui'; cb.innerHTML = icon('plus','s')+'Colar aqui';
     cb.onclick = (e)=>{ e.stopPropagation(); colarNoDia(dateStr); };
-    cell.insertBefore(cb, cell.querySelector('.day-cards'));
+    // v4.02: com faixas, o botão entra na faixa da conta do post copiado (colar mantém a conta)
+    const sc = raias && S.slots.find(x=>x.id===S.clip.id);
+    const alvo = raias ? raiaEl(cell, sc ? raiaDoPost(sc, raias) : raias[0]) : null;
+    if(alvo) alvo.insertBefore(cb, alvo.firstChild); else cell.insertBefore(cb, cell.querySelector('.day-cards'));
   }
   dropZone(cell, ()=>dateStr);
   return cell;
@@ -1418,10 +1425,12 @@ function blocoMes(mes){
   lpLigaLegenda(cab);
   const g = document.createElement('div');
   g.className = 'mesgrid';
+  const raias = raiasDaAba();
+  raiasNaGrade(g, raias);                                       // v4.02: uma faixa por conta
   rowsDoMes(mes).forEach((week, wi)=>{
     const lb = document.createElement('div');
     lb.className='wklabel'; lb.title='Clique pra ver só esta semana';
-    lb.innerHTML = 'Sem<b>'+(wi+1)+'</b>';
+    lb.innerHTML = raias ? '<span class="wk-sem">Sem<b>'+(wi+1)+'</b></span>'+raiasRotulos(raias) : 'Sem<b>'+(wi+1)+'</b>';
     lb.onclick = ()=>{ S.mes=mes; S.view='semana'; S.semIdx=wi; syncVToggle(); render(); };
     g.appendChild(lb);
     week.forEach((c, di)=> g.appendChild(celulaDia(c, di, porDia, false)));
@@ -1436,7 +1445,9 @@ function renderGrid(){
   lpDesliga();
   g.classList.toggle('fluxo', !semana);
   g.classList.toggle('withwk', semana ? false : false);
-  $('#dows').classList.toggle('withwk', false);
+  const raiasSem = semana ? raiasDaAba() : null;                // v4.02: na visão Semana, as faixas e a coluna dos nomes
+  raiasNaGrade(g, raiasSem);
+  $('#dows').classList.toggle('withwk', !!raiasSem);
   $('#dows').classList.toggle('escondida', !semana); // no fluxo, cada mês tem a sua
   g.innerHTML='';
 
@@ -1447,6 +1458,7 @@ function renderGrid(){
     const [y,m] = S.mes.split('-').map(Number);
     $('#mesLabel').textContent = 'Semana '+(S.semIdx+1)+' · '+weekRange(rows[S.semIdx])+(y!==new Date().getFullYear()?' '+y:'');
     const porDia = postsPorDia(S.mes);
+    if(raiasSem){ const gut = document.createElement('div'); gut.className = 'wklabel'; gut.innerHTML = '<span class="wk-sem"></span>'+raiasRotulos(raiasSem); g.appendChild(gut); }
     rows[S.semIdx].forEach((c, di)=> g.appendChild(celulaDia(c, di, porDia, true)));
     return;
   }
