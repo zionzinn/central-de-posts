@@ -9,8 +9,12 @@
 // Dados: db.capBlocos e slot.capBloco (lib/captacao.js). A regra arte x vídeo mora em lib/peca.js e é repetida aqui em
 // pecaDoPost: mudou lá, muda aqui.
 // No calendário: a câmera no card do vídeo (capMarca, chamada pelo lpMarcas do js/linha.js) e o botão Captação na barra.
+// v4.04 (decisões do Zion em 02/10/2026): o bloco vira task de Captação no MKT Hub, 1 por empresa, no nome de quem
+// capta (a lista de pessoas do Hub); os pontos se digitam na folha de mandar (vêm os da última captação). Depois de
+// mandar, o bloco trava (dia, horário, quem capta e nota mudam no Hub) e cada vídeo mostra o código da subtarefa e o
+// "captado" que volta do Hub (lib/captacao.js).
 // =====================================================================
-const CAP = { aberto: false, semana: null, dados: null, pede: 0, timer: null, arrasta: null, apaga: null, apagaT: null, ocupado: false };
+const CAP = { aberto: false, semana: null, dados: null, pede: 0, timer: null, arrasta: null, apaga: null, apagaT: null, ocupado: false, pollT: null, jobs: {} };
 
 // ---------------- arte ou vídeo (a mesma regra do lib/peca.js) ----------------
 const CAP_FMT_VIDEO = new Set(['reels', 'video medio', 'video de anuncio']);
@@ -77,6 +81,8 @@ function capMarca(s, e) {
   // a task de produção já passou da edição (em aprovação, ajustar ou pronta): a captação ficou pra trás
   if (typeof stBucket === 'function' && ['pronto', 'aprovar', 'alterar'].includes(stBucket(s))) return '';
   const b = s.capBloco ? (S.capBlocos || []).find(x => x.id === s.capBloco) : null;
+  // v4.04: a subtarefa dele no MKT Hub passou da captação
+  if (b && b.feitos && b.feitos.includes(s.id)) return '<span class="lp-mk cap feito" title="Captado (a subtarefa de captação andou no MKT Hub)">' + icon('check') + '<span class="t">captado</span></span>';
   if (b) return '<span class="lp-mk cap ok" title="' + esc('Captação: ' + (b.dia ? capNomeBloco(b) : 'no bloco, dia a definir')) + '">' + icon('camera') +
     (b.dia ? '<span class="t">' + esc(lpDiaC(b.dia)) + '</span>' : '') + '</span>';
   if (s.aprov && s.aprov.c && s.aprov.c.st === 'aprovado') return '<span class="lp-mk cap pede" title="Roteiro aprovado: pra captar. Falta pôr num bloco do quadro de captação">' +
@@ -131,7 +137,7 @@ function capAbrir(semana) {
 }
 function capFechar() {
   if (!CAP.aberto) return;
-  CAP.aberto = false; clearInterval(CAP.timer); capFechaMenu();
+  CAP.aberto = false; clearInterval(CAP.timer); clearTimeout(CAP.pollT); capFechaMenu(); capFechaFolha();
   document.getElementById('cap').hidden = true; document.body.classList.remove('cap-on');
   const b = document.getElementById('btnCap'); if (b) b.focus({ preventScroll: true });
 }
@@ -177,6 +183,8 @@ function capCard(v) {
     '<div class="cap-tt">' + esc(v.titulo || 'vídeo') + '</div>' +
     '<div class="cap-k2"><span class="lp-pil ' + cls + '" title="' + esc(dica) + '">' + esc(rot) + '</span>' +
       (v.vaga ? '<span class="lp-pil neu">falta criar</span>' : '') + (meta ? '<span class="cap-meta" title="' + esc(meta) + '">' + esc(meta) + '</span>' : '') + '</div>' +
+    (v.hub ? '<div class="cap-k3">' + (v.hub.captado ? '<span class="lp-pil ok" title="A subtarefa andou no MKT Hub">' + icon('check') + 'captado</span>' : '<span class="lp-pil neu">pra captar</span>') +
+      '<a class="cap-mkt" href="' + esc(v.hub.url || '#') + '" target="_blank" rel="noopener" title="Abrir a subtarefa no MKT Hub">' + esc(v.hub.codigo || 'MKT Hub') + icon('external') + '</a></div>' : '') +
   '</article>';
 }
 function capColuna(b, vids) {
@@ -187,25 +195,47 @@ function capColuna(b, vids) {
     cab = '<div class="cap-ch"><div class="cap-ct">' + capIc('box') + '<b>A organizar</b><span class="cap-n">' + vids.length + '</span></div>' +
       '<div class="cap-cs">' + (vids.length ? 'Arraste cada vídeo pro bloco do dia em que vai ser captado' : 'Nenhum vídeo desta semana sem bloco') + '</div></div>';
   } else {
-    const armado = CAP.apaga === b.id;
+    const armado = CAP.apaga === b.id, hb = b.hub || null, trava = !!(hb && hb.travado), dis = trava ? ' disabled' : '';
+    const job = hb && hb.job, indo = !!(job && job.st === 'enviando'), hubT = (CAP.dados && CAP.dados.hub) || {};
+    // quem capta: com o MKT Hub ligado, a lista de pessoas do Hub (vira o responsável da task); sem ele, texto
+    const pess = hubT.ligado && hubT.pessoas ? hubT.pessoas.slice() : null;
+    if (pess && b.resp && !pess.some(q => q.id === b.resp)) pess.push({ id: b.resp, nome: (b.quem || 'pessoa') + ' (fora do Hub)' });
+    const quem = pess
+      ? '<label class="cap-f cap-fq' + (b.resp ? '' : ' falta') + '"><span>Quem capta</span><select data-bid="' + b.id + '" data-k="resp"' + dis + '><option value="">escolha a pessoa do MKT Hub</option>' +
+        pess.map(q => '<option value="' + esc(q.id) + '"' + (q.id === b.resp ? ' selected' : '') + '>' + esc(q.nome) + '</option>').join('') + '</select></label>'
+      : '<label class="cap-f cap-fq"><span>Quem capta</span><input type="text" data-bid="' + b.id + '" data-k="quem" maxlength="60" value="' + esc(b.quem || '') + '" placeholder="filmmaker"' + dis + '></label>';
+    // o bloco no Hub: a task de cada empresa, o envio e o que falta mandar
+    let hubH = '';
+    if (hb && hb.maes && hb.maes.length) hubH += '<div class="cap-hub">' + hb.maes.map(m => '<a class="cap-mkt" href="' + esc(m.url || '#') + '" target="_blank" rel="noopener" title="Abrir a task no MKT Hub">' + esc(m.codigo || 'MKT Hub') + icon('external') + '</a>' +
+      '<span class="cap-hube">' + esc([m.empresa && m.empresa.nome, m.etapa].filter(Boolean).join(' · ')) + '</span>').join('') + '</div>';
+    if (trava) hubH += '<div class="cap-trava">' + icon('pin') + 'Dia, quem capta e nota mudam no MKT Hub.</div>';
+    if (indo) hubH += '<div class="cap-envio" role="status"><i></i>Mandando pro MKT Hub… ' + Math.min(job.feitos || 0, job.total || 1) + ' de ' + (job.total || 1) + '</div>';
+    else if (job && job.st === 'erro') hubH += '<div class="cap-erro" role="alert">' + icon('alerta') + '<span>Não foi pro MKT Hub: ' + esc(job.erro || 'erro') + '</span></div>';
+    const pend = hb ? (hb.novos || 0) + (hb.mudados || 0) : vids.length;
+    let mandaB = '';
+    if (hubT.escrita && vids.length && !indo && (!trava || pend)) {
+      const rot = !trava ? 'Mandar pro MKT Hub' : hb.novos && hb.mudados ? 'Mandar ' + capPl(pend, 'mudança', 'mudanças') : hb.novos ? 'Mandar ' + capPl(hb.novos, 'vídeo novo', 'vídeos novos') : 'Atualizar ' + capPl(hb.mudados, 'roteiro', 'roteiros');
+      mandaB = '<button type="button" class="mbtn primary cap-manda" data-hub="' + b.id + '" title="' + esc(!trava ? 'Cria a task de Captação no MKT Hub (1 por empresa), com uma subtarefa por vídeo' : 'Manda pro MKT Hub o que entrou ou mudou depois do envio') + '">' + icon('hub') + esc(rot) + '</button>';
+    }
     cab = '<div class="cap-ch">' +
-      '<div class="cap-ct">' + icon('camera') + '<b>' + esc(capNomeBloco(b)) + '</b><span class="cap-n">' + vids.length + '</span></div>' +
+      '<div class="cap-ct">' + icon('camera') + '<b>' + esc(capNomeBloco(b)) + '</b><span class="cap-n">' + vids.length + '</span></div>' + hubH +
       '<div class="cap-campos">' +
-        '<label class="cap-f cap-fd' + (b.dia ? '' : ' falta') + '"><span>Dia</span><input type="date" data-bid="' + b.id + '" data-k="dia" value="' + esc(b.dia || '') + '"></label>' +
-        '<label class="cap-f cap-fh"><span>Das</span><input type="text" inputmode="numeric" maxlength="6" data-bid="' + b.id + '" data-k="inicio" value="' + esc(capHora(b.inicio)) + '" placeholder="9h" title="9, 9h, 9:30 ou 930"></label>' +
-        '<label class="cap-f cap-fh"><span>Às</span><input type="text" inputmode="numeric" maxlength="6" data-bid="' + b.id + '" data-k="fim" value="' + esc(capHora(b.fim)) + '" placeholder="12h" title="12, 12h, 12:30 ou 1230"></label>' +
-        '<label class="cap-f cap-fq"><span>Quem capta</span><input type="text" data-bid="' + b.id + '" data-k="quem" maxlength="60" value="' + esc(b.quem || '') + '" placeholder="filmmaker"></label>' +
-        '<label class="cap-f cap-fn"><span>Nota</span><input type="text" data-bid="' + b.id + '" data-k="nota" maxlength="300" value="' + esc(b.nota || '') + '" placeholder="local, luz, o que levar"></label>' +
+        '<label class="cap-f cap-fd' + (b.dia ? '' : ' falta') + '"><span>Dia</span><input type="date" data-bid="' + b.id + '" data-k="dia" value="' + esc(b.dia || '') + '"' + dis + '></label>' +
+        '<label class="cap-f cap-fh"><span>Das</span><input type="text" inputmode="numeric" maxlength="6" data-bid="' + b.id + '" data-k="inicio" value="' + esc(capHora(b.inicio)) + '" placeholder="9h" title="9, 9h, 9:30 ou 930"' + dis + '></label>' +
+        '<label class="cap-f cap-fh"><span>Às</span><input type="text" inputmode="numeric" maxlength="6" data-bid="' + b.id + '" data-k="fim" value="' + esc(capHora(b.fim)) + '" placeholder="12h" title="12, 12h, 12:30 ou 1230"' + dis + '></label>' +
+        quem +
+        '<label class="cap-f cap-fn"><span>Nota</span><input type="text" data-bid="' + b.id + '" data-k="nota" maxlength="300" value="' + esc(b.nota || '') + '" placeholder="local, luz, o que levar"' + dis + '></label>' +
       '</div>' +
       '<div class="cap-tot">' + capPl(vids.length, 'vídeo', 'vídeos') + (tom ? ' · ' + capPl(tom, 'tomada', 'tomadas') : '') +
+        (trava ? ' · <span class="cap-feitos">' + (hb.captados || 0) + ' de ' + (hb.enviados || 0) + ' ' + ((hb.enviados || 0) === 1 ? 'captado' : 'captados') + '</span>' : '') +
         (semAp && vids.length ? ' · <span class="cap-falta">' + semAp + ' sem roteiro aprovado</span>' : '') + '</div>' +
-      '<div class="cap-acoes">' +
+      '<div class="cap-acoes">' + mandaB +
         '<button type="button" class="mbtn cap-pauta" data-pauta="' + b.id + '"' + (vids.length ? '' : ' disabled') + ' title="Copia o roteiro de cada vídeo do bloco, pra colar no WhatsApp ou na task do MKT Hub">' + capIc('copiar') + 'Copiar pauta</button>' +
-        '<button type="button" class="mbtn critbtn cap-del' + (armado ? ' armado' : '') + '" data-del="' + b.id + '" title="' + (armado ? 'Clique de novo pra excluir' : 'Excluir o bloco (os vídeos voltam pra A organizar)') + '">' +
-          capIc('lixo') + (armado ? 'Excluir mesmo?' : 'Excluir') + '</button>' +
+        '<button type="button" class="mbtn critbtn cap-del' + (armado ? ' armado' : '') + '" data-del="' + b.id + '"' + (indo ? ' disabled' : '') + ' aria-label="' + (armado ? 'Excluir mesmo?' : 'Excluir o bloco') + '" title="' + (armado ? 'Clique de novo pra excluir' + (trava ? ' (as tasks continuam no MKT Hub)' : '') : 'Excluir o bloco (os vídeos voltam pra A organizar)') + '">' +
+          capIc('lixo') + (armado ? 'Excluir mesmo?' : '') + '</button>' +   // só o ícone; armado, a pergunta
       '</div></div>';
   }
-  return '<section class="cap-col' + (b ? ' bloco' + (b.dia ? '' : ' semdia') : ' solta') + '" data-drop="' + (b ? b.id : 'solto') + '" aria-label="' + esc(b ? 'Bloco ' + capNomeBloco(b) : 'A organizar') + '">' + cab +
+  return '<section class="cap-col' + (b ? ' bloco' + (b.dia ? '' : ' semdia') + (b.hub && b.hub.travado ? ' nohub' : '') : ' solta') + '" data-drop="' + (b ? b.id : 'solto') + '" aria-label="' + esc(b ? 'Bloco ' + capNomeBloco(b) : 'A organizar') + '">' + cab +
     '<div class="cap-lista">' + (vids.length ? vids.map(capCard).join('') : '<div class="cap-vazio">' + (b ? 'Arraste pra cá os vídeos deste bloco' : 'Tudo organizado') + '</div>') + '</div></section>';
 }
 function capDesenha() {
@@ -232,6 +262,7 @@ function capDesenha() {
   h += '<button type="button" class="cap-col cap-nova" data-drop="novo" id="capNova">' + icon('plus') + '<b>Novo bloco</b><span>clique, ou arraste um vídeo pra cá</span></button></div>';
   corpo.innerHTML = h;
   capLiga(corpo);
+  capAcompanha(d);
   if (foco) {
     const el = corpo.querySelector('[data-bid="' + foco.bid + '"][data-k="' + foco.k + '"]');
     if (el) { if (el.value !== foco.valor) { el.value = foco.valor; el.dataset.sujo = '1'; } el.focus({ preventScroll: true }); }
@@ -242,7 +273,7 @@ function capDesenha() {
 function capVideo(id) { return CAP.dados && CAP.dados.videos.find(v => v.id === id); }
 function capLiga(raiz) {
   raiz.querySelectorAll('.cap-card').forEach(c => {
-    c.addEventListener('click', ev => { if (ev.target.closest('.cap-mv')) return; const v = capVideo(c.dataset.id); if (v) capAbreDoc(v); });
+    c.addEventListener('click', ev => { if (ev.target.closest('.cap-mv, a')) return; const v = capVideo(c.dataset.id); if (v) capAbreDoc(v); });
     c.addEventListener('keydown', ev => {
       if (ev.target !== c) return;
       if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); const v = capVideo(c.dataset.id); if (v) capAbreDoc(v); }
@@ -276,6 +307,8 @@ function capLiga(raiz) {
     inp.addEventListener('blur', () => { if (inp.dataset.sujo) grava(); });
     inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } });
   });
+  raiz.querySelectorAll('select[data-bid]').forEach(sel => sel.addEventListener('change', () => capCampo(sel.dataset.bid, sel.dataset.k, sel.value)));   // v4.04: quem capta
+  raiz.querySelectorAll('[data-hub]').forEach(b => b.onclick = () => capFolhaHub(b.dataset.hub));
   raiz.querySelectorAll('[data-pauta]').forEach(b => b.onclick = () => capPauta(b.dataset.pauta));
   raiz.querySelectorAll('[data-del]').forEach(b => b.onclick = () => capApaga(b.dataset.del));
   raiz.querySelectorAll('[data-indef]').forEach(b => b.onclick = () => { const x = CAP.dados.indefinidos.find(i => i.id === b.dataset.indef); if (x) capAbreDoc(x); });
@@ -303,7 +336,7 @@ async function capMover(id, alvo) {
   try {
     await api('/api/slots/' + id, { method: 'PATCH', body: JSON.stringify({ capBloco: bloco }) });
     const b = bloco && CAP.dados.blocos.find(x => x.id === bloco);
-    toast((b ? 'No bloco ' + capNomeBloco(b) : 'De volta pra A organizar') + ' · Ctrl+Z desfaz');
+    toast((b ? 'No bloco ' + capNomeBloco(b) : 'De volta pra A organizar') + (v.hub ? '. A subtarefa ' + (v.hub.codigo || '') + ' continua no MKT Hub' : '') + ' · Ctrl+Z desfaz', false, v.hub ? 6000 : 0);
   } catch (e) { v.bloco = antes; capDesenha(); toast(e.message, true); }
   finally { CAP.ocupado = false; }
   capDepois();
@@ -357,7 +390,8 @@ async function capApaga(bid) {
   CAP.apaga = null; clearTimeout(CAP.apagaT);
   try {
     const r = await api('/api/captacao/blocos/' + bid, { method: 'DELETE' });
-    toast('Bloco excluído' + (r.soltos ? ': ' + capPl(r.soltos, 'vídeo voltou', 'vídeos voltaram') + ' pra A organizar' : ''));
+    toast('Bloco excluído' + (r.soltos ? ': ' + capPl(r.soltos, 'vídeo voltou', 'vídeos voltaram') + ' pra A organizar' : '') +
+      (r.noHub && r.noHub.length ? '. No MKT Hub, ' + r.noHub.join(' e ') + (r.noHub.length === 1 ? ' continua lá' : ' continuam lá') : ''), false, r.noHub && r.noHub.length ? 7000 : 0);
   } catch (e) { toast(e.message, true); }
   capDepois();
 }
@@ -374,6 +408,80 @@ async function capPauta(bid) {
     const ok = await capCopia(r.texto);
     toast(ok ? 'Pauta copiada (' + r.nome + '): cole no WhatsApp ou na task do MKT Hub' : 'Não consegui copiar a pauta', !ok);
   } catch (e) { toast(e.message, true); }
+}
+
+// ---------------- v4.04: mandar o bloco pro MKT Hub ----------------
+/** Enquanto um bloco vai pro Hub, o quadro pergunta de novo a cada 1,2 s; quando termina, avisa como foi. */
+function capAcompanha(d) {
+  let indo = false;
+  for (const b of d.blocos) {
+    const j = b.hub && b.hub.job, st = j ? j.st : null, antes = CAP.jobs[b.id];
+    if (antes === 'enviando' && st === 'ok') toast('No MKT Hub: ' + (b.hub.maes || []).map(m => m.codigo).filter(Boolean).join(', ') + ' (' + capNomeBloco(b) + ')', false, 6000);
+    if (antes === 'enviando' && st === 'erro') toast('O bloco ' + capNomeBloco(b) + ' não foi pro MKT Hub: ' + (j.erro || 'erro'), true);
+    CAP.jobs[b.id] = st;
+    if (st === 'enviando') indo = true;
+  }
+  clearTimeout(CAP.pollT); CAP.pollT = null;
+  if (indo && CAP.aberto) CAP.pollT = setTimeout(() => { CAP.pollT = null; if (CAP.aberto && !capEditando()) capCarrega(); }, 1200);
+  else if (Object.values(CAP.jobs).length && !indo && CAP.jobsMudou) { CAP.jobsMudou = false; loadState(false, true).catch(() => { }); }
+}
+function capFechaFolha() { const f = document.getElementById('capFolha'); if (f) f.remove(); }
+/** A folha de mandar: o que vai (1 task por empresa, os vídeos), o que falta e os pontos (digitados na hora). */
+async function capFolhaHub(bid) {
+  capFechaFolha();
+  const b = CAP.dados && CAP.dados.blocos.find(x => x.id === bid); if (!b) return;
+  const f = document.createElement('div'); f.id = 'capFolha'; f.className = 'cap-folha-fundo';
+  f.innerHTML = '<div class="cap-folha" role="dialog" aria-modal="true" aria-labelledby="cfTit"><div class="cf-topo"><h2 id="cfTit">Mandar pro MKT Hub</h2>' +
+    '<button type="button" class="cf-x" aria-label="Fechar">' + icon('x') + '</button></div><div class="cf-corpo" id="cfCorpo"><div class="pp-carrega" role="status">conferindo o MKT Hub…</div></div></div>';
+  document.body.appendChild(f);   // no body (como o menu): dentro do quadro rolado, o fixed ficaria preso à página (a animação deixa transform)
+  f.addEventListener('mousedown', ev => { if (ev.target === f) capFechaFolha(); });
+  f.querySelector('.cf-x').onclick = capFechaFolha;
+  let o;
+  try { o = await api('/api/captacao/blocos/' + bid + '/hub'); }
+  catch (e) { const c = document.getElementById('cfCorpo'); if (c) c.innerHTML = '<div class="pp-erro">' + esc(e.message) + '</div>'; return; }
+  const c = document.getElementById('cfCorpo'); if (!c) return;
+  const novaMae = o.grupos.some(g => !g.mae);
+  const vai = o.grupos.reduce((n, g) => n + g.videos.filter(v => !v.noHub || v.mudou).length, 0);
+  const faltas = (o.faltas || []).concat(o.erro ? [o.erro] : []).concat(!o.escrita ? ['a chave do MKT Hub precisa ser de nível completa (está ' + (o.nivel || 'sem resposta') + ')'] : []);
+  c.innerHTML =
+    '<p class="cf-sub"><b>' + esc(capNomeBloco(b)) + '</b> · prazo ' + esc(o.prazo ? capDiaL(o.prazo) : 'sem dia') + ' · quem capta: ' + esc((o.resp && o.resp.nome) || 'ninguém') + '</p>' +
+    (faltas.length ? '<div class="cap-erro" role="alert">' + icon('alerta') + '<span>' + faltas.map(esc).join('; ') + '.</span></div>' : '') +
+    '<div class="cf-grupos">' + o.grupos.map(g => '<div class="cf-g"><div class="cf-gt"><b>' + esc(g.empresa.nome) + '</b>' +
+      (g.mae ? '<a class="cap-mkt" href="' + esc(g.mae.url || '#') + '" target="_blank" rel="noopener">' + esc(g.mae.codigo) + icon('external') + '</a>' : '<span class="cf-nova">task nova</span>') + '</div>' +
+      '<ul>' + g.videos.map(v => '<li><span class="cf-vt">' + esc(v.titulo) + '</span><span class="cf-vm">' + esc(v.conta) + (v.date ? ' · sai ' + esc(lpDiaC(v.date)) : '') + '</span>' +
+        (v.noHub && !v.mudou ? '<span class="lp-pil neu">' + esc(v.codigo || 'no Hub') + '</span>' : v.mudou ? '<span class="lp-pil or">roteiro mudou</span>' : '<span class="lp-pil ' + (v.roteiro ? 'ok' : 'or') + '">' + (v.roteiro ? 'roteiro aprovado' : 'roteiro não aprovado') + '</span>') +
+        '</li>').join('') + '</ul></div>').join('') + '</div>' +
+    '<div class="cf-campos">' +
+      '<label class="cap-f"><span>Tipo</span><select id="cfTipo">' + o.tipos.map(t => '<option' + (t === o.sugestao.tipo ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select></label>' +
+      (novaMae ? '<label class="cap-f"><span>Pontos da task</span><input id="cfPontos" type="number" min="1" max="100" step="1" value="' + esc(o.sugestao.pontos) + '"></label>' : '') +
+      '<label class="cap-f"><span>Pontos de cada vídeo</span><input id="cfPontosSub" type="number" min="1" max="100" step="1" value="' + esc(o.sugestao.pontosSub) + '"></label>' +
+    '</div>' +
+    '<p class="cf-nota">' + (novaMae ? '1 task de Captação por empresa, no nome de quem capta, com a pauta no briefing; cada vídeo vira subtarefa com o roteiro. ' : 'Os vídeos entram como subtarefa na task que já existe. ') +
+      'Os pontos vêm da última captação: confira antes de mandar.</p>' +
+    '<div class="cf-pe"><button type="button" class="mbtn" id="cfCancela">Cancelar</button>' +
+      '<button type="button" class="mbtn primary" id="cfManda"' + (faltas.length || !vai ? ' disabled' : '') + '>' + icon('hub') + 'Mandar ' + capPl(vai, 'vídeo', 'vídeos') + '</button></div>';
+  c.querySelector('#cfCancela').onclick = capFechaFolha;
+  c.querySelector('#cfManda').onclick = () => capMandaHub(bid);
+  const foco = c.querySelector('#cfPontos') || c.querySelector('#cfPontosSub');
+  if (foco && !faltas.length) { foco.focus(); foco.select(); }
+  c.querySelectorAll('input').forEach(i => i.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); capMandaHub(bid); } }));
+}
+async function capMandaHub(bid) {
+  const bt = document.getElementById('cfManda'); if (!bt || bt.disabled) return;
+  const pts = document.getElementById('cfPontos'), sub = document.getElementById('cfPontosSub');
+  const corpo = { tipo: document.getElementById('cfTipo').value, pontos: pts ? +pts.value : 1, pontosSub: sub ? +sub.value : 1 };
+  const rot = bt.innerHTML; bt.disabled = true; bt.innerHTML = icon('hub') + 'Mandando…';   // até o servidor aceitar
+  try {
+    await api('/api/captacao/blocos/' + bid + '/hub', { method: 'POST', body: JSON.stringify(corpo) });
+    capFechaFolha();
+    CAP.jobs[bid] = 'enviando'; CAP.jobsMudou = true;
+    toast('Mandando pro MKT Hub…');
+    capCarrega();
+  } catch (e) {
+    bt.disabled = false; bt.innerHTML = rot; toast(e.message, true);
+    const campo = e.j && e.j.campo, el = campo === 'pontos' ? pts : campo === 'pontosSub' ? sub : null;
+    if (el) { el.focus(); el.select(); }
+  }
 }
 
 // ---------------- mover pelo menu (teclado e celular, onde não tem arrastar) ----------------
@@ -407,6 +515,7 @@ document.addEventListener('keydown', ev => {
   if (ev.key === 'Escape') {
     ev.preventDefault(); ev.stopImmediatePropagation();
     if (document.getElementById('capMenu')) { capFechaMenu(); return; }
+    if (document.getElementById('capFolha')) { capFechaFolha(); return; }
     if (campo) { t.blur(); return; }
     capFechar(); return;
   }

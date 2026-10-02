@@ -18,7 +18,7 @@ const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 const { pecaDoPost } = require('./lib/peca.js');   // v4.03: arte ou vídeo (o bloco de captação só aceita vídeo)
 
-const VERSAO = '4.03'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '4.04'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -433,12 +433,13 @@ const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, un
 // v3.81: MKT Hub (leitura; chave só na variável MKH_CHAVE). Sem chave, fica desligado.
 const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/docs.js').limpaHtml });
 // v3.84: a tarefa de matriz ou copy vira no Hub uma tarefa mãe com uma subtarefa por post (só com a chave de nível completa)
-// v4.03: quadro de captação (blocos de vídeos da semana) e a peça de cada post (arte ou vídeo)
-const rotaCaptacao = require('./lib/captacao.js')({ db, saveDb, readBody, json, soAdmin, hub: rotaHub, htmlParaTexto: require('./lib/hubenvio.js').htmlParaTexto });
 const rotaHubEnvio = require('./lib/hubenvio.js')({ db, saveDb, readBody, json, hub: rotaHub, tempo: rotaTempo, itens: rotaTarefas.itens, soAdmin, gravaJa: () => gravarAgora() });
+// v4.03: quadro de captação (blocos de vídeos da semana) e a peça de cada post (arte ou vídeo); v4.04: o bloco vira
+// task de Captação no MKT Hub (com as peças de escrita do hubenvio)
+const rotaCaptacao = require('./lib/captacao.js')({ db, saveDb, readBody, json, soAdmin, hub: rotaHub, envio: rotaHubEnvio, htmlParaTexto: require('./lib/hubenvio.js').htmlParaTexto });
 rotaTarefas.hubPublico = rotaHubEnvio.publico;
 // v3.90: depois de cada leitura do Hub, a data do post que não foi na hora vai de novo; v3.95: e a limpeza do Vídeo fábrica
-rotaHub.depois = async () => { await rotaHubEnvio.reenviaDatas(); limpezaV395Hub(); };
+rotaHub.depois = async () => { await rotaHubEnvio.reenviaDatas(); limpezaV395Hub(); await rotaCaptacao.confereHub(); };   // v4.04: o captado de cada vídeo
 // v3.82: login pelo Zoho (liga só com ZOHO_CLIENT_ID e ZOHO_CLIENT_SECRET; sem elas, senha opcional como antes)
 const AUTH = require('./lib/auth.js')({ json, parseCookies, segredo: config.secret });
 const USUARIOS_LOGIN = require('./lib/auth.js').USUARIOS;   // v3.99: o perfil reconhece a pessoa também pelo e-mail (Bia = anny.beatriz)
