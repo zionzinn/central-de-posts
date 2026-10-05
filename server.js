@@ -18,7 +18,7 @@ const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 const { pecaDoPost } = require('./lib/peca.js');   // v4.03: arte ou vídeo (o bloco de captação só aceita vídeo)
 
-const VERSAO = '4.06'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '4.07'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente

@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="/css/linha.css">
 <link rel="stylesheet" href="/css/raias.css">
 <link rel="stylesheet" href="/css/captacao.css">
+<link rel="stylesheet" href="/css/folha.css">
 </head>
 <body>
 
@@ -433,10 +434,11 @@
 <script src="/js/linha.js"></script>
 <script src="/js/raias.js"></script>
 <script src="/js/captacao.js"></script>
+<script src="/js/folha.js"></script>
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.06'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.07'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1672,139 +1674,7 @@ async function openTask(id){
   loadTaskTab(s);
 }
 
-/** Cabeçalho do modal: ações em 1 clique com iconografia + tooltip. */
-function tRowDraw(s){
-  fechaDoBanco();                                   // v3.96: a lista do banco sai junto com a fileira antiga
-  $('#tTit').textContent = slotTitulo(s);
-  const row = $('#tRow');
-  const dateBr = s.date? s.date.split('-').reverse().join('/') : 'sem data';
-  row.innerHTML =
-    (isGm(s)?'<span class="gmpill">'+icon('star','s')+'GM</span>':'')+
-    (s.aprovado?'<span class="aprpill" data-tip="Arte aprovada pela diretoria">'+icon('check','s')+'APR</span>':'')+
-    lpChipEtapa(s)+   // v4.01: a etapa na cor dela (o nome exato da etapa no MKT Hub fica na linha do post, logo abaixo)
-    '<span class="note">'+esc(S.contas[s.conta].nome)+' · '+dateBr+'</span>';
-  lpFolha(s);
-  const mk = (html, cls, tip) => {
-    const b=document.createElement('button');
-    b.className='mbtn'+(cls?' '+cls:'');
-    b.innerHTML=html;
-    if(tip) b.dataset.tip = tip;
-    row.appendChild(b); return b;
-  };
-  // post que nasceu na matriz: tese, gancho e descrição continuam a um clique
-  if(s.matrizSB){ const bm = mk(icon('sparkle','s')+'Matriz', '', 'Ver o que a copywriter planejou: tipo, tema, tese, gancho e descrição'); bm.onclick = ()=>{ closeOv('ovTask'); openMatriz(s.id); }; }
-  // vaga: botão de baixa direto no cabeçalho
-  if(isVaga(s)){
-    const bv=document.createElement('button');
-    bv.className='mbtn'; bv.style.background='var(--crit)'; bv.style.color='#fff';
-    bv.innerHTML=icon('check','s')+'já criei (dar baixa)';
-    bv.dataset.tip='Tirar a marca de falta criar (vira post normal)';
-    bv.onclick = ()=>{ closeOv('ovTask'); baixarVaga(s); };
-    row.appendChild(bv);
-  }
-  // conta divergente: botão de correção em 1 clique, do lado do nome da conta
-  const cdiv = contaDivergente(s);
-  if(cdiv){
-    const b=document.createElement('button');
-    b.className='mbtn'; b.style.background='var(--crit)'; b.style.color='#fff';
-    b.innerHTML=icon('alerta','s')+'mover pra '+esc(nomeConta(cdiv.sugerida));
-    b.dataset.tip = 'O nome da task diz '+nomeConta(cdiv.sugerida)+', mas o post está em '+nomeConta(s.conta);
-    b.onclick = ()=>{ closeOv('ovTask'); corrigirConta(s, cdiv.sugerida); };
-    row.appendChild(b);
-  }
-  { const lk = linkDaTask(s); if(lk){ const a=document.createElement('a'); a.className='mbtn'; a.innerHTML=icon('external')+'Abrir a task'; a.href=lk; a.target='_blank'; a.rel='noopener'; row.appendChild(a); } }
-  if(s.drive){ const o=bancoOrigem(s.drive), a=document.createElement('a'); a.className='mbtn iconb'; a.innerHTML=icon(o.nome==='Drive'?'folder':o.icone); a.dataset.tip = o.nome==='Drive' ? 'Abrir o Drive' : 'Abrir o link ('+o.nome+')'; a.href=s.drive; a.target='_blank'; a.rel='noopener'; row.appendChild(a); }
-  if(s.linkRef){ const a=document.createElement('a'); a.className='mbtn iconb'; a.innerHTML=icon('link'); a.dataset.tip='Abrir o vídeo original'; a.href=s.linkRef; a.target='_blank'; row.appendChild(a); }
-
-  // postado
-  mk(s.postado? icon('undo')+'Desmarcar' : icon('check')+'Postado', s.postado?'':'primary', s.postado?'Desmarcar postado':'Marcar como postado').onclick = async ()=>{
-    await togglePostado(s); tRowDraw(s);
-  };
-
-  // formato
-  const fsel = document.createElement('select'); fsel.className='mini'; fsel.dataset.tip='Formato do post';
-  [['','formato…'],['reels','reels'],['carrossel','carrossel'],['estático','estático'],['story','story']]
-    .forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; fsel.appendChild(o); });
-  fsel.value = s.formato||'';
-  fsel.onchange = async ()=>{
-    const antes = s.formato; s.formato = fsel.value; render();
-    try{ await api('/api/slots/'+s.id,{method:'PATCH', body:JSON.stringify({formato:s.formato})}); toast('Formato: '+(s.formato||'nenhum')); }
-    catch(e){ s.formato = antes; render(); fsel.value = antes||''; toast(e.message,true); }
-  };
-  row.appendChild(fsel);
-
-  // angulo (igual o formato, mas da pra escolher um preset OU escrever um novo)
-  const ainp = document.createElement('input'); ainp.className='mini anginp'; ainp.setAttribute('list','angulosLista');
-  ainp.placeholder='ângulo…'; ainp.value = s.angulo||''; ainp.dataset.tip='Ângulo do post: escolha um ou escreva um novo';
-  let dlAng = document.getElementById('angulosLista');
-  if(!dlAng){ dlAng = document.createElement('datalist'); dlAng.id='angulosLista'; document.body.appendChild(dlAng); }
-  dlAng.innerHTML = angulosConhecidos().map(a=>'<option value="'+esc(a)+'"></option>').join('');
-  const salvarAng = async ()=>{
-    const novo = ainp.value.trim();
-    if(novo === (s.angulo||'')) return;
-    const antes = s.angulo; s.angulo = novo; render();
-    try{ await api('/api/slots/'+s.id,{method:'PATCH', body:JSON.stringify({angulo:s.angulo})}); toast('Ângulo: '+(s.angulo||'nenhum')); }
-    catch(e){ s.angulo = antes; ainp.value = antes||''; render(); toast(e.message,true); }
-  };
-  ainp.onchange = salvarAng;
-  ainp.addEventListener('keydown', e=>{ if(e.key==='Enter') ainp.blur(); });
-  row.appendChild(ainp);
-
-  // copiar / recortar (pra colar em outro dia)
-  mk(icon('box')+'Copiar', 'iconb', 'Copiar pra colar em outro dia (ou Ctrl+C com o mouse no card)').onclick = ()=>{ setClip(s.id,'copiar'); closeOv('ovTask'); };
-  mk(icon('ff')+'Recortar', 'iconb', 'Recortar pra mover pra outro dia (ou Ctrl+X com o mouse no card)').onclick = ()=>{ setClip(s.id,'recortar'); closeOv('ovTask'); };
-
-  // arte aprovada: registro do painel (aprovar a task de produção é no sistema de tarefas)
-  {
-    const ap = mk(s.aprovado? icon('check')+'APR' : icon('check')+'Aprovar arte', s.aprovado?'apron':'', s.aprovado?'Tirar a aprovação (registro local)':'Marcar a arte como aprovada (registro local)');
-    ap.onclick = async ()=>{
-      const antes = s.aprovado; s.aprovado = !antes; render(); tRowDraw(s);
-      try{ await api('/api/slots/'+s.id,{method:'PATCH', body:JSON.stringify({aprovado:s.aprovado})}); toast(s.aprovado?'Arte aprovada':'Aprovação removida'); }
-      catch(e){ s.aprovado = antes; render(); tRowDraw(s); toast(e.message,true); }
-    };
-  }
-
-  // GM (só SeuBoné)
-  if(s.conta==='seubone'){
-    const g = mk(icon('star'), 'iconb'+(isGm(s)?' gmon':''), isGm(s)? 'Tirar a grande marca da capa' : 'Marcar grande marca na capa');
-    g.onclick = async ()=>{
-      const antes = s.gm; s.gm = gmOverride(s, !isGm(s)); render(); tRowDraw(s);
-      try{ await api('/api/slots/'+s.id,{method:'PATCH', body:JSON.stringify({gm:s.gm})}); toast(isGm(s)?'Grande marca na capa':'GM removido'); }
-      catch(e){ s.gm = antes; render(); tRowDraw(s); toast(e.message,true); }
-    };
-  }
-
-  // collab Club + Educação (1 clique, sem precisar selecionar 2 posts; só Carbone Educação/Club)
-  if(s.conta==='carbone-edu' || s.conta==='carbone-club'){
-    const sib = s.conta==='carbone-edu' ? 'carbone-club' : 'carbone-edu';
-    const isClb = (s.collab||[]).includes(sib);
-    const cb = mk(icon('users'), 'iconb'+(isClb?' clbon':''), isClb? 'Tirar a collab Club + Educação' : 'Marcar como collab Club + Educação');
-    cb.onclick = async ()=>{
-      const antes = (s.collab||[]).slice();
-      s.collab = isClb ? [] : [sib];
-      render(); tRowDraw(s);
-      try{ await api('/api/slots/'+s.id,{method:'PATCH', body:JSON.stringify({collab:s.collab})}); toast(isClb?'Collab removido':'Collab Club + Educação marcado'); }
-      catch(e){ s.collab = antes; render(); tRowDraw(s); toast(e.message,true); }
-    };
-  }
-
-  // v3.96: "Do banco" no lugar da copy, nos posts sem card da matriz (Carbone, Onevo); o da matriz fica no card do dia
-  const abaT = S.contas[s.conta] && S.contas[s.conta].aba;
-  if(!s.matrizSB && !s.taskId && !s.postado && bancoSecoes(abaT).some(k=>BANCO_MATERIAL.includes(k))){
-    const w = document.createElement('span'); w.className = 'bkancora'; row.appendChild(w);
-    const bb = document.createElement('button'); bb.type = 'button'; bb.className = 'mbtn mzbancobt'; bb.id = 'tBanco';
-    bb.setAttribute('aria-haspopup', 'listbox'); bb.setAttribute('aria-expanded', 'false');
-    bb.innerHTML = s.banco ? icon(bancoIcone(s.banco.sec))+'<span class="bkb-t">'+esc(bancoRotulo(s.banco)+(s.banco.titulo ? ': '+s.banco.titulo : ''))+'</span>' : icon('box')+'Do banco';
-    bb.dataset.tip = s.banco ? 'Material do banco deste post: clique pra trocar ou tirar' : 'Usar um material do banco (corte, depoimento, Drive) no lugar de escrever a copy';
-    bb.onclick = ev=> abrirDoBanco(ev.currentTarget, s.id);
-    w.appendChild(bb);
-    if(isBanco(s) && S.temFonte && souAdmin()) mk(icon('hub')+'Criar task de produção', 'primary', 'Criar a task de arte ou vídeo no MKT Hub com o material do banco (a copy é opcional)').onclick = ()=>{ closeOv('ovTask'); abrirProducao(s.id); };
-  }
-  mk(icon('doc')+(s.docId?'Copy':'Escrever a copy'+(s.banco?' (opcional)':'')), '', s.docId ? 'Abrir o documento da copy deste post' : 'Criar o documento da copy deste post').onclick = ()=>{ closeOv('ovTask'); abrirCopy(s.id); };
-  { const be = document.createElement('button'); be.className = 'bt-edit'; be.dataset.rot = 'Editar'; be.style.setProperty('--w','96px');
-    be.dataset.tip = 'Editar o post (conta, data, links, collab)'; be.setAttribute('aria-label','Editar o post'); be.innerHTML = icon('pencil');
-    be.onclick = ()=>{ closeOv('ovTask'); openEdit(s.id); }; row.appendChild(be); }
-}
+// v4.07: o cabeçalho da folha do post (tRowDraw) mora no js/folha.js
 
 // ================= markdown (descrição da task) =================
 function mdInline(t){

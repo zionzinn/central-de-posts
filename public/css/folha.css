@@ -1,0 +1,59 @@
+@charset "utf-8";
+/* =====================================================================
+   B.O.N.E · v4.07 · AÇÕES DA FOLHA DO POST (js/folha.js)
+   3 andares: o estado · o próximo passo grande (a task no MKT Hub, ou a copy) e o Postei · os ajustes e o "Mais".
+   Rosa = MKT Hub e azul = copy, as mesmas cores das etapas (css/linha.css).
+   ===================================================================== */
+.mrow.tr{flex-direction:column; align-items:stretch; flex-wrap:nowrap; gap:10px; margin-top:10px}
+.tr-st,.tr-pri,.tr-sec{display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0}
+.tr-st{gap:10px; min-height:24px}
+.tr-pri[hidden]{display:none}
+.tr .tr-fim{margin-left:auto}
+
+/* o próximo passo: grande */
+.mbtn.tr-big{min-height:42px; padding:0 18px 0 15px; border-radius:13px; font-size:14px; font-weight:650; gap:9px}
+.mbtn.tr-big .ic{width:17px; height:17px}
+.mbtn.tr-big.hub{background:color-mix(in srgb, var(--e-prod) 15%, var(--fill-3)); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--e-prod) 55%, transparent)}
+.mbtn.tr-big.hub:hover{background:color-mix(in srgb, var(--e-prod) 25%, var(--fill-3))}
+.mbtn.tr-big.hub .ic{color:var(--e-prod-t)}
+.mbtn.tr-big.tr-copy{background:color-mix(in srgb, var(--e-copy) 15%, var(--fill-3)); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--e-copy) 50%, transparent)}
+.mbtn.tr-big.tr-copy:hover{background:color-mix(in srgb, var(--e-copy) 25%, var(--fill-3))}
+.mbtn.tr-big.tr-copy .ic{color:var(--e-copy-t)}
+.tr-cod{font-size:11.5px; font-weight:700; padding:2px 7px; border-radius:6px; background:var(--fill-3); color:var(--ink-2); font-variant-numeric:tabular-nums; letter-spacing:.01em}
+.mbtn.tr-ext{min-height:42px; width:42px; justify-content:center; padding:0; border-radius:13px; flex:none}
+.mbtn.tr-ext .ic{width:17px; height:17px}
+.mbtn.tr-postei{min-height:42px; padding:0 20px; border-radius:13px; font-size:14px; font-weight:650}
+.mbtn.tr-postei .ic{width:16px; height:16px}
+.mbtn.tr-crit{background:var(--crit); color:#fff}
+/* o Do banco e o Criar task de produção (post sem task) no andar do próximo passo: a mesma altura */
+.tr-pri .mzbancobt,.tr-pri .mbtn.primary:not(.tr-postei){min-height:42px; border-radius:13px; padding:0 16px}
+.mbtn.tr-crit:hover{background:var(--crit); color:#fff; filter:brightness(1.08)}
+
+/* aprovar arte + editar: um par */
+.tr-par{display:inline-flex; align-items:stretch; border-radius:999px; background:var(--fill-3); overflow:hidden; flex:none}
+.tr-par .mbtn{background:transparent; border-radius:0}
+.tr-par .mbtn + .mbtn{box-shadow:inset 1px 0 0 var(--hair)}
+.tr-par .mbtn:hover{background:var(--fill-2)}
+.tr-par .mbtn.apron{background:var(--green); color:#000; font-weight:600}
+.tr-par .mbtn.apron:hover{background:var(--green); filter:brightness(1.06)}
+.mbtn.tr-mais .ic{width:16px; height:16px}
+.mbtn.tr-mais[aria-expanded="true"]{background:var(--fill-2)}
+
+/* o menu do Mais (vidro, por cima da folha) */
+.tr-menu{position:fixed; z-index:9800; min-width:250px; padding:6px; border-radius:14px; background:var(--glass-menu);
+  -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px); box-shadow:var(--hard), 0 0 0 1px var(--glass-borda);
+  animation:popin .16s cubic-bezier(.2,.8,.2,1) both}
+.tr-menu button{display:flex; align-items:center; gap:10px; width:100%; min-height:34px; padding:0 10px; border:0; border-radius:9px; background:transparent;
+  color:var(--ink); font:500 13.5px Inter, system-ui, sans-serif; text-align:left; cursor:pointer}
+.tr-menu button span{flex:1; white-space:nowrap}
+.tr-menu button .ic{width:16px; height:16px; color:var(--ink-2); flex:none}
+.tr-menu kbd{font:600 11px Inter, system-ui, sans-serif; color:var(--ink-3)}
+.tr-menu button:hover,.tr-menu button:focus-visible{background:var(--hl); color:#fff; outline:none}
+.tr-menu button:hover .ic,.tr-menu button:focus-visible .ic,.tr-menu button:hover kbd,.tr-menu button:focus-visible kbd{color:#fff}
+.tr-sep{display:block; height:1px; margin:5px 8px; background:var(--hair)}
+
+/* celular: o próximo passo e o Postei ocupam a linha */
+@media (max-width:640px){
+  .mbtn.tr-big,.mbtn.tr-postei{flex:1 1 auto; justify-content:center}
+  .tr .tr-fim{margin-left:0}
+}
