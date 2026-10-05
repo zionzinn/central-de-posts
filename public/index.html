@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="/css/raias.css">
 <link rel="stylesheet" href="/css/captacao.css">
 <link rel="stylesheet" href="/css/folha.css">
+<link rel="stylesheet" href="/css/banco.css">
 </head>
 <body>
 
@@ -439,7 +440,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.10'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.11'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -2960,10 +2961,21 @@ function abrirDoBanco(ancora, sid){
   };
   function fecha(voltaFoco){
     document.removeEventListener('mousedown', fora, true); document.removeEventListener('keydown', tecla, true);
+    bkHoverFecha();                                 // v4.11
     m.remove(); ancora.setAttribute('aria-expanded', 'false'); BK_MENU = null;
     if(voltaFoco && ancora.isConnected) ancora.focus();
   }
   m.querySelectorAll('[data-bkid]').forEach(b=> b.onclick = ()=>{ fecha(false); mzBancoUsa(s.id, b.dataset.bkid); });
+  // v4.11: no corte e no depoimento, passar o mouse (ou as setas) mostra quando foi usado
+  m.querySelectorAll('[data-bkid]').forEach(b=>{
+    const it = (S.banco || []).find(x=>x.id===b.dataset.bkid);
+    if(!it || !bkTemHover(it)) return;
+    const mostra = ()=> bkHoverQuando(it, b, false);
+    b.addEventListener('mouseenter', mostra);
+    // o foco só conta vindo do teclado: abrir a lista com o mouse põe o foco no 1º item e não deve abrir o balão sozinho
+    b.addEventListener('focus', ()=>{ if(b.matches(':focus-visible')) mostra(); });
+    b.addEventListener('mouseleave', bkHoverFecha); b.addEventListener('blur', bkHoverFecha);
+  });
   const tira = m.querySelector('[data-bktira]'); if(tira) tira.onclick = ()=>{ fecha(false); mzBancoTira(s.id); };
   const busca = m.querySelector('#bkPickBusca');
   if(busca) busca.oninput = ()=>{ const q = busca.value.trim().toLowerCase();

@@ -73,7 +73,12 @@ function bancoItemEl(it){
       (sec.fica ? '<button data-a="tira" class="bk-ok" title="Concluído: tirar do banco (Ctrl+Z desfaz)" aria-label="Concluído">'+icon('check','s')+'</button>'
                 : '<button data-a="tira" class="bin mini" title="Excluir do banco (Ctrl+Z desfaz)" aria-label="Excluir">'+BIN_SVG+'</button>')+
     '</div>';
-  d.addEventListener('dragstart', ev=>{ S.dragging=true; d.classList.add('dragging'); ev.dataTransfer.setData('text/plain','bk:'+it.id); ev.dataTransfer.effectAllowed='move'; });
+  d.addEventListener('dragstart', ev=>{ bkHoverFecha(); S.dragging=true; d.classList.add('dragging'); ev.dataTransfer.setData('text/plain','bk:'+it.id); ev.dataTransfer.effectAllowed='move'; });
+  // v4.11: passar o mouse num corte ou depoimento mostra quando ele foi usado e a seta até os posts que estão na tela
+  if(bkTemHover(it)){
+    d.addEventListener('mouseenter', ()=> bkHoverQuando(it, d, true));
+    d.addEventListener('mouseleave', bkHoverFecha);
+  }
   d.addEventListener('dragend', ()=>{ S.dragging=false; d.classList.remove('dragging'); });
   d.querySelector('[data-a=edit]').onclick = ()=>{
     S.bancoEdit = it.id; if(it.sec==='cortes') bancoAbertas().add(bancoPastaDe(it) || 'semp'); renderDrawer();
@@ -97,7 +102,8 @@ function bancoOndeHtml(it){
     const s = S.slots.find(x=>x.id===o.slot), d = (s && s.date) || o.date;
     const rot = (d ? tfDia(d) : 'sem dia')+' · '+esc(contaCurta(s ? s.conta : o.conta));
     return s ? '<button type="button" data-onde="'+esc(o.slot)+'" title="Ver esse post no calendário">'+icon('calendar')+rot+'</button>'
-             : '<span class="bk-ondev" title="Esse post foi excluído ou mudou de empresa">'+icon('calendar')+rot+' · post excluído</span>';
+             : bkPostSumiu() ? '<span class="bk-ondev" title="Esse post foi excluído ou mudou de empresa">'+icon('calendar')+rot+' · post excluído</span>'
+             : '<span class="bk-ondev" title="Esse post é de outro mês: na visão Mês dá pra ir até ele">'+icon('calendar')+rot+'</span>';   // v4.11
   }).join('')+mao+'</div>';
 }
 /** v3.96: o último uso: o mais recente entre o dia anotado à mão e o dia dos posts registrados ('' se não tem). */
@@ -239,6 +245,7 @@ async function bancoUsar(id, date, ev){
   }catch(e){ toast(e.message, true); }
 }
 function renderDrawer(preserva){
+  bkHoverFecha();                                   // v4.11: o balão e a seta do item que sumiu
   document.body.classList.toggle('drawer-open', S.drawer);
   $('#drawer').classList.toggle('open', S.drawer);
   const secs = bancoSecoes(S.aba);
@@ -439,3 +446,90 @@ async function bancoPastaExclui(p){
     toast('Pasta "'+p.nome+'" excluída · Ctrl+Z desfaz');
   }catch(e){ toast(e.message, true); }
 }
+
+// ================= v4.11: quando o corte ou o depoimento foi usado =================
+// Pedido do Zion (05/10/2026): "quando eu colocar o mouse em cima do corte ou depoimento, saber quando foi usado (dia,
+// talvez a setinha tambem)". Escolha dele: "Dias + setinha". Na gaveta do banco: um balão com os dias (e a conta) e,
+// pros posts que estão na tela, a seta saindo do item até o card, que acende. Na lista do "Do banco" (por cima da
+// folha do post), só o balão. Nada grava: é o it.onde (v3.96) e o uso anotado à mão.
+const BKH = { timer: 0, pop: null, svg: null, focos: [] };
+function bkTemHover(it){ return it.sec === 'cortes' || /^depoimentos/.test(it.sec); }
+/** O post do uso não está no painel: na visão Mês (todos os posts carregados) foi excluído; na Semana, só o mês dela vem. */
+function bkPostSumiu(){ return S.view !== 'semana'; }
+/** Os usos do item: o post (se ainda existe), o dia e a conta, o mais novo primeiro. */
+function bkUsos(it){
+  return (it.onde || []).map(o=>{ const s = S.slots.find(x=>x.id===o.slot); return { slot: o.slot, s, date: (s && s.date) || o.date || '', conta: s ? s.conta : o.conta }; })
+    .sort((a, b)=> String(b.date).localeCompare(String(a.date)));
+}
+function bkHoverFecha(){
+  clearTimeout(BKH.timer);
+  if(BKH.pop) BKH.pop.remove();
+  if(BKH.svg) BKH.svg.remove();
+  BKH.focos.forEach(c=> c.classList.remove('lp-foco', 'bk-foco'));
+  BKH.pop = null; BKH.svg = null; BKH.focos = [];
+}
+/** Espera um tiquinho: passar o mouse pela lista não fica piscando. */
+function bkHoverQuando(it, el, comSeta){
+  bkHoverFecha();
+  if(S.dragging) return;
+  BKH.timer = setTimeout(()=>{ if(el.isConnected && el.matches(':hover, :focus-within')) bkHoverAbre(it, el, comSeta); }, 220);
+}
+function bkHoverAbre(it, el, comSeta){
+  bkHoverFecha();
+  const usos = bkUsos(it), r = el.getBoundingClientRect();
+  const semReg = Math.max(0, (it.usos || 0) - usos.length);
+  const g = document.getElementById('grid'), vw = innerWidth, vh = innerHeight;
+  const drawer = document.getElementById('drawer'), dl = comSeta && drawer && S.drawer ? drawer.getBoundingClientRect().left : r.left;
+  const limX = comSeta && drawer && S.drawer ? dl - 6 : vw;
+  // os cards dos posts que estão na tela (e não atrás da gaveta)
+  const naTela = new Map();
+  if(comSeta && g) usos.forEach(u=>{
+    if(!u.s) return;
+    const c = g.querySelector('.card[data-id="'+u.slot+'"]'); if(!c) return;
+    const cr = c.getBoundingClientRect();
+    if(cr.bottom > 60 && cr.top < vh - 10 && cr.right > 0 && cr.left < limX) naTela.set(u.slot, c);
+  });
+  const pop = document.createElement('div');
+  pop.className = 'bkh-pop'; pop.setAttribute('role', 'tooltip');
+  const tot = it.usos || usos.length;
+  pop.innerHTML = '<div class="bkh-tit">'+(tot ? 'Usado '+tot+' vez'+(tot > 1 ? 'es' : '') : 'Nunca usado')+'</div>'+
+    (usos.length ? '<div class="bkh-lista">'+usos.map(u=>{
+      const dia = u.date ? tfDia(u.date) : 'sem dia';
+      const sumiu = !u.s && bkPostSumiu();
+      return '<div class="bkh-l'+(naTela.has(u.slot) ? ' tela' : '')+(sumiu ? ' fora' : '')+'">'+icon('calendar')+'<span>'+esc(dia)+'</span><b>'+esc(contaCurta(u.conta))+'</b>'+
+        (naTela.has(u.slot) ? '<i>na tela</i>' : sumiu ? '<em>post excluído</em>' : '')+'</div>';
+    }).join('')+'</div>' : '')+
+    (semReg || it.usadoDia ? '<div class="bkh-mao">'+icon('pencil')+(semReg ? semReg+' uso'+(semReg > 1 ? 's' : '')+' sem o post registrado' : 'anotado à mão')+
+      (it.usadoDia ? ' · último uso '+brData(it.usadoDia)+'/'+it.usadoDia.slice(2, 4) : '')+'</div>' : '')+
+    (!tot && !it.usadoDia ? '<div class="bkh-dica">Arraste pro dia ou use "Do banco" no card do dia.</div>'
+      : usos.some(u=>!naTela.has(u.slot) && (u.s || !bkPostSumiu())) && comSeta ? '<div class="bkh-dica">Clique no "usado" pra ir até o post.</div>' : '');
+  document.body.appendChild(pop);
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  // à esquerda da gaveta (ela fica na direita); no "Do banco", do lado do item que couber
+  let x = Math.min(r.left, dl) - pw - 10;
+  if(x < 8) x = Math.min(vw - pw - 8, r.right + 10);
+  pop.style.left = Math.max(8, x)+'px';
+  pop.style.top = Math.max(8, Math.min(vh - ph - 8, r.top))+'px';
+  BKH.pop = pop;
+  if(!naTela.size) return;
+  // a seta: do lado esquerdo do item até cada card (que acende), por cima do calendário e abaixo da gaveta
+  const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'bkh-svg'); svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('width', vw); svg.setAttribute('height', vh);
+  const x1 = Math.min(r.left, dl) - 2, y1 = r.top + r.height / 2;      // a seta nasce na borda da gaveta
+  naTela.forEach(c=>{
+    c.classList.add('lp-foco', 'bk-foco'); BKH.focos.push(c);
+    const cr = c.getBoundingClientRect();
+    const cv = lpCurva(x1, y1, cr.right + 4, cr.top + cr.height / 2);
+    const p = document.createElementNS(NS, 'path'); p.setAttribute('class', 'lp-lig'); p.setAttribute('d', cv.d); p.setAttribute('pathLength', '1');
+    const a = document.createElementNS(NS, 'path'); a.setAttribute('class', 'lp-seta'); a.setAttribute('d', cv.s);
+    svg.append(p, a);
+  });
+  document.body.appendChild(svg);
+  BKH.svg = svg;
+}
+// some ao rolar, ao redimensionar, no Esc e em qualquer redesenho da gaveta. Rolar fecha só o que está aberto: o que
+// ainda vai abrir (andar com as setas rola a lista do "Do banco") abre no lugar novo.
+window.addEventListener('scroll', ()=>{ if(BKH.pop || BKH.svg) bkHoverFecha(); }, true);
+window.addEventListener('resize', bkHoverFecha);
+document.addEventListener('keydown', ev=>{ if(ev.key === 'Escape' && BKH.pop) bkHoverFecha(); }, true);

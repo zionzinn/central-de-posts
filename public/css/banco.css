@@ -1,0 +1,23 @@
+@charset "utf-8";
+/* =====================================================================
+   B.O.N.E · v4.11 · BANCO: quando o corte ou o depoimento foi usado (js/banco.js)
+   O balão com os dias (vidro, como os menus) e a seta até os posts que estão na tela, no índigo do banco.
+   ===================================================================== */
+.bkh-pop{position:fixed; z-index:9700; width:max-content; min-width:180px; max-width:min(300px, calc(100vw - 16px)); padding:10px 12px 9px; border-radius:14px;
+  background:var(--glass-menu); -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
+  box-shadow:var(--hard), 0 0 0 1px var(--glass-borda); color:var(--ink); pointer-events:none; animation:popin .16s cubic-bezier(.2,.8,.2,1) both; font-size:12.5px}
+.bkh-tit{font-weight:700; font-size:12px; margin-bottom:6px}
+.bkh-lista{display:flex; flex-direction:column; gap:4px}
+.bkh-l{display:flex; align-items:center; gap:7px; color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap}
+.bkh-l .ic{width:13px; height:13px; color:var(--ink-3); flex:none}
+.bkh-l b{font-weight:600; color:var(--ink)}
+.bkh-l.tela .ic{color:var(--indigo)}
+.bkh-l.fora{opacity:.65}
+.bkh-l i,.bkh-l em{font-style:normal; font-size:10.5px; font-weight:600; color:var(--ink-3)}
+.bkh-l.tela i{color:var(--indigo)}
+.bkh-mao{display:flex; align-items:center; gap:6px; margin-top:7px; font-size:11.5px; color:var(--ink-3)}
+.bkh-mao .ic{width:12px; height:12px; flex:none}
+.bkh-dica{margin-top:7px; font-size:11px; color:var(--ink-3)}
+/* a seta: por cima do calendário, abaixo da gaveta (z-index 55) */
+.bkh-svg{position:fixed; left:0; top:0; z-index:54; pointer-events:none; overflow:visible; --lp-mc:var(--indigo)}
+.card.lp.bk-foco{box-shadow:0 0 0 2px var(--indigo), var(--lp-sombra)}
