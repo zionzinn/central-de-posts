@@ -439,7 +439,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.09'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.10'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1247,6 +1247,7 @@ function entSit(s){
   if(!s || !s.taskId || !s.hub || !s.hub.prazo) return null;
   const b = stBucket(s);
   if(s.postado || b === 'aprovar' || b === 'pronto') return 'entregue';
+  if(s.statusCache && s.statusCache.status === 'desconhecida') return 'ok';   // v4.10: etapa que o painel não conhece: sem alarme
   const p = s.hub.prazo;
   if(p < hojeStr()) return 'atrasada';
   if(p <= amanhaStr() || (s.date && p > s.date)) return 'risco';

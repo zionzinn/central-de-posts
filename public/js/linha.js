@@ -11,15 +11,20 @@
 //   Postado (verde cheio com o check; até a v4.05 era "No ar", cinza apagado): no Instagram. Laranja e vermelho só como ALERTA (pílula ou data):
 //   laranja = esperando aprovação ou vence hoje/amanhã; vermelho = voltou pra alterar ou atrasou.
 //
+// v4.10 (pedido do Zion em 05/10/2026: "o que ta entregue e oq jha foi entregue está confuso. aprovação lider tb conta
+// como entregue"; escolha: "Etapa Entregue"): a produção se divide em Produção (falta entregar: a fazer, fazendo, ajustar)
+// e ENTREGUE (cor própria: Aprovação ou Aprovação líder no MKT Hub). Pronto = Publicar, Completo ou concluída. A data
+// do que falta entregar diz sempre "prazo".
+//
 // Decisões do Zion (02/10/2026): as duas datas na folha do post só MOSTRAM (a entrega é do MKT Hub e muda lá; o dia
 // que sai é o do calendário); a task de produção continua só do ADMIN. Nada aqui grava dado novo nem cria rota:
 // é desenho em cima do que o /api/state já traz.
 // =====================================================================
 
 const LP = {
-  ORDEM: ['mz', 'copy', 'prod', 'pronto', 'ar'],
-  NOME: { mz: 'Matriz', copy: 'Copy', prod: 'Produção', pronto: 'Pronto', ar: 'Postado' },   // v4.06: o "No ar" virou Postado
-  ONDE: { mz: 'no B.O.N.E', copy: 'no B.O.N.E', prod: 'no MKT Hub', pronto: 'no MKT Hub', ar: 'no Instagram' },
+  ORDEM: ['mz', 'copy', 'prod', 'entr', 'pronto', 'ar'],
+  NOME: { mz: 'Matriz', copy: 'Copy', prod: 'Produção', entr: 'Entregue', pronto: 'Pronto', ar: 'Postado' },   // v4.06: o "No ar" virou Postado; v4.10: Entregue
+  ONDE: { mz: 'no B.O.N.E', copy: 'no B.O.N.E', prod: 'no MKT Hub', entr: 'no MKT Hub', pronto: 'no MKT Hub', ar: 'no Instagram' },
 };
 // v4.06: o check do postado (no card, num círculo preto; na legenda, no lugar do quadradinho)
 const LP_OK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
@@ -85,21 +90,36 @@ function lpEtapa(s) {
       ac('postar', 'Postei', 'check'); if (lk) ac('hub', '', 'external'); if (s.docId) ac('copy', '', 'doc'); ac('del');
       return e;
     }
+    // v4.10: ENTREGUE = a arte ou o vídeo já foi pra aprovação no MKT Hub (Aprovação ou Aprovação líder)
+    if (b === 'aprovar') {
+      e.k = 'entr';
+      const nomeHub = (s.statusCache && s.statusCache.nome) || '';
+      e.sub = (nomeHub || 'em aprovação').toLowerCase(); e.subDica = 'Entregue, esperando aprovação no MKT Hub' + onde;
+      pessoa(s.assigneeCache || s.responsavelManual, 'entregou');
+      e.dt = prazo ? { c: 'feita', ic: 'check', t: 'entregue · prazo ' + (lpDif(prazo, hoje) < 0 ? 'era ' : '') + lpDiaC(prazo), b: '', dica: 'Entregue no MKT Hub' + onde + ' · prazo ' + lpDiaL(prazo) }
+        : { c: 'feita', ic: 'check', t: 'entregue', b: '', dica: 'Entregue no MKT Hub' + onde };
+      if (lk) ac('hub', 'Abrir no MKT Hub', 'external'); else ac('abrir', 'Abrir', 'doc');
+      ac('postar', '', 'check'); if (s.docId) ac('copy', '', 'doc'); ac('del');
+      return e;
+    }
     e.k = 'prod';
     pessoa(s.assigneeCache || s.responsavelManual, 'faz');
+    // v4.10: etapa do Hub que o painel não conhece: mostra o nome dela e não acusa atraso (não dá pra saber)
+    const desc = !!(s.statusCache && s.statusCache.status === 'desconhecida');
     if (!s.statusCache) e.sub = ehDoHub(s.taskId) ? 'sem etapa' : 'task ligada';
-    else if (b === 'aprovar') e.pil = { c: 'or', t: 'em aprovação', ic: 'hour', dica: 'Arte em aprovação no MKT Hub' + onde };
+    else if (desc) { e.sub = String(s.statusCache.nome || 'etapa nova').toLowerCase(); e.subDica = 'Etapa do MKT Hub que o painel ainda não conhece' + onde; }
     else if (b === 'alterar') { e.pil = { c: 'red', t: 'ajustar', ic: 'pencil', dica: 'A arte voltou pra ajustar no MKT Hub' + onde }; e.alerta = true; }
     else if (b === 'producao') e.sub = 'fazendo';
     else e.sub = 'na fila';
     if (prazo) {
-      const nE = lpDif(prazo, hoje), d = 'Entrega no MKT Hub: ' + lpDiaL(prazo) + onde;
-      if (b === 'aprovar') e.dt = { c: 'feita', ic: 'check', t: 'entregue · prazo ' + lpDiaC(prazo), b: '', dica: d };
-      else if (s.date && prazo > s.date) { e.dt = { c: 'red', ic: 'box', t: 'entrega ' + lpDiaC(prazo), b: 'após o post', dica: d + ' · marcada DEPOIS do dia do post (' + lpDiaL(s.date) + ')' }; e.alerta = true; }
-      else if (nE < 0) { e.dt = { c: 'red', ic: 'box', t: 'entrega ' + lpDiaC(prazo), b: 'atrasada', dica: d + ' · atrasada ' + (-nE) + (nE === -1 ? ' dia' : ' dias') }; e.alerta = true; }
-      else if (nE <= 1) { e.dt = { c: 'or', ic: 'box', t: 'entrega ' + lpDiaC(prazo), b: lpRel(nE), dica: d }; e.alerta = true; }
-      else e.dt = { c: '', ic: 'box', t: 'entrega ' + lpDiaC(prazo), b: lpRel(nE), dica: d };
-    } else if (ehDoHub(s.taskId)) e.dt = { c: '', ic: 'box', t: 'sem entrega no MKT Hub', b: '' };
+      // v4.10: o que falta entregar diz "prazo" (o "entrega sex 02" confundia com o "entregue")
+      const nE = lpDif(prazo, hoje), d = 'Prazo no MKT Hub: ' + lpDiaL(prazo) + onde;
+      if (desc) e.dt = { c: '', ic: 'box', t: 'prazo ' + lpDiaC(prazo), b: '', dica: d };
+      else if (s.date && prazo > s.date) { e.dt = { c: 'red', ic: 'box', t: 'prazo ' + lpDiaC(prazo), b: 'após o post', dica: d + ' · marcado DEPOIS do dia do post (' + lpDiaL(s.date) + ')' }; e.alerta = true; }
+      else if (nE < 0) { e.dt = { c: 'red', ic: 'box', t: 'prazo ' + lpDiaC(prazo), b: 'atrasado', dica: d + ' · atrasado ' + (-nE) + (nE === -1 ? ' dia' : ' dias') }; e.alerta = true; }
+      else if (nE <= 1) { e.dt = { c: 'or', ic: 'box', t: 'prazo ' + lpDiaC(prazo), b: lpRel(nE), dica: d }; e.alerta = true; }
+      else e.dt = { c: '', ic: 'box', t: 'prazo ' + lpDiaC(prazo), b: lpRel(nE), dica: d };
+    } else if (ehDoHub(s.taskId)) e.dt = { c: '', ic: 'box', t: 'sem prazo no MKT Hub', b: '' };
     if (lk) ac('hub', 'Abrir no MKT Hub', 'external'); else ac('abrir', 'Abrir', 'doc');
     ac('postar', '', 'check'); if (s.docId) ac('copy', '', 'doc'); ac('del');
     return e;
@@ -148,9 +168,9 @@ function lpEtapa(s) {
   ac('copy', 'Escrever a copy', 'pencil'); ac('del');
   return e;
 }
-/** A barra de cima do card: Matriz, Copy, Produção, Pronto (sem a Matriz nas contas que não têm). f feita · n agora · x pulada. */
+/** A barra de cima do card: Matriz, Copy, Produção, Entregue, Pronto (sem a Matriz nas contas que não têm). f feita · n agora · x pulada. */
 function lpProg(s, e) {
-  const ks = (lpTemMatriz(s.conta) || s.matrizSB ? ['mz'] : []).concat(['copy', 'prod', 'pronto']);
+  const ks = (lpTemMatriz(s.conta) || s.matrizSB ? ['mz'] : []).concat(['copy', 'prod', 'entr', 'pronto']);
   const cur = LP.ORDEM.indexOf(e.k);
   return ks.map(k => {
     const i = LP.ORDEM.indexOf(k);
@@ -373,20 +393,21 @@ function lpLigaEntregas(dia, btn) {
 const LP_DICA = {
   mz: 'Matriz: o plano do post (tema, tese, gancho), no B.O.N.E',
   copy: 'Copy: o texto do post, escrito e aprovado no B.O.N.E',
-  prod: 'Produção: a arte ou o vídeo sendo feito no MKT Hub',
+  prod: 'Produção: falta entregar (a arte ou o vídeo está a fazer, fazendo ou ajustando no MKT Hub)',
+  entr: 'Entregue: a arte ou o vídeo já foi entregue no MKT Hub e espera a aprovação (Aprovação ou Aprovação líder)',
   pronto: 'Pronto: arte aprovada no MKT Hub, é só postar',
   ar: 'Postado: já foi ao ar no Instagram',
   alerta: 'Atenção: voltou pra alterar, a entrega atrasou ou vence hoje/amanhã, ou o post pronto passou do dia',
 };
 function lpLegendaMes(lista) {
-  const n = { mz: 0, copy: 0, prod: 0, pronto: 0, ar: 0, alerta: 0 };
+  const n = { mz: 0, copy: 0, prod: 0, entr: 0, pronto: 0, ar: 0, alerta: 0 };
   for (const s of lista) { const e = lpEtapa(s); if (e.k in n) n[e.k]++; if (e.alerta) n.alerta++; }
   const f = S.filtro;
   const chip = k => '<button type="button" class="lp-lc e-' + k + (n[k] ? '' : ' zero') + (f === k ? ' on' : '') + '" data-f="' + k + '" aria-pressed="' + (f === k) + '" title="' +
     esc(LP_DICA[k] + ' · passe o mouse pra ver, clique pra filtrar') + '">' + (k === 'ar' ? '<i>' + LP_OK_SVG + '</i>' : '<i></i>') + (k === 'alerta' ? 'Atenção' : LP.NOME[k]) + '<b>' + n[k] + '</b></button>';
   const grp = (rot, ks) => '<span class="lp-grp"><span class="lp-gl">' + rot + '</span><span class="lp-chips">' + ks.map(chip).join('') + '</span></span>';
   return '<span class="mesleg lp-leg">' +
-    grp('no B.O.N.E', mzDaAba(S.aba) ? ['mz', 'copy'] : ['copy']) + grp('no MKT Hub', ['prod', 'pronto']) + grp('no Instagram', ['ar']) + grp('precisa agir', ['alerta']) +
+    grp('no B.O.N.E', mzDaAba(S.aba) ? ['mz', 'copy'] : ['copy']) + grp('no MKT Hub', ['prod', 'entr', 'pronto']) + grp('no Instagram', ['ar']) + grp('precisa agir', ['alerta']) +
   '</span>';
 }
 /** Hover na legenda = prévia (o resto apaga); clique = filtro (clique de novo tira). Nada é redesenhado: é só CSS. */
@@ -461,7 +482,7 @@ function lpAnimaTroca(antes) {
 function lpChipEtapa(s) {
   const e = lpEtapa(s);
   if (e.k === 'esp') return '';
-  const hubNome = (e.k === 'prod' || e.k === 'pronto') && s.statusCache && s.statusCache.nome;
+  const hubNome = (e.k === 'prod' || e.k === 'entr' || e.k === 'pronto') && s.statusCache && s.statusCache.nome;
   const det = hubNome || (e.pil ? e.pil.t : e.sub);
   return '<span class="lp-chip e-' + e.k + '" title="' + esc(LP.NOME[e.k] + ' · ' + LP.ONDE[e.k]) + '"><i></i>' + LP.NOME[e.k] +
     (det ? '<span>' + esc(det) + '</span>' : '') + '</span>';
@@ -472,22 +493,23 @@ function lpFolha(s) {
   if (e.k === 'esp') { box.hidden = true; box.innerHTML = ''; return; }
   box.hidden = false;
   const comMz = lpTemMatriz(s.conta) || !!s.matrizSB;
-  const ks = (comMz ? ['mz'] : []).concat(['copy', 'prod', 'pronto', 'ar']);
+  const ks = (comMz ? ['mz'] : []).concat(['copy', 'prod', 'entr', 'pronto', 'ar']);
   const cur = LP.ORDEM.indexOf(e.k), a = s.aprov && s.aprov.c, hoje = hojeStr();
   const prazo = (s.hub && s.hub.prazo) || '', nS = s.date ? lpDif(s.date, hoje) : null;
   const pal = e.pil ? e.pil.t : e.sub;
   const passos = ks.map(k => {
     const i = LP.ORDEM.indexOf(k);
     // v4.09: post sem task (ex.: o "Já foi postado") não passou pelo MKT Hub
-    const pulou = (k === 'mz' && !s.matrizSB) || (k === 'copy' && !s.docId && !s.banco) || ((k === 'prod' || k === 'pronto') && !s.taskId);
+    const pulou = (k === 'mz' && !s.matrizSB) || (k === 'copy' && !s.docId && !s.banco) || ((k === 'prod' || k === 'entr' || k === 'pronto') && !s.taskId);
     const st = e.k === 'ar' || i < cur ? (pulou ? 'x' : 'f') : i === cur ? 'n' : 'v';
     const det = {
       mz: st === 'x' ? 'não passou' : st === 'f' ? 'preenchida' : st === 'n' ? (e.mzd ? e.mzd.n + ' de ' + e.mzd.total + ' campos' : pal) : 'a fazer',
       copy: st === 'x' ? 'não passou' : st === 'f' || (st === 'n' && a && a.st === 'aprovado')
         ? (s.banco && !s.docId ? 'material do banco' : a && a.st === 'aprovado' ? 'aprovada' + (a.ap ? ' por ' + lpPrimeiro(a.ap) : '') : 'escrita')
         : st === 'n' ? pal : comMz ? 'depois da matriz' : 'a escrever',
-      prod: st === 'x' ? 'não passou' : st === 'f' ? 'arte aprovada' : st === 'n' ? [lpPrimeiro(s.assigneeCache || s.responsavelManual), (s.statusCache && s.statusCache.nome) || pal].filter(Boolean).join(' · ') : 'nasce com a task',
-      pronto: st === 'x' ? 'não passou' : st === 'f' ? 'entregue' : st === 'n' ? pal : 'depois da arte',
+      prod: st === 'x' ? 'não passou' : st === 'f' ? 'entregue' : st === 'n' ? [lpPrimeiro(s.assigneeCache || s.responsavelManual), (s.statusCache && s.statusCache.nome) || pal].filter(Boolean).join(' · ') : 'nasce com a task',
+      entr: st === 'x' ? 'não passou' : st === 'f' ? 'aprovada' : st === 'n' ? ((s.statusCache && s.statusCache.nome) || pal) : 'depois da arte',   // v4.10
+      pronto: st === 'x' ? 'não passou' : st === 'f' ? 'liberado' : st === 'n' ? pal : 'depois da aprovação',
       ar: st === 'f' ? (s.date ? 'saiu ' + lpDiaC(s.date) : 'postado') : s.date ? 'sai ' + lpDiaC(s.date) : 'sem dia',
     }[k];
     const ic = st === 'f' ? lpIc('check') : st === 'n' ? lpIc('ponto', 'cheio') : st === 'x' ? lpIc('traco') : '';
@@ -500,8 +522,8 @@ function lpFolha(s) {
   // as duas datas
   let ent;
   if (prazo) {
-    const nE = lpDif(prazo, hoje), entregue = e.k === 'pronto' || e.k === 'ar' || (e.k === 'prod' && stBucket(s) === 'aprovar');
-    const rel = entregue ? 'entregue' : nE < 0 ? 'atrasada ' + (-nE) + (nE === -1 ? ' dia' : ' dias') : lpRel(nE);
+    const nE = lpDif(prazo, hoje), entregue = e.k === 'entr' || e.k === 'pronto' || e.k === 'ar';   // v4.10
+    const rel = entregue ? 'entregue' : nE < 0 ? 'atrasado ' + (-nE) + (nE === -1 ? ' dia' : ' dias') : lpRel(nE);
     const cls = entregue ? 'feita' : nE < 0 ? 'red' : nE <= 1 ? 'or' : 'neu';
     ent = '<div class="lpf-dc ent"><span class="lpf-dl">' + icon('box') + 'Fica pronto (entrega)</span><span class="lpf-dv">' + lpDiaL(prazo) + '</span>' +
       '<span class="lpf-dr ' + cls + '">' + rel + '</span><span class="lpf-src">prazo da task ' + esc(s.hub.codigo || '') + ' no MKT Hub</span></div>';
@@ -524,7 +546,7 @@ function lpFolha(s) {
     fcls = f < 0 ? ' red' : f === 0 ? ' or' : '';
   }
   const grupos = '<div class="lpf-grupos" style="grid-template-columns:repeat(' + ks.length + ',minmax(0,1fr))">' +
-    '<span class="bone" style="grid-column:span ' + (comMz ? 2 : 1) + '">no B.O.N.E</span><span class="hub" style="grid-column:span 2">no MKT Hub</span><span class="ig">no Instagram</span></div>';
+    '<span class="bone" style="grid-column:span ' + (comMz ? 2 : 1) + '">no B.O.N.E</span><span class="hub" style="grid-column:span 3">no MKT Hub</span><span class="ig">no Instagram</span></div>';
   box.style.setProperty('--c', 'var(--e-' + e.k + ')');
   box.innerHTML =
     '<div class="lpf-sec">Linha do post</div>' + grupos +

@@ -6,6 +6,9 @@
    claro e escuro). Laranja e vermelho são só alerta (pílula ou data), nunca etapa.
    v4.06: o POSTADO (antes "No ar", cinza a 60%) vira card verde cheio, texto preto e o check: pedido do Zion, o cinza
    "fica com mais cara de PENDENTE". O verde é o do Pronto, mas cheio (o Pronto é só tingido e diz "pode postar").
+   v4.10: ENTREGUE (Aprovação ou Aprovação líder no MKT Hub) ganha cor própria entre a Produção e o Pronto: um verde-
+   azulado mais fechado que o verde do Pronto (validador: daltonismo ΔE 8,6 no escuro e 8,3 no claro, visão normal
+   17,0 e 16,3, longe do laranja e do vermelho dos alertas).
    ===================================================================== */
 
 /* ---------- tokens das etapas ---------- */
@@ -15,6 +18,7 @@
   /* as mesmas cores quando viram TEXTO (contraste de leitura em cima do fundo) */
   --e-mz-t:#FCC100; --e-copy-t:#55B3FF; --e-prod-t:#FF9BD8; --e-pronto-t:#7EE0A1; --e-ar-t:#7EE0A1;
   --e-red-t:#FF6B6E; --e-orange-t:#FFA654;
+  --e-entr:#2EAB98; --e-entr-t:#5CC9B5;                       /* v4.10: Entregue */
   --lp-tinta:13%; --lp-sombra:0 12px 28px rgba(0,0,0,.5); --lp-mola:cubic-bezier(.22,1.2,.36,1);
 }
 html[data-modo="claro"]{
@@ -22,6 +26,7 @@ html[data-modo="claro"]{
   --e-red:#E0262B; --e-orange:#E07000; --e-red-on:#fff;
   --e-mz-t:#7A5A00; --e-copy-t:#0062C4; --e-prod-t:#B42D85; --e-pronto-t:#1D7A3D; --e-ar-t:#1D7A3D;
   --e-red-t:#C41E23; --e-orange-t:#A85300;
+  --e-entr:#037465; --e-entr-t:#02675A;
   --lp-tinta:10%; --lp-sombra:0 2px 8px rgba(0,0,0,.08), 0 14px 30px rgba(0,0,0,.14);
 }
 .ic.cheio{fill:currentColor; stroke:none}
@@ -35,6 +40,7 @@ html[data-modo="claro"]{
 .card.lp.e-mz{--c:var(--e-mz); --ct:var(--e-mz-t); border-style:dashed}
 .card.lp.e-copy{--c:var(--e-copy); --ct:var(--e-copy-t)}
 .card.lp.e-prod{--c:var(--e-prod); --ct:var(--e-prod-t)}
+.card.lp.e-entr{--c:var(--e-entr); --ct:var(--e-entr-t)}
 .card.lp.e-pronto{--c:var(--e-pronto); --ct:var(--e-pronto-t)}
 /* v4.06: postado = card verde cheio, texto preto e o check antes da palavra (sem apagar o card) */
 .card.lp.e-ar{--c:var(--e-ar); --ct:#000; background:var(--e-ar); border-color:transparent}
@@ -61,7 +67,7 @@ body.lente-ent .card.lp{cursor:pointer}
 /* barra da linha do post (em cima): cheia = feita · brilhando = agora · pontilhada = pulou */
 .lp-kp{position:absolute; left:10px; right:10px; top:0; height:4px; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:3px; pointer-events:none}
 .lp-kp i{border-radius:0 0 3px 3px; background:var(--fill-3); transition:background .5s, box-shadow .5s}
-.lp-kp i.s-mz{--sc:var(--e-mz)} .lp-kp i.s-copy{--sc:var(--e-copy)} .lp-kp i.s-prod{--sc:var(--e-prod)} .lp-kp i.s-pronto{--sc:var(--e-pronto)}
+.lp-kp i.s-mz{--sc:var(--e-mz)} .lp-kp i.s-copy{--sc:var(--e-copy)} .lp-kp i.s-prod{--sc:var(--e-prod)} .lp-kp i.s-entr{--sc:var(--e-entr)} .lp-kp i.s-pronto{--sc:var(--e-pronto)}
 .lp-kp i.f{background:var(--sc)}
 .lp-kp i.n{background:var(--sc); box-shadow:0 2px 10px color-mix(in srgb, var(--sc) 70%, transparent)}
 .lp-kp i.x{background:repeating-linear-gradient(90deg, var(--ink-4) 0 3px, transparent 3px 6px)}
@@ -153,6 +159,7 @@ html[data-modo="claro"] .lp-ac{box-shadow:0 4px 14px rgba(0,0,0,.14)}
 body[data-lp-ver="mz"] .card[data-etapa]:not([data-etapa="mz"]),
 body[data-lp-ver="copy"] .card[data-etapa]:not([data-etapa="copy"]),
 body[data-lp-ver="prod"] .card[data-etapa]:not([data-etapa="prod"]),
+body[data-lp-ver="entr"] .card[data-etapa]:not([data-etapa="entr"]),
 body[data-lp-ver="pronto"] .card[data-etapa]:not([data-etapa="pronto"]),
 body[data-lp-ver="ar"] .card[data-etapa]:not([data-etapa="ar"]),
 body[data-lp-ver="alerta"] .card[data-etapa]:not([data-alerta]){opacity:.12; filter:saturate(.2)}
@@ -169,7 +176,7 @@ body[data-lp-ver] .card[data-etapa]:hover{opacity:1; filter:none}
 .lp-lc i{width:9px; height:9px; border-radius:3px; background:var(--c); flex:none; box-sizing:border-box}
 .lp-lc b{color:var(--ink-3); font-weight:600; font-variant-numeric:tabular-nums}
 .lp-lc.e-mz{--c:var(--e-mz)} .lp-lc.e-mz i{background:transparent; border:1.5px dashed var(--c)}
-.lp-lc.e-copy{--c:var(--e-copy)} .lp-lc.e-prod{--c:var(--e-prod)} .lp-lc.e-pronto{--c:var(--e-pronto)} .lp-lc.e-ar{--c:var(--e-ar)}
+.lp-lc.e-copy{--c:var(--e-copy)} .lp-lc.e-prod{--c:var(--e-prod)} .lp-lc.e-entr{--c:var(--e-entr)} .lp-lc.e-pronto{--c:var(--e-pronto)} .lp-lc.e-ar{--c:var(--e-ar)}
 .lp-lc.e-alerta{--c:var(--e-red); color:var(--e-red-t)} .lp-lc.e-alerta i{border-radius:50%}
 .lp-lc.e-ar i{width:13px; height:13px; border-radius:50%; display:inline-grid; place-items:center}
 .lp-lc.e-ar i svg{width:8px; height:8px; fill:none; stroke:#000; stroke-width:3.8; stroke-linecap:round; stroke-linejoin:round}
@@ -223,9 +230,9 @@ body.lente-ent .day.gmpede .dnum{color:var(--ink-2)}
 .lp-chip i{width:8px; height:8px; border-radius:50%; background:var(--c)}
 .lp-chip span{font-weight:500; color:var(--ink-2)}
 .lp-chip span::before{content:"·"; margin-right:5px}
-.lp-chip.e-mz{--c:var(--e-mz)} .lp-chip.e-copy{--c:var(--e-copy)} .lp-chip.e-prod{--c:var(--e-prod)} .lp-chip.e-pronto{--c:var(--e-pronto)} .lp-chip.e-ar{--c:var(--e-ar)}
+.lp-chip.e-mz{--c:var(--e-mz)} .lp-chip.e-copy{--c:var(--e-copy)} .lp-chip.e-prod{--c:var(--e-prod)} .lp-chip.e-entr{--c:var(--e-entr)} .lp-chip.e-pronto{--c:var(--e-pronto)} .lp-chip.e-ar{--c:var(--e-ar)}
 /* bolinha das linhas do balão de entregas: a cor da etapa (antes vinha a cor de cada etapa do Hub) */
-.epdot.e-prod{background:var(--e-prod)} .epdot.e-pronto{background:var(--e-pronto)} .epdot.e-ar{background:var(--e-ar)}
+.epdot.e-prod{background:var(--e-prod)} .epdot.e-entr{background:var(--e-entr)} .epdot.e-pronto{background:var(--e-pronto)} .epdot.e-ar{background:var(--e-ar)}
 .epdot.e-copy{background:var(--e-copy)} .epdot.e-mz{background:var(--e-mz)}
 
 /* ---------- folha do post: a linha do post e as duas datas ---------- */
@@ -240,13 +247,13 @@ body.lente-ent .day.gmpede .dnum{color:var(--ink-2)}
 .lpf-nos{display:grid; position:relative; margin-bottom:16px}
 .lpf-trilho{position:absolute; left:calc(50% / var(--n)); right:calc(50% / var(--n)); top:14px; height:3px; border-radius:2px; background:var(--fill-3); overflow:hidden}
 .lpf-trilho i{position:absolute; left:0; top:0; bottom:0; border-radius:2px; background-repeat:no-repeat;
-  background-image:linear-gradient(90deg, var(--e-mz), var(--e-copy), var(--e-prod), var(--e-pronto), var(--e-ar)); transition:width .9s var(--lp-mola)}
-.lpf-nos.sem-mz .lpf-trilho i{background-image:linear-gradient(90deg, var(--e-copy), var(--e-prod), var(--e-pronto), var(--e-ar))}
+  background-image:linear-gradient(90deg, var(--e-mz), var(--e-copy), var(--e-prod), var(--e-entr), var(--e-pronto), var(--e-ar)); transition:width .9s var(--lp-mola)}
+.lpf-nos.sem-mz .lpf-trilho i{background-image:linear-gradient(90deg, var(--e-copy), var(--e-prod), var(--e-entr), var(--e-pronto), var(--e-ar))}
 .lpf-no{display:flex; flex-direction:column; align-items:center; gap:5px; text-align:center; position:relative; z-index:1; min-width:0; padding:0 2px}
 .lpf-bo{width:30px; height:30px; border-radius:50%; display:grid; place-items:center; border:2px solid var(--fill-3); background:var(--elev); box-sizing:border-box;
   transition:transform .3s var(--lp-mola)}
 .lpf-bo .ic{width:14px; height:14px; stroke-width:2.6}
-.lpf-no.s-mz{--sc:var(--e-mz)} .lpf-no.s-copy{--sc:var(--e-copy)} .lpf-no.s-prod{--sc:var(--e-prod)} .lpf-no.s-pronto{--sc:var(--e-pronto)} .lpf-no.s-ar{--sc:var(--e-ar)}
+.lpf-no.s-mz{--sc:var(--e-mz)} .lpf-no.s-copy{--sc:var(--e-copy)} .lpf-no.s-prod{--sc:var(--e-prod)} .lpf-no.s-entr{--sc:var(--e-entr)} .lpf-no.s-pronto{--sc:var(--e-pronto)} .lpf-no.s-ar{--sc:var(--e-ar)}
 .lpf-no.f .lpf-bo{background:var(--sc); border-color:var(--sc); color:#000}
 .lpf-no.n .lpf-bo{border-color:var(--sc); color:var(--sc); box-shadow:0 0 0 5px color-mix(in srgb, var(--sc) 22%, transparent); animation:lp-respira 2.4s ease-in-out infinite}
 .lpf-no.x .lpf-bo{border-style:dashed; color:var(--ink-4)}
