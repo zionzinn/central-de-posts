@@ -176,6 +176,7 @@
         <label class="echk"><input type="checkbox" id="eGm"><span>Este post tem <b>grande marca na capa</b> (GM)</span></label>
       </div>
       <div id="eAnguloWrap"><label>Ângulo</label><input id="eAngulo" list="angulosLista" placeholder="educacional, institucional… ou escreva um novo"></div>
+      <div id="eLinkPostWrap"><label>Link do post publicado <span class="elbl2">Instagram ou outra rede (opcional)</span></label><input id="eLinkPost" placeholder="https://www.instagram.com/p/…" autocomplete="off"></div>
       <div id="eDriveWrap"><label>Drive / referência</label><input id="eDrive" placeholder="https://drive.google.com/... ou link do Instagram"></div>
       <div id="eCollabWrap"><label>Collab <span class="elbl2">aparece também na aba da conta parceira</span></label><div id="eCollab" style="display:flex; gap:6px; flex-wrap:wrap"></div></div>
       <div id="eObsWrap"><label>Observação</label><textarea id="eObs" rows="2"></textarea></div>
@@ -438,7 +439,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.08'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.09'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1926,9 +1927,11 @@ let E_MODO = 'link';
 const E_LAYOUT = {
   link:    { basico:['eTituloWrap','eContaWrap','eDataWrap','eLinkWrap'],                     mais:['eFmtWrap','eGmWrap','eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
   hub:     { basico:['eLinkWrap','eContaWrap','eDataWrap','eTituloWrap'],                     mais:['eFmtWrap','eGmWrap','eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
-  edit:    { basico:['eContaWrap','eDataWrap','eLinkWrap','eTituloWrap','eFmtWrap','eGmWrap'],    mais:['eAnguloWrap','eDriveWrap','eCollabWrap','eObsWrap'] },
+  edit:    { basico:['eContaWrap','eDataWrap','eLinkWrap','eTituloWrap','eFmtWrap','eGmWrap'],    mais:['eAnguloWrap','eDriveWrap','eLinkPostWrap','eCollabWrap','eObsWrap'] },
+  // v4.09: "Já foi postado" (o post que entrou fora do plano, como a collab que um membro pediu): nasce postado
+  postado: { basico:['eTituloWrap','eContaWrap','eDataWrap','eLinkPostWrap'],                   mais:['eFmtWrap','eGmWrap','eAnguloWrap','eCollabWrap','eObsWrap'] },
 };
-const E_NOMES = { eTituloWrap:'título', eFmtWrap:'formato', eGmWrap:'GM', eAnguloWrap:'ângulo', eDriveWrap:'drive', eCollabWrap:'collab', eObsWrap:'observação' };
+const E_NOMES = { eTituloWrap:'título', eFmtWrap:'formato', eGmWrap:'GM', eAnguloWrap:'ângulo', eDriveWrap:'drive', eLinkPostWrap:'link do post', eCollabWrap:'collab', eObsWrap:'observação' };
 const DIAS_EXT = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
 const MESES_EXT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 function dataExtenso(iso){
@@ -1943,7 +1946,7 @@ function eContexto(){
   const dia = $('#eDate').value;
   $('#eCtx').textContent = quem+' · '+(dia ? dataExtenso(dia) : 'sem dia (vai pro banco)');
   $('#eDataTxt').textContent = dia ? dataExtenso(dia) : 'vazio = vai pro banco';
-  $('#eSemDia').hidden = !dia;
+  $('#eSemDia').hidden = !dia || E_MODO==='postado';    // v4.09: o que já foi postado tem dia
 }
 /** Chips que escrevem num <select> escondido. vazio = o chip "nenhum" (se houver). */
 function chipsDoSelect(wrapSel, selSel, opcoes, aoMudar){
@@ -1979,6 +1982,8 @@ function aplicaModo(m){
   $('#eLinkHint').textContent = m==='hub' ? 'Cole o link da task no MKT Hub ou o código (MKT-0000). O nome e o status chegam sozinhos quando o painel for ligado ao Hub.' : 'Sem o link ainda? Pode salvar assim e colar depois.';
   $('#eLinkLbl').textContent = m==='hub' ? 'Link da task no MKT Hub' : 'Link da task de produção';
   $('#eTituloLbl').textContent = m==='hub' ? 'Título (opcional)' : 'Título';
+  $('#eTitulo').placeholder = m==='postado' ? 'ex.: Collab com @membro' : 'ex.: Reels case cliente X';   // v4.09
+  eContexto();
   resumoMais();
 }
 /** "Mais opções": diz o que tem dentro e abre sozinho se algum campo de lá já tem valor. */
@@ -1991,7 +1996,7 @@ function resumoMais(){
 function temValorNoMais(){
   const ids = E_LAYOUT[E_MODO].mais;
   const v = { eTituloWrap: $('#eTitulo').value, eFmtWrap: $('#eFormato').value, eGmWrap: $('#eGm').checked,
-    eAnguloWrap: $('#eAngulo').value, eDriveWrap: $('#eDrive').value, eCollabWrap: eCollabSel.size, eObsWrap: $('#eObs').value };
+    eAnguloWrap: $('#eAngulo').value, eDriveWrap: $('#eDrive').value, eLinkPostWrap: $('#eLinkPost').value, eCollabWrap: eCollabSel.size, eObsWrap: $('#eObs').value };
   return ids.some(id=> !!v[id]);
 }
 function abreMais(abrir){
@@ -2001,14 +2006,14 @@ function abreMais(abrir){
 $('#eMaisBtn').onclick = ()=> abreMais($('#eMaisCorpo').hidden);
 /** Passo 1 (escolha) ou passo 2 (campos). */
 function ePasso(){ $('#eForm').hidden = false; $('#eFoot').hidden = false; }
-const E_TITULOS = { link:'Novo post', hub:'Post do MKT Hub', edit:'Editar post' };
+const E_TITULOS = { link:'Novo post', hub:'Post do MKT Hub', edit:'Editar post', postado:'Já foi postado' };
 function setModo(m){
   if(m==='matriz'){ const dia = $('#eDate').value || null; closeOv('ovEdit'); criarCardMatriz(dia, mzDaAba(S.aba) || 'seubone'); return; }
   E_MODO = m;
   aplicaModo(m);
   ePasso(2);
   $('#eTit').textContent = E_TITULOS[m] || 'Novo post';
-  $('#eSave').textContent = 'Salvar post';
+  $('#eSave').textContent = m==='postado' ? 'Salvar como postado' : 'Salvar post';
   $('#eMsg').textContent = '';
   abreMais(temValorNoMais());
   const foco = m==='hub' ? '#eTask' : '#eTitulo';
@@ -2044,6 +2049,7 @@ function openEdit(id, dateStr, pre){
   // v3.80 (bug): post ligado só pelo código MKT (ou pelo id do Hub), sem link, abria com o campo vazio e salvar apagava a ligação
   $('#eTask').value = s ? (linkDaTask(s) || (s.taskId && (/^MKT-\d+$/i.test(s.taskId) || /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(s.taskId)) ? s.taskId : '')) : '';
   $('#eDrive').value = s? (s.drive||'') : (pre && pre.drive || '');
+  $('#eLinkPost').value = s? (s.linkPost||'') : '';                       // v4.09
   $('#eObs').value = s? (s.obs||'') : (pre && pre.obs || '');
   $('#eGm').checked = s? isGm(s) : false;
   $('#eDelete').style.display = s? '' : 'none';
@@ -2075,12 +2081,18 @@ $('#eSave').onclick = async ()=>{
     $('#eContaChips').classList.add('faltando');
     return;
   }
+  const jaPostado = !S.editing && E_MODO==='postado';                      // v4.09: "Já foi postado"
+  if(jaPostado && !$('#eDate').value){ $('#eMsg').textContent = 'Escolha o dia em que foi postado.'; $('#eDate').focus(); return; }
+  const linkPost = $('#eLinkPost').value.trim();
+  if(linkPost && !/^https?:\/\//i.test(linkPost)){ $('#eMsg').textContent = 'O link do post começa com https://'; $('#eLinkPost').focus(); return; }
   const body = {
     conta:$('#eConta').value, date:$('#eDate').value||null, titulo:$('#eTitulo').value.trim()||null,
     formato:$('#eFormato').value, angulo:$('#eAngulo').value.trim(), taskUrl:$('#eTask').value.trim(), drive:$('#eDrive').value.trim(), obs:$('#eObs').value.trim(),
     gm: gmOverride({conta:$('#eConta').value, date:$('#eDate').value||null}, $('#eConta').value==='seubone' && $('#eGm').checked),
     collab: [...eCollabSel],
+    linkPost,
   };
+  if(jaPostado) body.postado = true;
   if(body.taskUrl && !/^https?:\/\//i.test(body.taskUrl) && !/^MKT-\d+$/i.test(body.taskUrl) && !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.taskUrl)){ $('#eMsg').textContent = 'O link da task começa com https://'; $('#eTask').focus(); return; }
   $('#eSave').disabled = true; $('#eMsg').textContent = '';
   try{
@@ -2090,7 +2102,7 @@ $('#eSave').onclick = async ()=>{
     // v3.86: colou uma tarefa do MKT Hub: o servidor já achou ela (título e etapa no card); se não achou, diz o porquê
     const t = r && r.slot && r.slot.hub ? r.slot : null;
     if(r && r.aviso) toast(r.aviso, true, 9000);
-    else toast(t ? 'Salvo · ligado a ' + t.hub.codigo + ': ' + (t.tituloCache || '') + (t.statusCache && t.statusCache.nome ? ' (' + t.statusCache.nome + ')' : '') : 'Salvo');
+    else toast(t ? 'Salvo · ligado a ' + t.hub.codigo + ': ' + (t.tituloCache || '') + (t.statusCache && t.statusCache.nome ? ' (' + t.statusCache.nome + ')' : '') : jaPostado ? 'Postado registrado · Ctrl+Z desfaz' : 'Salvo');
   }catch(e){ $('#eMsg').textContent = 'Erro: '+e.message; }
   finally{ $('#eSave').disabled = false; }
 };
@@ -3211,6 +3223,8 @@ function itensCriar(dia){
   }
   l.push({ rot:'Post avulso', ic:'pencil', f:()=> openEdit(null, dia) });
   l.push({ rot:'Post feito no MKT Hub', ic:'hub', cor:'var(--indigo)', corOn:'#fff', f:()=> openEdit(null, dia, {modo:'hub'}) });
+  // v4.09: o post que entrou fora do plano (ex.: a collab que um membro pediu) e já foi ao ar
+  if(dia) l.push({ rot:'Já foi postado', ic:'check', cor:'var(--e-ar)', corOn:'#000', f:()=> openEdit(null, dia, {modo:'postado'}) });
   return l;
 }
 function abrirCriarDia(dia, btn){
@@ -3225,8 +3239,10 @@ function abrirCriarDia(dia, btn){
   const itens = itensCriar(dia);
   // abre pra baixo e pra esquerda; perto do pé da tela, pra cima
   const praCima = r.top > innerHeight - 150;
-  const angs = itens.length === 3 ? (praCima ? [180, 135, 90] : [180, 225, 270]) : (praCima ? [165, 105] : [195, 255]);
-  abrirRadial(el, itens, angs, 58, false);
+  // v4.09: 4 opções (com a matriz): arco um pouco maior, pra não encostar
+  const angs = itens.length === 4 ? (praCima ? [185, 150, 115, 80] : [175, 210, 245, 280])
+    : itens.length === 3 ? (praCima ? [180, 135, 90] : [180, 225, 270]) : (praCima ? [165, 105] : [195, 255]);
+  abrirRadial(el, itens, angs, itens.length === 4 ? 74 : 58, false);
   RADIAL.dia = dia;
 }
 function ligaFab(){

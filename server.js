@@ -18,7 +18,7 @@ const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 const { pecaDoPost } = require('./lib/peca.js');   // v4.03: arte ou vídeo (o bloco de captação só aceita vídeo)
 
-const VERSAO = '4.08'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '4.09'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -444,6 +444,8 @@ rotaHub.depois = async () => { await rotaHubEnvio.reenviaDatas(); limpezaV395Hub
 const AUTH = require('./lib/auth.js')({ json, parseCookies, segredo: config.secret });
 const USUARIOS_LOGIN = require('./lib/auth.js').USUARIOS;   // v3.99: o perfil reconhece a pessoa também pelo e-mail (Bia = anny.beatriz)
 /** Post novo a partir do que veio da tela (e do banco, v3.83). Não grava: quem chama põe em db.slots. */
+/** v4.09: o link do post publicado (Instagram ou outra rede): uma linha, até 500 caracteres. */
+function limpaLinkPost(v) { return String(v || '').replace(/\s+/g, '').slice(0, 500); }
 function montaSlot(b) {
   const lk = b.taskUrl ? taskDoLink(b.taskUrl) : { taskId: b.taskId || null, taskUrl: null };
   const slot = {
@@ -454,7 +456,8 @@ function montaSlot(b) {
     notas: typeof b.notas === 'string' ? b.notas : '', // caderno livre do post (só do painel)
     gm: (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '',
     collab: Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== b.conta) : [],
-    drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: false,
+    drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: b.postado === true,   // v4.09: "Já foi postado" nasce postado
+    ...(b.linkPost ? { linkPost: limpaLinkPost(b.linkPost) } : {}),                                  // v4.09: o link do post publicado
     responsavelManual: String(b.responsavelManual || '').slice(0, 80), origem: 'painel',   // v3.83: sem "criativo" e "banco" (o banco antigo saiu)
     ...(b.matrizSB ? { matrizSB: mzDe(b).limpa(Object.assign({ tipo: b.date ? ((mzDe(b).tipoDoDia(b.date) || {}).tipo || '') : '' }, b.matrizSB)) } : {}),   // v3.91: a matriz da conta
     ...(b.peca === 'arte' || b.peca === 'video' ? { peca: b.peca } : {}),   // v4.03: arte ou vídeo (a cópia de um post leva junto)
@@ -601,7 +604,7 @@ const server = http.createServer(async (req, res) => {
       const lig = b.taskUrl ? await ligaHub(b.taskUrl) : null;                 // v3.86: a tarefa do Hub já na hora
       const slot = montaSlot(b);
       if (lig && lig.t) { slot.taskId = lig.t.id; slot.taskUrl = lig.t.url || slot.taskUrl; slot.vaga = false; }
-      undoSlots(slot.vaga ? 'sinalizar falta criar' : (slot.matrizSB ? 'novo card da matriz' : 'novo post'), [], [slot.id]);
+      undoSlots(slot.vaga ? 'sinalizar falta criar' : (slot.matrizSB ? 'novo card da matriz' : slot.postado ? 'novo post já postado' : 'novo post'), [], [slot.id]);
       db.slots.push(slot); saveDb();
       return json(res, 200, { ok: true, slot: rotaHub.sobrepoe([slot])[0], aviso: (lig && lig.aviso) || undefined });
     }
@@ -711,6 +714,7 @@ const server = http.createServer(async (req, res) => {
         'collab' in b ? (Array.isArray(b.collab) && b.collab.length ? 'marcar collab' : 'tirar collab') :
         'formato' in b && Object.keys(b).length === 1 ? 'mudar formato' :
         'titulo' in b && Object.keys(b).length === 1 ? 'mudar o título' :                       // v4.08: o título na folha
+        'linkPost' in b && Object.keys(b).length === 1 ? 'mudar o link do post' :                // v4.09
         'peca' in b ? (b.peca === 'video' ? 'marcar como vídeo' : b.peca === 'arte' ? 'marcar como arte' : 'peça pelo formato') :
         'capBloco' in b ? (b.capBloco ? 'pôr no bloco de captação' : 'tirar do bloco de captação') : 'editar post';
       undoSlots(descUndo, [slot]);
@@ -718,6 +722,7 @@ const server = http.createServer(async (req, res) => {
       if ('date' in b) slot.date = b.date || null;
       for (const k of ['titulo', 'formato', 'obs', 'drive', 'linkRef', 'angulo', 'notas']) if (k in b) slot[k] = b[k] || '';
       if ('titulo' in b) slot.titulo = String(slot.titulo).replace(/\s+/g, ' ').trim().slice(0, 200);   // v4.08: uma linha, até 200
+      if ('linkPost' in b) { const l = limpaLinkPost(b.linkPost); if (l) slot.linkPost = l; else delete slot.linkPost; }   // v4.09
       if ('matrizSB' in b) {                                               // campos da matriz da SeuBoné
         slot.matrizSB = mzDe(slot).limpa(b.matrizSB, slot.matrizSB);   // v3.91: a matriz da conta do post
         if (slot.matrizSB) slot.postado = slot.matrizSB.status === 'Postado'; // status da matriz e "postado" andam juntos

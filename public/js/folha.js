@@ -155,11 +155,17 @@ function tRowDraw(s) {
     const b = mk(pri, icon('alerta', 's') + 'mover pra ' + esc(nomeConta(cdiv.sugerida)), 'tr-crit', 'O nome da task diz ' + nomeConta(cdiv.sugerida) + ', mas o post está em ' + nomeConta(s.conta));
     b.onclick = () => { closeOv('ovTask'); corrigirConta(s, cdiv.sugerida); };
   }
+  // v4.09: post que já está no ar com o link dele (ex.: "Já foi postado"): o próximo passo é ver o post
+  const oPost = s.linkPost ? bancoOrigem(s.linkPost) : null, verPost = !!(s.postado && s.linkPost && !lk);
+  const semCopyGrande = verPost || (s.postado && !s.docId);       // postado e sem copy: escrever a copy vai pro Mais
   if (lk) {
     const a = mk(pri, icon('external') + '<span>Abrir a task' + (doHub ? ' no MKT Hub' : '') + '</span>' + (cod ? '<span class="tr-cod">' + esc(cod) + '</span>' : ''),
       'tr-big tr-task' + (doHub ? ' hub' : ''), 'Abrir a task de produção' + (doHub ? ' no MKT Hub' : ''), 'a');
     a.href = lk; a.target = '_blank'; a.rel = 'noopener';
-  } else {
+  } else if (verPost) {
+    const a = mk(pri, icon('external') + '<span>Ver o post no ' + esc(oPost.nome === 'link' ? 'ar' : oPost.nome) + '</span>', 'tr-big tr-ig', 'Abrir o post publicado', 'a');
+    a.href = s.linkPost; a.target = '_blank'; a.rel = 'noopener';
+  } else if (!semCopyGrande) {
     // sem task: o próximo passo é a copy
     mk(pri, icon('doc') + '<span>' + (s.docId ? 'Abrir a copy' : 'Escrever a copy' + (s.banco ? ' (opcional)' : '')) + '</span>', 'tr-big tr-copy',
       s.docId ? 'Abrir o documento da copy deste post' : 'Criar o documento da copy deste post').onclick = () => { closeOv('ovTask'); abrirCopy(s.id); };
@@ -169,6 +175,7 @@ function tRowDraw(s) {
     a.href = s.drive; a.target = '_blank'; a.rel = 'noopener';
   }
   if (s.linkRef) { const a = mk(pri, icon('link'), 'iconb tr-ext', 'Abrir o vídeo original', 'a'); a.href = s.linkRef; a.target = '_blank'; a.rel = 'noopener'; }
+  if (s.linkPost && !verPost) { const a = mk(pri, icon('external'), 'iconb tr-ext', 'Ver o post publicado (' + oPost.nome + ')', 'a'); a.href = s.linkPost; a.target = '_blank'; a.rel = 'noopener'; }   // v4.09
   // v3.96: "Do banco" no lugar da copy, nos posts sem card da matriz (Carbone, Onevo); o da matriz fica no card do dia
   const abaT = S.contas[s.conta] && S.contas[s.conta].aba;
   if (!s.matrizSB && !s.taskId && !s.postado && bancoSecoes(abaT).some(k => BANCO_MATERIAL.includes(k))) {
@@ -242,7 +249,7 @@ function tRowDraw(s) {
   sec.appendChild(ainp);
   // o "Mais": o que é raro
   const itens = [];
-  if (lk) itens.push({ ic: 'doc', t: s.docId ? 'Abrir a copy' : 'Escrever a copy' + (s.banco ? ' (opcional)' : ''), fn: () => { closeOv('ovTask'); abrirCopy(s.id); } });
+  if (lk || semCopyGrande) itens.push({ ic: 'doc', t: s.docId ? 'Abrir a copy' : 'Escrever a copy' + (s.banco ? ' (opcional)' : ''), fn: () => { closeOv('ovTask'); abrirCopy(s.id); } });
   if (s.matrizSB) itens.push({ ic: 'sparkle', t: 'Ver a matriz', fn: () => { closeOv('ovTask'); openMatriz(s.id); } });
   if (itens.length) itens.push('-');
   itens.push({ ic: 'box', t: 'Copiar pra outro dia', k: 'Ctrl+C', fn: () => { setClip(s.id, 'copiar'); closeOv('ovTask'); } });

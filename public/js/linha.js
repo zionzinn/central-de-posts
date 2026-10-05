@@ -69,7 +69,7 @@ function lpEtapa(s) {
   };
   if (s.postado) {
     e.k = 'ar'; e.sub = s.date ? 'saiu ' + lpDiaC(s.date) : 'postado';
-    ac('despostar', 'Desmarcar', 'undo'); ac('del');
+    ac('despostar', 'Desmarcar', 'undo'); if (s.linkPost) ac('post', '', 'external'); ac('del');   // v4.09: o link do post publicado
     return e;
   }
   if (isVaga(s) || isSugestao(s)) { e.k = 'esp'; return e; }
@@ -203,7 +203,7 @@ function lpDataHtml(s, e) {
 const LP_AC = {
   postar: 'Postei: marcar que foi ao ar', despostar: 'Desmarcar postado', aprovar: 'Aprovar a copy (Ctrl+Z desfaz)',
   producao: 'Criar a task de produção no MKT Hub', copy: 'Abrir a copy', matriz: 'Ver a matriz', hub: 'Abrir a task no MKT Hub',
-  abrir: 'Abrir o post', del: 'Excluir este post do painel',
+  abrir: 'Abrir o post', del: 'Excluir este post do painel', post: 'Ver o post publicado',
 };
 /** Botões do hover: a ação do momento (com texto) e os atalhos (só ícone). */
 function lpAcoesHtml(s, e) {
@@ -215,6 +215,7 @@ function lpAcoesHtml(s, e) {
     const cls = 'lp-ac ' + (a.txt ? 'lp-pri' : 'lp-ib') + ' ac-' + a.id;
     const extra = a.txt ? ' title="' + esc(tip) + '"' : ' data-tip="' + esc(tip) + '" aria-label="' + esc(tip) + '"';
     if (a.id === 'hub') return '<a class="' + cls + '" data-ac="hub" href="' + esc(linkDaTask(s)) + '" target="_blank" rel="noopener"' + extra + '>' + miolo + '</a>';
+    if (a.id === 'post') return '<a class="' + cls + '" data-ac="post" href="' + esc(s.linkPost) + '" target="_blank" rel="noopener"' + extra + '>' + miolo + '</a>';   // v4.09
     return '<button type="button" class="' + cls + '" data-ac="' + a.id + '"' + extra + '>' + miolo + '</button>';
   }).join('') + '</div>';
 }
@@ -477,15 +478,16 @@ function lpFolha(s) {
   const pal = e.pil ? e.pil.t : e.sub;
   const passos = ks.map(k => {
     const i = LP.ORDEM.indexOf(k);
-    const pulou = (k === 'mz' && !s.matrizSB) || (k === 'copy' && !s.docId && !s.banco);
+    // v4.09: post sem task (ex.: o "Já foi postado") não passou pelo MKT Hub
+    const pulou = (k === 'mz' && !s.matrizSB) || (k === 'copy' && !s.docId && !s.banco) || ((k === 'prod' || k === 'pronto') && !s.taskId);
     const st = e.k === 'ar' || i < cur ? (pulou ? 'x' : 'f') : i === cur ? 'n' : 'v';
     const det = {
       mz: st === 'x' ? 'não passou' : st === 'f' ? 'preenchida' : st === 'n' ? (e.mzd ? e.mzd.n + ' de ' + e.mzd.total + ' campos' : pal) : 'a fazer',
       copy: st === 'x' ? 'não passou' : st === 'f' || (st === 'n' && a && a.st === 'aprovado')
         ? (s.banco && !s.docId ? 'material do banco' : a && a.st === 'aprovado' ? 'aprovada' + (a.ap ? ' por ' + lpPrimeiro(a.ap) : '') : 'escrita')
         : st === 'n' ? pal : comMz ? 'depois da matriz' : 'a escrever',
-      prod: st === 'f' ? 'arte aprovada' : st === 'n' ? [lpPrimeiro(s.assigneeCache || s.responsavelManual), (s.statusCache && s.statusCache.nome) || pal].filter(Boolean).join(' · ') : 'nasce com a task',
-      pronto: st === 'f' ? 'entregue' : st === 'n' ? pal : 'depois da arte',
+      prod: st === 'x' ? 'não passou' : st === 'f' ? 'arte aprovada' : st === 'n' ? [lpPrimeiro(s.assigneeCache || s.responsavelManual), (s.statusCache && s.statusCache.nome) || pal].filter(Boolean).join(' · ') : 'nasce com a task',
+      pronto: st === 'x' ? 'não passou' : st === 'f' ? 'entregue' : st === 'n' ? pal : 'depois da arte',
       ar: st === 'f' ? (s.date ? 'saiu ' + lpDiaC(s.date) : 'postado') : s.date ? 'sai ' + lpDiaC(s.date) : 'sem dia',
     }[k];
     const ic = st === 'f' ? lpIc('check') : st === 'n' ? lpIc('ponto', 'cheio') : st === 'x' ? lpIc('traco') : '';
@@ -505,7 +507,8 @@ function lpFolha(s) {
       '<span class="lpf-dr ' + cls + '">' + rel + '</span><span class="lpf-src">prazo da task ' + esc(s.hub.codigo || '') + ' no MKT Hub</span></div>';
   } else {
     const podeCriar = souAdmin() && S.temFonte && !s.taskId && ((a && a.st === 'aprovado') || isBanco(s));
-    const pq = !s.taskId ? 'A entrega nasce junto com a task de produção no MKT Hub.'
+    const pq = !s.taskId && s.postado ? 'Esse post não passou pelo MKT Hub.'          // v4.09: o "Já foi postado"
+      : !s.taskId ? 'A entrega nasce junto com a task de produção no MKT Hub.'
       : ehDoHub(s.taskId) ? 'A task ' + ((s.hub && s.hub.codigo) || '') + ' não tem entrega marcada no MKT Hub.' : 'A task deste post não é do MKT Hub, então não tem entrega aqui.';
     ent = '<div class="lpf-nada"><b>Fica pronto: ainda não tem</b><span>' + esc(pq) + '</span>' +
       (podeCriar ? '<button type="button" class="mbtn primary lpf-criar" id="lpfCriar">' + lpIc('send') + 'Criar task de produção</button>' : '') + '</div>';
