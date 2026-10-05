@@ -438,7 +438,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.07'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.08'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -601,6 +601,8 @@ function contasDaAba(aba){ return Object.entries(S.contas).filter(([,c])=>c.aba=
 function slotTitulo(s){
   if(s.vaga && !s.taskId) return 'FALTA CRIAR: ' + ((s.formato||'post').toUpperCase());
   if(isMatriz(s)) return s.matrizSB.tema || ((s.matrizSB.tipo || 'Em aberto') + ' · a preencher');
+  // v4.08: post com task no MKT Hub: o nome é o da task (uma fonte só; muda lá). O título do B.O.N.E fica de reserva.
+  if(s.taskId && s.tituloCache && ehDoHub(s.taskId)) return s.tituloCache;
   if(s.titulo) return s.titulo;
   if(s.tituloCache) return s.tituloCache;
   if(s.origem==='banco') return s.taskId ? (s.obs || 'Task') : ('Reutilizar: ' + (s.obs || 'vídeo'));
@@ -2049,13 +2051,17 @@ function openEdit(id, dateStr, pre){
   desenhaChipsConta(); desenhaChipsFormato();
   eContexto();
   $('#eMsg').textContent = '';
+  $('#eTituloWrap').style.display = '';
   if(s){
     E_MODO = 'edit';
     aplicaModo('edit'); ePasso(2);
     $('#eTit').textContent = 'Editar post';
     $('#eSave').textContent = 'Salvar';
+    // v4.08: com task no MKT Hub, o nome é o da task (muda no Hub): o campo Título some pra não editar nada que não aparece
+    const nomeHub = !!(s.taskId && s.tituloCache && ehDoHub(s.taskId));
+    if(nomeHub) $('#eTituloWrap').style.display = 'none';
     abreMais(temValorNoMais());
-    $('#eMsg').textContent = s.tituloCache ? 'Task vinculada: '+s.tituloCache : '';
+    $('#eMsg').textContent = s.tituloCache ? 'Task vinculada: '+s.tituloCache+(nomeHub ? ' (o nome muda no MKT Hub)' : '') : '';
   } else {
     setModo((pre && pre.modo) || 'link');                  // o caminho vem do leque do + (post avulso ou post do MKT Hub)
     if(pre && (pre.drive || pre.obs)) $('#eMsg').textContent = 'Criando post a partir de uma referência';

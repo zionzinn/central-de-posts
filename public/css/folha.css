@@ -52,8 +52,26 @@
 .tr-menu button:hover .ic,.tr-menu button:focus-visible .ic,.tr-menu button:hover kbd,.tr-menu button:focus-visible kbd{color:#fff}
 .tr-sep{display:block; height:1px; margin:5px 8px; background:var(--hair)}
 
+/* v4.08: o título da folha: clicar e escrever (com task no MKT Hub, o título é o link da task) */
+.mtit.tt{display:flex; align-items:center; min-height:30px}
+.tt-bt,.tt-hub{display:inline-flex; align-items:center; gap:8px; max-width:100%; padding:2px 8px; margin:-2px -8px; border:0; border-radius:9px;
+  background:transparent; color:inherit; font:inherit; letter-spacing:inherit; text-align:left; text-decoration:none}
+.tt-bt{cursor:text}
+.tt-txt{min-width:0; overflow-wrap:anywhere}
+.tt-bt .ic,.tt-hub .ic{width:15px; height:15px; flex:none; transition:opacity .15s}
+.tt-bt .ic{color:var(--ink-3); opacity:.45}
+.tt-bt:hover,.tt-bt:focus-visible{background:var(--fill-3); outline:none}
+.tt-bt:hover .ic,.tt-bt:focus-visible .ic{opacity:1}
+.tt-hub .ic{color:var(--e-prod-t)}
+.tt-hub:hover,.tt-hub:focus-visible{background:color-mix(in srgb, var(--e-prod) 12%, transparent); outline:none}
+.tt-inp{flex:1; min-width:0; padding:3px 8px; margin:-3px -8px; border:0; border-radius:9px; background:var(--fill-3); color:var(--ink);
+  font:inherit; letter-spacing:inherit; outline:2px solid var(--hl); outline-offset:0}
+.tt-inp::placeholder{color:var(--ink-3); font-weight:500}
+.tt-dica{flex:none; margin-left:18px; font-size:11.5px; font-weight:500; letter-spacing:0; color:var(--ink-3); white-space:nowrap}
+
 /* celular: o próximo passo e o Postei ocupam a linha */
 @media (max-width:640px){
   .mbtn.tr-big,.mbtn.tr-postei{flex:1 1 auto; justify-content:center}
+  .tt-dica{display:none}
   .tr .tr-fim{margin-left:0}
 }

@@ -18,7 +18,7 @@ const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 const { pecaDoPost } = require('./lib/peca.js');   // v4.03: arte ou vídeo (o bloco de captação só aceita vídeo)
 
-const VERSAO = '4.07'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '4.08'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -710,12 +710,14 @@ const server = http.createServer(async (req, res) => {
         'aprovado' in b ? 'mudar aprovação da arte' :
         'collab' in b ? (Array.isArray(b.collab) && b.collab.length ? 'marcar collab' : 'tirar collab') :
         'formato' in b && Object.keys(b).length === 1 ? 'mudar formato' :
+        'titulo' in b && Object.keys(b).length === 1 ? 'mudar o título' :                       // v4.08: o título na folha
         'peca' in b ? (b.peca === 'video' ? 'marcar como vídeo' : b.peca === 'arte' ? 'marcar como arte' : 'peça pelo formato') :
         'capBloco' in b ? (b.capBloco ? 'pôr no bloco de captação' : 'tirar do bloco de captação') : 'editar post';
       undoSlots(descUndo, [slot]);
       if (trocaConta) slot.conta = b.conta; // ANTES do collab: collab não pode conter a própria conta
       if ('date' in b) slot.date = b.date || null;
       for (const k of ['titulo', 'formato', 'obs', 'drive', 'linkRef', 'angulo', 'notas']) if (k in b) slot[k] = b[k] || '';
+      if ('titulo' in b) slot.titulo = String(slot.titulo).replace(/\s+/g, ' ').trim().slice(0, 200);   // v4.08: uma linha, até 200
       if ('matrizSB' in b) {                                               // campos da matriz da SeuBoné
         slot.matrizSB = mzDe(slot).limpa(b.matrizSB, slot.matrizSB);   // v3.91: a matriz da conta do post
         if (slot.matrizSB) slot.postado = slot.matrizSB.status === 'Postado'; // status da matriz e "postado" andam juntos

@@ -162,7 +162,8 @@ function lpProg(s, e) {
 // ---------------- o card ----------------
 function lpTitulo(s, e) {
   if (e.k === 'mz') { const m = s.matrizSB || {}; return { t: m.tema || (m.tipo ? m.tipo + ' · tema a definir' : 'escolher o tipo'), vazio: !m.tema }; }
-  if (isBanco(s)) return { t: s.banco.titulo || (s.matrizSB && s.matrizSB.tema) || bancoRotulo(s.banco), vazio: false };
+  // v4.08: o nome que alguém deu ao post (na folha) vale mais que o do material; o automático da tarefa de copy (DD_MM), não
+  if (isBanco(s)) return { t: (s.titulo && !tTitAuto(s.titulo) ? s.titulo : '') || s.banco.titulo || (s.matrizSB && s.matrizSB.tema) || bancoRotulo(s.banco), vazio: false };
   return { t: slotTitulo(s), vazio: false };
 }
 function lpContaTag(s) { return '<div class="contatag">' + esc(contaCurta(s.conta)) + '</div>'; }

@@ -47,12 +47,83 @@ document.addEventListener('keydown', ev => {
   }
 }, true);
 
+// ---------------- v4.08: o título da folha (clicar e escrever) ----------------
+// Pedido do Zion (05/10/2026): "quero poder mudar o titulo da task". Escolha dele: "Clicar no título". Clica, escreve,
+// Enter salva e Esc cancela. Post com task no MKT Hub: o nome é o da task (a API do Hub não deixa trocar o nome
+// daqui), então o título vira o link da task. Matriz (se a folha abrir pra ela): o título é o tema.
+const TT = { inp: null, cancela: null };
+/** O que o clique no título muda: 'titulo' (o nome do post), 'tema' (matriz), 'hub' (só abre a task) ou null. */
+function tTitModo(s) {
+  if (isVaga(s) || isSugestao(s)) return null;
+  if (s.taskId && ehDoHub(s.taskId)) return 'hub';
+  return isMatriz(s) ? 'tema' : 'titulo';
+}
+/** O nome automático do post que a tarefa de copy cria (DD_MM): não é um título de verdade. */
+function tTitAuto(t) { return /^\d{2}_\d{2}$/.test(String(t || '').trim()); }
+function tTitDraw(s) {
+  const el = $('#tTit'), modo = tTitModo(s), t = folhaTitulo(s);
+  TT.inp = null; TT.cancela = null;
+  el.classList.toggle('tt', !!modo);
+  if (!modo) { el.textContent = t; return; }
+  if (modo === 'hub') {
+    const lk = linkDaTask(s);
+    el.innerHTML = lk
+      ? '<a class="tt-hub" href="' + esc(lk) + '" target="_blank" rel="noopener" data-tip="O nome é o da task no MKT Hub: mude lá (abre a task)">' +
+        '<span class="tt-txt">' + esc(t) + '</span>' + icon('external', 's') + '</a>'
+      : esc(t);
+    return;
+  }
+  el.innerHTML = '<button type="button" class="tt-bt" data-tip="Mudar o título" aria-label="Título: ' + esc(t) + '. Clique pra mudar">' +
+    '<span class="tt-txt">' + esc(t) + '</span>' + icon('pencil', 's') + '</button>';
+  el.querySelector('.tt-bt').onclick = () => tTitEdita(s);
+}
+/** O título que a folha mostra: o mesmo do card (no post do banco, o material, a não ser que tenha nome próprio). */
+function folhaTitulo(s) { return lpTitulo(s, lpEtapa(s)).t; }
+function tTitEdita(s) {
+  const el = $('#tTit'), modo = tTitModo(s);
+  if (modo !== 'titulo' && modo !== 'tema') return;
+  const atual = modo === 'tema' ? ((s.matrizSB && s.matrizSB.tema) || '') : (s.titulo || '');
+  el.innerHTML = '<input class="tt-inp" maxlength="200" autocomplete="off" aria-label="' + (modo === 'tema' ? 'Tema do post' : 'Título do post') + '">' +
+    '<span class="tt-dica">Enter salva · Esc cancela</span>';
+  const inp = el.querySelector('.tt-inp');
+  inp.value = atual;
+  inp.placeholder = modo === 'tema' ? 'tema do post' : 'nome do post (ex.: Collab com @membro)';
+  inp.focus(); inp.select();
+  let feito = false;
+  const fim = async salva => {
+    if (feito) return; feito = true; TT.inp = null; TT.cancela = null;
+    const novo = inp.value.replace(/\s+/g, ' ').trim();
+    if (!salva || novo === atual) { tTitDraw(s); const b = el.querySelector('.tt-bt'); if (b && !salva) b.focus(); return; }
+    const antes = modo === 'tema' ? s.matrizSB : s.titulo;
+    if (modo === 'tema') s.matrizSB = Object.assign({}, s.matrizSB, { tema: novo }); else s.titulo = novo;
+    tTitDraw(s); render();
+    try {
+      const r = await api('/api/slots/' + s.id, { method: 'PATCH', body: JSON.stringify(modo === 'tema' ? { matrizSB: { tema: novo } } : { titulo: novo }) });
+      if (r && r.slot) { if (modo === 'tema') s.matrizSB = r.slot.matrizSB; else s.titulo = r.slot.titulo; }
+      toast(novo ? 'Título salvo · Ctrl+Z desfaz' : 'Título apagado · Ctrl+Z desfaz');
+    } catch (e) {
+      if (modo === 'tema') s.matrizSB = antes; else s.titulo = antes;
+      toast(e.message, true);
+    }
+    if (S.taskSlot && S.taskSlot.id === s.id && $('#ovTask').classList.contains('open')) tTitDraw(s);
+    render();
+  };
+  inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); fim(true); } });
+  inp.addEventListener('blur', () => fim(true));
+  TT.inp = inp; TT.cancela = () => fim(false);
+}
+// Esc no título fecha só a edição (a folha continua aberta)
+document.addEventListener('keydown', ev => {
+  if (ev.key !== 'Escape' || !TT.inp || document.activeElement !== TT.inp) return;
+  ev.preventDefault(); ev.stopImmediatePropagation(); TT.cancela();
+}, true);
+
 // ---------------- a folha ----------------
 /** Cabeçalho da folha do post: estado, próximo passo e ajustes (redesenha depois de cada mudança). */
 function tRowDraw(s) {
   fechaDoBanco();                                   // v3.96: a lista do banco sai junto com a fileira antiga
   trFechaMais();
-  $('#tTit').textContent = slotTitulo(s);
+  tTitDraw(s);                                      // v4.08: clicar no título muda o nome do post
   const row = $('#tRow');
   row.className = 'mrow tr';
   const dateBr = s.date ? s.date.split('-').reverse().join('/') : 'sem data';
