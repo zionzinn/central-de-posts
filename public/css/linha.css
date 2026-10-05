@@ -4,28 +4,30 @@
    COR = onde o post está · PALAVRA = o que falta · DIA DO CALENDÁRIO = dia que sai · CAIXINHA = dia que fica pronto
    Uma cor por etapa, a mesma no painel inteiro (paleta conferida no validador de cores: daltonismo e contraste,
    claro e escuro). Laranja e vermelho são só alerta (pílula ou data), nunca etapa.
+   v4.06: o POSTADO (antes "No ar", cinza a 60%) vira card verde cheio, texto preto e o check: pedido do Zion, o cinza
+   "fica com mais cara de PENDENTE". O verde é o do Pronto, mas cheio (o Pronto é só tingido e diz "pode postar").
    ===================================================================== */
 
 /* ---------- tokens das etapas ---------- */
 :root{
-  --e-mz:#FCC100; --e-copy:#0091FF; --e-prod:#FF8AD1; --e-pronto:#7EE0A1; --e-ar:#8E8E93;
+  --e-mz:#FCC100; --e-copy:#0091FF; --e-prod:#FF8AD1; --e-pronto:#7EE0A1; --e-ar:#7EE0A1; --e-neu:#8E8E93;
   --e-red:#FF4245; --e-orange:#FF9230; --e-red-on:#000;
   /* as mesmas cores quando viram TEXTO (contraste de leitura em cima do fundo) */
-  --e-mz-t:#FCC100; --e-copy-t:#55B3FF; --e-prod-t:#FF9BD8; --e-pronto-t:#7EE0A1; --e-ar-t:rgba(235,235,245,.6);
+  --e-mz-t:#FCC100; --e-copy-t:#55B3FF; --e-prod-t:#FF9BD8; --e-pronto-t:#7EE0A1; --e-ar-t:#7EE0A1;
   --e-red-t:#FF6B6E; --e-orange-t:#FFA654;
   --lp-tinta:13%; --lp-sombra:0 12px 28px rgba(0,0,0,.5); --lp-mola:cubic-bezier(.22,1.2,.36,1);
 }
 html[data-modo="claro"]{
-  --e-mz:#E0A800; --e-copy:#0077EE; --e-prod:#D63FA0; --e-pronto:#2AA557; --e-ar:#8E8E93;
+  --e-mz:#E0A800; --e-copy:#0077EE; --e-prod:#D63FA0; --e-pronto:#2AA557; --e-ar:#2AA557;
   --e-red:#E0262B; --e-orange:#E07000; --e-red-on:#fff;
-  --e-mz-t:#7A5A00; --e-copy-t:#0062C4; --e-prod-t:#B42D85; --e-pronto-t:#1D7A3D; --e-ar-t:rgba(60,60,67,.72);
+  --e-mz-t:#7A5A00; --e-copy-t:#0062C4; --e-prod-t:#B42D85; --e-pronto-t:#1D7A3D; --e-ar-t:#1D7A3D;
   --e-red-t:#C41E23; --e-orange-t:#A85300;
   --lp-tinta:10%; --lp-sombra:0 2px 8px rgba(0,0,0,.08), 0 14px 30px rgba(0,0,0,.14);
 }
 .ic.cheio{fill:currentColor; stroke:none}
 
 /* ---------- o card ---------- */
-.card.lp{--c:var(--e-ar); --ct:var(--e-ar-t); position:relative; display:flex; flex-direction:column; gap:3px;
+.card.lp{--c:var(--e-neu); --ct:var(--ink-2); position:relative; display:flex; flex-direction:column; gap:3px;
   padding:10px 9px 7px 10px; border-radius:10px; outline-offset:2px;
   background:color-mix(in srgb, var(--c) var(--lp-tinta), var(--cell)); border:1px solid color-mix(in srgb, var(--c) 36%, transparent);
   transition:transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s, opacity .3s, filter .3s, background-color .25s, border-color .25s}
@@ -34,7 +36,13 @@ html[data-modo="claro"]{
 .card.lp.e-copy{--c:var(--e-copy); --ct:var(--e-copy-t)}
 .card.lp.e-prod{--c:var(--e-prod); --ct:var(--e-prod-t)}
 .card.lp.e-pronto{--c:var(--e-pronto); --ct:var(--e-pronto-t)}
-.card.lp.e-ar{--c:var(--e-ar); --ct:var(--e-ar-t); opacity:.6}
+/* v4.06: postado = card verde cheio, texto preto e o check antes da palavra (sem apagar o card) */
+.card.lp.e-ar{--c:var(--e-ar); --ct:#000; background:var(--e-ar); border-color:transparent}
+.card.lp.e-ar .tit,.card.lp.e-ar .lp-sub,.card.lp.e-ar .contatag,.card.lp.e-ar .lp-dt,.card.lp.e-ar .lp-mk{color:#000}
+.card.lp.e-ar .lp-kp{display:none}
+.card.lp.e-ar:hover,.card.lp.e-ar:focus-visible{background:var(--e-ar); filter:brightness(1.06)}
+.lp-okb{width:15px; height:15px; border-radius:50%; background:#000; display:inline-grid; place-items:center; flex:none}
+.lp-okb svg{width:10px; height:10px; fill:none; stroke:var(--e-ar); stroke-width:3.4; stroke-linecap:round; stroke-linejoin:round}
 .card.lp:hover,.card.lp:focus-visible{transform:translateY(-2px); z-index:20; opacity:1;
   background:color-mix(in srgb, var(--c) calc(var(--lp-tinta) + 5%), var(--cell));
   box-shadow:var(--lp-sombra), 0 0 0 1.5px color-mix(in srgb, var(--c) 75%, transparent)}
@@ -57,7 +65,6 @@ body.lente-ent .card.lp{cursor:pointer}
 .lp-kp i.f{background:var(--sc)}
 .lp-kp i.n{background:var(--sc); box-shadow:0 2px 10px color-mix(in srgb, var(--sc) 70%, transparent)}
 .lp-kp i.x{background:repeating-linear-gradient(90deg, var(--ink-4) 0 3px, transparent 3px 6px)}
-.card.lp.e-ar .lp-kp i.f{background:var(--e-ar)}
 .card.lp:hover .lp-kp i.n{animation:lp-pulsa 1.4s ease-in-out infinite}
 @keyframes lp-pulsa{50%{box-shadow:0 2px 14px color-mix(in srgb, var(--sc) 95%, transparent); filter:brightness(1.15)}}
 
@@ -156,7 +163,7 @@ body[data-lp-ver] .card[data-etapa]:hover{opacity:1; filter:none}
 .lp-gl{font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); display:flex; align-items:center; gap:6px; line-height:11px; padding-left:3px; white-space:nowrap}
 .lp-gl::after{content:""; flex:1; height:1px; background:var(--hair); min-width:10px}
 .lp-chips{display:flex; gap:4px}
-.lp-lc{--c:var(--e-ar); display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 10px; border:0; border-radius:999px; background:var(--fill-4);
+.lp-lc{--c:var(--e-neu); display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 10px; border:0; border-radius:999px; background:var(--fill-4);
   font:inherit; font-size:12px; font-weight:600; color:var(--ink); white-space:nowrap; cursor:pointer;
   transition:background .18s, transform .25s var(--lp-mola), box-shadow .18s, opacity .18s}
 .lp-lc i{width:9px; height:9px; border-radius:3px; background:var(--c); flex:none; box-sizing:border-box}
@@ -164,6 +171,8 @@ body[data-lp-ver] .card[data-etapa]:hover{opacity:1; filter:none}
 .lp-lc.e-mz{--c:var(--e-mz)} .lp-lc.e-mz i{background:transparent; border:1.5px dashed var(--c)}
 .lp-lc.e-copy{--c:var(--e-copy)} .lp-lc.e-prod{--c:var(--e-prod)} .lp-lc.e-pronto{--c:var(--e-pronto)} .lp-lc.e-ar{--c:var(--e-ar)}
 .lp-lc.e-alerta{--c:var(--e-red); color:var(--e-red-t)} .lp-lc.e-alerta i{border-radius:50%}
+.lp-lc.e-ar i{width:13px; height:13px; border-radius:50%; display:inline-grid; place-items:center}
+.lp-lc.e-ar i svg{width:8px; height:8px; fill:none; stroke:#000; stroke-width:3.8; stroke-linecap:round; stroke-linejoin:round}
 .lp-lc:hover,.lp-lc:focus-visible{background:var(--fill-3); transform:translateY(-2px); opacity:1}
 .lp-lc.zero{opacity:.5}
 .lp-lc.on{background:color-mix(in srgb, var(--c) 24%, transparent); box-shadow:inset 0 0 0 1.5px var(--c); opacity:1}
@@ -209,7 +218,7 @@ body.lente-ent .day.gmpede .dnum{color:var(--ink-2)}
 .card.lp.lp-foco{box-shadow:0 0 0 2px var(--c), var(--lp-sombra); z-index:15; opacity:1; filter:none}
 
 /* ---------- etiqueta da etapa (cabeçalho da folha do post) ---------- */
-.lp-chip{--c:var(--e-ar); display:inline-flex; align-items:center; gap:6px; height:22px; padding:0 10px 0 8px; border-radius:999px; font-size:11.5px; font-weight:700;
+.lp-chip{--c:var(--e-neu); display:inline-flex; align-items:center; gap:6px; height:22px; padding:0 10px 0 8px; border-radius:999px; font-size:11.5px; font-weight:700;
   color:var(--ink); background:color-mix(in srgb, var(--c) 18%, transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent); white-space:nowrap}
 .lp-chip i{width:8px; height:8px; border-radius:50%; background:var(--c)}
 .lp-chip span{font-weight:500; color:var(--ink-2)}

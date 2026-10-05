@@ -8,7 +8,7 @@
 // A regra do visual (uma só, em todo o painel):
 //   COR = onde o post está · PALAVRA = o que falta · DIA DO CALENDÁRIO = dia que sai · CAIXINHA = dia que fica pronto
 //   Matriz (amarelo, tracejado) e Copy (azul): no B.O.N.E · Produção (rosa) e Pronto (verde): no MKT Hub ·
-//   No ar (cinza, sai da frente): no Instagram. Laranja e vermelho só como ALERTA (pílula ou data):
+//   Postado (verde cheio com o check; até a v4.05 era "No ar", cinza apagado): no Instagram. Laranja e vermelho só como ALERTA (pílula ou data):
 //   laranja = esperando aprovação ou vence hoje/amanhã; vermelho = voltou pra alterar ou atrasou.
 //
 // Decisões do Zion (02/10/2026): as duas datas na folha do post só MOSTRAM (a entrega é do MKT Hub e muda lá; o dia
@@ -18,9 +18,11 @@
 
 const LP = {
   ORDEM: ['mz', 'copy', 'prod', 'pronto', 'ar'],
-  NOME: { mz: 'Matriz', copy: 'Copy', prod: 'Produção', pronto: 'Pronto', ar: 'No ar' },
+  NOME: { mz: 'Matriz', copy: 'Copy', prod: 'Produção', pronto: 'Pronto', ar: 'Postado' },   // v4.06: o "No ar" virou Postado
   ONDE: { mz: 'no B.O.N.E', copy: 'no B.O.N.E', prod: 'no MKT Hub', pronto: 'no MKT Hub', ar: 'no Instagram' },
 };
+// v4.06: o check do postado (no card, num círculo preto; na legenda, no lugar do quadradinho)
+const LP_OK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 // ícones que o painel ainda não tinha (o resto vem do icon() do index.html)
 const LP_ICONS = {
   hour: '<path d="M7 3.5h10M7 20.5h10"/><path d="M8 3.5c0 4 4 5.5 4 8.5s-4 4.5-4 8.5M16 3.5c0 4-4 5.5-4 8.5s4 4.5 4 8.5"/>',
@@ -231,7 +233,7 @@ function lpMonta(d, s, e, multi) {
   d.innerHTML =
     '<span class="lp-kp" aria-hidden="true">' + lpProg(s, e).map(p => '<i class="s-' + p.k + (p.st ? ' ' + p.st : '') + '"></i>').join('') + '</span>' +
     (multi ? lpContaTag(s) : '') +
-    '<div class="lp-ka"><span class="lp-et">' + LP.NOME[e.k] + '</span>' +
+    '<div class="lp-ka">' + (e.k === 'ar' ? '<span class="lp-okb">' + LP_OK_SVG + '</span>' : '') + '<span class="lp-et">' + LP.NOME[e.k] + '</span>' +
       (e.pil ? '<span class="lp-pil ' + e.pil.c + '"' + (e.pil.dica ? ' title="' + esc(e.pil.dica) + '"' : '') + '>' + lpIc(e.pil.ic) + esc(e.pil.t) + '</span>' : e.sub ? '<span class="lp-sub"' + (e.subDica ? ' title="' + esc(e.subDica) + '"' : '') + '>' + esc(e.sub) + '</span>' : '') +
     '</div>' +
     '<div class="tit' + (tt.vazio ? ' vazio' : '') + '">' + esc(tt.t) + '</div>' +
@@ -371,7 +373,7 @@ const LP_DICA = {
   copy: 'Copy: o texto do post, escrito e aprovado no B.O.N.E',
   prod: 'Produção: a arte ou o vídeo sendo feito no MKT Hub',
   pronto: 'Pronto: arte aprovada no MKT Hub, é só postar',
-  ar: 'No ar: já foi postado no Instagram',
+  ar: 'Postado: já foi ao ar no Instagram',
   alerta: 'Atenção: voltou pra alterar, a entrega atrasou ou vence hoje/amanhã, ou o post pronto passou do dia',
 };
 function lpLegendaMes(lista) {
@@ -379,7 +381,7 @@ function lpLegendaMes(lista) {
   for (const s of lista) { const e = lpEtapa(s); if (e.k in n) n[e.k]++; if (e.alerta) n.alerta++; }
   const f = S.filtro;
   const chip = k => '<button type="button" class="lp-lc e-' + k + (n[k] ? '' : ' zero') + (f === k ? ' on' : '') + '" data-f="' + k + '" aria-pressed="' + (f === k) + '" title="' +
-    esc(LP_DICA[k] + ' · passe o mouse pra ver, clique pra filtrar') + '"><i></i>' + (k === 'alerta' ? 'Atenção' : LP.NOME[k]) + '<b>' + n[k] + '</b></button>';
+    esc(LP_DICA[k] + ' · passe o mouse pra ver, clique pra filtrar') + '">' + (k === 'ar' ? '<i>' + LP_OK_SVG + '</i>' : '<i></i>') + (k === 'alerta' ? 'Atenção' : LP.NOME[k]) + '<b>' + n[k] + '</b></button>';
   const grp = (rot, ks) => '<span class="lp-grp"><span class="lp-gl">' + rot + '</span><span class="lp-chips">' + ks.map(chip).join('') + '</span></span>';
   return '<span class="mesleg lp-leg">' +
     grp('no B.O.N.E', mzDaAba(S.aba) ? ['mz', 'copy'] : ['copy']) + grp('no MKT Hub', ['prod', 'pronto']) + grp('no Instagram', ['ar']) + grp('precisa agir', ['alerta']) +

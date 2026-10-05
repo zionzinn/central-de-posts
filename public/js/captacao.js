@@ -178,7 +178,7 @@ function capCard(v) {
   const nome = (v.titulo || 'vídeo') + ', ' + (v.contaNome || '') + (v.date ? ', sai ' + capDiaL(v.date) : '') + ', roteiro ' + rot;
   return '<article class="cap-card' + (v.postado ? ' postado' : '') + '" draggable="true" tabindex="0" data-id="' + esc(v.id) + '" aria-label="' + esc(nome) + '">' +
     '<div class="cap-k1"><i class="cap-cor" style="background:' + contaCor(v.conta) + '"></i><span class="cap-conta">' + esc(contaCurta(v.conta)) + '</span>' +
-      '<span class="cap-sai">' + (v.postado ? 'no ar' : v.date ? 'sai ' + esc(lpDiaC(v.date)) : 'sem dia') + '</span>' +
+      '<span class="cap-sai">' + (v.postado ? 'postado' : v.date ? 'sai ' + esc(lpDiaC(v.date)) : 'sem dia') + '</span>' +
       '<button type="button" class="cap-mv" data-mv="' + esc(v.id) + '" aria-label="Mover pra outro bloco" data-tip="Mover pra…">' + capIc('mover') + '</button></div>' +
     '<div class="cap-tt">' + esc(v.titulo || 'vídeo') + '</div>' +
     '<div class="cap-k2"><span class="lp-pil ' + cls + '" title="' + esc(dica) + '">' + esc(rot) + '</span>' +
