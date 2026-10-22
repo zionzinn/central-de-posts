@@ -190,7 +190,8 @@ function lpContaTag(s) { return '<div class="contatag">' + esc(contaCurta(s.cont
 /** As marquinhas que pedem olho: grande marca, collab, a câmera do vídeo e conta trocada (esta corrige em 1 clique). v4.05: o pino saiu. */
 function lpMarcas(s, e) {
   let h = '';
-  const gmPede = !isGm(s) && S.aba === 'SEUBONÉ' && s.date && (e.k === 'mz' || e.k === 'copy') && gmCadenciaDia(s.date);
+  // v4.12: na aba Todos, o post da SeuBoné também avisa o dia de GM (a cadência é só da SeuBoné)
+  const gmPede = !isGm(s) && (S.aba === 'SEUBONÉ' || (ehTodos() && s.conta === 'seubone')) && s.date && (e.k === 'mz' || e.k === 'copy') && gmCadenciaDia(s.date);
   if (isGm(s)) h += '<span class="lp-mk gm" title="Grande marca na capa">' + icon('star') + '</span>';
   else if (gmPede) h += '<span class="lp-mk gm pede" title="Dia de grande marca na capa (GM)">' + icon('star') + '</span>';
   const clb = s.collab || [];
@@ -407,7 +408,7 @@ function lpLegendaMes(lista) {
     esc(LP_DICA[k] + ' · passe o mouse pra ver, clique pra filtrar') + '">' + (k === 'ar' ? '<i>' + LP_OK_SVG + '</i>' : '<i></i>') + (k === 'alerta' ? 'Atenção' : LP.NOME[k]) + '<b>' + n[k] + '</b></button>';
   const grp = (rot, ks) => '<span class="lp-grp"><span class="lp-gl">' + rot + '</span><span class="lp-chips">' + ks.map(chip).join('') + '</span></span>';
   return '<span class="mesleg lp-leg">' +
-    grp('no B.O.N.E', mzDaAba(S.aba) ? ['mz', 'copy'] : ['copy']) + grp('no MKT Hub', ['prod', 'entr', 'pronto']) + grp('no Instagram', ['ar']) + grp('precisa agir', ['alerta']) +
+    grp('no B.O.N.E', (ehTodos() ? Object.keys(S.matrizes || {}).length : mzDaAba(S.aba)) ? ['mz', 'copy'] : ['copy']) + grp('no MKT Hub', ['prod', 'entr', 'pronto']) + grp('no Instagram', ['ar']) + grp('precisa agir', ['alerta']) +
   '</span>';
 }
 /** Hover na legenda = prévia (o resto apaga); clique = filtro (clique de novo tira). Nada é redesenhado: é só CSS. */

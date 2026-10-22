@@ -248,7 +248,7 @@ function ppAcao(a) {
     // o post pode ser de outra empresa: vai pra aba dela antes (o calendário só desenha a empresa aberta)
     const sid = a.slice(5), s = S.slots.find(x => x.id === sid), aba = s && S.contas[s.conta] ? S.contas[s.conta].aba : null;
     fecharPerfil();
-    if (aba && aba !== S.aba) irParaAba(aba);
+    if (aba && aba !== S.aba && !ehTodos()) irParaAba(aba);      // v4.12: na aba Todos o post já está na tela
     return irParaPost(sid);
   }
 }

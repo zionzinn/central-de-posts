@@ -148,6 +148,7 @@ function tfSugerePeriodo(tipo, aba) {
 // ---------------- faixa no topo da empresa ----------------
 function renderFaixa() {
   const el = document.getElementById('faixa'); if (!el) return;
+  if (ehTodos()) { el.innerHTML = ''; tfRefresca(); return; }    // v4.12: a faixa (copy e matriz) é de cada empresa
   const aba = S.aba;
   const tipos = tfTemMatriz(aba) ? ['matriz', 'copy'] : ['copy'];
   el.innerHTML = tipos.map(tp => tfCardHtml(aba, tp)).join('');
@@ -805,7 +806,7 @@ function tfAbrirDoAviso(x) {
   const s = S.slots.find(y => y.id === x.id); if (!s) return;
   const aba = S.contas[s.conta] && S.contas[s.conta].aba;
   const t = (S.tarefas || []).find(y => y.tipo === (x.k === 'm' ? 'matriz' : 'copy') && y.itens.includes(s.id));
-  if (aba && aba !== S.aba) irParaAba(aba);
+  if (aba && aba !== S.aba && !ehTodos()) irParaAba(aba);        // v4.12: na aba Todos o post já está na tela
   if (t) abrirTarefa(t.id, s.id);
   else if (x.k === 'm') openMatriz(s.id); else abrirCopy(s.id);
 }

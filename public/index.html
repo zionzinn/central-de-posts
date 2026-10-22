@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="/css/captacao.css">
 <link rel="stylesheet" href="/css/folha.css">
 <link rel="stylesheet" href="/css/banco.css">
+<link rel="stylesheet" href="/css/todos.css">
 </head>
 <body>
 
@@ -440,7 +441,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.11'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.12'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -462,6 +463,8 @@ const ICONS = {
   box:'<path d="M4 8l8-4.5L20 8v8l-8 4.5L4 16V8z"/><path d="M4 8l8 4.5L20 8M12 12.5V21"/>',
   doc:'<path d="M6.5 3.5h8l4 4v12a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z"/><path d="M14.5 3.5v4h4M8.5 12h7M8.5 15.5h7M8.5 8.5h3"/>',
   sparkle:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/><path d="M19 16l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z"/>',
+  // v4.12: boné (a faixa da SeuBoné na aba Todos)
+  bone:'<path d="M3.5 15.5a7.5 7.5 0 0 1 15 0"/><path d="M3.5 15.5H20a1.2 1.2 0 0 1 0 2.4H5.5"/><path d="M11 8v-1"/><path d="M9 8.6c1 1.8 1.5 4.1 1.6 6.9"/>',
   bookmark:'<path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4-6 4V4.5a1 1 0 0 1 1-1z"/>',
   mic:'<rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5M8.5 20.5h7"/>',
   target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>',
@@ -516,8 +519,14 @@ function contaCor(k){ return CONTA_CORES[k] || (S.contas[k] && S.contas[k].cor) 
 // Nome curto da conta pro selo do card. Cor sozinha não resolve (Educação e Club são dois
 // tons claros parecidos), então o card passa a dizer a conta POR EXTENSO.
 // v3.75: nome da aba como a marca escreve (exibição). A chave interna continua SEUBONÉ, CARBONE...
-const NOMES_ABA = { 'SEUBONÉ':'SeuBoné', 'CARBONE':'Carbone', 'ONEVO':'Onevo', 'WEEVO':'Weevo' };
+const NOMES_ABA = { 'TODOS':'Todos', 'SEUBONÉ':'SeuBoné', 'CARBONE':'Carbone', 'ONEVO':'Onevo', 'WEEVO':'Weevo' };
 function nomeAba(a){ return NOMES_ABA[a] || a || ''; }
+// v4.12: a aba TODOS (pedido do Zion: "uma nova aba no sistema: TODOS, que mostre o calendário de todas as empresas ao mesmo
+// tempo"; escolha dele: "A: Faixa por conta"). Não é empresa, é uma VISTA: S.abas continua sendo só as empresas (vem do
+// servidor) e a barra de cima mostra Todos + as empresas. O que é de cada empresa (tarefa de copy, banco, matriz) fica na aba dela.
+const ABA_TODOS = 'TODOS';
+function ehTodos(a){ return (a === undefined ? S.aba : a) === ABA_TODOS; }
+function abasDaBarra(){ return S.abas && S.abas.length > 1 ? [ABA_TODOS].concat(S.abas) : (S.abas || []); }
 /** Primeira letra maiúscula (mês "setembro" vira "Setembro" nos títulos). */
 function cap(t){ t = String(t||''); return t.charAt(0).toUpperCase() + t.slice(1); }
 const CONTA_CURTA = {
@@ -527,6 +536,7 @@ const CONTA_CURTA = {
 function contaCurta(k){ return CONTA_CURTA[k] || (S.contas[k] && S.contas[k].nome) || k; }
 // identidade visual por aba: troca a cor de destaque (--sb) e dá um leve tom no fundo (base escura mantida)
 const TEMAS = {
+  'TODOS':   { sb:'#D1D1D6', page:'#000000' },   // v4.12: neutro (não é de nenhuma marca)
   'SEUBONÉ': { sb:'#FCC100', page:'#000000' },
   'CARBONE': { sb:'#F2F2EC', page:'#000000' },
   'ONEVO':   { sb:'#0AFFA3', page:'#000000' },
@@ -535,6 +545,7 @@ const TEMAS = {
 // modo claro: mesma marca por aba, fundo claro. ink = destaque usado como TEXTO (amarelo puro não se lê no branco);
 // on = cor do texto em cima do destaque (a Carbone clara vira preto com texto branco).
 const TEMAS_CLARO = {
+  'TODOS':   { sb:'#48484A', ink:'#48484A', on:'#FFF',  page:'#F2F2F7' },
   'SEUBONÉ': { sb:'#FCC100', ink:'#806000', on:'#000',  page:'#F2F2F7' },
   'CARBONE': { sb:'#18181B', ink:'#18181B', on:'#FFF',  page:'#F2F2F7' },
   'ONEVO':   { sb:'#12D98D', ink:'#067A51', on:'#000',  page:'#F2F2F7' },
@@ -583,7 +594,7 @@ async function loadState(fresh, silencioso){
   S.assinatura = assinatura;
   if(pm){ const r = await pm; if(r && r.matrizes) S.matrizes = r.matrizes; }
   Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], bancoPastas:j.bancoPastas||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, hubEscrita:!!j.hubEscrita, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia, capBlocos:j.capBlocos||[], capPendentes:j.capPendentes||0});
-  if(!S.abas.includes(S.aba)) S.aba = S.abas[0];
+  if(!abasDaBarra().includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   contaNaTela();                                        // v3.82: nome da conta no perfil e o que cada papel vê
   mostraUso(j.uso);
@@ -599,7 +610,10 @@ async function loadState(fresh, silencioso){
 }
 
 // ================= helpers =================
-function contasDaAba(aba){ return Object.entries(S.contas).filter(([,c])=>c.aba===aba).map(([k])=>k); }
+function contasDaAba(aba){
+  if(aba === ABA_TODOS) return Object.keys(S.contas).sort((a, b)=> ((typeof ORDEM_CONTA !== 'undefined' && ORDEM_CONTA[a]) || 9) - ((typeof ORDEM_CONTA !== 'undefined' && ORDEM_CONTA[b]) || 9));
+  return Object.entries(S.contas).filter(([,c])=>c.aba===aba).map(([k])=>k);
+}
 function slotTitulo(s){
   if(s.vaga && !s.taskId) return 'FALTA CRIAR: ' + ((s.formato||'post').toUpperCase());
   if(isMatriz(s)) return s.matrizSB.tema || ((s.matrizSB.tipo || 'Em aberto') + ' · a preencher');
@@ -879,6 +893,9 @@ function render(){
   // e o painel ficaria preso em "arrastando" (clique não abre, atualização para, rolagem automática solta).
   if(S.dragging){ S._renderDepois = true; return; }
   S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba);
+  document.body.dataset.aba = S.aba;                 // v4.12: o CSS da aba Todos (css/todos.css)
+  if(ehTodos() && S.drawer) S.drawer = false;         // o banco é de cada empresa: na aba Todos a gaveta fecha
+  $('#btnDrawer').dataset.tip = ehTodos() ? 'O banco é de cada empresa: abra a aba dela' : 'Banco da empresa: Drive, referências, cortes e o que reutilizar';
   renderTabs(); renderFaixa(); renderLegend(); renderDrawer(true); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); pintaBtnAprovar(); capBotao();
   S.lpPrevia = null; lpVer(); }
 
@@ -888,7 +905,7 @@ function renderTabs(){
   // v3.79: a cápsula é uma só e fica entre um desenho e outro, pra poder deslizar de uma aba pra outra
   let sel = el.querySelector('.tabs-sel');
   if(!sel){ sel = document.createElement('span'); sel.className = 'tabs-sel sem-anim'; sel.setAttribute('aria-hidden','true'); el.prepend(sel); }
-  for(const aba of S.abas){
+  for(const aba of abasDaBarra()){
     const contas = contasDaAba(aba);
     const n = S.slots.filter(s=>contas.includes(s.conta) && s.date && s.date.startsWith(S.mes)).length;
     const b = document.createElement('button');
@@ -947,7 +964,7 @@ function ligaSliderAbas(){
     if(i !== arr.idx){
       arr.idx = i;
       tabs.forEach((b, k)=> b.classList.toggle('sob', k === i));
-      const tm = temaDaAba(S.abas[i]);
+      const tm = temaDaAba(abasDaBarra()[i]);
       sel.style.backgroundColor = tm.sb; el.style.setProperty('--on-sel', tm.on || '#000');
     }
   });
@@ -961,7 +978,7 @@ function ligaSliderAbas(){
     const melhor = abaMaisPerto(tabs, parseFloat(sel.style.getPropertyValue('--sel-x')) + a.w / 2);
     tabs.forEach(b=> b.classList.remove('sob'));
     sel.style.backgroundColor = ''; el.style.removeProperty('--on-sel');
-    const aba = S.abas[melhor];
+    const aba = abasDaBarra()[melhor];
     if(aba && aba !== S.aba) irParaAba(aba); else posicionaSelTab();
   };
   el.addEventListener('pointerup', solta);
@@ -984,9 +1001,10 @@ function irParaAba(aba){
 }
 /** Setas 3D do topo: conta anterior / próxima, dando a volta no fim. */
 function trocarAba(delta){
-  if(!S.abas || !S.abas.length) return;
-  const i = Math.max(0, S.abas.indexOf(S.aba));
-  irParaAba(S.abas[(i+delta+S.abas.length)%S.abas.length]);
+  const L = abasDaBarra();                            // v4.12: Todos entra na volta
+  if(!L.length) return;
+  const i = Math.max(0, L.indexOf(S.aba));
+  irParaAba(L[(i+delta+L.length)%L.length]);
 }
 
 function renderLegend(){
@@ -996,8 +1014,11 @@ function renderLegend(){
     for(const k of contas){
       const c = S.contas[k];
       const ch = document.createElement('button');
-      ch.className='chip'+(S.filtroConta.has(k)?' off':'');
-      ch.innerHTML = '<span class="dot" style="background:'+contaCor(k)+'"></span>'+esc(contaCurta(k));
+      ch.className='chip'+(S.filtroConta.has(k)?' off':'')+(ehTodos()?' ic-only':'');
+      // v4.12: na aba Todos são 6 contas: o botão vira só o ícone da faixa (o mesmo do nome deitado), na cor da empresa;
+      // o nome vai na dica. Com o nome escrito, as 6 empurravam Captação e Pra aprovar pra uma segunda linha.
+      if(ehTodos()){ ch.innerHTML = icon(RAIA_ICONE[k] || 'users'); ch.style.setProperty('--ch-cor', corDaEmpresaTexto(k)); ch.setAttribute('aria-label', c.nome); }
+      else ch.innerHTML = '<span class="dot" style="background:'+contaCor(k)+'"></span>'+esc(contaCurta(k));
       ch.title = (S.filtroConta.has(k) ? 'Mostrar ' : 'Esconder ') + c.nome;
       ch.setAttribute('aria-pressed', S.filtroConta.has(k) ? 'false' : 'true');
       ch.onclick = ()=>{ S.filtroConta.has(k)?S.filtroConta.delete(k):S.filtroConta.add(k); render(); };
@@ -1164,11 +1185,12 @@ document.addEventListener('keydown', ev=>{ if(ev.key==='Escape') fecharPopVaga()
 /** Abre o menu de sinalização ancorado no botão do dia. 1 clique = conta + formato. */
 function abrirPopVaga(dateStr, btn){
   fecharPopVaga();
-  const contas = contasDaAba(S.aba);
+  // v4.12: na aba Todos entram as contas das empresas que têm o botão (a SeuBoné não tem)
+  const contas = contasDaAba(S.aba).filter(k => !(ehTodos() && S.contas[k].aba === 'SEUBONÉ'));
   const pop = document.createElement('div');
   pop.className='vagapop'; pop.id='vagapop';
   pop.innerHTML =
-    '<h4>'+icon('alerta','s')+' falta criar · '+esc(cabDia(dateStr))+'</h4>'+
+    '<h4>'+icon('alerta','s')+' falta criar · '+esc(tfDia(dateStr))+'</h4>'+   // v4.12 (bug desde a v3.77: cabDia saiu e o balão não abria)
     '<input id="vagaObs" placeholder="obs (opcional): precisa ser sobre…" autocomplete="off" maxlength="140">'+
     contas.map(k=>
       '<div class="vpconta"><span class="cdot" style="background:'+contaCor(k)+'"></span>'+esc(nomeConta(k))+'</div>'+
@@ -1329,6 +1351,7 @@ function abrirEntregas(dia, ancora){
 function irParaPost(sid){
   const s = S.slots.find(x => x.id === sid);
   if(!s || !s.date) return toast('Esse post está sem dia no calendário.');
+  if(S.filtroConta.has(s.conta)){ S.filtroConta.delete(s.conta); render(); }   // v4.12: a faixa da conta estava escondida (aba Todos não troca de aba)
   let c = document.querySelector('.card[data-id="'+sid+'"]');
   if(!c){
     if(S.view === 'semana'){
@@ -1944,7 +1967,7 @@ function dataExtenso(iso){
 /** Linha de contexto embaixo do título: conta/aba + dia por extenso. */
 function eContexto(){
   const conta = $('#eConta').value;
-  const quem = conta ? nomeConta(conta) : S.aba;
+  const quem = conta ? nomeConta(conta) : nomeAba(S.aba);
   const dia = $('#eDate').value;
   $('#eCtx').textContent = quem+' · '+(dia ? dataExtenso(dia) : 'sem dia (vai pro banco)');
   $('#eDataTxt').textContent = dia ? dataExtenso(dia) : 'vazio = vai pro banco';
@@ -2031,7 +2054,8 @@ function openEdit(id, dateStr, pre){
   S.editing = id;
   const s = id? S.slots.find(x=>x.id===id) : null;
   const sel = $('#eConta'); sel.innerHTML='';
-  const contasDoModal = contasDaAba(S.aba);
+  // v4.12: na aba Todos, post novo escolhe entre as 6 contas; post que já existe só troca dentro da empresa dele (como na aba da empresa)
+  const contasDoModal = contasDaAba(ehTodos() && s && S.contas[s.conta] ? S.contas[s.conta].aba : S.aba);
   // aba com mais de uma conta: NADA de default silencioso. Quem escolhe a conta é você.
   if(!s && contasDoModal.length > 1){
     const ph = document.createElement('option');
@@ -3348,7 +3372,11 @@ $('#mHoje').onclick = ()=>{
   irParaMes(mesAtual(), true);
 };
 // gavetas
-$('#btnDrawer').onclick = ()=>{ S.drawer = !S.drawer; renderDrawer(); };
+$('#btnDrawer').onclick = ()=>{
+  // v4.12: o banco é de cada empresa; na aba Todos ele não abre (diz onde está)
+  if(ehTodos()){ toast('O banco é de cada empresa: abra a aba dela (1 a 4)'); return; }
+  S.drawer = !S.drawer; renderDrawer();
+};
 $('#drClose').onclick = ()=>{ S.drawer = false; renderDrawer(); };
 $('#drBusca').addEventListener('input', ev=>{ S.busca = ev.target.value.trim().toLowerCase(); renderDrawer(); });
 dropZone($('#drawer'), ()=>null);
@@ -3368,7 +3396,7 @@ $('#btnAjuda').onclick = (ev)=>{
     '<div><kbd>Alt</kbd> + arrasta: <b>copia</b> o card</div>'+
     '<div><b>Clique</b> num card: abre as artes</div>'+
     '<div><b>+</b> do dia: criar ali (<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> escolhem) · <b>+</b> do canto: criar sem dia</div>'+
-    '<div><kbd>1</kbd> a <kbd>4</kbd>: troca de empresa · <kbd>[</kbd> <kbd>]</kbd>: anterior e próxima · <b>arraste</b> a cápsula das empresas</div>'+
+    '<div><kbd>0</kbd>: Todos · <kbd>1</kbd> a <kbd>4</kbd>: troca de empresa · <kbd>[</kbd> <kbd>]</kbd>: anterior e próxima · <b>arraste</b> a cápsula das empresas</div>'+
     '<div>Tarefas de <b>Matriz</b> e <b>Copy</b> na faixa de cima: play no relógio, o painel anota o post aberto sozinho</div>'+
     '<div><kbd>Ctrl</kbd> + <kbd>Z</kbd>: desfaz · <kbd>Ctrl</kbd> + <kbd>,</kbd>: configurações</div>';
   document.body.appendChild(p);
@@ -3678,7 +3706,7 @@ function renderPresenca(){
 function irPraAbaDe(id){
   const p = AV.peers.get(id); if(!p) return;
   const quem = (p.icone ? p.icone+' ' : '')+p.nome;
-  if(!p.conta || !S.abas.includes(p.conta)){ toast(quem+' está online'); return; }
+  if(!p.conta || !abasDaBarra().includes(p.conta)){ toast(quem+' está online'); return; }
   if(p.conta===S.aba){ toast(quem+' também está em '+nomeAba(p.conta)); return; }
   irParaAba(p.conta);
   toast('Você foi pra '+nomeAba(p.conta)+', onde '+quem+' está');
@@ -3803,13 +3831,15 @@ function initIcons(){
   // botão só de ícone ganha nome pra leitor de tela (HIG > VoiceOver)
   document.querySelectorAll('button[data-tip]').forEach(b=>{ if(!b.getAttribute('aria-label') && !b.textContent.trim()) b.setAttribute('aria-label', b.dataset.tip); });
 }
-// atalhos (HIG > Keyboards): 1 a 4 troca de empresa, [ e ] vão pra anterior/próxima, Ctrl+, abre as configurações
+// atalhos (HIG > Keyboards): 0 abre a aba Todos (v4.12), 1 a 4 troca de empresa, [ e ] vão pra anterior/próxima, Ctrl+, abre as configurações
 document.addEventListener('keydown', ev=>{
   const t = ev.target;
   if(t && (t.tagName==='INPUT' || t.tagName==='TEXTAREA' || t.tagName==='SELECT' || t.isContentEditable)) return;
   if(document.querySelector('.ov.open')) return;
   if((ev.ctrlKey || ev.metaKey) && ev.key === ','){ ev.preventDefault(); openConfig(); return; }
   if(ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  // v4.12: 0 abre a aba Todos; 1 a 4 continuam sendo as empresas
+  if(ev.key === '0' && abasDaBarra().includes(ABA_TODOS)){ ev.preventDefault(); irParaAba(ABA_TODOS); return; }
   if(/^[1-9]$/.test(ev.key)){ const a = S.abas[+ev.key - 1]; if(a){ ev.preventDefault(); irParaAba(a); } return; }
   if(ev.key === '['){ ev.preventDefault(); trocarAba(-1); }
   else if(ev.key === ']'){ ev.preventDefault(); trocarAba(1); }

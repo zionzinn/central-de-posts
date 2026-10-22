@@ -1,0 +1,35 @@
+@charset "utf-8";
+/* =====================================================================
+   B.O.N.E · v4.12 · ABA TODOS: o calendário das 4 empresas juntas, uma faixa por conta (js/raias.js)
+   Pedido do Zion (22/10/2026): "uma nova aba no sistema: TODOS, que mostre o calendário de todas as empresas ao mesmo
+   tempo". Escolha dele: "A: Faixa por conta". As 6 faixas usam o mesmo subgrid da v4.02; aqui elas ficam baixas (a
+   semana inteira das 6 contas cabe numa tela: ~755 px com 35 posts em 1440 px), o nome de cada faixa ganha a cor da EMPRESA na lateral (Educação e
+   Club com a mesma marca; Energia e Investimentos também) e a linha entre empresas fica cheia. No Mês, o card mostra
+   só a etapa e o título, em 1 linha: o mês das 6 contas cabe.
+   ===================================================================== */
+/* o que é de cada empresa fica na aba dela: a faixa de tarefas (copy e matriz) some; o botão do banco continua no leque
+   (sem ele o leque desmonta) e o clique avisa onde o banco está; o número do banco some */
+body[data-aba="TODOS"] #faixa, body[data-aba="TODOS"] #drawerN{display:none}
+/* os 6 botões de conta do topo: só o ícone da faixa, na cor da empresa (o nome vai na dica) */
+.chip.ic-only{width:32px; padding:0; justify-content:center}
+.chip.ic-only .ic{width:15px; height:15px; color:var(--ch-cor, var(--ink-2)); stroke-width:1.9}
+/* faixas baixas: a altura vem dos cards, não de um mínimo alto */
+.todos.grid.raias .raia{min-height:76px}
+.todos.mesgrid.raias .raia{min-height:34px; padding:4px 6px 5px; gap:4px}
+/* a marca da empresa na lateral do nome da faixa */
+.todos .wk-raia{box-shadow:inset 3px 0 0 var(--raia-cor, transparent)}
+/* troca de empresa: linha cheia (dentro da empresa, a tracejada da v4.02) */
+.todos .raia.emp, .todos .wk-raia.emp{border-top:1px solid var(--sep)}
+/* Mês: o card numa linha só (a etapa e o título; o alerta, quando tem). A barra de cima, a data e o "saiu dia tal"
+   saem: estão na Semana e na folha do post. O postado fica só com o check (o verde cheio já diz). */
+.todos.mesgrid .card .lp-kp, .todos.mesgrid .card .lp-pe, .todos.mesgrid .card .lp-sub{display:none}
+.todos.mesgrid .card.lp{flex-direction:row; align-items:center; gap:6px; padding:7px 8px 7px 9px}
+.todos.mesgrid .card.lp > .lp-ka{flex:none; min-height:0}
+.todos.mesgrid .card.lp[data-etapa="ar"] .lp-et{display:none}
+.todos.mesgrid .card .tit{flex:1; min-width:0; -webkit-line-clamp:1}
+/* Mês: o nome deitado da faixa vira só o ícone (com a cor da empresa na lateral). O nome por extenso definia a altura
+   mínima da faixa (um card de 1 linha numa faixa de 120 px); ele continua na dica e na Semana. */
+.todos.mesgrid .wk-rt > span{display:none}
+.todos.mesgrid .wk-raia{padding:4px 0}
+/* com alerta (atrasado, sai hoje), a pílula fala no lugar do nome da etapa: sobra espaço pro título (a cor do card já diz a etapa) */
+.todos.mesgrid .card.lp .lp-ka:has(.lp-pil) .lp-et{display:none}
