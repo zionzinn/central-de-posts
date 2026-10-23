@@ -16,6 +16,11 @@
 // e ENTREGUE (cor própria: Aprovação ou Aprovação líder no MKT Hub). Pronto = Publicar, Completo ou concluída. A data
 // do que falta entregar diz sempre "prazo".
 //
+// v4.13 (pedido do Zion em 23/10/2026: "preciso que quando estiver em aprovação lider, a tarefa no BONE fique laranja";
+// escolha: "Só a cor do card"): na Aprovação líder o post continua ENTREGUE (mesmo botão e mesma contagem na legenda),
+// mas o card, a barra de cima, a etiqueta da folha, o passo da linha do post e a bolinha do balão de entregas ficam
+// laranja (e.lider). Na Aprovação normal, tudo segue verde-azulado.
+//
 // Decisões do Zion (02/10/2026): as duas datas na folha do post só MOSTRAM (a entrega é do MKT Hub e muda lá; o dia
 // que sai é o do calendário); a task de produção continua só do ADMIN. Nada aqui grava dado novo nem cria rota:
 // é desenho em cima do que o /api/state já traz.
@@ -93,8 +98,10 @@ function lpEtapa(s) {
     // v4.10: ENTREGUE = a arte ou o vídeo já foi pra aprovação no MKT Hub (Aprovação ou Aprovação líder)
     if (b === 'aprovar') {
       e.k = 'entr';
+      e.lider = !!(s.statusCache && s.statusCache.status === 'aprovação líder');   // v4.13: com a líder, o card fica laranja
       const nomeHub = (s.statusCache && s.statusCache.nome) || '';
-      e.sub = (nomeHub || 'em aprovação').toLowerCase(); e.subDica = 'Entregue, esperando aprovação no MKT Hub' + onde;
+      e.sub = (nomeHub || (e.lider ? 'aprovação líder' : 'em aprovação')).toLowerCase();
+      e.subDica = (e.lider ? 'Entregue, esperando a aprovação da líder no MKT Hub' : 'Entregue, esperando aprovação no MKT Hub') + onde;
       pessoa(s.assigneeCache || s.responsavelManual, 'entregou');
       e.dt = prazo ? { c: 'feita', ic: 'check', t: 'entregue · prazo ' + (lpDif(prazo, hoje) < 0 ? 'era ' : '') + lpDiaC(prazo), b: '', dica: 'Entregue no MKT Hub' + onde + ' · prazo ' + lpDiaL(prazo) }
         : { c: 'feita', ic: 'check', t: 'entregue', b: '', dica: 'Entregue no MKT Hub' + onde };
@@ -248,7 +255,7 @@ function lpRotulo(s, e, titulo) {
 /** Monta o card novo dentro do elemento que o cardEl criou (o arrastar, o clique e o hover ficam no cardEl). */
 function lpMonta(d, s, e, multi) {
   const tt = lpTitulo(s, e), dt = lpDataHtml(s, e), mk = lpMarcas(s, e);
-  d.className = 'card lp e-' + e.k + (isGm(s) ? ' gm' : '') + (e.av ? ' tem-av' : '') + (multi ? ' temconta' : '') + (S.lpEstoura === s.id ? ' lp-estoura' : '');
+  d.className = 'card lp e-' + e.k + (e.lider ? ' lider' : '') + (isGm(s) ? ' gm' : '') + (e.av ? ' tem-av' : '') + (multi ? ' temconta' : '') + (S.lpEstoura === s.id ? ' lp-estoura' : '');
   d.dataset.etapa = e.k;
   if (e.alerta) d.dataset.alerta = '1';
   d.tabIndex = 0;
@@ -395,7 +402,7 @@ const LP_DICA = {
   mz: 'Matriz: o plano do post (tema, tese, gancho), no B.O.N.E',
   copy: 'Copy: o texto do post, escrito e aprovado no B.O.N.E',
   prod: 'Produção: falta entregar (a arte ou o vídeo está a fazer, fazendo ou ajustando no MKT Hub)',
-  entr: 'Entregue: a arte ou o vídeo já foi entregue no MKT Hub e espera a aprovação (Aprovação ou Aprovação líder)',
+  entr: 'Entregue: a arte ou o vídeo já foi entregue no MKT Hub e espera a aprovação (Aprovação ou Aprovação líder; com a líder, o card fica laranja)',
   pronto: 'Pronto: arte aprovada no MKT Hub, é só postar',
   ar: 'Postado: já foi ao ar no Instagram',
   alerta: 'Atenção: voltou pra alterar, a entrega atrasou ou vence hoje/amanhã, ou o post pronto passou do dia',
@@ -485,7 +492,7 @@ function lpChipEtapa(s) {
   if (e.k === 'esp') return '';
   const hubNome = (e.k === 'prod' || e.k === 'entr' || e.k === 'pronto') && s.statusCache && s.statusCache.nome;
   const det = hubNome || (e.pil ? e.pil.t : e.sub);
-  return '<span class="lp-chip e-' + e.k + '" title="' + esc(LP.NOME[e.k] + ' · ' + LP.ONDE[e.k]) + '"><i></i>' + LP.NOME[e.k] +
+  return '<span class="lp-chip e-' + e.k + (e.lider ? ' lider' : '') + '" title="' + esc(LP.NOME[e.k] + ' · ' + LP.ONDE[e.k]) + '"><i></i>' + LP.NOME[e.k] +
     (det ? '<span>' + esc(det) + '</span>' : '') + '</span>';
 }
 function lpFolha(s) {
@@ -514,7 +521,7 @@ function lpFolha(s) {
       ar: st === 'f' ? (s.date ? 'saiu ' + lpDiaC(s.date) : 'postado') : s.date ? 'sai ' + lpDiaC(s.date) : 'sem dia',
     }[k];
     const ic = st === 'f' ? lpIc('check') : st === 'n' ? lpIc('ponto', 'cheio') : st === 'x' ? lpIc('traco') : '';
-    return '<div class="lpf-no s-' + k + ' ' + st + '"><span class="lpf-bo">' + ic + '</span><b>' + LP.NOME[k] + '</b><small>' + esc(det || '') + '</small></div>';
+    return '<div class="lpf-no s-' + k + ' ' + st + (k === 'entr' && e.lider ? ' lider' : '') + '"><span class="lpf-bo">' + ic + '</span><b>' + LP.NOME[k] + '</b><small>' + esc(det || '') + '</small></div>';
   });
   const posCur = e.k === 'ar' ? ks.length - 1 : Math.max(0, ks.indexOf(e.k));
   const trilho = Math.round(100 * posCur / (ks.length - 1));
@@ -551,7 +558,7 @@ function lpFolha(s) {
   box.style.setProperty('--c', 'var(--e-' + e.k + ')');
   box.innerHTML =
     '<div class="lpf-sec">Linha do post</div>' + grupos +
-    '<div class="lpf-nos' + (comMz ? '' : ' sem-mz') + '" style="grid-template-columns:repeat(' + ks.length + ',minmax(0,1fr))"><div class="lpf-trilho" style="--n:' + ks.length + '"><i style="width:' + trilho + '%;' + degrade + '"></i></div>' + passos.join('') + '</div>' +
+    '<div class="lpf-nos' + (comMz ? '' : ' sem-mz') + (e.lider ? ' lider' : '') + '" style="grid-template-columns:repeat(' + ks.length + ',minmax(0,1fr))"><div class="lpf-trilho" style="--n:' + ks.length + '"><i style="width:' + trilho + '%;' + degrade + '"></i></div>' + passos.join('') + '</div>' +
     '<div class="lpf-sec">As duas datas</div>' +
     '<div class="lpf-datas">' + ent + '<div class="lpf-folga' + fcls + '">' + (folga ? '<svg viewBox="0 0 44 10" aria-hidden="true"><path d="M2 5h40"/></svg><span>' + folga + '</span>' : '') + '</div>' + sai + '</div>' +
     '<p class="lpf-aviso">' + icon('help') + '<span>Aqui só mostra: a entrega é do MKT Hub (muda lá) e o dia que sai é o do calendário (arraste o card pra mudar)' +

@@ -9,6 +9,10 @@
    v4.10: ENTREGUE (Aprovação ou Aprovação líder no MKT Hub) ganha cor própria entre a Produção e o Pronto: um verde-
    azulado mais fechado que o verde do Pronto (validador: daltonismo ΔE 8,6 no escuro e 8,3 no claro, visão normal
    17,0 e 16,3, longe do laranja e do vermelho dos alertas).
+   v4.13: na APROVAÇÃO LÍDER o Entregue fica laranja (pedido do Zion; escolha: "Só a cor do card", a legenda não muda).
+   Laranja da família do alerta (a 3,6 do laranja do "vence hoje" no escuro e 2,7 no claro, então se lê como o mesmo
+   laranja: esperando aprovação), puxado pra longe do amarelo da Matriz: validador com as 6 etapas, visão normal 15,2
+   (escuro) e 15,1 (claro) contra a Matriz, daltonismo 10,9 e 9,4; o pior par do painel continua sendo um que já existia.
    ===================================================================== */
 
 /* ---------- tokens das etapas ---------- */
@@ -19,6 +23,7 @@
   --e-mz-t:#FCC100; --e-copy-t:#55B3FF; --e-prod-t:#FF9BD8; --e-pronto-t:#7EE0A1; --e-ar-t:#7EE0A1;
   --e-red-t:#FF6B6E; --e-orange-t:#FFA654;
   --e-entr:#2EAB98; --e-entr-t:#5CC9B5;                       /* v4.10: Entregue */
+  --e-lider:#FD822F; --e-lider-t:#FFA654;                     /* v4.13: Entregue na Aprovação líder (laranja) */
   --lp-tinta:13%; --lp-sombra:0 12px 28px rgba(0,0,0,.5); --lp-mola:cubic-bezier(.22,1.2,.36,1);
 }
 html[data-modo="claro"]{
@@ -27,6 +32,7 @@ html[data-modo="claro"]{
   --e-mz-t:#7A5A00; --e-copy-t:#0062C4; --e-prod-t:#B42D85; --e-pronto-t:#1D7A3D; --e-ar-t:#1D7A3D;
   --e-red-t:#C41E23; --e-orange-t:#A85300;
   --e-entr:#037465; --e-entr-t:#02675A;
+  --e-lider:#EB6607; --e-lider-t:#A64200;
   --lp-tinta:10%; --lp-sombra:0 2px 8px rgba(0,0,0,.08), 0 14px 30px rgba(0,0,0,.14);
 }
 .ic.cheio{fill:currentColor; stroke:none}
@@ -41,6 +47,9 @@ html[data-modo="claro"]{
 .card.lp.e-copy{--c:var(--e-copy); --ct:var(--e-copy-t)}
 .card.lp.e-prod{--c:var(--e-prod); --ct:var(--e-prod-t)}
 .card.lp.e-entr{--c:var(--e-entr); --ct:var(--e-entr-t)}
+/* v4.13: na Aprovação líder o Entregue fica laranja (o card, a barra de cima, a etiqueta, o passo da linha e a bolinha) */
+.card.lp.e-entr.lider{--c:var(--e-lider); --ct:var(--e-lider-t)}
+.card.lp.lider .lp-kp i.s-entr{--sc:var(--e-lider)}
 .card.lp.e-pronto{--c:var(--e-pronto); --ct:var(--e-pronto-t)}
 /* v4.06: postado = card verde cheio, texto preto e o check antes da palavra (sem apagar o card) */
 .card.lp.e-ar{--c:var(--e-ar); --ct:#000; background:var(--e-ar); border-color:transparent}
@@ -230,9 +239,9 @@ body.lente-ent .day.gmpede .dnum{color:var(--ink-2)}
 .lp-chip i{width:8px; height:8px; border-radius:50%; background:var(--c)}
 .lp-chip span{font-weight:500; color:var(--ink-2)}
 .lp-chip span::before{content:"·"; margin-right:5px}
-.lp-chip.e-mz{--c:var(--e-mz)} .lp-chip.e-copy{--c:var(--e-copy)} .lp-chip.e-prod{--c:var(--e-prod)} .lp-chip.e-entr{--c:var(--e-entr)} .lp-chip.e-pronto{--c:var(--e-pronto)} .lp-chip.e-ar{--c:var(--e-ar)}
+.lp-chip.e-mz{--c:var(--e-mz)} .lp-chip.e-copy{--c:var(--e-copy)} .lp-chip.e-prod{--c:var(--e-prod)} .lp-chip.e-entr{--c:var(--e-entr)} .lp-chip.e-entr.lider{--c:var(--e-lider)} .lp-chip.e-pronto{--c:var(--e-pronto)} .lp-chip.e-ar{--c:var(--e-ar)}
 /* bolinha das linhas do balão de entregas: a cor da etapa (antes vinha a cor de cada etapa do Hub) */
-.epdot.e-prod{background:var(--e-prod)} .epdot.e-entr{background:var(--e-entr)} .epdot.e-pronto{background:var(--e-pronto)} .epdot.e-ar{background:var(--e-ar)}
+.epdot.e-prod{background:var(--e-prod)} .epdot.e-entr{background:var(--e-entr)} .epdot.e-entr.lider{background:var(--e-lider)} .epdot.e-pronto{background:var(--e-pronto)} .epdot.e-ar{background:var(--e-ar)}
 .epdot.e-copy{background:var(--e-copy)} .epdot.e-mz{background:var(--e-mz)}
 
 /* ---------- folha do post: a linha do post e as duas datas ---------- */
@@ -249,11 +258,13 @@ body.lente-ent .day.gmpede .dnum{color:var(--ink-2)}
 .lpf-trilho i{position:absolute; left:0; top:0; bottom:0; border-radius:2px; background-repeat:no-repeat;
   background-image:linear-gradient(90deg, var(--e-mz), var(--e-copy), var(--e-prod), var(--e-entr), var(--e-pronto), var(--e-ar)); transition:width .9s var(--lp-mola)}
 .lpf-nos.sem-mz .lpf-trilho i{background-image:linear-gradient(90deg, var(--e-copy), var(--e-prod), var(--e-entr), var(--e-pronto), var(--e-ar))}
+.lpf-nos.lider .lpf-trilho i{background-image:linear-gradient(90deg, var(--e-mz), var(--e-copy), var(--e-prod), var(--e-lider), var(--e-pronto), var(--e-ar))}
+.lpf-nos.sem-mz.lider .lpf-trilho i{background-image:linear-gradient(90deg, var(--e-copy), var(--e-prod), var(--e-lider), var(--e-pronto), var(--e-ar))}
 .lpf-no{display:flex; flex-direction:column; align-items:center; gap:5px; text-align:center; position:relative; z-index:1; min-width:0; padding:0 2px}
 .lpf-bo{width:30px; height:30px; border-radius:50%; display:grid; place-items:center; border:2px solid var(--fill-3); background:var(--elev); box-sizing:border-box;
   transition:transform .3s var(--lp-mola)}
 .lpf-bo .ic{width:14px; height:14px; stroke-width:2.6}
-.lpf-no.s-mz{--sc:var(--e-mz)} .lpf-no.s-copy{--sc:var(--e-copy)} .lpf-no.s-prod{--sc:var(--e-prod)} .lpf-no.s-entr{--sc:var(--e-entr)} .lpf-no.s-pronto{--sc:var(--e-pronto)} .lpf-no.s-ar{--sc:var(--e-ar)}
+.lpf-no.s-mz{--sc:var(--e-mz)} .lpf-no.s-copy{--sc:var(--e-copy)} .lpf-no.s-prod{--sc:var(--e-prod)} .lpf-no.s-entr{--sc:var(--e-entr)} .lpf-no.s-entr.lider{--sc:var(--e-lider)} .lpf-no.s-pronto{--sc:var(--e-pronto)} .lpf-no.s-ar{--sc:var(--e-ar)}
 .lpf-no.f .lpf-bo{background:var(--sc); border-color:var(--sc); color:#000}
 .lpf-no.n .lpf-bo{border-color:var(--sc); color:var(--sc); box-shadow:0 0 0 5px color-mix(in srgb, var(--sc) 22%, transparent); animation:lp-respira 2.4s ease-in-out infinite}
 .lpf-no.x .lpf-bo{border-style:dashed; color:var(--ink-4)}

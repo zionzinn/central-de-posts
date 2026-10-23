@@ -441,7 +441,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.12'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.13'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1301,11 +1301,12 @@ function entBotao(lista){
 /** Uma linha do balão: etapa, código e título da task, quem faz, o dia em que o post sai e o selo. */
 function entLinha(s){
   const sit = entSit(s), st = s.statusCache || {}, cod = s.hub.codigo || '', url = /^https?:\/\//i.test(s.hub.url || '') ? s.hub.url : '';
+  const e0 = lpEtapa(s);
   const selo = sit === 'atrasada' ? '<span class="epselo atrasada">atrasada</span>'
     : sit === 'risco' ? '<span class="epselo risco">'+esc(entRiscoTxt(s))+'</span>'
     : sit === 'entregue' ? '<span class="epselo feita">'+icon('check')+'entregue</span>' : '';
   return '<div class="eplin '+sit+'" role="button" tabindex="0" data-epsid="'+esc(s.id)+'" title="Ver o post no dia em que ele sai">'+
-    '<span class="epdot e-'+lpEtapa(s).k+'"></span>'+
+    '<span class="epdot e-'+e0.k+(e0.lider ? ' lider' : '')+'"></span>'+   // v4.13: com a líder, laranja
     '<span class="eptxt"><span class="eptit">'+(cod ? '<span class="epcod">'+esc(cod)+'</span>' : '')+esc(s.tituloCache || slotTitulo(s))+'</span>'+
       '<span class="epsub">'+esc(st.nome || 'sem etapa')+(s.assigneeCache ? ' · '+esc(s.assigneeCache) : '')+'</span>'+
       '<span class="eppost">'+icon('calendar')+'sai <b>'+(s.date ? esc(tfDia(s.date)) : 'sem dia')+'</b> · '+esc(nomeConta(s.conta))+'</span></span>'+
