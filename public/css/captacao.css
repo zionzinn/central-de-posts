@@ -237,23 +237,34 @@ html[data-modo="claro"] .cp-rot.g .cp-chk{color:#fff}
 .cph-dica{margin-top:8px; font-size:11.5px; color:var(--ink-3)}
 .cph-svg{position:fixed; left:0; top:0; z-index:54; pointer-events:none; overflow:visible; --lp-mc:var(--cp-a)}
 .day.cp-alvo::after{content:""; position:absolute; inset:3px; border:2px dashed var(--cp-a); border-radius:10px; pointer-events:none; z-index:12}
+/* v4.18: o holofote: com o mouse no card, o resto do calendário apaga; o dia da gravação e os dias acesos ficam (com fundo) */
+#grid .cpday{transition:opacity .15s}
+#grid.cph-on .cpday:not(.cp-alvo):not(.cph-origem){opacity:.3}
+#grid.cph-on .cpday.cp-alvo{background:color-mix(in srgb, var(--cp-a) 12%, var(--cell))}
 .cp-alvos{position:absolute; left:7px; right:7px; bottom:9px; z-index:14; display:flex; flex-direction:column; align-items:center; gap:4px; pointer-events:none}
-.cp-alvo-rot{--m:var(--cp-a); max-width:100%; display:inline-flex; align-items:center; gap:5px; padding:3px 8px 3px 7px; border-radius:999px; font-size:11px; font-weight:700; line-height:1.25; color:var(--ink);
+.cp-alvo-rot{--m:var(--cp-a); max-width:100%; display:inline-flex; align-items:center; gap:5px; padding:3px 8px 3px 7px; border-radius:999px; font-size:11.5px; font-weight:700; line-height:1.25; color:var(--ink);
   background:color-mix(in srgb, var(--m) 22%, var(--cell)); box-shadow:0 0 0 1px color-mix(in srgb, var(--m) 70%, transparent), var(--hard)}
 .cp-alvo-rot .ic{width:12px; height:12px; flex:none}
 .cp-alvo-rot > span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .cp-alvo-rot.or{box-shadow:0 0 0 1.5px var(--e-orange), var(--hard)}
 .cp-alvo-rot.red{box-shadow:0 0 0 1.5px var(--e-red), var(--hard)}
 #grid.fluxo .cp-alvo-rot{font-size:10.5px; padding:2px 6px}
-@media (prefers-reduced-motion: reduce){ .cph-pop{animation:none} .cp-rtog .cp-rseta{transition:none} }
+@media (prefers-reduced-motion: reduce){ .cph-pop{animation:none} .cp-rtog .cp-rseta{transition:none} #grid .cpday{transition:none} .cp-empsel .cp-empseta{transition:none} }
 
 /* ---------- v4.17: a empresa da captação (no card e o seletor na folha) ---------- */
 .cpc-et.sem{color:var(--ink-3)}
-.cp-empsel{position:relative; display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 8px 0 9px; border-radius:999px; background:color-mix(in srgb, var(--cp-emp, var(--ink-3)) 18%, transparent); cursor:pointer}
+/* v4.18: o botão abre o menu do painel (no lugar da lista do sistema) */
+.cp-empsel{position:relative; display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 8px 0 9px; border:0; border-radius:999px; background:color-mix(in srgb, var(--cp-emp, var(--ink-3)) 18%, transparent);
+  font:inherit; font-size:12.5px; font-weight:700; color:var(--ink); cursor:pointer; transition:background var(--t)}
+.cp-empsel:hover{background:color-mix(in srgb, var(--cp-emp, var(--ink-3)) 28%, transparent)}
+.cp-empsel:focus-visible{outline:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--focus) 60%, transparent)}
 .cp-empsel > i{width:8px; height:8px; border-radius:50%; background:var(--cp-emp, var(--ink-3)); flex:none}
-#ovCap .cp-empsel select{appearance:none; -webkit-appearance:none; border:0; background:transparent; padding:0 14px 0 0; margin-right:-14px; height:26px; font:inherit; font-size:12.5px; font-weight:700; color:var(--ink); cursor:pointer; box-shadow:none}
-#ovCap .cp-empsel select:focus{outline:none}
-.cp-empsel:focus-within{box-shadow:0 0 0 2px color-mix(in srgb, var(--focus) 60%, transparent)}
-.cp-empsel .cp-empseta{width:11px; height:11px; color:var(--ink-3); transform:rotate(90deg); pointer-events:none}
-.cp-empsel.sem{background:color-mix(in srgb, var(--e-orange) 16%, transparent)}
-.cp-empsel.sem select{color:var(--e-orange-t)}
+.cp-empsel .cp-empseta{width:11px; height:11px; color:var(--ink-3); transform:rotate(90deg); transition:transform .15s; pointer-events:none}
+.cp-empsel[aria-expanded="true"] .cp-empseta{transform:rotate(-90deg)}
+.cp-empsel.sem{background:color-mix(in srgb, var(--e-orange) 16%, transparent); color:var(--e-orange-t)}
+.cp-empsel.sem:hover{background:color-mix(in srgb, var(--e-orange) 26%, transparent)}
+.cp-empmenu{min-width:200px}
+.cp-empmenu button[aria-checked="true"]{font-weight:700}
+.cp-empmenu button .ic{margin-left:auto; width:14px; height:14px; color:var(--cp-at)}
+/* v4.18: as outras listas do sistema na folha (o dia em que o roteiro foi gravado) com as cores do painel */
+#ovCap select option{background-color:var(--elev); color:var(--ink)}

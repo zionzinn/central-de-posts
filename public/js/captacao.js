@@ -15,7 +15,7 @@
 // Servidor em lib/captacao.js. A regra arte x vídeo (pecaDoPost) continua aqui e em lib/peca.js: mudou lá, muda aqui.
 // Saíram (v4.03 e v4.04): o quadro de blocos, a pauta e a criação da task de Captação pelo B.O.N.E.
 // =====================================================================
-const CAPM = { aberta: null, diaCtx: null, fila: Promise.resolve(), rev: 0, redesenhando: false, textos: {}, abertos: new Set(), lendo: null, docEdit: false, pick: false, busca: '', apaga: false, apagaT: null, novo: null };
+const CAPM = { aberta: null, diaCtx: null, fila: Promise.resolve(), rev: 0, redesenhando: false, textos: {}, abertos: new Set(), lendo: null, docEdit: false, menuFecha: null, pick: false, busca: '', apaga: false, apagaT: null, novo: null };
 /** A versão das captações que este navegador já viu numa resposta de mudança; um /api/state mais velho não sobrepõe. */
 function capVersao(r) { if (r > CAPM.rev) CAPM.rev = r; }
 function capVersaoOk(r) { return !(r < CAPM.rev); }
@@ -355,6 +355,7 @@ function capDiaPadrao(c) {
  */
 function capDesenhaFolha() { CAPM.redesenhando = true; try { capDesenhaFolhaJa(); } finally { CAPM.redesenhando = false; } }
 function capDesenhaFolhaJa() {
+  if (CAPM.menuFecha) CAPM.menuFecha(false);
   const c = capPorId(CAPM.aberta);
   const ov = document.getElementById('ovCap');
   if (!c) { if (ov) ov.classList.remove('open'); return; }
@@ -373,9 +374,9 @@ function capDesenhaFolhaJa() {
       : '<input id="cpTitulo" class="cp-tit cp-titinp" value="' + esc(c.titulo || '') + '" placeholder="Nome da captação" maxlength="120" autocomplete="off" aria-label="Nome da captação">') +
     '<div class="cp-meta">' +
       // v4.17: a empresa (diz em que aba a captação aparece; a Todos mostra todas)
-      '<label class="cp-empsel' + (c.aba ? '' : ' sem') + '" title="Empresa da captação: ela aparece na aba dessa empresa e na Todos"' + (c.aba ? ' style="--cp-emp:' + capCorEmpresa(c.aba) + '"' : '') + '><i></i>' +
-        '<select id="cpEmp" aria-label="Empresa da captação">' + (c.aba ? '' : '<option value="" selected>Escolha a empresa</option>') +
-        (S.abas || []).map(a => '<option value="' + esc(a) + '"' + (a === c.aba ? ' selected' : '') + '>' + esc(nomeAba(a)) + '</option>').join('') + '</select>' + icon('chevR', 'cp-empseta') + '</label>' +
+      // v4.18: um botão que abre o menu do painel (a lista do sistema saía branca e sem texto no Windows)
+      '<button type="button" id="cpEmp" class="cp-empsel' + (c.aba ? '' : ' sem') + '" aria-haspopup="menu" aria-expanded="false" title="Empresa da captação: ela aparece na aba dessa empresa e na Todos"' +
+        (c.aba ? ' style="--cp-emp:' + capCorEmpresa(c.aba) + '"' : '') + '><i></i><span>' + esc(c.aba ? nomeAba(c.aba) : 'Escolha a empresa') + '</span>' + icon('chevR', 'cp-empseta') + '</button>' +
       (h ? (link ? '<a class="cp-hub" href="' + esc(link) + '" target="_blank" rel="noopener" title="Abrir a task no MKT Hub"' : '<span class="cp-hub"') + (h.etapa ? ' style="--cp-et:' + esc(h.etapa.cor) + '"' : '') + '><i></i>' +
         esc([h.codigo, h.etapa && h.etapa.nome].filter(Boolean).join(' · ') || 'MKT Hub') + (link ? icon('external') + '</a>' : '</span>') : '') +
       (h && h.resp ? '<span>' + icon('users') + esc(h.resp) + ' capta</span>' : '') +
@@ -457,6 +458,47 @@ function capDetalhe(r) {
   const linhas = Math.min(16, Math.max(4, t.split('\n').length + 1));
   return '<div class="cp-rdet" data-rdet="' + r.id + '">' +
     '<textarea class="cp-rtx" data-cprt="' + r.id + '" rows="' + linhas + '" maxlength="8000" ' + (lendo ? 'disabled placeholder="Carregando o roteiro…"' : 'placeholder="Cole aqui o roteiro completo: fala, cenas, tomadas"') + ' aria-label="Roteiro completo">' + esc(t) + '</textarea></div>';
+}
+/**
+ * v4.18: o menu da empresa da captação, no desenho dos menus do painel (o "Pra qual conta?" do banco): as 4 empresas
+ * com a bolinha da cor delas e o visto na atual. Setas andam, Enter escolhe, Esc fecha só o menu (a folha fica).
+ */
+function capMenuEmpresa(btn, c) {
+  if (CAPM.menuFecha) { CAPM.menuFecha(true); return; }
+  const m = document.createElement('div');
+  m.className = 'vagapop bk-escolhe cp-empmenu'; m.id = 'cpEmpMenu'; m.setAttribute('role', 'menu'); m.setAttribute('aria-label', 'Empresa da captação');
+  m.innerHTML = '<h4>Empresa da captação</h4>' + (S.abas || []).map(a => '<button type="button" role="menuitemradio" aria-checked="' + (a === c.aba) + '" data-aba="' + esc(a) + '">' +
+    '<i style="background:' + capCorEmpresa(a) + '"></i><span>' + esc(nomeAba(a)) + '</span>' + (a === c.aba ? icon('check') : '') + '</button>').join('');
+  document.body.appendChild(m);
+  const r = btn.getBoundingClientRect(), mr = m.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(r.left, innerWidth - mr.width - 8)) + 'px';
+  m.style.top = (r.bottom + 6 + mr.height > innerHeight - 8 ? Math.max(8, r.top - mr.height - 6) : r.bottom + 6) + 'px';
+  btn.setAttribute('aria-expanded', 'true');
+  const itens = [...m.querySelectorAll('button')];
+  const fecha = foco => {
+    document.removeEventListener('mousedown', fora, true); document.removeEventListener('keydown', tecla, true);
+    m.remove(); CAPM.menuFecha = null;
+    if (btn.isConnected) { btn.setAttribute('aria-expanded', 'false'); if (foco) btn.focus(); }
+  };
+  const fora = ev => { if (!m.contains(ev.target) && !btn.contains(ev.target)) fecha(false); };
+  const tecla = ev => {
+    if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); fecha(true); return; }
+    if (ev.key === 'Tab') { fecha(false); return; }
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      const i = itens.indexOf(document.activeElement), n = itens.length;
+      itens[((i < 0 ? 0 : i) + (ev.key === 'ArrowDown' ? 1 : -1) + n) % n].focus();
+    }
+  };
+  itens.forEach(b => b.onclick = () => { fecha(true); capTrocaEmpresa(c, b.dataset.aba); });
+  CAPM.menuFecha = fecha;
+  setTimeout(() => { document.addEventListener('mousedown', fora, true); document.addEventListener('keydown', tecla, true); (itens.find(b => b.dataset.aba === c.aba) || itens[0]).focus(); }, 0);
+}
+/** Troca a empresa (a escolha fica fixa, mesmo que seja a mesma que vinha do MKT Hub) e avisa onde ela aparece. */
+function capTrocaEmpresa(c, a) {
+  if (!a) return;
+  const sai = !ehTodos() && S.aba !== a;
+  capSalva(c.id, cc => (cc.aba === a && cc.abaFixa ? null : { aba: a }), 'Captação da ' + nomeAba(a) + (sai ? ': agora aparece na aba ' + nomeAba(a) + ' e na Todos' : '') + ' · Ctrl+Z desfaz');
 }
 /** v4.16: o doc dos roteiros (um só pra captação): o link que abre, o lápis pra trocar; sem doc, o botão pra pôr. */
 function capDocCab(c) {
@@ -619,11 +661,7 @@ function capLigaFolha(c) {
   const nota = document.getElementById('cpNota');
   if (nota) nota.onblur = () => { if (CAPM.redesenhando || !nota.isConnected) return; const v = nota.value.trim(); if (v !== (c.nota || '')) capSalva(c.id, cc => v === (cc.nota || '') ? null : { nota: v }); };
   const emp = document.getElementById('cpEmp');
-  if (emp) emp.onchange = () => {
-    const a = emp.value; if (!a || a === c.aba) return;
-    const sai = !ehTodos() && S.aba !== a;
-    capSalva(c.id, cc => (cc.aba === a && cc.abaFixa ? null : { aba: a }), 'Captação da ' + nomeAba(a) + (sai ? ': agora aparece na aba ' + nomeAba(a) + ' e na Todos' : '') + ' · Ctrl+Z desfaz');
-  };
+  if (emp) emp.onclick = () => capMenuEmpresa(emp, c);
   const tit = document.getElementById('cpTitulo');
   if (tit) {
     tit.onblur = () => { if (CAPM.redesenhando || !tit.isConnected) return; const v = tit.value.replace(/\s+/g, ' ').trim(); if (v !== (c.titulo || '')) capSalva(c.id, cc => v === (cc.titulo || '') ? null : { titulo: v }); };
@@ -667,7 +705,8 @@ function capHoverFecha() {
   clearTimeout(CPH.timer);
   if (CPH.pop) CPH.pop.remove();
   if (CPH.svg) CPH.svg.remove();
-  for (const el of CPH.alvos) { el.classList.remove('cp-alvo'); const r = el.querySelector(':scope > .cp-alvos'); if (r) r.remove(); }
+  for (const el of CPH.alvos) { el.classList.remove('cp-alvo', 'cph-origem'); const r = el.querySelector(':scope > .cp-alvos'); if (r) r.remove(); }
+  const g = document.getElementById('grid'); if (g) g.classList.remove('cph-on');
   CPH.pop = CPH.svg = null; CPH.alvos = [];
 }
 /** Espera um tiquinho: passar o mouse por cima de vários cards não fica piscando. */
@@ -732,23 +771,29 @@ function capHoverAbre(c, card) {
             : '<span class="cph-d sem">' + capIc('tesoura') + '<span>sem prazo de edição no MKT Hub</span></span>') +
           (it.sai ? '<span class="cph-d ' + (it.ed ? '' : cor(it.fSai)) + '">' + icon('calendar') + '<span>' + (s.postado ? 'saiu ' : 'sai ') + '<b>' + esc(capDiaL(it.sai)) + '</b></span>' + fora(it.sai) + '</span>' : '') +
         '</div></div>';
-    }).join('') + '</div>' : '<div class="cph-dica">Ligue os posts e as tasks de edição na folha da captação.</div>');
+    }).join('') + '</div>' + (naTela.size || !alvos.size ? '' : '<div class="cph-dica">' + (S.view === 'semana' ? 'Esses dias não estão nesta semana: no Mês dá pra ver tudo junto.' : 'Esses dias não estão na tela: role o calendário.') + '</div>')
+      : '<div class="cph-dica">Ligue os posts e as tasks de edição na folha da captação.</div>');
   document.body.appendChild(pop);
   CPH.pop = pop;
   // os dias acesos: contorno tracejado no índigo da captação e uma etiqueta por post
+  // v4.18: o holofote: o resto do calendário apaga e ficam o dia da gravação e os dias acesos (o Zion não via os dias)
+  const origem = card.closest('.cpday');
+  if (g && naTela.size) { g.classList.add('cph-on'); if (origem) { origem.classList.add('cph-origem'); CPH.alvos.push(origem); } }
   naTela.forEach((cell, d) => {
     cell.classList.add('cp-alvo'); CPH.alvos.push(cell);
     const box = document.createElement('div'); box.className = 'cp-alvos';
     box.innerHTML = alvos.get(d).map(x => '<span class="cp-alvo-rot' + (x.c ? ' ' + x.c : '') + '" style="--m:' + x.m + '">' + x.ic + '<span>' + esc(x.txt) + '</span></span>').join('');
     cell.appendChild(box);
   });
-  // o balão fica do lado do card que não cobre os dias acesos
-  const pw = pop.offsetWidth, ph = pop.offsetHeight, rects = [...naTela.values()].map(el => el.getBoundingClientRect());
+  // o balão fica do lado do card ou num canto da tela, onde não cobre os dias acesos nem o card (senão, onde cobre menos)
+  const pw = pop.offsetWidth, ph = pop.offsetHeight, evita = [...naTela.values()].map(el => el.getBoundingClientRect()).concat([r]);
   const yy = y => Math.max(8, Math.min(vh - ph - 8, y)), xx = x => Math.max(8, Math.min(vw - pw - 8, x));
-  const cand = [[r.right + 10, yy(r.top)], [r.left - pw - 10, yy(r.top)], [xx(r.left), r.bottom + 8], [xx(r.left), r.top - ph - 8]];
+  const cand = [[r.right + 10, yy(r.top)], [r.left - pw - 10, yy(r.top)], [xx(r.left), r.bottom + 8], [xx(r.left), r.top - ph - 8],
+    [vw - pw - 12, vh - ph - 12], [12, vh - ph - 12], [vw - pw - 12, 64], [12, 64]];
   const cabe = ([x, y]) => x >= 8 && y >= 8 && x + pw <= vw - 8 && y + ph <= vh - 8;
-  const bate = ([x, y]) => rects.some(q => x < q.right && x + pw > q.left && y < q.bottom && y + ph > q.top);
-  const pos = cand.find(p => cabe(p) && !bate(p)) || cand.find(cabe) || [xx(r.right + 10), yy(r.top)];
+  const cobre = ([x, y]) => evita.reduce((t, q) => t + Math.max(0, Math.min(x + pw, q.right) - Math.max(x, q.left)) * Math.max(0, Math.min(y + ph, q.bottom) - Math.max(y, q.top)), 0);
+  const dentro = cand.filter(cabe);
+  const pos = dentro.find(p => !cobre(p)) || dentro.sort((a, b) => cobre(a) - cobre(b))[0] || [xx(r.right + 10), yy(r.top)];
   pop.style.left = pos[0] + 'px'; pop.style.top = pos[1] + 'px';
   // a seta: do card até cada etiqueta, por cima do calendário
   const etiq = [...document.querySelectorAll('.cp-alvo .cp-alvo-rot')].filter(el => !card.closest('.cpday').contains(el));
