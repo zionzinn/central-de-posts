@@ -15,7 +15,7 @@
 // Servidor em lib/captacao.js. A regra arte x vídeo (pecaDoPost) continua aqui e em lib/peca.js: mudou lá, muda aqui.
 // Saíram (v4.03 e v4.04): o quadro de blocos, a pauta e a criação da task de Captação pelo B.O.N.E.
 // =====================================================================
-const CAPM = { aberta: null, diaCtx: null, fila: Promise.resolve(), rev: 0, redesenhando: false, textos: {}, abertos: new Set(), lendo: null, docEdit: false, menuFecha: null, pick: false, busca: '', apaga: false, apagaT: null, novo: null };
+const CAPM = { aberta: null, diaCtx: null, fila: Promise.resolve(), rev: 0, redesenhando: false, textos: {}, abertos: new Set(), lendo: null, docEdit: false, menuFecha: null, pick: false, busca: '', apaga: false, apagaT: null, novo: null, sep: null };
 /** A versão das captações que este navegador já viu numa resposta de mudança; um /api/state mais velho não sobrepõe. */
 function capVersao(r) { if (r > CAPM.rev) CAPM.rev = r; }
 function capVersaoOk(r) { return !(r < CAPM.rev); }
@@ -106,7 +106,7 @@ function capLimite(c) {
 function capAlerta(c) {
   if (capSit(c) === 'gravada') return null;
   const n = c.roteiros.length, falta = n - capGravados(c), u = capUltimo(c);
-  if (capSit(c) === 'faltou') return { c: 'red', t: 'faltou gravar ' + falta, dica: capPl(falta, 'roteiro ficou', 'roteiros ficaram') + ' sem gravar: marque outro dia pra terminar' };
+  if (capSit(c) === 'faltou') return { c: 'red', t: 'faltou gravar ' + falta, dica: capPl(falta, 'roteiro ficou', 'roteiros ficaram') + ' sem gravar: use "Gravar o que falta em outro dia", em Dias de gravação' };
   const l = capLimite(c);
   if (!l || !u) return null;
   const qual = l.tipo === 'edicao' ? 'a edição vence ' : 'o post sai ';
@@ -189,6 +189,7 @@ function capCard(c, i) {
     // v4.17: a empresa no lugar da palavra "Captação" (o modo já diz que é captação); sem empresa, avisa
     '<div class="cpc-top"><span class="cpc-et' + (c.aba ? '' : ' sem') + '">' + (sit === 'gravada' ? icon('check') + 'Gravada · ' : '') + esc(c.aba ? nomeAba(c.aba) : 'Sem empresa') + '</span>' +
       (nd > 1 ? '<span class="cpc-dia">dia ' + (i + 1) + ' de ' + nd + '</span>' : '') +
+      (c.de ? '<span class="cpc-cont" title="Continuação: o que faltou gravar de outra captação">continuação</span>' : '') +   // v4.20
       (dia.h ? '<span class="cpc-h">' + esc(capHora(dia.h)) + '</span>' : '') +
       (alerta ? '<span class="lp-pil ' + alerta.c + '" title="' + esc(alerta.dica) + '">' + icon('alerta') + esc(alerta.t) + '</span>' : '') + '</div>' +
     '<div class="tit">' + esc(capTituloCurto(c)) + '</div>' +
@@ -334,6 +335,7 @@ function capAbre(id, diaCtx) {
   if (CAPM.aberta !== id) CAPM.abertos = new Set();
   CAPM.docEdit = false;
   CAPM.aberta = id; CAPM.diaCtx = diaCtx || null; CAPM.pick = false; CAPM.busca = ''; CAPM.apaga = false;
+  if (CAPM.sep && CAPM.sep.id !== id) CAPM.sep = null;
   capHoverFecha();
   capDesenhaFolha();
   document.getElementById('ovCap').classList.add('open');
@@ -367,6 +369,8 @@ function capDesenhaFolhaJa() {
   const rascNovo = (document.getElementById('cpNovoRot') || {}).value || '';
   const h = c.hub, n = c.roteiros.length, g = capGravados(c), sit = capSit(c), alerta = capAlerta(c);
   const link = (h && h.url) || c.taskUrl;
+  const mae = c.de ? capPorId(c.de) : null, filhas = capLista().filter(x => x.de === c.id).sort((a, b) => ((a.dias[0] || {}).d || '').localeCompare((b.dias[0] || {}).d || ''));
+  const sepAberta = !!(CAPM.sep && CAPM.sep.id === c.id);
   document.getElementById('cpHead').innerHTML =
     '<div class="cp-eyebrow"' + (c.aba ? ' style="--cp-emp:' + capCorEmpresa(c.aba) + '"' : '') + '>' + icon('camera') + 'Captação</div>' +
     // sem a task do Hub (link que o Hub não achou, ou o Hub fora do ar), o nome se escreve aqui
@@ -381,6 +385,9 @@ function capDesenhaFolhaJa() {
         esc([h.codigo, h.etapa && h.etapa.nome].filter(Boolean).join(' · ') || 'MKT Hub') + (link ? icon('external') + '</a>' : '</span>') : '') +
       (h && h.resp ? '<span>' + icon('users') + esc(h.resp) + ' capta</span>' : '') +
       (h && h.prazo ? '<span>' + icon('calendar') + 'prazo no Hub ' + esc(capDiaL(String(h.prazo).slice(0, 10))) + '</span>' : '') +
+      // v4.20: a continuação (o que faltou gravar virou outra captação) aponta pra original, e a original pra ela
+      (mae ? '<button type="button" class="cp-contlink" data-cpir="' + mae.id + '" title="Abrir a captação de onde esta saiu">' + capIc('ligar') + 'continuação de ' + esc(mae.dias[0] ? capDiaL(mae.dias[0].d) : 'outra captação') + '</button>' : '') +
+      filhas.map(x => '<button type="button" class="cp-contlink" data-cpir="' + x.id + '" title="Abrir a captação com o que faltou gravar">' + icon('chevR') + 'continua em ' + esc(x.dias[0] ? capDiaL(x.dias[0].d) : 'outra captação') + '</button>').join('') +
     '</div>' +
     (!c.taskId ? '<div class="cp-semtask">' + icon('alerta') + '<span>' + (c.taskUrl ? 'O link não achou a task no MKT Hub (ou o Hub não respondeu).' : 'Sem task do MKT Hub.') + '</span>' +
       '<input id="cpLink" placeholder="Cole o link da task de captação" value="' + esc(c.taskUrl || '') + '" autocomplete="off"><button type="button" class="mbtn" data-cp="link">Ligar</button></div>' : '');
@@ -427,8 +434,10 @@ function capDesenhaFolhaJa() {
   document.getElementById('cpBody').innerHTML =
     (alerta ? '<div class="cp-alerta ' + alerta.c + '">' + icon('alerta') + '<span>' + esc(alerta.dica) + '</span></div>' : '') +
     '<section class="cp-sec"><h3>Dias de gravação</h3><div class="cp-dias">' + dias + '</div>' +
-      '<div class="cp-maisdia">' + (falta && n ? '<span class="cp-faltam">' + capPl(falta, 'roteiro falta', 'roteiros faltam') + '</span>' : '') +
-        '<button type="button" class="mbtn" data-cp="dia">' + icon('plus') + (falta && n && sit !== 'agravar' ? 'Outro dia pra terminar' : 'Outro dia') + '</button></div></section>' +
+      // v4.20: um caminho só pro que falta: vira uma captação nova (com os roteiros e os posts marcados), no lugar de mais um dia nesta
+      '<div class="cp-maisdia">' + (falta && n ? '<span class="cp-faltam">' + capPl(falta, 'roteiro falta', 'roteiros faltam') + '</span>' +
+        (sepAberta ? '' : '<button type="button" class="mbtn" data-cp="dia">' + icon('plus') + (g ? 'Gravar o que falta em outro dia' : 'Gravar parte em outro dia') + '</button>') : '') + '</div>' +
+      (sepAberta ? capSepForm(c) : '') + '</section>' +
     '<section class="cp-sec"><h3>Roteiros <span class="cp-cont">' + (n ? g + ' de ' + n + ' gravados' : 'nenhum ainda') + '</span>' + capDocCab(c) + '</h3>' + (CAPM.docEdit ? capDocEdit(c) : '') +
       (n ? '<div class="cp-prog" aria-hidden="true"><i style="width:' + Math.round(100 * g / n) + '%"></i></div>' : '') +
       // v4.15: a linha do roteiro novo já parece um roteiro (a caixinha vazia na frente) e tem o botão Adicionar;
@@ -552,14 +561,10 @@ function capLigaFolha(c) {
     if (a === 'addrot') addRot(true);
     else if (a === 'docedit') { CAPM.docEdit = true; capDesenhaFolha(); setTimeout(() => { const i = document.getElementById('cpDoc'); if (i) { i.focus(); i.select(); } }, 20); }
     else if (a === 'docok') salvaDoc();
-    else if (a === 'dia') {
-      const base = capUltimo(c) || hojeStr();
-      let d = capSoma(base < hojeStr() ? hojeStr() : base, 1);
-      while (c.dias.some(x => x.d === d)) d = capSoma(d, 1);
-      if (await capSalva(c.id, cc => cc.dias.some(x => x.d === d) ? null : { dias: cc.dias.concat([{ d, h: '' }]) }, 'Dia novo: ' + capDiaL(d) + ' (mude a data se quiser) · Ctrl+Z desfaz')) {
-        setTimeout(() => { const el = document.querySelector('[data-cpdia="' + capPorId(c.id).dias.findIndex(x => x.d === d) + '"]'); if (el) el.focus(); }, 30);
-      }
-    } else if (a === 'pick') { CAPM.pick = true; CAPM.busca = ''; capDesenhaFolha(); setTimeout(() => { const i = document.getElementById('cpBusca'); if (i) i.focus(); }, 20); }
+    else if (a === 'dia') capSepAbre(c);   // v4.20: o que falta vira uma captação nova
+    else if (a === 'sepnao') { CAPM.sep = null; capDesenhaFolha(); }
+    else if (a === 'sepok') capSepCria(c);
+    else if (a === 'pick') { CAPM.pick = true; CAPM.busca = ''; capDesenhaFolha(); setTimeout(() => { const i = document.getElementById('cpBusca'); if (i) i.focus(); }, 20); }
     else if (a === 'pickfim') { CAPM.pick = false; capDesenhaFolha(); }
     else if (a === 'link') { const v = document.getElementById('cpLink').value.trim(); if (v) await capSalva(c.id, { link: v }, 'Task ligada · Ctrl+Z desfaz'); }
     else if (a === 'del') {
@@ -654,6 +659,13 @@ function capLigaFolha(c) {
     if (ad) ad.onmousedown = ev => ev.preventDefault();   // o clique no botão não tira o foco do campo (senão entrava 2 vezes)
   }
   // posts
+  // v4.20: o formulário da captação nova (marcar roteiros e posts, o dia) e os links da continuação
+  ov.querySelectorAll('[data-cpsr]').forEach(b => b.onclick = () => { const sp = CAPM.sep; if (!sp) return; const id = b.dataset.cpsr; if (sp.rot.has(id)) sp.rot.delete(id); else sp.rot.add(id); capDesenhaFolha(); });
+  ov.querySelectorAll('[data-cpsp]').forEach(b => b.onclick = () => { const sp = CAPM.sep; if (!sp) return; const id = b.dataset.cpsp; if (sp.posts.has(id)) sp.posts.delete(id); else sp.posts.add(id); capDesenhaFolha(); });
+  const sepDia = document.getElementById('cpSepDia'), sepH = document.getElementById('cpSepH');
+  if (sepDia) sepDia.onchange = () => { if (CAPM.sep) { CAPM.sep.dia = sepDia.value || ''; capDesenhaFolha(); } };
+  if (sepH) sepH.onchange = () => { if (CAPM.sep) CAPM.sep.h = sepH.value || ''; };
+  ov.querySelectorAll('[data-cpir]').forEach(b => b.onclick = () => capAbre(b.dataset.cpir));
   ov.querySelectorAll('[data-cpabrepost]').forEach(b => b.onclick = () => { const sid = b.dataset.cpabrepost; closeOv('ovCap'); if (typeof openTask === 'function') openTask(sid); });
   ov.querySelectorAll('[data-cppx]').forEach(b => b.onclick = () => { const sid = b.dataset.cppx; capSalva(c.id, cc => ({ posts: cc.posts.filter(id => id !== sid) }), 'Post desligado · Ctrl+Z desfaz'); });
   ov.querySelectorAll('[data-cpliga]').forEach(b => b.onclick = () => { const sid = b.dataset.cpliga; capSalva(c.id, cc => cc.posts.includes(sid) ? null : { posts: cc.posts.concat([sid]) }, 'Post ligado · Ctrl+Z desfaz'); });
@@ -672,6 +684,65 @@ function capLigaFolha(c) {
   }
   const link = document.getElementById('cpLink');
   if (link) link.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); ov.querySelector('[data-cp="link"]').click(); } };
+}
+
+// ---------------- v4.20: o que falta gravar vira uma captação nova ----------------
+// Pedido do Zion (09/11/2026): "eu preciso que eu consiga criar outra 'task' de captação no bone de acordo com o roteiro NAO
+// captado. pq fica mostrando que a task fica fora do prazo mas nao está pq foi captado os outros 2 roteiros". Escolhas: os
+// posts que vão junto, "Eu marco na hora"; e o botão "Outro dia pra terminar" vira isto ("Vira 'nova captação'"). A nova
+// leva a mesma task do MKT Hub (aparece como continuação); a original fica com o que foi gravado.
+/** O dia que a captação nova sugere: um dia seguinte desta sem nada gravado; senão o dia depois do último (ou de hoje). */
+function capSepDia(c) {
+  const hoje = hojeStr(), ds = c.dias.map(x => x.d), primeiro = ds[0] || hoje;
+  const livre = ds.find(d => d > primeiro && d >= hoje && !c.roteiros.some(r => r.g === d));
+  if (livre) return livre;
+  return capSoma([hoje, ds[ds.length - 1] || hoje].sort().pop(), 1);
+}
+function capSepAbre(c) {
+  CAPM.sep = { id: c.id, rot: new Set(c.roteiros.filter(r => !r.g).map(r => r.id)), posts: new Set(), dia: capSepDia(c), h: '' };
+  capDesenhaFolha();
+  setTimeout(() => { const f = document.getElementById('cpSep'); if (f) f.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 30);
+}
+function capSepForm(c) {
+  const sp = CAPM.sep, pend = c.roteiros.filter(r => !r.g), posts = capPostsDe(c);
+  const tudo = sp.rot.size > 0 && sp.rot.size === c.roteiros.length;   // nada gravado e todos marcados: isso é mudar o dia
+  const chk = on => '<span class="cp-chk" aria-hidden="true">' + (on ? icon('check') : '') + '</span>';
+  const linha = (on, attr, id, miolo) => '<button type="button" class="cp-sepi' + (on ? ' on' : '') + '" role="checkbox" aria-checked="' + on + '" ' + attr + '="' + id + '">' + chk(on) + miolo + '</button>';
+  return '<div class="cp-sep" id="cpSep">' +
+    '<div class="cp-seph">' + icon('camera') + '<b>Captação nova pro que falta gravar</b></div>' +
+    '<div class="cp-sepl">Roteiros que vão</div>' +
+    pend.map(r => linha(sp.rot.has(r.id), 'data-cpsr', r.id, '<span class="cp-sept"><b>' + esc(r.n) + '</b></span>')).join('') +
+    '<div class="cp-sepl">Dia da captação nova</div>' +
+    '<div class="cp-sepdia"><input type="date" id="cpSepDia" value="' + esc(sp.dia) + '" aria-label="Dia da captação nova"><input type="time" id="cpSepH" value="' + esc(sp.h) + '" aria-label="Horário da captação nova"></div>' +
+    '<div class="cp-sepl">Posts que saem desses roteiros <small>marque os que vão junto; os outros ficam aqui</small></div>' +
+    (posts.length ? posts.map(s => linha(sp.posts.has(s.id), 'data-cpsp', s.id, '<span class="cdot" style="background:' + contaCor(s.conta) + '"></span><span class="cp-sept"><b>' + esc(s.tituloCache || s.titulo || 'Post sem nome') + '</b>' +
+        '<small>' + esc(nomeConta(s.conta)) + (s.date ? ' · sai ' + esc(capDiaL(s.date)) : ' · sem dia') + (s.hub && s.hub.prazo ? ' · edição até ' + esc(capDiaL(String(s.hub.prazo).slice(0, 10))) : '') + '</small></span>')).join('')
+      : '<p class="cp-dica">Nenhum post ligado: a captação nova nasce sem post (dá pra ligar depois).</p>') +
+    (tudo ? '<p class="cp-sepaviso">' + icon('alerta') + '<span>Todos os roteiros iriam: pra mudar a captação inteira de dia, troque o dia dela aqui em cima.</span></p>' : '') +
+    '<div class="cp-seppe"><button type="button" class="mbtn" data-cp="sepnao">Cancelar</button>' +
+      '<button type="button" class="mbtn primary" data-cp="sepok"' + (!sp.rot.size || tudo || !sp.dia ? ' disabled' : '') + '>Criar a captação de ' + esc(sp.dia ? capDiaL(sp.dia) : '...') + '</button></div></div>';
+}
+/** Cria a captação nova (na fila dos salvamentos, depois do que estava sendo salvo). */
+function capSepCria(c) {
+  const vez = CAPM.fila.then(async () => {
+    const sp = CAPM.sep; if (!sp || sp.id !== c.id) return false;
+    try {
+      const j = await api('/api/captacao/' + c.id + '/separar', { method: 'POST', body: JSON.stringify({ dia: sp.dia, h: sp.h, roteiros: [...sp.rot], posts: [...sp.posts] }) });
+      capVersao(j.rev); capGuardaTextos(j.captacao); capGuardaTextos(j.nova);
+      const i = capLista().findIndex(x => x.id === c.id);
+      if (i >= 0) S.captacoes[i] = j.captacao;
+      if (!capPorId(j.nova.id)) S.captacoes.push(j.nova);
+      CAPM.sep = null;
+      render(); capRedesenha();
+      const nr = j.nova.roteiros.length, np = j.nova.posts.length;
+      toast('Captação nova em ' + capDiaL(j.nova.dias[0].d) + ': ' + capPl(nr, 'roteiro', 'roteiros') + (np ? ' e ' + capPl(np, 'post', 'posts') : ', sem post') +
+        (capSit(j.captacao) === 'gravada' ? ' · esta ficou gravada' : '') + ' · Ctrl+Z desfaz');
+      loadState(false, true).then(() => { render(); capRedesenha(); }).catch(() => {});
+      return true;
+    } catch (e) { toast(e.message, true); return false; }
+  });
+  CAPM.fila = vez.catch(() => {});
+  return vez;
 }
 
 // ---------------- no calendário dos posts ----------------

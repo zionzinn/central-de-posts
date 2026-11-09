@@ -344,3 +344,31 @@ html[data-modo="claro"] .cpm-sai .cpm-bar{box-shadow:inset 0 0 0 1px rgba(0,0,0,
 .cpm-vazio .ic{width:28px; height:28px; color:var(--cp-at)}
 .cpm-vazio b{font-size:15px; color:var(--ink)}
 @media (prefers-reduced-motion: reduce){ .cpm-svg path,.cpm-n,.cph-p::before{transition:none} }
+
+/* ---- v4.20: o que falta gravar vira uma captação nova ---- */
+.cp-sep{margin-top:10px; padding:12px; border-radius:12px; display:flex; flex-direction:column; gap:5px;
+  background:color-mix(in srgb, var(--cp-a) 8%, var(--fill-4)); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--cp-a) 35%, transparent)}
+.cp-seph{display:flex; align-items:center; gap:7px; font-size:13.5px}
+.cp-seph .ic{width:15px; height:15px; color:var(--cp-at)}
+.cp-sepl{margin-top:7px; font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3)}
+.cp-sepl small{margin-left:4px; font-size:11.5px; font-weight:500; letter-spacing:0; text-transform:none}
+#ovCap button.cp-sepi{display:flex; align-items:center; gap:9px; width:100%; min-width:0; min-height:36px; padding:5px 9px; border:0; border-radius:9px; background:var(--cell); color:var(--ink); font:inherit; font-size:13px; text-align:left; cursor:pointer}
+#ovCap button.cp-sepi:hover{background:var(--fill-3)}
+#ovCap button.cp-sepi:focus-visible{outline:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--focus) 60%, transparent)}
+.cp-sepi .cp-chk{flex:none; cursor:inherit}
+.cp-sepi.on .cp-chk{background:var(--cp-a); border-color:var(--cp-a); color:#fff}
+.cp-sepi .cdot{width:9px; height:9px; border-radius:50%; flex:none}
+.cp-sept{display:flex; flex-direction:column; min-width:0; flex:1}
+.cp-sept b{font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.cp-sept small{font-size:11.5px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.cp-sepdia{display:flex; gap:8px; flex-wrap:wrap}
+#ovCap .cp-sepdia input{height:32px; padding:0 8px; border-radius:8px; border:1px solid var(--hair); background-color:var(--cell); color:var(--ink); font:inherit; font-variant-numeric:tabular-nums; min-width:0}
+#ovCap .cp-sepdia input:focus{outline:none; border-color:var(--focus)}
+.cp-sepaviso{display:flex; align-items:center; gap:6px; margin-top:4px; font-size:12px; color:var(--e-orange-t)}
+.cp-sepaviso .ic{width:14px; height:14px; flex:none}
+.cp-seppe{display:flex; justify-content:flex-end; gap:8px; margin-top:8px}
+.cp-seppe .mbtn[disabled]{opacity:.45; cursor:not-allowed}
+.cp-contlink{display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 9px; border:0; border-radius:999px; background:color-mix(in srgb, var(--cp-a) 16%, transparent); color:var(--cp-at); font:inherit; font-size:12px; font-weight:700; cursor:pointer}
+.cp-contlink:hover{background:color-mix(in srgb, var(--cp-a) 26%, transparent)}
+.cp-contlink .ic{width:12px; height:12px}
+.cpc-cont{font-size:10px; font-weight:700; color:var(--cp-at); padding:0 6px; border-radius:999px; background:color-mix(in srgb, var(--cp-a) 18%, transparent); white-space:nowrap; line-height:16px}
