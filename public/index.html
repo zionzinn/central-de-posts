@@ -47,6 +47,7 @@
     <div class="vtoggle" id="vtoggle" role="group" aria-label="Visualização">
       <button data-v="mes" class="on">Mês</button>
       <button data-v="semana">Semana</button>
+      <button data-v="mapa" hidden title="O que cada captação da semana destrava: a edição e o dia que o post sai">Mapa</button>
     </div>
     <!-- v4.01: lente. Cada post no dia em que ele SAI (padrão) ou no dia em que FICA PRONTO (entrega no MKT Hub) -->
     <div class="lente" id="lente" role="radiogroup" aria-label="Mostrar cada post no dia em que ele">
@@ -448,7 +449,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.18'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.19'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1474,8 +1475,16 @@ function blocoMes(mes){
 }
 
 function renderGrid(){
-  const semana = S.view==='semana';
+  syncVToggle();
   const g = $('#grid');
+  // v4.19: o mapa do que a captação destrava (js/captacao.js), no lugar da grade dos dias
+  if(S.view==='mapa' && S.modoCap && typeof capMapa==='function'){
+    lpDesliga(); g.classList.remove('fluxo'); raiasNaGrade(g, null);
+    $('#dows').classList.remove('withwk'); $('#dows').classList.add('escondida');
+    g.innerHTML = ''; capMapa(g); return;
+  }
+  g.classList.remove('cpmapa-on');
+  const semana = S.view==='semana';
   lpDesliga();
   g.classList.toggle('fluxo', !semana);
   g.classList.toggle('withwk', semana ? false : false);
@@ -1523,7 +1532,7 @@ function marcarMesFoco(){
 }
 /** Cresce a janela pra frente/pra trás sem redesenhar o que já está na tela. */
 function crescerFluxo(){
-  if(S.view==='semana' || S.crescendo) return;
+  if(porSemana() || S.crescendo) return;
   const g = $('#grid'); if(!g.classList.contains('fluxo')) return;
   const doc = document.documentElement;
   const perto = doc.scrollHeight - (window.scrollY + window.innerHeight);
@@ -1544,7 +1553,7 @@ function crescerFluxo(){
 }
 /** Rola até o topo de um mês (e cria os blocos que faltarem no caminho). */
 function irParaMes(mes, suave){
-  if(S.view==='semana'){ S.mes = mes; render(); return; }
+  if(porSemana()){ S.mes = mes; render(); return; }
   let guarda = 0;
   while(mes < S.meses[0] && guarda++ < 60){
     const novo = mesSoma(S.meses[0], -1);
@@ -1693,12 +1702,19 @@ function medirGrudentos(){
 window.addEventListener('resize', medirGrudentos);
 
 function syncVToggle(){
+  // v4.19: o Mapa (o que a captação destrava) é uma visão do modo captação; fora dele, volta pra Semana
+  const bm = document.querySelector('#vtoggle [data-v="mapa"]');
+  if(bm) bm.hidden = !S.modoCap;
+  if(S.view==='mapa' && !S.modoCap) S.view = 'semana';
   document.querySelectorAll('#vtoggle button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.view));
 }
+/** v4.19: a Semana e o Mapa andam de semana em semana (as setas, o Hoje e a ida pra um mês). */
+function porSemana(){ return S.view==='semana' || S.view==='mapa'; }
 document.querySelectorAll('#vtoggle button').forEach(b=> b.onclick = ()=>{
   if(S.view===b.dataset.v) return;
+  const antes = S.view;
   S.view = b.dataset.v;
-  if(S.view==='semana') S.semIdx = S.mes===mesAtual()? weekIndexOf(hojeStr()) : 0;
+  if(S.view!=='mes' && antes==='mes') S.semIdx = S.mes===mesAtual()? weekIndexOf(hojeStr()) : 0;   // do Mês pra uma visão de semana: a semana de hoje
   syncVToggle(); render();
 });
 
@@ -3378,10 +3394,10 @@ function shiftSemana(d){
   if(i >= rows.length){ shiftMes(1); S.semIdx = 0; return; }
   S.semIdx = i; render();
 }
-$('#mPrev').onclick = ()=> S.view==='semana'? shiftSemana(-1) : irParaMes(mesSoma(S.mes,-1), true);
-$('#mNext').onclick = ()=> S.view==='semana'? shiftSemana(1) : irParaMes(mesSoma(S.mes,1), true);
+$('#mPrev').onclick = ()=> porSemana()? shiftSemana(-1) : irParaMes(mesSoma(S.mes,-1), true);
+$('#mNext').onclick = ()=> porSemana()? shiftSemana(1) : irParaMes(mesSoma(S.mes,1), true);
 $('#mHoje').onclick = ()=>{
-  if(S.view==='semana'){ S.mes = mesAtual(); S.semIdx = weekIndexOf(hojeStr()); loadState().catch(e=>toast(e.message,true)); return; }
+  if(porSemana()){ S.mes = mesAtual(); S.semIdx = weekIndexOf(hojeStr()); loadState().catch(e=>toast(e.message,true)); return; }
   irParaMes(mesAtual(), true);
 };
 // gavetas

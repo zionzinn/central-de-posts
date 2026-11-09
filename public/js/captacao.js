@@ -79,7 +79,7 @@ function capLista() { return S.captacoes || []; }
 function capPorId(id) { return capLista().find(c => c.id === id) || null; }
 function capTitulo(c) { return (c.hub && c.hub.titulo) || c.titulo || 'Captação sem nome'; }
 /** No card, o nome sem o "[CAPTAÇÃO]" do começo (no modo captação tudo é captação). */
-function capTituloCurto(c) { return capTitulo(c).replace(/^\s*\[?\s*capta[cç][aã]o\s*\]?\s*[:·-]?\s*/i, '') || capTitulo(c); }
+function capTituloCurto(c) { return capTitulo(c).replace(/^\s*\[?\s*capta[cç](?:[aã]o|[oõ]es)\s*\]?\s*[:·-]?\s*/i, '') || capTitulo(c); }   // v4.19: "[CAPTAÇÕES]" também sai
 function capGravados(c) { return c.roteiros.filter(r => r.g).length; }
 function capUltimo(c) { return c.dias.length ? c.dias[c.dias.length - 1].d : null; }
 /** gravada (todos os roteiros gravados) · faltou (o último dia passou e tem roteiro sem gravar) · agravar */
@@ -146,7 +146,7 @@ function capModo(on) {
   if (quer) { S.drawer = false; if (S.selecao && S.selecao.size) S.selecao.clear(); S.clip = null; }
   capFechaNovo();
   render();
-  if (typeof irParaMes === 'function' && S.view !== 'semana') setTimeout(() => irParaMes(S.mes || mesAtual()), 0);
+  if (typeof irParaMes === 'function' && S.view === 'mes') setTimeout(() => irParaMes(S.mes || mesAtual()), 0);
 }
 
 // ---------------- no calendário (modo captação) ----------------
@@ -203,9 +203,9 @@ function capCard(c, i) {
   d.addEventListener('dragend', () => { S.dragging = false; d.classList.remove('dragging'); if (S._renderDepois) { S._renderDepois = false; render(); } });
   // v4.16: o mouse parado no card mostra o que a captação destrava (os posts, a edição e o dia que sai)
   d.addEventListener('mouseenter', () => capHoverQuando(c, d));
-  d.addEventListener('mouseleave', capHoverFecha);
+  d.addEventListener('mouseleave', capHoverSai);   // v4.19: dá tempo de levar o mouse até o post (no balão ou no dia aceso)
   d.addEventListener('focus', () => { if (d.matches(':focus-visible')) capHoverQuando(c, d); });
-  d.addEventListener('blur', capHoverFecha);
+  d.addEventListener('blur', capHoverSai);
   d.addEventListener('dragstart', capHoverFecha);
   d.addEventListener('click', () => { if (!S.dragging) capAbre(c.id, dia.d); });
   d.addEventListener('keydown', ev => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === d) { ev.preventDefault(); d.click(); } });
@@ -414,11 +414,13 @@ function capDesenhaFolhaJa() {
   const posts = capPostsDe(c);
   const linhaPost = s => {
     const st = s.statusCache, prazo = s.hub && s.hub.prazo ? String(s.hub.prazo).slice(0, 10) : '';
+    // v4.19: clicar no post abre a folha dele (pedido do Zion: "preciso conseguir clicar no post que a captação destrava")
     return '<div class="cp-post" data-psid="' + s.id + '">' +
       '<span class="cdot" style="background:' + contaCor(s.conta) + '"></span>' +
-      '<span class="cp-pt"><b>' + esc(s.tituloCache || s.titulo || 'Post sem nome') + '</b>' +
+      '<button type="button" class="cp-pt cp-ptabre" data-cpabrepost="' + s.id + '" title="Abrir a folha do post"><b>' + esc(s.tituloCache || s.titulo || 'Post sem nome') + '</b>' +
         '<small>' + esc(nomeConta(s.conta)) + (s.date ? ' · sai ' + esc(capDiaL(s.date)) : ' · sem dia') +
-        (prazo ? ' · edição até ' + esc(capDiaL(prazo)) : '') + (st && st.nome ? ' · ' + esc(st.nome) : '') + '</small></span>' +
+        (prazo ? ' · edição até ' + esc(capDiaL(prazo)) : '') + (st && st.nome ? ' · ' + esc(st.nome) : '') + '</small></button>' +
+      icon('chevR', 'cp-ptseta') +
       '<button type="button" class="cp-x" data-cppx="' + s.id + '" title="Desligar o post" aria-label="Desligar o post">' + icon('x') + '</button></div>';
   };
   const pick = CAPM.pick ? capPicker(c) : '';
@@ -652,6 +654,7 @@ function capLigaFolha(c) {
     if (ad) ad.onmousedown = ev => ev.preventDefault();   // o clique no botão não tira o foco do campo (senão entrava 2 vezes)
   }
   // posts
+  ov.querySelectorAll('[data-cpabrepost]').forEach(b => b.onclick = () => { const sid = b.dataset.cpabrepost; closeOv('ovCap'); if (typeof openTask === 'function') openTask(sid); });
   ov.querySelectorAll('[data-cppx]').forEach(b => b.onclick = () => { const sid = b.dataset.cppx; capSalva(c.id, cc => ({ posts: cc.posts.filter(id => id !== sid) }), 'Post desligado · Ctrl+Z desfaz'); });
   ov.querySelectorAll('[data-cpliga]').forEach(b => b.onclick = () => { const sid = b.dataset.cpliga; capSalva(c.id, cc => cc.posts.includes(sid) ? null : { posts: cc.posts.concat([sid]) }, 'Post ligado · Ctrl+Z desfaz'); });
   const busca = document.getElementById('cpBusca');
@@ -700,9 +703,9 @@ function capMarca(s, e) {
 // mais". No modo captação, o mouse parado no card abre o balão com os posts ligados (o prazo da edição, que é o da task
 // do post no MKT Hub, o dia em que sai e a etapa) e acende, no calendário, os dias da edição e do post que estão na
 // tela, com a seta saindo do card (o mesmo desenho do hover dos posts, v4.01).
-const CPH = { timer: null, pop: null, svg: null, alvos: [] };
+const CPH = { timer: null, pop: null, svg: null, alvos: [], card: null, fechaT: null };
 function capHoverFecha() {
-  clearTimeout(CPH.timer);
+  clearTimeout(CPH.timer); clearTimeout(CPH.fechaT); CPH.card = null;
   if (CPH.pop) CPH.pop.remove();
   if (CPH.svg) CPH.svg.remove();
   for (const el of CPH.alvos) { el.classList.remove('cp-alvo', 'cph-origem'); const r = el.querySelector(':scope > .cp-alvos'); if (r) r.remove(); }
@@ -711,11 +714,19 @@ function capHoverFecha() {
 }
 /** Espera um tiquinho: passar o mouse por cima de vários cards não fica piscando. */
 function capHoverQuando(c, card) {
-  capHoverFecha();
+  clearTimeout(CPH.timer);
+  if (CPH.card === card && CPH.pop) { clearTimeout(CPH.fechaT); return; }   // voltou pro card do balão aberto
   const ov = document.getElementById('ovCap');
   if (S.dragging || (ov && ov.classList.contains('open'))) return;
   CPH.timer = setTimeout(() => { if (card.isConnected && card.matches(':hover, :focus-visible')) capHoverAbre(capPorId(c.id) || c, card); }, 260);
 }
+/**
+ * v4.19: o balão e as etiquetas dos dias acesos são clicáveis (o post abre). Tirar o mouse do card não fecha na hora:
+ * fica aceso um instante, o tempo de chegar no balão ou na etiqueta (seguindo a seta); dentro deles, fica.
+ */
+function capHoverSai() { clearTimeout(CPH.timer); if (!CPH.pop) return capHoverFecha(); clearTimeout(CPH.fechaT); CPH.fechaT = setTimeout(capHoverFecha, 600); }
+function capHoverFica() { clearTimeout(CPH.fechaT); }
+function capHoverPost(sid) { capHoverFecha(); if (sid && typeof openTask === 'function') openTask(sid); }
 /** Curva suave de (x1, y1) até (x2, y2), com a barriga pro lado (não sobe e desce como a dos posts) e a ponta da seta. */
 function capCurva(x1, y1, x2, y2) {
   const dx = x2 - x1, dy = y2 - y1, k = 0.16, cx = (x1 + x2) / 2 + dy * k * Math.sign(dx || 1), cy = (y1 + y2) / 2 - Math.abs(dx) * k;
@@ -745,8 +756,8 @@ function capHoverAbre(c, card) {
   const alvos = new Map();
   const poe = (d, x) => { if (d) { if (!alvos.has(d)) alvos.set(d, []); alvos.get(d).push(x); } };
   for (const it of itens) {
-    if (it.ed) poe(it.ed, { m: 'var(--e-prod)', ic: capIc('tesoura'), txt: 'edição · ' + capCurto(it.s), c: cor(it.fEd) });
-    if (it.sai) poe(it.sai, { m: contaCor(it.s.conta), ic: icon('calendar'), txt: (it.s.postado ? 'saiu · ' : 'sai · ') + capCurto(it.s), c: it.ed ? '' : cor(it.fSai) });
+    if (it.ed) poe(it.ed, { m: 'var(--e-prod)', ic: capIc('tesoura'), txt: 'edição · ' + capCurto(it.s), c: cor(it.fEd), sid: it.s.id });
+    if (it.sai) poe(it.sai, { m: contaCor(it.s.conta), ic: icon('calendar'), txt: (it.s.postado ? 'saiu · ' : 'sai · ') + capCurto(it.s), c: it.ed ? '' : cor(it.fSai), sid: it.s.id });
   }
   const naTela = new Map();
   if (g) alvos.forEach((l, d) => {
@@ -756,33 +767,43 @@ function capHoverAbre(c, card) {
   });
   // o balão
   const pop = document.createElement('div');
-  pop.className = 'cph-pop'; pop.setAttribute('role', 'tooltip');
+  pop.className = 'cph-pop'; pop.setAttribute('role', 'group'); pop.setAttribute('aria-label', 'O que a captação destrava');
   const fora = d => (d && !naTela.has(d) ? '<i>fora da tela</i>' : '');
   pop.innerHTML = '<div class="cph-tit">' + (itens.length ? 'Destrava ' + capPl(itens.length, 'post', 'posts') : 'Nenhum post ligado ainda') + '</div>' +
     '<div class="cph-grava">' + icon('camera') + '<span>Grava ' + esc(c.dias.map(x => capDiaL(x.d) + (x.h ? ' ' + capHora(x.h) : '')).join(' e ') || 'sem dia') + '</span></div>' +
     (itens.length ? '<div class="cph-lista">' + itens.map(it => {
       const s = it.s, e = it.e, k = e && LP.NOME[e.k] ? e.k : '';
-      return '<div class="cph-p">' +
+      return '<div class="cph-p" data-sid="' + s.id + '" title="Abrir a folha do post">' +
         '<div class="cph-l1"><span class="cdot" style="background:' + contaCor(s.conta) + '"></span><b>' + esc(contaCurta(s.conta)) + '</b>' +
           '<span class="cph-t">' + esc(s.tituloCache || s.titulo || 'Post sem nome') + '</span>' +
-          (k ? '<span class="cph-et" style="--c:var(--e-' + (e.lider ? 'lider' : k) + ')">' + esc(LP.NOME[k]) + '</span>' : '') + '</div>' +
+          (k ? '<span class="cph-et" style="--c:var(--e-' + (e.lider ? 'lider' : k) + ')">' + esc(LP.NOME[k]) + '</span>' : '') + icon('chevR', 'cph-abre') + '</div>' +
         '<div class="cph-l2">' +
           (it.ed ? '<span class="cph-d ' + cor(it.fEd) + '">' + capIc('tesoura') + '<span>edição até <b>' + esc(capDiaL(it.ed)) + '</b></span>' + capFolgaTxt(it.fEd) + fora(it.ed) + '</span>'
             : '<span class="cph-d sem">' + capIc('tesoura') + '<span>sem prazo de edição no MKT Hub</span></span>') +
           (it.sai ? '<span class="cph-d ' + (it.ed ? '' : cor(it.fSai)) + '">' + icon('calendar') + '<span>' + (s.postado ? 'saiu ' : 'sai ') + '<b>' + esc(capDiaL(it.sai)) + '</b></span>' + fora(it.sai) + '</span>' : '') +
         '</div></div>';
-    }).join('') + '</div>' + (naTela.size || !alvos.size ? '' : '<div class="cph-dica">' + (S.view === 'semana' ? 'Esses dias não estão nesta semana: no Mês dá pra ver tudo junto.' : 'Esses dias não estão na tela: role o calendário.') + '</div>')
+    }).join('') + '</div>' + '<div class="cph-dica">Clique no post, aqui ou no dia aceso, pra abrir a folha dele.</div>' + (naTela.size || !alvos.size ? '' : '<div class="cph-dica">' + (S.view === 'semana' ? 'Esses dias não estão nesta semana: no Mês dá pra ver tudo junto.' : 'Esses dias não estão na tela: role o calendário.') + '</div>')
       : '<div class="cph-dica">Ligue os posts e as tasks de edição na folha da captação.</div>');
   document.body.appendChild(pop);
-  CPH.pop = pop;
+  CPH.pop = pop; CPH.card = card;
+  pop.addEventListener('mouseenter', capHoverFica);
+  pop.addEventListener('mouseleave', capHoverSai);
+  pop.addEventListener('click', ev => { const p = ev.target.closest('[data-sid]'); if (p) capHoverPost(p.dataset.sid); });
   // os dias acesos: contorno tracejado no índigo da captação e uma etiqueta por post
   // v4.18: o holofote: o resto do calendário apaga e ficam o dia da gravação e os dias acesos (o Zion não via os dias)
   const origem = card.closest('.cpday');
   if (g && naTela.size) { g.classList.add('cph-on'); if (origem) { origem.classList.add('cph-origem'); CPH.alvos.push(origem); } }
   naTela.forEach((cell, d) => {
     cell.classList.add('cp-alvo'); CPH.alvos.push(cell);
+    // o dia aceso segura o balão aberto (o caminho até a etiqueta e até o balão passa por ele)
+    if (!cell._cphLiga) { cell._cphLiga = true; cell.addEventListener('mouseenter', () => { if (cell.classList.contains('cp-alvo')) capHoverFica(); }); cell.addEventListener('mouseleave', () => { if (cell.classList.contains('cp-alvo')) capHoverSai(); }); }
     const box = document.createElement('div'); box.className = 'cp-alvos';
-    box.innerHTML = alvos.get(d).map(x => '<span class="cp-alvo-rot' + (x.c ? ' ' + x.c : '') + '" style="--m:' + x.m + '">' + x.ic + '<span>' + esc(x.txt) + '</span></span>').join('');
+    box.innerHTML = alvos.get(d).map(x => '<span class="cp-alvo-rot' + (x.c ? ' ' + x.c : '') + '" style="--m:' + x.m + '" data-sid="' + x.sid + '" title="Abrir a folha do post">' + x.ic + '<span>' + esc(x.txt) + '</span></span>').join('');
+    box.querySelectorAll('.cp-alvo-rot').forEach(el => {
+      el.addEventListener('mouseenter', capHoverFica); el.addEventListener('mouseleave', capHoverSai);
+      el.addEventListener('mousedown', ev => ev.stopPropagation());
+      el.addEventListener('click', ev => { ev.stopPropagation(); capHoverPost(el.dataset.sid); });
+    });
     cell.appendChild(box);
   });
   // o balão fica do lado do card ou num canto da tela, onde não cobre os dias acesos nem o card (senão, onde cobre menos)
@@ -827,3 +848,148 @@ document.addEventListener('keydown', ev => {
   const ov = document.getElementById('ovCap'), a = document.activeElement;
   if (ov && ov.classList.contains('open') && a && ov.contains(a) && a.id !== 'cpBusca' && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) a.blur();
 }, true);
+
+// ---------------- v4.19: o mapa do que destrava ----------------
+// Escolha do Zion (09/11/2026), a opção D da proposta (propostas\captacao-v419): "gosto do mapa que destrava. vamos
+// implementar ele". No modo captação, a visão Mapa mostra a semana escolhida em 3 colunas ligadas por linhas: GRAVA (as
+// captações com gravação na semana), EDIÇÃO ATÉ (o prazo da task do post no MKT Hub) e SAI (o dia do post). O mouse numa
+// captação acende o caminho dela; numa edição ou num post, o dele. Clique na captação abre a folha dela; na edição ou no
+// post, a folha do post. Só leitura (nada muda no MKT Hub); as abas filtram como no resto do modo captação.
+const CPMA = { ligado: false, t: null };
+/** Os 7 dias (seg a dom) da semana escolhida na barra (a mesma navegação da Semana). */
+function capSemanaDatas() {
+  const rows = rowsDoMes(S.mes);
+  const w = rows[Math.min(Math.max(S.semIdx || 0, 0), rows.length - 1)] || [];
+  const i = w.findIndex(x => x && x.date);
+  if (i < 0) return [];
+  const seg = capSoma(w[i].date, -i);
+  return Array.from({ length: 7 }, (_, k) => capSoma(seg, k));
+}
+/** O risco da edição do post: o prazo contra o último dia de gravação (a regra do balão) e o post que sai antes da edição. */
+function capRiscoEd(s, u) {
+  const ed = s.hub && s.hub.prazo ? String(s.hub.prazo).slice(0, 10) : '';
+  if (s.postado || !ed) return { k: '', t: '' };
+  if (s.date && ed > s.date) return { k: 'red', t: 'sai antes' };
+  if (!u) return { k: '', t: '' };
+  const f = capDif(ed, u);
+  return f < 0 ? { k: 'red', t: 'antes!' } : f === 0 ? { k: 'red', t: 'no dia' } : f <= 2 ? { k: 'or', t: capPl(f, 'dia', 'dias') } : { k: '', t: capPl(f, 'dia', 'dias') };
+}
+function capMapa(g) {
+  const dias = capSemanaDatas(), hoje = hojeStr();
+  const seg = dias[0] || hoje, dom = dias[6] || hoje;
+  const rows = rowsDoMes(S.mes), lb = document.getElementById('mesLabel');
+  if (lb && rows[S.semIdx]) lb.textContent = 'Semana ' + (S.semIdx + 1) + ' · ' + weekRange(rows[S.semIdx]);
+  g.classList.add('cpmapa-on');
+  const primeiro = c => (c.dias.find(x => x.d >= seg && x.d <= dom) || c.dias[0] || {}).d || '';
+  const urg = c => { const a = capAlerta(c); return a ? (a.c === 'red' ? 0 : 1) : 2; };
+  const caps = capLista().filter(c => capNaAba(c) && c.dias.some(x => x.d >= seg && x.d <= dom))
+    .sort((a, b) => primeiro(a).localeCompare(primeiro(b)) || urg(a) - urg(b) || capTitulo(a).localeCompare(capTitulo(b)));
+  if (!caps.length) {
+    g.innerHTML = '<div class="cpm-vazio">' + icon('camera') + '<b>Nenhuma captação nesta semana' + (ehTodos() ? '' : ' na ' + esc(nomeAba(S.aba))) + '</b>' +
+      '<span>Use as setas pra ver outra semana. Pra criar, o + do dia no Mês ou na Semana.</span></div>';
+    return;
+  }
+  // os posts que as captações da semana destravam (um post ligado a 2 captações aparece uma vez, com as 2 linhas)
+  const posts = new Map();
+  for (const c of caps) for (const s of capPostsDe(c)) { if (!posts.has(s.id)) posts.set(s.id, { s, caps: [] }); posts.get(s.id).caps.push(c); }
+  const ordem = new Map(caps.map((c, i) => [c.id, i]));
+  const lista = [...posts.values()].map(p => Object.assign(p, {
+    u: p.caps.map(capUltimo).filter(Boolean).sort().pop() || '',
+    ed: p.s.hub && p.s.hub.prazo ? String(p.s.hub.prazo).slice(0, 10) : '', sai: p.s.date || '', o: Math.min(...p.caps.map(c => ordem.get(c.id))),
+  }));
+  // o nome do post sem o "[EDIÇÃO]" e sem a empresa e a data da frente (a conta já está do lado)
+  const tituloP = s => String(s.tituloCache || s.titulo || 'Post sem nome').replace(/^\s*\[[^\]]*\]\s*/, '').replace(/^(SeuBon[eé]|Carbone|Onevo|Weevo)(\s+\d{1,2}\/\d{1,2})?\s*·\s*/i, '') || 'Post sem nome';
+  const grupos = (chave, semNome) => {
+    const m = new Map();
+    for (const p of lista) { const k = p[chave] || ''; if (!m.has(k)) m.set(k, []); m.get(k).push(p); }
+    return [...m.entries()].sort((a, b) => (a[0] || '9999').localeCompare(b[0] || '9999'))
+      .map(([k, l]) => ({ k, nome: k ? capDiaL(k) + (k === hoje ? ' · hoje' : '') : semNome, l: l.sort((x, y) => x.o - y.o || tituloP(x.s).localeCompare(tituloP(y.s))) }));
+  };
+  // ---- GRAVA ----
+  const capNo = c => {
+    const n = c.roteiros.length, gv = capGravados(c), a = capAlerta(c), resp = c.hub && c.hub.resp, cor = capCorEmpresa(c.aba);
+    return '<button type="button" class="cpm-n cpm-cap' + (capPostsDe(c).length ? '' : ' semp') + '" data-cap="' + c.id + '" data-dia="' + primeiro(c) + '"' + (cor ? ' style="--cp-emp:' + cor + '"' : '') + ' title="Abrir a captação">' +
+      '<span class="cpm-l1"><span class="cpm-t">' + esc(capTituloCurto(c)) + '</span>' +
+        (a ? '<span class="lp-pil ' + a.c + '" title="' + esc(a.dica) + '">' + icon('alerta') + esc(a.t) + '</span>' : capSit(c) === 'gravada' ? '<span class="cpm-ok">' + icon('check') + 'gravada</span>' : '') + '</span>' +
+      '<span class="cpm-l2"><span class="cpm-emp' + (c.aba ? '' : ' sem') + '">' + esc(c.aba ? nomeAba(c.aba) : 'Sem empresa') + '</span>' +
+        (n ? '<span class="cpm-rd" aria-hidden="true">' + c.roteiros.slice(0, 10).map(r => '<i' + (r.g ? ' class="g"' : '') + '></i>').join('') + '</span><span>' + gv + ' de ' + n + '</span>' : '<span>sem roteiros</span>') +
+        (resp ? '<span class="cpm-av">' + esc(initials(resp)) + '</span><span class="cpm-q">' + esc(resp.split(' ')[0]) + '</span>' : '') +
+        (c.dias.length > 1 ? '<span class="cpm-q">' + esc(c.dias.map(x => capDiaL(x.d).slice(0, 6)).join(' e ')) + '</span>' : '') + '</span></button>';
+  };
+  const comPost = caps.filter(c => capPostsDe(c).length), semPost = caps.filter(c => !capPostsDe(c).length);
+  const g1 = new Map();
+  for (const c of comPost) { const k = primeiro(c); if (!g1.has(k)) g1.set(k, []); g1.get(k).push(c); }
+  let col1 = '';
+  for (const [k, l] of g1) col1 += '<div class="cpm-g"><div class="cpm-gh">' + esc(capDiaL(k)) + (k === hoje ? ' · hoje' : '') + '</div>' + l.map(capNo).join('') + '</div>';
+  if (semPost.length) col1 += '<div class="cpm-g"><div class="cpm-gh">Sem post ligado</div>' + semPost.map(capNo).join('') + '</div>';
+  // ---- EDIÇÃO ATÉ ----
+  const ge = grupos('ed', 'Sem prazo no MKT Hub');
+  const maxEd = Math.max(0, ...ge.filter(x => x.k).map(x => x.l.length));
+  const caixa = (p, tipo) => {
+    const s = p.s, r = capRiscoEd(s, p.u), antes = tipo === 'sai' && !s.postado && p.ed && s.date && p.ed > s.date;
+    const rk = tipo === 'ed' ? r.k : antes ? 'red' : '';
+    return '<button type="button" class="cpm-n cpm-' + tipo + (rk ? ' r-' + rk : '') + (s.postado ? ' saiu' : '') + '" data-sid="' + s.id + '" data-caps="' + p.caps.map(c => c.id).join(' ') + '"' +
+      (tipo === 'sai' ? ' style="--cpm-c:' + contaCor(s.conta) + '"' : '') + ' title="Abrir a folha do post">' +
+      '<i class="cpm-bar"></i><b>' + esc(contaCurta(s.conta)) + '</b><span class="cpm-t">' + esc(tituloP(s)) + '</span>' +
+      (tipo === 'ed' ? (r.t ? '<em>' + esc(r.t) + '</em>' : '') : s.postado ? '<em class="ok">' + icon('check') + 'saiu</em>' : antes ? '<em>antes da edição</em>' : '') + '</button>';
+  };
+  let col2 = '';
+  for (const x of ge) col2 += '<div class="cpm-g"><div class="cpm-gh">' + esc(x.nome) + ' <span>· ' + capPl(x.l.length, 'edição', 'edições') + '</span>' +
+    (x.k && maxEd >= 3 && x.l.length === maxEd ? '<span class="cpm-pico">pico</span>' : '') + '</div>' + x.l.map(p => caixa(p, 'ed')).join('') + '</div>';
+  // ---- SAI ----
+  let col3 = '';
+  for (const x of grupos('sai', 'Sem dia no calendário')) col3 += '<div class="cpm-g"><div class="cpm-gh">' + esc(x.nome) + ' <span>· ' + capPl(x.l.length, 'post', 'posts') + '</span></div>' + x.l.map(p => caixa(p, 'sai')).join('') + '</div>';
+  g.innerHTML = '<div class="cpm-rola"><div class="cpm" id="cpMapa"><svg class="cpm-svg" aria-hidden="true"></svg>' +
+    '<div class="cpm-col"><div class="cpm-ch">' + icon('camera') + 'Grava <small>' + capPl(caps.length, 'captação', 'captações') + '</small></div>' + col1 + '</div>' +
+    '<div class="cpm-col"><div class="cpm-ch">' + capIc('tesoura') + 'Edição até <small>' + capPl(lista.length, 'edição', 'edições') + '</small></div>' + (col2 || '<p class="cpm-nada">Nenhum post ligado ainda.</p>') + '</div>' +
+    '<div class="cpm-col"><div class="cpm-ch">' + icon('calendar') + 'Sai <small>' + capPl(lista.length, 'post', 'posts') + '</small></div>' + (col3 || '<p class="cpm-nada">Ligue os posts na folha da captação.</p>') + '</div>' +
+    '</div></div><p class="cpm-dica">Mouse numa captação acende o caminho dela. Clique na edição ou no post pra abrir a folha do post. A barrinha da edição fica vermelha quando vence no dia da gravação ou antes (ou depois do dia que o post sai) e laranja com 1 ou 2 dias pra editar.</p>';
+  const box = document.getElementById('cpMapa');
+  box.addEventListener('mouseover', ev => { const n = ev.target.closest('.cpm-n'); capMapaFoco(box, n); });
+  box.addEventListener('mouseleave', () => capMapaFoco(box, null));
+  box.addEventListener('focusin', ev => { const n = ev.target.closest('.cpm-n'); if (n) capMapaFoco(box, n); });
+  box.addEventListener('focusout', () => capMapaFoco(box, null));
+  box.addEventListener('click', ev => {
+    const n = ev.target.closest('.cpm-n'); if (!n) return;
+    if (n.dataset.cap) capAbre(n.dataset.cap, n.dataset.dia || undefined);
+    else if (n.dataset.sid && typeof openTask === 'function') openTask(n.dataset.sid);
+  });
+  capMapaLinhas();
+  requestAnimationFrame(capMapaLinhas);   // depois da fonte e do layout assentarem
+  if (!CPMA.ligado) { CPMA.ligado = true; window.addEventListener('resize', () => { clearTimeout(CPMA.t); CPMA.t = setTimeout(capMapaLinhas, 120); }); }
+}
+/** As linhas do mapa: captação até a edição, edição até o post (curvas, por baixo das caixas). */
+function capMapaLinhas() {
+  const box = document.getElementById('cpMapa'); if (!box) return;
+  const svg = box.querySelector('.cpm-svg'), br = box.getBoundingClientRect();
+  const pos = el => { const r = el.getBoundingClientRect(); return { l: r.left - br.left, r: r.right - br.left, y: r.top - br.top + r.height / 2 }; };
+  const capEl = {}, saiEl = {};
+  box.querySelectorAll('.cpm-cap').forEach(e => { capEl[e.dataset.cap] = e; });
+  box.querySelectorAll('.cpm-sai').forEach(e => { saiEl[e.dataset.sid] = e; });
+  const f = n => n.toFixed(1);
+  const curva = (a, b) => { const m = (b.l - a.r) / 2; return 'M' + f(a.r) + ' ' + f(a.y) + ' C' + f(a.r + m) + ' ' + f(a.y) + ' ' + f(b.l - m) + ' ' + f(b.y) + ' ' + f(b.l) + ' ' + f(b.y); };
+  let h = '';
+  box.querySelectorAll('.cpm-ed').forEach(e => {
+    const pe = pos(e), sid = e.dataset.sid, cs = e.dataset.caps.split(' ').filter(Boolean);
+    for (const cid of cs) if (capEl[cid]) h += '<path d="' + curva(pos(capEl[cid]), pe) + '" data-cap="' + cid + '" data-sid="' + sid + '"/>';
+    if (saiEl[sid]) h += '<path d="' + curva(pe, pos(saiEl[sid])) + '" data-cap="' + cs.join(' ') + '" data-sid="' + sid + '"/>';
+  });
+  svg.setAttribute('width', box.scrollWidth); svg.setAttribute('height', box.scrollHeight);
+  svg.innerHTML = h;
+  const on = box.querySelector('.cpm-n.foco-alvo'); if (on) capMapaFoco(box, on);
+}
+/** Acende o caminho: da captação (as edições e os posts dela) ou do post (a edição, o dia que sai e a captação). */
+function capMapaFoco(box, alvo) {
+  box.querySelectorAll('.on, .foco-alvo').forEach(e => e.classList.remove('on', 'foco-alvo'));
+  if (!alvo) { box.classList.remove('foco'); return; }
+  box.classList.add('foco'); alvo.classList.add('foco-alvo');
+  if (alvo.classList.contains('cpm-cap')) {
+    const cid = alvo.dataset.cap; alvo.classList.add('on');
+    box.querySelectorAll('path[data-cap~="' + cid + '"]').forEach(e => e.classList.add('on'));
+    box.querySelectorAll('.cpm-ed[data-caps~="' + cid + '"]').forEach(e => box.querySelectorAll('.cpm-n[data-sid="' + e.dataset.sid + '"]').forEach(x => x.classList.add('on')));
+  } else if (alvo.dataset.sid) {
+    const sid = alvo.dataset.sid;
+    box.querySelectorAll('[data-sid="' + sid + '"]').forEach(e => e.classList.add('on'));
+    (alvo.dataset.caps || '').split(' ').filter(Boolean).forEach(cid => box.querySelectorAll('.cpm-cap[data-cap="' + cid + '"]').forEach(e => e.classList.add('on')));
+  }
+}
