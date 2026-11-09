@@ -131,8 +131,15 @@ html[data-modo="claro"] .cp-rot.g .cp-chk{color:#fff}
 .cp-rd{height:28px; padding:0 6px; border-radius:8px; border:1px solid var(--hair); background:var(--fill-4); color:var(--e-pronto-t); font-weight:600}
 .cp-rd1{color:var(--e-pronto-t); font-weight:600; padding:0 4px}
 .cp-rpend{color:var(--ink-3); padding:0 4px}
-.cp-novorot{width:100%; min-height:34px; padding:7px 10px; border-radius:9px; border:1px dashed var(--hair); background:transparent; resize:vertical; font-size:13px; line-height:1.4; box-sizing:border-box}
-.cp-novorot:focus{outline:none; border-style:solid; border-color:var(--focus); background:var(--cell)}
+/* v4.15: o roteiro novo é uma linha de roteiro: a caixinha vazia tracejada, o campo e o botão Adicionar */
+.cp-rotnovo{display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:8px; padding:2px 0}
+.cp-chk.fantasma{border-style:dashed; cursor:default}
+.cp-rotnovo .cp-chk.fantasma:hover{border-color:var(--ink-4)}
+#ovCap .cp-novorot{width:100%; min-height:30px; padding:5px 8px; border-radius:8px; border:1px solid var(--hair); background-color:var(--fill-4); resize:none; font-size:13px; line-height:1.4; box-sizing:border-box; display:block}
+#ovCap .cp-novorot:focus{outline:none; border-color:var(--focus); background-color:var(--cell); box-shadow:none}
+.cp-addrot{min-height:30px; cursor:pointer}
+.cp-addrot .ic{width:14px; height:14px}
+.cp-dica{margin:0; font-size:12px; color:var(--ink-3)}
 /* posts */
 .cp-posts{display:flex; flex-direction:column; gap:4px}
 .cp-post,.cp-po{display:flex; align-items:center; gap:9px; padding:6px 8px; border-radius:10px; background:var(--fill-4); min-width:0}

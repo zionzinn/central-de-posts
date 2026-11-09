@@ -15,7 +15,7 @@
 // Servidor em lib/captacao.js. A regra arte x vídeo (pecaDoPost) continua aqui e em lib/peca.js: mudou lá, muda aqui.
 // Saíram (v4.03 e v4.04): o quadro de blocos, a pauta e a criação da task de Captação pelo B.O.N.E.
 // =====================================================================
-const CAPM = { aberta: null, diaCtx: null, fila: Promise.resolve(), rev: 0, pick: false, busca: '', apaga: false, apagaT: null, novo: null };
+const CAPM = { aberta: null, diaCtx: null, fila: Promise.resolve(), rev: 0, redesenhando: false, pick: false, busca: '', apaga: false, apagaT: null, novo: null };
 /** A versão das captações que este navegador já viu numa resposta de mudança; um /api/state mais velho não sobrepõe. */
 function capVersao(r) { if (r > CAPM.rev) CAPM.rev = r; }
 function capVersaoOk(r) { return !(r < CAPM.rev); }
@@ -310,7 +310,12 @@ function capDiaPadrao(c) {
   const ja = ds.filter(d => d <= hoje);
   return ja.length ? ja[ja.length - 1] : ds[0] || '';
 }
-function capDesenhaFolha() {
+/**
+ * Redesenha a folha. Ao trocar o HTML, o Chrome dispara o blur do campo focado ainda dentro do documento: os campos
+ * olham CAPM.redesenhando pra não salvar pela metade (nem pôr o mesmo roteiro de novo a cada redesenho).
+ */
+function capDesenhaFolha() { CAPM.redesenhando = true; try { capDesenhaFolhaJa(); } finally { CAPM.redesenhando = false; } }
+function capDesenhaFolhaJa() {
   const c = capPorId(CAPM.aberta);
   const ov = document.getElementById('ovCap');
   if (!c) { if (ov) ov.classList.remove('open'); return; }
@@ -377,8 +382,13 @@ function capDesenhaFolha() {
         '<button type="button" class="mbtn" data-cp="dia">' + icon('plus') + (falta && n && sit !== 'agravar' ? 'Outro dia pra terminar' : 'Outro dia') + '</button></div></section>' +
     '<section class="cp-sec"><h3>Roteiros <span class="cp-cont">' + (n ? g + ' de ' + n + ' gravados' : 'nenhum ainda') + '</span></h3>' +
       (n ? '<div class="cp-prog" aria-hidden="true"><i style="width:' + Math.round(100 * g / n) + '%"></i></div>' : '') +
-      '<div class="cp-rots">' + rots + '</div>' +
-      '<textarea id="cpNovoRot" class="cp-novorot" rows="1" placeholder="Novo roteiro (Enter). Cole uma lista: um roteiro por linha"></textarea></section>' +
+      // v4.15: a linha do roteiro novo já parece um roteiro (a caixinha vazia na frente) e tem o botão Adicionar;
+      // o que foi escrito entra sozinho ao sair do campo (o Zion escreveu e não sabia que era pra apertar Enter)
+      '<div class="cp-rots">' + rots +
+        '<div class="cp-rotnovo"><span class="cp-chk fantasma" aria-hidden="true"></span>' +
+          '<textarea id="cpNovoRot" class="cp-novorot" rows="1" placeholder="' + (n ? 'Mais um roteiro' : 'Escreva o roteiro') + ' e aperte Enter" aria-label="Roteiro novo"></textarea>' +
+          '<button type="button" class="mbtn cp-addrot" data-cp="addrot">' + icon('plus') + 'Adicionar</button></div></div>' +
+      (n ? '' : '<p class="cp-dica">Cada roteiro ganha a caixinha de gravado. Colou uma lista? Vira um roteiro por linha.</p>') + '</section>' +
     '<section class="cp-sec"><h3>Posts ligados <span class="cp-cont">' + (posts.length ? capPl(posts.length, 'post', 'posts') : 'nenhum ainda') + '</span></h3>' +
       '<div class="cp-posts">' + posts.map(linhaPost).join('') + '</div>' +
       (CAPM.pick ? pick : '<button type="button" class="mbtn" data-cp="pick">' + capIc('ligar') + 'Ligar post ou task de edição</button>') + '</section>' +
@@ -418,9 +428,20 @@ function capLigaFolha(c) {
   const ov = document.getElementById('ovCap');
   ov.querySelectorAll('[data-close-cp]').forEach(b => b.onclick = () => closeOv('ovCap'));
   const rs = cc => cc.roteiros.map(r => ({ id: r.id, n: r.n, g: r.g }));
+  // o roteiro novo: Enter, o botão Adicionar ou sair do campo põem o que foi escrito (uma linha = um roteiro)
+  const novo = document.getElementById('cpNovoRot');
+  const addRot = fica => {
+    if (!novo) return;
+    const bruto = novo.value, nomes = bruto.split(/\r?\n/).map(t => t.replace(/^\s*(?:[-•*]|\d+[.)])\s*/, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+    if (!nomes.length) { if (fica) novo.focus(); return; }
+    novo.value = ''; novo.rows = 1;
+    capSalva(c.id, cc => ({ roteiros: rs(cc).concat(nomes.map(nm => ({ n: nm, g: '' }))) }), nomes.length > 1 ? nomes.length + ' roteiros novos · Ctrl+Z desfaz' : '')
+      .then(okk => { const i = document.getElementById('cpNovoRot'); if (!i) return; if (!okk && !i.value) i.value = bruto; if (fica || !okk) i.focus(); });
+  };
   ov.querySelectorAll('[data-cp]').forEach(b => b.onclick = async () => {
     const a = b.dataset.cp;
-    if (a === 'dia') {
+    if (a === 'addrot') addRot(true);
+    else if (a === 'dia') {
       const base = capUltimo(c) || hojeStr();
       let d = capSoma(base < hojeStr() ? hojeStr() : base, 1);
       while (c.dias.some(x => x.d === d)) d = capSoma(d, 1);
@@ -471,24 +492,24 @@ function capLigaFolha(c) {
       if (!v) { inp.value = r.n; return; }
       capSalva(c.id, cc => ({ roteiros: rs(cc).map(x => x.id === id ? Object.assign(x, { n: v }) : x) }));
     };
-    inp.onblur = salva;
+    inp.onblur = () => { if (!CAPM.redesenhando && inp.isConnected) salva(); };
     inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } if (ev.key === 'Escape') { ev.stopPropagation(); const r = c.roteiros.find(x => x.id === inp.dataset.cpn); inp.value = r ? r.n : ''; inp.blur(); } };
   });
   ov.querySelectorAll('[data-cprx]').forEach(b => b.onclick = () => {
     const id = b.dataset.cprx;
     capSalva(c.id, cc => ({ roteiros: rs(cc).filter(x => x.id !== id) }), 'Roteiro tirado · Ctrl+Z desfaz');
   });
-  const novo = document.getElementById('cpNovoRot');
-  if (novo) novo.onkeydown = ev => {
-    if (ev.key !== 'Enter' || ev.shiftKey) return;
-    ev.preventDefault();
-    const bruto = novo.value, nomes = bruto.split(/\r?\n/).map(t => t.replace(/^\s*(?:[-•*]|\d+[.)])\s*/, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
-    if (!nomes.length) return;
-    novo.value = ''; novo.rows = 1;
-    capSalva(c.id, cc => ({ roteiros: rs(cc).concat(nomes.map(nm => ({ n: nm, g: '' }))) }), nomes.length > 1 ? nomes.length + ' roteiros novos · Ctrl+Z desfaz' : '')
-      .then(okk => { const i = document.getElementById('cpNovoRot'); if (!i) return; if (!okk && !i.value) i.value = bruto; i.focus(); });
-  };
-  if (novo) novo.addEventListener('paste', () => setTimeout(() => { if (/\n/.test(novo.value)) novo.rows = Math.min(8, novo.value.split('\n').length); }, 0));
+  if (novo) {
+    novo.onkeydown = ev => {
+      if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); addRot(true); }
+      else if (ev.key === 'Escape' && novo.value) { ev.stopPropagation(); novo.value = ''; novo.rows = 1; }   // vazio, o Esc fecha a folha
+    };
+    // sair do campo põe o roteiro; o blur do redesenho (o texto passa pro campo novo) não conta
+    novo.onblur = () => { if (!CAPM.redesenhando && novo.isConnected && novo.value.trim()) addRot(false); };
+    novo.addEventListener('paste', () => setTimeout(() => { if (/\n/.test(novo.value)) novo.rows = Math.min(8, novo.value.split('\n').length); }, 0));
+    const ad = ov.querySelector('[data-cp="addrot"]');
+    if (ad) ad.onmousedown = ev => ev.preventDefault();   // o clique no botão não tira o foco do campo (senão entrava 2 vezes)
+  }
   // posts
   ov.querySelectorAll('[data-cppx]').forEach(b => b.onclick = () => { const sid = b.dataset.cppx; capSalva(c.id, cc => ({ posts: cc.posts.filter(id => id !== sid) }), 'Post desligado · Ctrl+Z desfaz'); });
   ov.querySelectorAll('[data-cpliga]').forEach(b => b.onclick = () => { const sid = b.dataset.cpliga; capSalva(c.id, cc => cc.posts.includes(sid) ? null : { posts: cc.posts.concat([sid]) }, 'Post ligado · Ctrl+Z desfaz'); });
@@ -497,10 +518,10 @@ function capLigaFolha(c) {
   if (busca) busca.onkeydown = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); CAPM.pick = false; capDesenhaFolha(); } };
   // nota
   const nota = document.getElementById('cpNota');
-  if (nota) nota.onblur = () => { const v = nota.value.trim(); if (v !== (c.nota || '')) capSalva(c.id, cc => v === (cc.nota || '') ? null : { nota: v }); };
+  if (nota) nota.onblur = () => { if (CAPM.redesenhando || !nota.isConnected) return; const v = nota.value.trim(); if (v !== (c.nota || '')) capSalva(c.id, cc => v === (cc.nota || '') ? null : { nota: v }); };
   const tit = document.getElementById('cpTitulo');
   if (tit) {
-    tit.onblur = () => { const v = tit.value.replace(/\s+/g, ' ').trim(); if (v !== (c.titulo || '')) capSalva(c.id, cc => v === (cc.titulo || '') ? null : { titulo: v }); };
+    tit.onblur = () => { if (CAPM.redesenhando || !tit.isConnected) return; const v = tit.value.replace(/\s+/g, ' ').trim(); if (v !== (c.titulo || '')) capSalva(c.id, cc => v === (cc.titulo || '') ? null : { titulo: v }); };
     tit.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); tit.blur(); } if (ev.key === 'Escape') { ev.stopPropagation(); tit.value = c.titulo || ''; tit.blur(); } };
   }
   const link = document.getElementById('cpLink');
