@@ -15,7 +15,7 @@
 // Servidor em lib/captacao.js. A regra arte x vídeo (pecaDoPost) continua aqui e em lib/peca.js: mudou lá, muda aqui.
 // Saíram (v4.03 e v4.04): o quadro de blocos, a pauta e a criação da task de Captação pelo B.O.N.E.
 // =====================================================================
-const CAPM = { aberta: null, diaCtx: null, fila: Promise.resolve(), rev: 0, redesenhando: false, pick: false, busca: '', apaga: false, apagaT: null, novo: null };
+const CAPM = { aberta: null, diaCtx: null, fila: Promise.resolve(), rev: 0, redesenhando: false, textos: {}, abertos: new Set(), lendo: null, docEdit: false, pick: false, busca: '', apaga: false, apagaT: null, novo: null };
 /** A versão das captações que este navegador já viu numa resposta de mudança; um /api/state mais velho não sobrepõe. */
 function capVersao(r) { if (r > CAPM.rev) CAPM.rev = r; }
 function capVersaoOk(r) { return !(r < CAPM.rev); }
@@ -63,6 +63,9 @@ function capDif(a, b) { return Math.round((capMs(a) - capMs(b)) / 864e5); }
 function capHora(h) { return String(h || '').replace(/^0(\d)/, '$1').replace(/:00$/, 'h').replace(/^(\d+):(\d\d)$/, '$1h$2'); }
 const capPl = (n, um, varios) => n + ' ' + (n === 1 ? um : varios);
 const CAP_ICONS = {
+  texto: '<path d="M5 6.5h14M5 10.5h14M5 14.5h9M5 18.5h6"/>',
+  abre: '<path d="M9 6l6 6-6 6"/>',
+  tesoura: '<circle cx="6.5" cy="7" r="2.5"/><circle cx="6.5" cy="17" r="2.5"/><path d="M8.6 8.4L19 16M8.6 15.6L19 8"/>',
   lixo: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/>',
   ligar: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
 };
@@ -149,6 +152,7 @@ function capModo(on) {
 // ---------------- no calendário (modo captação) ----------------
 /** O dia no modo captação: o número, o + (nova captação) e os cards das captações gravadas nele. */
 function capCelula(c, di, semana) {
+  if (CPH.pop || CPH.svg || CPH.alvos.length) capHoverFecha();   // o calendário vai ser redesenhado
   const cell = document.createElement('div');
   if (!c.date) { cell.className = 'day fora' + (semana ? ' big' : ''); return cell; }
   const hoje = hojeStr(), lista = capsDoDia(c.date);
@@ -196,6 +200,12 @@ function capCard(c, i) {
     S.dragging = true; d.classList.add('dragging');
   });
   d.addEventListener('dragend', () => { S.dragging = false; d.classList.remove('dragging'); if (S._renderDepois) { S._renderDepois = false; render(); } });
+  // v4.16: o mouse parado no card mostra o que a captação destrava (os posts, a edição e o dia que sai)
+  d.addEventListener('mouseenter', () => capHoverQuando(c, d));
+  d.addEventListener('mouseleave', capHoverFecha);
+  d.addEventListener('focus', () => { if (d.matches(':focus-visible')) capHoverQuando(c, d); });
+  d.addEventListener('blur', capHoverFecha);
+  d.addEventListener('dragstart', capHoverFecha);
   d.addEventListener('click', () => { if (!S.dragging) capAbre(c.id, dia.d); });
   d.addEventListener('keydown', ev => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === d) { ev.preventDefault(); d.click(); } });
   return d;
@@ -222,6 +232,30 @@ async function capSolta(dado, para) {
 }
 
 // ---------------- criar: o link da task de captação no dia ----------------
+/** v4.16: guarda o texto completo dos roteiros que vieram na resposta (o /api/state só traz o tamanho). */
+function capGuardaTextos(c) { if (c && c.roteiros) for (const r of c.roteiros) if ('t' in r) CAPM.textos[r.id] = r.t || ''; }
+/** Pede a captação inteira (com os textos) quando a folha abre e algum roteiro tem texto que ainda não veio. */
+function capLeTextos(id) {
+  const c = capPorId(id); if (!c || CAPM.lendo === id) return;
+  if (!c.roteiros.some(r => r.tt && !(r.id in CAPM.textos))) return;
+  CAPM.lendo = id;
+  api('/api/captacao/' + id).then(j => { capGuardaTextos(j.captacao); }).catch(() => {}).finally(() => { CAPM.lendo = null; capRedesenha(); });
+}
+/**
+ * v4.16: o que foi colado no roteiro novo. Com "ROTEIRO 1 ..." no começo de alguma linha, cada um desses vira um roteiro
+ * e as linhas de baixo viram o texto completo dele (o que vem antes do primeiro fica de fora). Sem isso, uma linha = um roteiro.
+ */
+function capQuebraLista(bruto) {
+  const linhas = String(bruto || '').replace(/\r\n?/g, '\n').split('\n'), cab = /^\s*(?:[-•*]\s*)?roteiro\s*\d+/i;
+  const limpa = t => t.replace(/\s+/g, ' ').trim().slice(0, 120);
+  if (!linhas.some(l => cab.test(l))) return linhas.map(l => limpa(l.replace(/^\s*(?:[-•*]|\d+[.)])\s*/, ''))).filter(Boolean).map(n => ({ n, t: '' }));
+  const out = []; let at = null;
+  for (const l of linhas) {
+    if (cab.test(l)) { at = { n: limpa(l.replace(/^\s*[-•*]\s*/, '')), t: [] }; out.push(at); }
+    else if (at) at.t.push(l);
+  }
+  return out.map(x => ({ n: x.n, t: x.t.join('\n').trim() }));
+}
 /** O corpo que troca o dia de: pro dia para (o horário e os roteiros gravados nele vão junto). */
 function capMudaDia(cc, de, para) {
   if (!cc.dias.some(x => x.d === de) || cc.dias.some(x => x.d === para)) return null;
@@ -280,7 +314,7 @@ async function capSalvaJa(id, corpo, ok) {
   if (!b) return false;
   try {
     const j = await api('/api/captacao/' + id, { method: 'PATCH', body: JSON.stringify(b) });
-    capVersao(j.rev);
+    capVersao(j.rev); capGuardaTextos(j.captacao);
     const i = capLista().findIndex(c => c.id === id);
     if (i >= 0 && j.captacao) S.captacoes[i] = j.captacao;
     render(); capRedesenha();
@@ -296,9 +330,13 @@ async function capSalvaJa(id, corpo, ok) {
 // ---------------- a folha da captação ----------------
 function capAbre(id, diaCtx) {
   const c = capPorId(id); if (!c) return;
+  if (CAPM.aberta !== id) CAPM.abertos = new Set();
+  CAPM.docEdit = false;
   CAPM.aberta = id; CAPM.diaCtx = diaCtx || null; CAPM.pick = false; CAPM.busca = ''; CAPM.apaga = false;
+  capHoverFecha();
   capDesenhaFolha();
   document.getElementById('ovCap').classList.add('open');
+  capLeTextos(id);
 }
 function capRedesenha() { const ov = document.getElementById('ovCap'); if (ov && ov.classList.contains('open') && CAPM.aberta) capDesenhaFolha(); }
 /** Chamado depois do Ctrl+Z e quando o documento fecha: a folha aberta mostra o que mudou. */
@@ -321,7 +359,8 @@ function capDesenhaFolhaJa() {
   if (!c) { if (ov) ov.classList.remove('open'); return; }
   // o que está sendo digitado (roteiro novo, nota, nome de roteiro, link) sobrevive ao redesenho depois de um salvamento
   const ant = document.activeElement, emFolha = ant && ant.closest && ant.closest('#ovCap');
-  const foco = emFolha && (ant.id ? '#' + ant.id : ant.dataset.cpn ? '[data-cpn="' + ant.dataset.cpn + '"]' : ant.dataset.cpdia ? '[data-cpdia="' + ant.dataset.cpdia + '"]' : ant.dataset.cphora ? '[data-cphora="' + ant.dataset.cphora + '"]' : '');
+  const chave = emFolha && ['cpn', 'cpdia', 'cphora', 'cprt'].find(k => ant.dataset[k] !== undefined);
+  const foco = emFolha && (ant.id ? '#' + ant.id : chave ? '[data-' + chave + '="' + ant.dataset[chave] + '"]' : '');
   const texto = emFolha && (ant.tagName === 'TEXTAREA' || (ant.tagName === 'INPUT' && !/^(date|time)$/.test(ant.type))) ? { v: ant.value, a: ant.selectionStart, b: ant.selectionEnd } : null;
   const rascNovo = (document.getElementById('cpNovoRot') || {}).value || '';
   const h = c.hub, n = c.roteiros.length, g = capGravados(c), sit = capSit(c), alerta = capAlerta(c);
@@ -358,11 +397,14 @@ function capDesenhaFolhaJa() {
   const rots = c.roteiros.map(r =>
     '<div class="cp-rot' + (r.g ? ' g' : '') + '" data-rid="' + r.id + '">' +
       '<button type="button" class="cp-chk" data-cpg="' + r.id + '" role="checkbox" aria-checked="' + (r.g ? 'true' : 'false') + '" title="' + (r.g ? 'Gravado: clique pra desmarcar' : 'Marcar como gravado') + '">' + (r.g ? icon('check') : '') + '</button>' +
-      '<input class="cp-rn" value="' + esc(r.n) + '" data-cpn="' + r.id + '" aria-label="Nome do roteiro" maxlength="120">' +
+      '<input class="cp-rn" value="' + esc(r.n) + '" data-cpn="' + r.id + '" aria-label="Título do roteiro" maxlength="120">' +
+      // v4.16: só o título aparece; o roteiro completo fica guardado nele (o botão abre)
+      '<span class="cp-racoes"><button type="button" class="cp-rtog' + (r.tt || CAPM.textos[r.id] ? ' tem' : '') + (CAPM.abertos.has(r.id) ? ' on' : '') + '" data-cpabre="' + r.id + '" aria-expanded="' + CAPM.abertos.has(r.id) + '" title="' +
+          (r.tt || CAPM.textos[r.id] ? 'Ver o roteiro completo' : 'Pôr o roteiro completo') + '" aria-label="Roteiro completo de ' + esc(r.n) + '">' + capIc('texto') + capIc('abre', 'cp-rseta') + '</button></span>' +
       (r.g ? (ds.length > 1 ? '<select class="cp-rd" data-cprd="' + r.id + '" aria-label="Dia em que foi gravado">' + ds.map(d => '<option value="' + d + '"' + (d === r.g ? ' selected' : '') + '>' + esc(capDiaL(d)) + '</option>').join('') + '</select>'
         : '<span class="cp-rd1">' + esc(capDiaL(r.g)) + '</span>') : '<span class="cp-rpend">a gravar</span>') +
       '<button type="button" class="cp-x" data-cprx="' + r.id + '" title="Tirar o roteiro" aria-label="Tirar o roteiro ' + esc(r.n) + '">' + icon('x') + '</button>' +
-    '</div>').join('');
+    '</div>' + (CAPM.abertos.has(r.id) ? capDetalhe(r) : '')).join('');
   // ---- posts ----
   const posts = capPostsDe(c);
   const linhaPost = s => {
@@ -380,7 +422,7 @@ function capDesenhaFolhaJa() {
     '<section class="cp-sec"><h3>Dias de gravação</h3><div class="cp-dias">' + dias + '</div>' +
       '<div class="cp-maisdia">' + (falta && n ? '<span class="cp-faltam">' + capPl(falta, 'roteiro falta', 'roteiros faltam') + '</span>' : '') +
         '<button type="button" class="mbtn" data-cp="dia">' + icon('plus') + (falta && n && sit !== 'agravar' ? 'Outro dia pra terminar' : 'Outro dia') + '</button></div></section>' +
-    '<section class="cp-sec"><h3>Roteiros <span class="cp-cont">' + (n ? g + ' de ' + n + ' gravados' : 'nenhum ainda') + '</span></h3>' +
+    '<section class="cp-sec"><h3>Roteiros <span class="cp-cont">' + (n ? g + ' de ' + n + ' gravados' : 'nenhum ainda') + '</span>' + capDocCab(c) + '</h3>' + (CAPM.docEdit ? capDocEdit(c) : '') +
       (n ? '<div class="cp-prog" aria-hidden="true"><i style="width:' + Math.round(100 * g / n) + '%"></i></div>' : '') +
       // v4.15: a linha do roteiro novo já parece um roteiro (a caixinha vazia na frente) e tem o botão Adicionar;
       // o que foi escrito entra sozinho ao sair do campo (o Zion escreveu e não sabia que era pra apertar Enter)
@@ -404,6 +446,24 @@ function capDesenhaFolhaJa() {
     const el = document.querySelector('#ovCap ' + foco);
     if (el) { if (texto) el.value = texto.v; el.focus(); if (texto) try { el.setSelectionRange(texto.a, texto.b); } catch (e) {} }
   }
+}
+/** v4.16: o roteiro aberto: o texto completo. */
+function capDetalhe(r) {
+  const lendo = r.tt && !(r.id in CAPM.textos), t = lendo ? '' : (CAPM.textos[r.id] || '');
+  const linhas = Math.min(16, Math.max(4, t.split('\n').length + 1));
+  return '<div class="cp-rdet" data-rdet="' + r.id + '">' +
+    '<textarea class="cp-rtx" data-cprt="' + r.id + '" rows="' + linhas + '" maxlength="8000" ' + (lendo ? 'disabled placeholder="Carregando o roteiro…"' : 'placeholder="Cole aqui o roteiro completo: fala, cenas, tomadas"') + ' aria-label="Roteiro completo">' + esc(t) + '</textarea></div>';
+}
+/** v4.16: o doc dos roteiros (um só pra captação): o link que abre, o lápis pra trocar; sem doc, o botão pra pôr. */
+function capDocCab(c) {
+  if (CAPM.docEdit) return '';
+  if (c.doc) return '<span class="cp-doccab"><a class="cp-docc" href="' + esc(c.doc) + '" target="_blank" rel="noopener" title="Abrir o doc dos roteiros">' + icon('doc') + 'Doc dos roteiros' + icon('external') + '</a>' +
+    '<button type="button" class="cp-x" data-cp="docedit" title="Trocar ou tirar o link do doc" aria-label="Trocar o link do doc dos roteiros">' + icon('pencil') + '</button></span>';
+  return '<button type="button" class="cp-docadd" data-cp="docedit">' + icon('doc') + 'Doc dos roteiros</button>';
+}
+function capDocEdit(c) {
+  return '<div class="cp-rdocl">' + icon('doc') + '<input id="cpDoc" value="' + esc(c.doc || '') + '" placeholder="Cole o link do doc dos roteiros (vazio tira)" autocomplete="off" aria-label="Link do doc dos roteiros">' +
+    '<button type="button" class="mbtn primary" data-cp="docok">Salvar</button></div>';
 }
 /** A lista de posts pra ligar: os que saem de 14 dias atrás a 60 pra frente, vídeo primeiro; a busca também aceita o link da task. */
 function capPicker(c) {
@@ -432,15 +492,18 @@ function capLigaFolha(c) {
   const novo = document.getElementById('cpNovoRot');
   const addRot = fica => {
     if (!novo) return;
-    const bruto = novo.value, nomes = bruto.split(/\r?\n/).map(t => t.replace(/^\s*(?:[-•*]|\d+[.)])\s*/, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
-    if (!nomes.length) { if (fica) novo.focus(); return; }
+    const bruto = novo.value, itens = capQuebraLista(bruto), comTexto = itens.filter(x => x.t).length;
+    if (!itens.length) { if (fica) novo.focus(); return; }
     novo.value = ''; novo.rows = 1;
-    capSalva(c.id, cc => ({ roteiros: rs(cc).concat(nomes.map(nm => ({ n: nm, g: '' }))) }), nomes.length > 1 ? nomes.length + ' roteiros novos · Ctrl+Z desfaz' : '')
+    capSalva(c.id, cc => ({ roteiros: rs(cc).concat(itens.map(x => Object.assign({ n: x.n, g: '' }, x.t ? { t: x.t } : {}))) }),
+      itens.length > 1 ? capPl(itens.length, 'roteiro novo', 'roteiros novos') + (comTexto ? ' (' + (comTexto === itens.length ? 'todos' : comTexto) + ' com o texto completo)' : '') + ' · Ctrl+Z desfaz' : comTexto ? 'Roteiro novo com o texto completo · Ctrl+Z desfaz' : '')
       .then(okk => { const i = document.getElementById('cpNovoRot'); if (!i) return; if (!okk && !i.value) i.value = bruto; if (fica || !okk) i.focus(); });
   };
   ov.querySelectorAll('[data-cp]').forEach(b => b.onclick = async () => {
     const a = b.dataset.cp;
     if (a === 'addrot') addRot(true);
+    else if (a === 'docedit') { CAPM.docEdit = true; capDesenhaFolha(); setTimeout(() => { const i = document.getElementById('cpDoc'); if (i) { i.focus(); i.select(); } }, 20); }
+    else if (a === 'docok') salvaDoc();
     else if (a === 'dia') {
       const base = capUltimo(c) || hojeStr();
       let d = capSoma(base < hojeStr() ? hojeStr() : base, 1);
@@ -495,6 +558,41 @@ function capLigaFolha(c) {
     inp.onblur = () => { if (!CAPM.redesenhando && inp.isConnected) salva(); };
     inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } if (ev.key === 'Escape') { ev.stopPropagation(); const r = c.roteiros.find(x => x.id === inp.dataset.cpn); inp.value = r ? r.n : ''; inp.blur(); } };
   });
+  // v4.16: abrir e fechar o roteiro completo; o texto salva ao sair do campo; o doc ao sair, no Enter ou ao colar
+  ov.querySelectorAll('[data-cpabre]').forEach(b => b.onclick = () => {
+    const id = b.dataset.cpabre, abre = !CAPM.abertos.has(id);
+    if (abre) CAPM.abertos.add(id); else CAPM.abertos.delete(id);
+    capDesenhaFolha(); capLeTextos(c.id);
+    if (abre) setTimeout(() => { const t = document.querySelector('[data-cprt="' + id + '"]'); if (t && !t.value && !t.disabled) t.focus(); }, 20);
+  });
+  ov.querySelectorAll('[data-cprt]').forEach(t => {
+    t.oninput = () => { t.rows = Math.min(16, Math.max(4, t.value.split('\n').length + 1)); };
+    t.onblur = () => {
+      if (CAPM.redesenhando || !t.isConnected || t.disabled) return;
+      const id = t.dataset.cprt, v = t.value;
+      if (v.trim() === (CAPM.textos[id] || '').trim()) return;
+      CAPM.textos[id] = v.trim();
+      capSalva(c.id, cc => ({ roteiros: rs(cc).map(x => x.id === id ? Object.assign(x, { t: v }) : x) }), v.trim() ? '' : 'Texto do roteiro apagado · Ctrl+Z desfaz');
+    };
+    t.onkeydown = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); t.blur(); } };
+  });
+  // v4.16: o doc dos roteiros (Enter, Salvar, colar ou sair do campo salvam; Esc desiste)
+  const docIn = document.getElementById('cpDoc');
+  const salvaDoc = () => {
+    if (!docIn) return;
+    const v = docIn.value.trim(); CAPM.docEdit = false;
+    if (v === (c.doc || '')) { capDesenhaFolha(); return; }
+    capSalva(c.id, { doc: v }, v ? 'Doc dos roteiros ligado · Ctrl+Z desfaz' : 'Doc dos roteiros tirado · Ctrl+Z desfaz').then(ok => { if (!ok) { CAPM.docEdit = true; capRedesenha(); } });
+  };
+  if (docIn) {
+    docIn.onkeydown = ev => {
+      if (ev.key === 'Enter') { ev.preventDefault(); salvaDoc(); }
+      else if (ev.key === 'Escape') { ev.stopPropagation(); CAPM.docEdit = false; capDesenhaFolha(); }
+    };
+    docIn.onblur = () => { if (!CAPM.redesenhando && docIn.isConnected && CAPM.docEdit) salvaDoc(); };
+    docIn.addEventListener('paste', () => setTimeout(() => { if (docIn.isConnected && CAPM.docEdit) salvaDoc(); }, 0));
+    const ok = ov.querySelector('[data-cp="docok"]'); if (ok) ok.onmousedown = ev => ev.preventDefault();
+  }
   ov.querySelectorAll('[data-cprx]').forEach(b => b.onclick = () => {
     const id = b.dataset.cprx;
     capSalva(c.id, cc => ({ roteiros: rs(cc).filter(x => x.id !== id) }), 'Roteiro tirado · Ctrl+Z desfaz');
@@ -550,3 +648,121 @@ function capMarca(s, e) {
     icon('camera') + '<span class="t">captar</span></span>';
   return '<span class="lp-mk cap" title="Vídeo: tem captação">' + icon('camera') + '</span>';
 }
+
+// ---------------- v4.16: o mouse na captação mostra o que ela destrava ----------------
+// Pedido do Zion (09/11/2026): "preciso de uma visualização de quando sai a task de edição vinculada a task de captação.
+// passando o mouse por cima e vendo as tasks que destravam com aquela captação. talvez no dia que esta no bone e tudo
+// mais". No modo captação, o mouse parado no card abre o balão com os posts ligados (o prazo da edição, que é o da task
+// do post no MKT Hub, o dia em que sai e a etapa) e acende, no calendário, os dias da edição e do post que estão na
+// tela, com a seta saindo do card (o mesmo desenho do hover dos posts, v4.01).
+const CPH = { timer: null, pop: null, svg: null, alvos: [] };
+function capHoverFecha() {
+  clearTimeout(CPH.timer);
+  if (CPH.pop) CPH.pop.remove();
+  if (CPH.svg) CPH.svg.remove();
+  for (const el of CPH.alvos) { el.classList.remove('cp-alvo'); const r = el.querySelector(':scope > .cp-alvos'); if (r) r.remove(); }
+  CPH.pop = CPH.svg = null; CPH.alvos = [];
+}
+/** Espera um tiquinho: passar o mouse por cima de vários cards não fica piscando. */
+function capHoverQuando(c, card) {
+  capHoverFecha();
+  const ov = document.getElementById('ovCap');
+  if (S.dragging || (ov && ov.classList.contains('open'))) return;
+  CPH.timer = setTimeout(() => { if (card.isConnected && card.matches(':hover, :focus-visible')) capHoverAbre(capPorId(c.id) || c, card); }, 260);
+}
+/** Curva suave de (x1, y1) até (x2, y2), com a barriga pro lado (não sobe e desce como a dos posts) e a ponta da seta. */
+function capCurva(x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, k = 0.16, cx = (x1 + x2) / 2 + dy * k * Math.sign(dx || 1), cy = (y1 + y2) / 2 - Math.abs(dx) * k;
+  const a = Math.atan2(y2 - cy, x2 - cx), L = 9, f = n => n.toFixed(1);
+  return {
+    d: 'M' + f(x1) + ' ' + f(y1) + ' Q' + f(cx) + ' ' + f(cy) + ' ' + f(x2) + ' ' + f(y2),
+    s: 'M' + f(x2 - L * Math.cos(a - 0.5)) + ' ' + f(y2 - L * Math.sin(a - 0.5)) + ' L' + f(x2) + ' ' + f(y2) + ' L' + f(x2 - L * Math.cos(a + 0.5)) + ' ' + f(y2 - L * Math.sin(a + 0.5)),
+  };
+}
+/** O nome curto do post pra etiqueta do dia (sem o "[Reels]" da frente). */
+function capCurto(s) { const t = String(s.tituloCache || s.titulo || 'post').replace(/^\s*\[[^\]]*\]\s*/, ''); return t.length > 24 ? t.slice(0, 23).trimEnd() + '…' : t; }
+/** Dias pra editar: da última gravação até o prazo da edição (0 = no dia; negativo = antes de gravar). */
+function capFolgaTxt(f) {
+  if (f === null) return '';
+  return '<em>' + (f < 0 ? 'antes da gravação!' : f === 0 ? 'no dia da gravação' : capPl(f, 'dia pra editar', 'dias pra editar')) + '</em>';
+}
+function capHoverAbre(c, card) {
+  capHoverFecha();
+  const u = capUltimo(c), vw = innerWidth, vh = innerHeight, r = card.getBoundingClientRect(), g = document.getElementById('grid');
+  const folga = d => (d && u ? capDif(d, u) : null), cor = f => (f === null ? '' : f <= 0 ? 'red' : f <= 2 ? 'or' : '');
+  const chave = s => (s.hub && s.hub.prazo ? String(s.hub.prazo).slice(0, 10) : '') || s.date || '9';
+  const itens = capPostsDe(c).slice().sort((a, b) => chave(a).localeCompare(chave(b))).map(s => {
+    const ed = s.hub && s.hub.prazo ? String(s.hub.prazo).slice(0, 10) : '';
+    return { s, ed, sai: s.date || '', e: typeof lpEtapa === 'function' ? lpEtapa(s) : null, fEd: folga(ed), fSai: folga(s.date) };
+  });
+  // os dias que estão na tela: a edição (no rosa da produção) e o dia que sai (na cor da conta)
+  const alvos = new Map();
+  const poe = (d, x) => { if (d) { if (!alvos.has(d)) alvos.set(d, []); alvos.get(d).push(x); } };
+  for (const it of itens) {
+    if (it.ed) poe(it.ed, { m: 'var(--e-prod)', ic: capIc('tesoura'), txt: 'edição · ' + capCurto(it.s), c: cor(it.fEd) });
+    if (it.sai) poe(it.sai, { m: contaCor(it.s.conta), ic: icon('calendar'), txt: (it.s.postado ? 'saiu · ' : 'sai · ') + capCurto(it.s), c: it.ed ? '' : cor(it.fSai) });
+  }
+  const naTela = new Map();
+  if (g) alvos.forEach((l, d) => {
+    const cell = g.querySelector('.cpday[data-dia="' + d + '"]'); if (!cell) return;
+    const q = cell.getBoundingClientRect();
+    if (q.bottom > 60 && q.top < vh - 10 && q.right > 0 && q.left < vw) naTela.set(d, cell);
+  });
+  // o balão
+  const pop = document.createElement('div');
+  pop.className = 'cph-pop'; pop.setAttribute('role', 'tooltip');
+  const fora = d => (d && !naTela.has(d) ? '<i>fora da tela</i>' : '');
+  pop.innerHTML = '<div class="cph-tit">' + (itens.length ? 'Destrava ' + capPl(itens.length, 'post', 'posts') : 'Nenhum post ligado ainda') + '</div>' +
+    '<div class="cph-grava">' + icon('camera') + '<span>Grava ' + esc(c.dias.map(x => capDiaL(x.d) + (x.h ? ' ' + capHora(x.h) : '')).join(' e ') || 'sem dia') + '</span></div>' +
+    (itens.length ? '<div class="cph-lista">' + itens.map(it => {
+      const s = it.s, e = it.e, k = e && LP.NOME[e.k] ? e.k : '';
+      return '<div class="cph-p">' +
+        '<div class="cph-l1"><span class="cdot" style="background:' + contaCor(s.conta) + '"></span><b>' + esc(contaCurta(s.conta)) + '</b>' +
+          '<span class="cph-t">' + esc(s.tituloCache || s.titulo || 'Post sem nome') + '</span>' +
+          (k ? '<span class="cph-et" style="--c:var(--e-' + (e.lider ? 'lider' : k) + ')">' + esc(LP.NOME[k]) + '</span>' : '') + '</div>' +
+        '<div class="cph-l2">' +
+          (it.ed ? '<span class="cph-d ' + cor(it.fEd) + '">' + capIc('tesoura') + '<span>edição até <b>' + esc(capDiaL(it.ed)) + '</b></span>' + capFolgaTxt(it.fEd) + fora(it.ed) + '</span>'
+            : '<span class="cph-d sem">' + capIc('tesoura') + '<span>sem prazo de edição no MKT Hub</span></span>') +
+          (it.sai ? '<span class="cph-d ' + (it.ed ? '' : cor(it.fSai)) + '">' + icon('calendar') + '<span>' + (s.postado ? 'saiu ' : 'sai ') + '<b>' + esc(capDiaL(it.sai)) + '</b></span>' + fora(it.sai) + '</span>' : '') +
+        '</div></div>';
+    }).join('') + '</div>' : '<div class="cph-dica">Ligue os posts e as tasks de edição na folha da captação.</div>');
+  document.body.appendChild(pop);
+  CPH.pop = pop;
+  // os dias acesos: contorno tracejado no índigo da captação e uma etiqueta por post
+  naTela.forEach((cell, d) => {
+    cell.classList.add('cp-alvo'); CPH.alvos.push(cell);
+    const box = document.createElement('div'); box.className = 'cp-alvos';
+    box.innerHTML = alvos.get(d).map(x => '<span class="cp-alvo-rot' + (x.c ? ' ' + x.c : '') + '" style="--m:' + x.m + '">' + x.ic + '<span>' + esc(x.txt) + '</span></span>').join('');
+    cell.appendChild(box);
+  });
+  // o balão fica do lado do card que não cobre os dias acesos
+  const pw = pop.offsetWidth, ph = pop.offsetHeight, rects = [...naTela.values()].map(el => el.getBoundingClientRect());
+  const yy = y => Math.max(8, Math.min(vh - ph - 8, y)), xx = x => Math.max(8, Math.min(vw - pw - 8, x));
+  const cand = [[r.right + 10, yy(r.top)], [r.left - pw - 10, yy(r.top)], [xx(r.left), r.bottom + 8], [xx(r.left), r.top - ph - 8]];
+  const cabe = ([x, y]) => x >= 8 && y >= 8 && x + pw <= vw - 8 && y + ph <= vh - 8;
+  const bate = ([x, y]) => rects.some(q => x < q.right && x + pw > q.left && y < q.bottom && y + ph > q.top);
+  const pos = cand.find(p => cabe(p) && !bate(p)) || cand.find(cabe) || [xx(r.right + 10), yy(r.top)];
+  pop.style.left = pos[0] + 'px'; pop.style.top = pos[1] + 'px';
+  // a seta: do card até cada etiqueta, por cima do calendário
+  const etiq = [...document.querySelectorAll('.cp-alvo .cp-alvo-rot')].filter(el => !card.closest('.cpday').contains(el));
+  if (!etiq.length) return;
+  const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'cph-svg'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('width', vw); svg.setAttribute('height', vh);
+  for (const el of etiq) {
+    // sai do lado do card que olha pra etiqueta (de baixo, se ela está na mesma coluna) e chega na ponta dela
+    const q = el.getBoundingClientRect(), qx = q.left + q.width / 2, qy = q.top + q.height / 2, mesmaCol = qx > r.left && qx < r.right;
+    const dir = qx > r.left + r.width / 2;
+    const x1 = mesmaCol ? Math.max(r.left + 14, Math.min(r.right - 14, qx)) : dir ? r.right + 2 : r.left - 2;
+    const y1 = mesmaCol ? (qy > r.bottom ? r.bottom + 2 : r.top - 2) : r.top + r.height / 2;
+    const x2 = mesmaCol ? qx : dir ? q.left - 3 : q.right + 3, y2 = mesmaCol ? (qy > r.bottom ? q.top - 3 : q.bottom + 3) : qy;
+    const cv = capCurva(x1, y1, x2, y2);
+    const p = document.createElementNS(NS, 'path'); p.setAttribute('class', 'lp-lig'); p.setAttribute('d', cv.d); p.setAttribute('pathLength', '1');
+    const a = document.createElementNS(NS, 'path'); a.setAttribute('class', 'lp-seta'); a.setAttribute('d', cv.s);
+    svg.append(p, a);
+  }
+  document.body.appendChild(svg);
+  CPH.svg = svg;
+}
+window.addEventListener('scroll', () => { if (CPH.pop || CPH.svg) capHoverFecha(); }, true);
+window.addEventListener('resize', capHoverFecha);
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && CPH.pop) { capHoverFecha(); ev.stopPropagation(); } }, true);   // Esc com o balão só fecha o balão (o modo captação fica)
