@@ -22,6 +22,7 @@ function raiaNovaEmpresa(raias, i) { return i > 0 && S.contas[raias[i]] && S.con
 
 /** As faixas da aba aberta: as contas visíveis, na ordem fixa. Uma conta só (ou o chip escondeu a outra): null. */
 function raiasDaAba() {
+  if (S.modoCap) return null;                                  // v4.14: no modo captação o dia mostra só as captações
   const v = contasDaAba(S.aba).filter(k => !S.filtroConta.has(k)).sort((a, b) => (ORDEM_CONTA[a] || 9) - (ORDEM_CONTA[b] || 9));
   return v.length > 1 ? v : null;
 }

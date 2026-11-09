@@ -68,7 +68,7 @@
     <div class="spacer"></div>
     <div class="acoes">
     <!-- v3.89: copys esperando aprovação (ADMIN) ou as suas em aprovação e pra alterar (Usuário) -->
-    <!-- v4.03: quadro de captação (ADMIN): os vídeos da semana em blocos pro filmmaker; o número = vídeos dos próximos 14 dias sem bloco -->
+    <!-- v4.14: Captação (ADMIN) liga o calendário de captação (js/captacao.js); o número = vídeos dos próximos 14 dias sem captação -->
     <button class="aprovbtn capbtn" id="btnCap" hidden><span class="ab-ic"></span><span class="ab-rot">Captação</span><b class="ab-n" id="capN"></b></button>
     <button class="aprovbtn" id="btnAprovar" hidden><span class="ab-ic"></span><span class="ab-rot" id="aprovRot">Pra aprovar</span><b class="ab-n" id="aprovN"></b></button>
     <!-- v3.78: Bancos, Configurações e Docs num leque (abre no hover, no Tab ou no toque) -->
@@ -403,6 +403,13 @@
 </div>
 
 <!-- v3.80: folha da tarefa (explicação, período, relógio, posts e aprovação) -->
+<!-- v4.14: a folha da captação (js/captacao.js): dias de gravação, roteiros e posts ligados -->
+<div class="ov" id="ovCap"><div class="modal cpmodal" style="position:relative">
+  <button class="mclose" data-close="ovCap">✕</button>
+  <div class="mhead cphead" id="cpHead"></div>
+  <div class="mbody cpbody" id="cpBody"></div>
+  <div class="mfoot cpfoot" id="cpFoot"></div>
+</div></div>
 <div class="ov" id="ovTarefa"><div class="modal tmodal" style="position:relative">
   <button class="mclose" data-close="ovTarefa">✕</button>
   <div class="mhead tfhead" id="tfHead"></div>
@@ -441,7 +448,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.13'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.14'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -574,7 +581,7 @@ async function api(path, opts={}){
   const r = await fetch(path, {headers:{'Content-Type':'application/json'}, ...opts});
   const j = await r.json().catch(()=>({}));
   if(r.status===401 && j.zoho) irProLogin();          // v3.82: sessão do Zoho acabou: volta pra tela de entrada
-  if(!r.ok) throw Object.assign(new Error(j.erro||('HTTP '+r.status)), {status:r.status, zoho:!!j.zoho});
+  if(!r.ok) throw Object.assign(new Error(j.erro||('HTTP '+r.status)), {status:r.status, zoho:!!j.zoho, data:j});   // v4.14: data (o 409 da captação traz o id)
   return j;
 }
 async function loadState(fresh, silencioso){
@@ -589,11 +596,11 @@ async function loadState(fresh, silencioso){
   // assinatura barata do que aparece na tela: se nada mudou, o modo silencioso não redesenha
   // v3.70: a assinatura cobre o post INTEIRO (formato, GM, obs, matriz...) e as referências: mudança
   // feita por outra pessoa aparece no próximo ciclo de 20 s. Antes só o poll de 90 s (removido) pegava isso.
-  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.banco||[]) + '#' + JSON.stringify(j.bancoPastas||[]) + '#' + JSON.stringify(j.tarefas||[]) + '#' + JSON.stringify(j.capBlocos||[]) + '#' + (j.capPendentes||0);   // v4.03: blocos de captação
+  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.banco||[]) + '#' + JSON.stringify(j.bancoPastas||[]) + '#' + JSON.stringify(j.tarefas||[]) + '#' + JSON.stringify(j.captacoes||[]) + '#' + (j.capPendentes||0);   // v4.14: as captações
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
   if(pm){ const r = await pm; if(r && r.matrizes) S.matrizes = r.matrizes; }
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], bancoPastas:j.bancoPastas||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, hubEscrita:!!j.hubEscrita, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia, capBlocos:j.capBlocos||[], capPendentes:j.capPendentes||0});
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], bancoPastas:j.bancoPastas||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, hubEscrita:!!j.hubEscrita, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia, captacoes:capVersaoOk(j.capRev) ? (j.captacoes||[]) : S.captacoes, capPendentes:j.capPendentes||0});   // v4.14: estado velho não desfaz captação recém-salva
   if(!abasDaBarra().includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   contaNaTela();                                        // v3.82: nome da conta no perfil e o que cada papel vê
@@ -894,7 +901,8 @@ function render(){
   if(S.dragging){ S._renderDepois = true; return; }
   S._gmAncoras = gmColetaAncoras(); aplicarTema(S.aba);
   document.body.dataset.aba = S.aba;                 // v4.12: o CSS da aba Todos (css/todos.css)
-  if(ehTodos() && S.drawer) S.drawer = false;         // o banco é de cada empresa: na aba Todos a gaveta fecha
+  if(S.modoCap) document.body.dataset.modo = 'cap'; else delete document.body.dataset.modo;   // v4.14: o modo captação (css/captacao.css)
+  if((ehTodos() || S.modoCap) && S.drawer) S.drawer = false;   // o banco é de cada empresa: na aba Todos (e no modo captação) a gaveta fecha
   $('#btnDrawer').dataset.tip = ehTodos() ? 'O banco é de cada empresa: abra a aba dela' : 'Banco da empresa: Drive, referências, cortes e o que reutilizar';
   renderTabs(); renderFaixa(); renderLegend(); renderDrawer(true); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); pintaBtnAprovar(); capBotao();
   S.lpPrevia = null; lpVer(); }
@@ -907,7 +915,7 @@ function renderTabs(){
   if(!sel){ sel = document.createElement('span'); sel.className = 'tabs-sel sem-anim'; sel.setAttribute('aria-hidden','true'); el.prepend(sel); }
   for(const aba of abasDaBarra()){
     const contas = contasDaAba(aba);
-    const n = S.slots.filter(s=>contas.includes(s.conta) && s.date && s.date.startsWith(S.mes)).length;
+    const n = S.modoCap ? capNaAbaDoMes(aba, S.mes) : S.slots.filter(s=>contas.includes(s.conta) && s.date && s.date.startsWith(S.mes)).length;   // v4.14: no modo captação, as captações do mês
     const b = document.createElement('button');
     b.className = 'tab'+(S.aba===aba?' on':'');
     if(S.aba===aba) b.setAttribute('aria-current', 'page');
@@ -1131,6 +1139,7 @@ function dropZone(el, getDate){
       }catch(e){ toast(e.message, true); }
       return;
     }
+    if(id.startsWith('cp:')){ if(novaData) capSolta(id, novaData); return; }   // v4.14: o card da captação muda de dia
     // v3.83: item do banco da empresa: vira post no dia (Reutilizar sai do banco; o resto fica e conta o uso)
     if(id.startsWith('bk:')){ if(novaData) bancoUsar(id.slice(3), novaData, ev); return; }
     const slot = S.slots.find(x=>x.id===id);
@@ -1369,6 +1378,7 @@ function irParaPost(sid){
 }
 /** Uma célula de dia (usada nas duas visões). */
 function celulaDia(c, di, porDia, semana){
+  if(S.modoCap) return capCelula(c, di, semana);               // v4.14: o modo captação (js/captacao.js)
   const hoje = hojeStr();
   const cell = document.createElement('div');
   if(!c.date){ cell.className='day fora'+(semana?' big':''); return cell; }
@@ -1439,12 +1449,14 @@ function blocoMes(mes){
   cab.className = 'mescab';
   cab.innerHTML =
     '<div class="mescabtop"><b>'+cap(MESES[m-1])+' '+y+'</b>'+
+      (S.modoCap ? '<span class="mesn">'+esc(capCabMes(mes).texto)+'</span>'+capCabMes(mes).legenda+'</div>'+   // v4.14: o modo captação
+      '<div class="mesdows"><div></div>'+DOWS_TIT.map(d=>'<div>'+d+'</div>').join('')+'</div>' :
       '<span class="mesn">'+(S.lente === 'ent'
         ? n+' entrega'+(n===1?'':'s')+' · '+esc(nomeAba(S.aba))+(fora ? '<span class="mesfora" title="Matriz, copy e post sem task não têm entrega: voltam na lente sai">'+fora+' sem entrega fora da vista</span>' : '')
         : n+' post'+(n===1?'':'s')+' · '+esc(nomeAba(S.aba)))+'</span>'+lpLegendaMes(lista)+'</div>'+
-    '<div class="mesdows"><div></div>'+DOWS_TIT.map(d=>'<div>'+d+'</div>').join('')+'</div>';
+    '<div class="mesdows"><div></div>'+DOWS_TIT.map(d=>'<div>'+d+'</div>').join('')+'</div>');
   bloco.appendChild(cab);
-  lpLigaLegenda(cab);
+  if(!S.modoCap) lpLigaLegenda(cab);
   const g = document.createElement('div');
   g.className = 'mesgrid';
   const raias = raiasDaAba();
@@ -2211,7 +2223,7 @@ function fecharDoc(){
   setTimeout(()=>{ $('#docFrame').src = 'about:blank'; }, 50);
   try{ if(location.hash.startsWith('#doc=')) history.replaceState(null, '', location.pathname+location.search); }catch(e){}
   // recarrega e redesenha (o modo silencioso não redesenha se só mudou o documento, e a marca do card precisa aparecer)
-  loadState(false, true).then(()=>{ render(); capAoVoltar(); }).catch(()=>{});   // v4.03: o quadro de captação aberto também se atualiza
+  loadState(false, true).then(()=>{ render(); capAoVoltar(); }).catch(()=>{});   // v4.14: a folha da captação aberta também se atualiza
 }
 window.addEventListener('message', ev=>{
   if(ev.origin !== location.origin || !ev.data || ev.data.bone !== 'doc') return;
@@ -2368,7 +2380,7 @@ async function apAcao(sid, acao, nota){
   }catch(e){ toast(e.message, true); }
 }
 $('#btnAprovar').onclick = () => abrirAprovar();
-$('#btnCap').onclick = () => capAbrir();   // v4.03
+$('#btnCap').onclick = () => capModo();   // v4.14: liga e desliga o modo captação
 
 // ================= v3.90: task de produção no MKT Hub =================
 // Copy aprovada → o ADMIN cria aqui a task de arte ou vídeo: título, tipo, formato, responsável, entrega, data do
@@ -3612,7 +3624,7 @@ document.addEventListener('keydown', async ev=>{
     if(r.ok){
       toast('Desfeito: '+r.desfeito);
       await loadState();
-      capAoVoltar();                                  // v4.03: com o quadro de captação aberto
+      capAoVoltar();                                  // v4.14: com a folha da captação aberta
       if(S.taskSlot && $('#ovTask').classList.contains('open')){
         const s2 = S.slots.find(x=>x.id===S.taskSlot.id);
         if(s2){ S.taskSlot = s2; tRowDraw(s2); } else closeOv('ovTask');
@@ -3634,7 +3646,9 @@ document.addEventListener('keydown', ev=>{
   if(document.getElementById('ajudapop')) return fecharAjuda();
   if(S.clip) return limparClip();
   if(S.selecao.size) return limparSelecao();
-  if(S.drawer){ S.drawer=false; renderDrawer(); }
+  if(S.drawer){ S.drawer=false; renderDrawer(); return; }
+  if(document.getElementById('cpNovo')) return capFechaNovo();   // v4.14: o campo do link da captação nova
+  if(S.modoCap) capModo(false);                                  // v4.14: Esc volta pros posts
 });
 document.addEventListener('keydown', ev=>{
   if(!$('#lb').classList.contains('open')) return;

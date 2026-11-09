@@ -1,20 +1,24 @@
 'use strict';
 // =====================================================================
-// v4.03 · QUADRO DE CAPTAÇÃO (pedido do Zion em 02/10/2026)
-// "tem que ter alguma maneira de dividir o bloco de captação do jeito que eu quiser, tipo, se elis fizer 4 videos
-// complexos eu divido em duas tasks para dois dias". O doc de cada post é Arte ou Vídeo (public/doc.html); no vídeo, a
-// Elis escreve só o roteiro pra captar daquele post. Aqui o ADMIN junta os vídeos da semana (pela data em que SAEM) em
-// blocos: dia da captação, horário, quem capta e uma nota. Cada bloco tem a pauta pronta pra copiar (WhatsApp ou a task
-// do MKT Hub). O filmmaker trabalha só no MKT Hub.
-// Dados: db.capBlocos e slot.capBloco (lib/captacao.js). A regra arte x vídeo mora em lib/peca.js e é repetida aqui em
-// pecaDoPost: mudou lá, muda aqui.
-// No calendário: a câmera no card do vídeo (capMarca, chamada pelo lpMarcas do js/linha.js) e o botão Captação na barra.
-// v4.04 (decisões do Zion em 02/10/2026): o bloco vira task de Captação no MKT Hub, 1 por empresa, no nome de quem
-// capta (a lista de pessoas do Hub); os pontos se digitam na folha de mandar (vêm os da última captação). Depois de
-// mandar, o bloco trava (dia, horário, quem capta e nota mudam no Hub) e cada vídeo mostra o código da subtarefa e o
-// "captado" que volta do Hub (lib/captacao.js).
+// v4.14 · CAPTAÇÃO NO CALENDÁRIO (pedido do Zion em 09/11/2026)
+// "Preciso mudar completamente a aba de captação. ela deve ser mais ou menos igual a aba principal, mas é onde eu
+// coloco apenas as tasks de captação. (posso linkar com o dia que vai sair o post / taks de edição. posso linkar com
+// mais de uma tarefa. posso dizer quantos roteiros foram gravados (as vezes uma task tem 5 roteiros) e, se por ventura
+// no dia nao for possivel gravar todos, eu tambem consigo adicionar outro dia para finalizar a captação. sinalizando
+// quais foram gravados e quais nao foram." Escolhas dele: "Colo o link do MKT Hub" e "Roteiros soltos na captação".
+//
+// O botão Captação da barra liga o MODO CAPTAÇÃO do próprio calendário (Mês e Semana, as setas, o Hoje e as abas das
+// empresas como filtro): cada dia mostra as captações gravadas nele. O + do dia recebe o link da task de captação do
+// MKT Hub. A folha da captação (clicar no card) tem os dias de gravação (o primeiro e os que entram pra terminar), os
+// roteiros (gravado ou não, e em que dia) e os posts ligados (o dia que sai e a task de edição de cada um). Arrastar o
+// card muda aquele dia. No calendário dos posts, o post ligado ganha a câmera com o dia da captação.
+// Servidor em lib/captacao.js. A regra arte x vídeo (pecaDoPost) continua aqui e em lib/peca.js: mudou lá, muda aqui.
+// Saíram (v4.03 e v4.04): o quadro de blocos, a pauta e a criação da task de Captação pelo B.O.N.E.
 // =====================================================================
-const CAP = { aberto: false, semana: null, dados: null, pede: 0, timer: null, arrasta: null, apaga: null, apagaT: null, ocupado: false, pollT: null, jobs: {} };
+const CAPM = { aberta: null, diaCtx: null, fila: Promise.resolve(), rev: 0, pick: false, busca: '', apaga: false, apagaT: null, novo: null };
+/** A versão das captações que este navegador já viu numa resposta de mudança; um /api/state mais velho não sobrepõe. */
+function capVersao(r) { if (r > CAPM.rev) CAPM.rev = r; }
+function capVersaoOk(r) { return !(r < CAPM.rev); }
 
 // ---------------- arte ou vídeo (a mesma regra do lib/peca.js) ----------------
 const CAP_FMT_VIDEO = new Set(['reels', 'video medio', 'video de anuncio']);
@@ -47,487 +51,481 @@ function pecaDoPost(s) {
   return null;
 }
 
-// ---------------- datas e nomes ----------------
+// ---------------- datas, nomes e ícones ----------------
 const CAP_DS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 function capMs(iso) { return Date.parse(iso + 'T12:00:00Z'); }
 function capSoma(iso, n) { return new Date(capMs(iso) + n * 864e5).toISOString().slice(0, 10); }
 function capBr(iso) { return iso.slice(8, 10) + '/' + iso.slice(5, 7); }
 /** "Qui 08/10" */
 function capDiaL(iso) { return CAP_DS[new Date(capMs(iso)).getUTCDay()] + ' ' + capBr(iso); }
+function capDif(a, b) { return Math.round((capMs(a) - capMs(b)) / 864e5); }
 /** "9h", "9h30" */
 function capHora(h) { return String(h || '').replace(/^0(\d)/, '$1').replace(/:00$/, 'h').replace(/^(\d+):(\d\d)$/, '$1h$2'); }
-/** "Qui 08/10 · 9h às 12h" (o mesmo nome do servidor). */
-function capNomeBloco(b) { return (b.dia ? capDiaL(b.dia) : 'Sem dia') + (b.inicio ? ' · ' + capHora(b.inicio) + (b.fim ? ' às ' + capHora(b.fim) : '') : ''); }
 const capPl = (n, um, varios) => n + ' ' + (n === 1 ? um : varios);
-
-// ícones que o painel ainda não tinha (o resto vem do icon() do index.html)
 const CAP_ICONS = {
-  copiar: '<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/>',
   lixo: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/>',
-  mover: '<path d="M5 9l-2.5 3L5 15M19 9l2.5 3L19 15M2.5 12h19"/>',
+  ligar: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
 };
 function capIc(nome, cls) {
   if (!CAP_ICONS[nome]) return icon(nome, cls);
   return '<svg class="ic' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" aria-hidden="true">' + CAP_ICONS[nome] + '</svg>';
 }
 
-// ---------------- no calendário ----------------
-/**
- * A marquinha do vídeo no card: câmera (é vídeo), "captar" (roteiro aprovado e ainda sem bloco) ou o dia da captação
- * (já está num bloco). Arte não ganha nada. No mês só o ícone; na semana, o ícone e a palavra.
- */
-function capMarca(s, e) {
-  if (pecaDoPost(s) !== 'video' || s.postado || (e && (e.k === 'ar' || e.k === 'esp')) || (s.sugestao && !s.taskId)) return '';
-  // a task de produção já passou da edição (em aprovação, ajustar ou pronta): a captação ficou pra trás
-  if (typeof stBucket === 'function' && ['pronto', 'aprovar', 'alterar'].includes(stBucket(s))) return '';
-  const b = s.capBloco ? (S.capBlocos || []).find(x => x.id === s.capBloco) : null;
-  // v4.04: a subtarefa dele no MKT Hub passou da captação
-  if (b && b.feitos && b.feitos.includes(s.id)) return '<span class="lp-mk cap feito" title="Captado (a subtarefa de captação andou no MKT Hub)">' + icon('check') + '<span class="t">captado</span></span>';
-  if (b) return '<span class="lp-mk cap ok" title="' + esc('Captação: ' + (b.dia ? capNomeBloco(b) : 'no bloco, dia a definir')) + '">' + icon('camera') +
-    (b.dia ? '<span class="t">' + esc(lpDiaC(b.dia)) + '</span>' : '') + '</span>';
-  if (s.aprov && s.aprov.c && s.aprov.c.st === 'aprovado') return '<span class="lp-mk cap pede" title="Roteiro aprovado: pra captar. Falta pôr num bloco do quadro de captação">' +
-    icon('camera') + '<span class="t">captar</span></span>';
-  return '<span class="lp-mk cap" title="Vídeo: tem captação">' + icon('camera') + '</span>';
+// ---------------- o que cada captação está ----------------
+function capLista() { return S.captacoes || []; }
+function capPorId(id) { return capLista().find(c => c.id === id) || null; }
+function capTitulo(c) { return (c.hub && c.hub.titulo) || c.titulo || 'Captação sem nome'; }
+/** No card, o nome sem o "[CAPTAÇÃO]" do começo (no modo captação tudo é captação). */
+function capTituloCurto(c) { return capTitulo(c).replace(/^\s*\[?\s*capta[cç][aã]o\s*\]?\s*[:·-]?\s*/i, '') || capTitulo(c); }
+function capGravados(c) { return c.roteiros.filter(r => r.g).length; }
+function capUltimo(c) { return c.dias.length ? c.dias[c.dias.length - 1].d : null; }
+/** gravada (todos os roteiros gravados) · faltou (o último dia passou e tem roteiro sem gravar) · agravar */
+function capSit(c) {
+  const n = c.roteiros.length, g = capGravados(c), u = capUltimo(c);
+  if (n && g === n) return 'gravada';
+  if (n && u && u < hojeStr()) return 'faltou';
+  return 'agravar';
 }
-/** O botão Captação na barra (só ADMIN): o número é de vídeos que saem nos próximos 14 dias sem bloco. */
+/** Os posts ligados (os que ainda existem). */
+function capPostsDe(c) { return c.posts.map(id => S.slots.find(s => s.id === id)).filter(Boolean); }
+/** O que aperta: o primeiro prazo de edição (a task do post no MKT Hub) ou o primeiro dia em que um post sai. */
+function capLimite(c) {
+  let m = null;
+  for (const s of capPostsDe(c)) {
+    if (s.postado) continue;
+    const p = s.hub && s.hub.prazo ? String(s.hub.prazo).slice(0, 10) : '';
+    if (p && (!m || p < m.d)) m = { d: p, tipo: 'edicao', s };
+    if (s.date && (!m || s.date < m.d)) m = { d: s.date, tipo: 'sai', s };
+  }
+  return m;
+}
+/** Alerta da captação que ainda tem roteiro pra gravar: o último dia de gravação encosta no prazo da edição ou no post. */
+function capAlerta(c) {
+  if (capSit(c) === 'gravada') return null;
+  const n = c.roteiros.length, falta = n - capGravados(c), u = capUltimo(c);
+  if (capSit(c) === 'faltou') return { c: 'red', t: 'faltou gravar ' + falta, dica: capPl(falta, 'roteiro ficou', 'roteiros ficaram') + ' sem gravar: marque outro dia pra terminar' };
+  const l = capLimite(c);
+  if (!l || !u) return null;
+  const qual = l.tipo === 'edicao' ? 'a edição vence ' : 'o post sai ';
+  if (l.d <= u) return { c: 'red', t: l.tipo === 'edicao' ? 'depois do prazo' : 'depois do post', dica: 'A gravação vai até ' + capDiaL(u) + ', mas ' + qual + capDiaL(l.d) };
+  if (capDif(l.d, u) <= 2) return { c: 'or', t: 'apertado', dica: 'Grava ' + capDiaL(u) + ' e ' + qual + capDiaL(l.d) };
+  return null;
+}
+/** Na aba de uma empresa: as captações dela e as que ainda não têm empresa. Na Todos, todas. */
+function capNaAba(c) { return ehTodos() || !c.aba || c.aba === S.aba; }
+function capsDoDia(iso) {
+  const l = [];
+  for (const c of capLista()) { if (!capNaAba(c)) continue; const i = c.dias.findIndex(x => x.d === iso); if (i >= 0) l.push({ c, i }); }
+  return l.sort((a, b) => (a.c.dias[a.i].h || '99').localeCompare(b.c.dias[b.i].h || '99') || capTitulo(a.c).localeCompare(capTitulo(b.c)));
+}
+function capsDoPost(sid) { return capLista().filter(c => c.posts.includes(sid)); }
+function capCorEmpresa(aba) { return aba && typeof temaDaAba === 'function' ? temaDaAba(aba).sb : ''; }
+
+// ---------------- o botão Captação e o modo captação ----------------
+/** O botão Captação na barra (só ADMIN): liga e desliga o modo captação. O número é de vídeos dos próximos 14 dias sem captação. */
 function capBotao() {
   const b = document.getElementById('btnCap'); if (!b) return;
   const adm = typeof souAdmin === 'function' ? souAdmin() : true;
   b.hidden = !adm;
-  if (!adm) { if (CAP.aberto) capFechar(); return; }
+  if (!adm && S.modoCap) { S.modoCap = false; }
   const n = S.capPendentes || 0;
   document.getElementById('capN').textContent = n ? String(n) : '';
   b.classList.toggle('tem', !!n);
-  b.dataset.tip = n ? capPl(n, 'vídeo sai', 'vídeos saem') + ' nos próximos 14 dias sem bloco de captação' : 'Quadro de captação: os vídeos da semana em blocos pro filmmaker';
+  b.classList.toggle('on', !!S.modoCap);
+  b.setAttribute('aria-pressed', S.modoCap ? 'true' : 'false');
+  b.dataset.tip = S.modoCap ? 'Voltar pros posts (Esc)'
+    : (n ? capPl(n, 'vídeo sai', 'vídeos saem') + ' nos próximos 14 dias sem captação ligada · ' : '') + 'Calendário de captação: as tasks de captação no dia da gravação';
+}
+function capModo(on) {
+  const quer = on === undefined ? !S.modoCap : !!on;
+  if (quer === !!S.modoCap) return;
+  S.modoCap = quer;
+  if (quer) { S.drawer = false; if (S.selecao && S.selecao.size) S.selecao.clear(); S.clip = null; }
+  capFechaNovo();
+  render();
+  if (typeof irParaMes === 'function' && S.view !== 'semana') setTimeout(() => irParaMes(S.mes || mesAtual()), 0);
 }
 
-// ---------------- a página ----------------
-function capMonta() {
-  if (document.getElementById('cap')) return;
-  const el = document.createElement('section');
-  el.className = 'pp cap'; el.id = 'cap'; el.hidden = true; el.setAttribute('aria-labelledby', 'capTit');
-  el.innerHTML = '<div class="pp-top cap-top">' +
-    '<button type="button" class="pp-volta" id="capVolta" title="Voltar pro calendário (Esc)">' + icon('chevL') + '<span>Calendário</span></button>' +
-    '<h1 class="pp-tit" id="capTit" tabindex="-1">Captação</h1>' +
-    '<div class="navgrupo cap-nav"><button type="button" class="navbtn" id="capAnt" data-tip="Semana anterior" aria-label="Semana anterior">' + icon('chevL') + '</button>' +
-      '<span class="cap-semrot" id="capSemRot"></span>' +
-      '<button type="button" class="navbtn" id="capProx" data-tip="Próxima semana" aria-label="Próxima semana">' + icon('chevR') + '</button></div>' +
-    '<div class="pp-topdir"><button type="button" class="mbtn primary cap-novo" id="capNovo" aria-label="Novo bloco" title="Novo bloco de captação nesta semana">' + icon('plus') + '<span>Novo bloco</span></button></div></div>' +
-    '<div class="cap-corpo" id="capCorpo"></div>';
-  document.body.appendChild(el);
-  document.getElementById('capVolta').onclick = capFechar;
-  document.getElementById('capAnt').onclick = () => capIrSemana(-7);
-  document.getElementById('capProx').onclick = () => capIrSemana(7);
-  document.getElementById('capNovo').onclick = () => capNovoBloco(null);
+// ---------------- no calendário (modo captação) ----------------
+/** O dia no modo captação: o número, o + (nova captação) e os cards das captações gravadas nele. */
+function capCelula(c, di, semana) {
+  const cell = document.createElement('div');
+  if (!c.date) { cell.className = 'day fora' + (semana ? ' big' : ''); return cell; }
+  const hoje = hojeStr(), lista = capsDoDia(c.date);
+  cell.className = 'day cpday' + (di >= 5 ? ' fds' : '') + (c.date === hoje ? ' hoje' : '') + (semana ? ' big' : '');
+  cell.dataset.dia = c.date;
+  cell.innerHTML = '<div class="day-top"><span class="dleft"><span class="dnum">' + c.dnum + '</span></span><span class="day-acts">' +
+    (souAdmin() ? '<button class="addbtn" title="Nova captação neste dia (cole o link da task do MKT Hub)" aria-label="Nova captação neste dia">' + icon('plus', 's') + '</button>' : '') +
+    '</span></div><div class="day-cards"></div>';
+  const box = cell.querySelector('.day-cards');
+  for (const x of lista) box.appendChild(capCard(x.c, x.i));
+  const ab = cell.querySelector('.addbtn');
+  if (ab) ab.onclick = ev => { ev.stopPropagation(); capNovo(c.date, ev.currentTarget); };
+  dropZone(cell, () => c.date);
+  return cell;
 }
-/** Abre o quadro na semana dada (segunda) ou na que o servidor sugere (a primeira com vídeo sem bloco). */
-function capAbrir(semana) {
-  if (typeof fecharPerfil === 'function') fecharPerfil();
-  capMonta();
-  CAP.semana = semana || null; CAP.dados = null; CAP.apaga = null;
-  if (!CAP.aberto) {
-    CAP.aberto = true;
-    document.getElementById('cap').hidden = false; document.body.classList.add('cap-on');
-    clearInterval(CAP.timer);
-    CAP.timer = setInterval(() => { if (CAP.aberto && !document.hidden && !document.querySelector('.ov.open') && !document.body.classList.contains('comdoc') && !capEditando()) capCarrega(); }, 30000);
-  }
-  document.getElementById('cap').scrollTop = 0;
-  capDesenha(); capCarrega();
-  setTimeout(() => { const t = document.getElementById('capTit'); if (t && CAP.aberto) t.focus({ preventScroll: true }); }, 30);
+/** O card da captação no dia i dela. */
+function capCard(c, i) {
+  const d = document.createElement('div');
+  const sit = capSit(c), n = c.roteiros.length, g = capGravados(c), dia = c.dias[i], alerta = capAlerta(c);
+  const nd = c.dias.length, posts = capPostsDe(c), l = capLimite(c), resp = c.hub && c.hub.resp;
+  d.className = 'card lp cpc s-' + sit + (resp ? ' tem-av' : '');
+  d.draggable = souAdmin();
+  d.tabIndex = 0;
+  d.dataset.cap = c.id; d.dataset.dia = dia.d;
+  const cor = capCorEmpresa(c.aba);
+  if (cor) d.style.setProperty('--cp-emp', cor);
+  // até 12 roteiros, um quadradinho por roteiro (verde = gravado neste dia; verde apagado = gravado noutro dia); mais que isso, uma barra
+  const barra = !n ? '' : n > 12 ? '<span class="cpc-barra longa" aria-hidden="true"><i style="width:' + Math.round(100 * g / n) + '%"></i></span>'
+    : '<span class="cpc-barra" aria-hidden="true">' + c.roteiros.map(r => '<i class="' + (r.g ? (r.g === dia.d || nd === 1 ? 'g' : 'g outro') : '') + '"></i>').join('') + '</span>';
+  const rot = !n ? 'sem roteiros' : g === n ? capPl(n, 'roteiro gravado', 'roteiros gravados') : g + ' de ' + n + ' gravados';
+  const postsTxt = posts.length ? capPl(posts.length, 'post', 'posts') + (l ? ' · ' + (l.tipo === 'edicao' ? 'prazo ' : '1º sai ') + lpDiaC(l.d) : '') : 'sem post ligado';
+  d.setAttribute('aria-label', 'Captação: ' + capTitulo(c) + '. ' + capDiaL(dia.d) + (nd > 1 ? ', dia ' + (i + 1) + ' de ' + nd : '') + '. ' + rot + '. ' + postsTxt + '.');
+  d.innerHTML =
+    '<div class="cpc-top"><span class="cpc-et">' + (sit === 'gravada' ? icon('check') + 'Gravada' : 'Captação') + '</span>' +
+      (nd > 1 ? '<span class="cpc-dia">dia ' + (i + 1) + ' de ' + nd + '</span>' : '') +
+      (dia.h ? '<span class="cpc-h">' + esc(capHora(dia.h)) + '</span>' : '') +
+      (alerta ? '<span class="lp-pil ' + alerta.c + '" title="' + esc(alerta.dica) + '">' + icon('alerta') + esc(alerta.t) + '</span>' : '') + '</div>' +
+    '<div class="tit">' + esc(capTituloCurto(c)) + '</div>' +
+    '<div class="cpc-rot">' + barra + '<span>' + esc(rot) + '</span></div>' +
+    '<div class="cpc-posts" title="' + esc(posts.map(s => nomeConta(s.conta) + ': ' + (s.tituloCache || s.titulo || 'post') + (s.date ? ' · sai ' + capDiaL(s.date) : '')).join('\n')) + '">' + icon('film') + '<span>' + esc(postsTxt) + '</span></div>' +
+    (resp ? '<span class="lp-av" title="' + esc(resp + ' capta') + '">' + esc(initials(resp)) + '</span>' : '');
+  d.addEventListener('dragstart', ev => {
+    if (!souAdmin()) { ev.preventDefault(); return; }
+    ev.dataTransfer.setData('text/plain', 'cp:' + c.id + ':' + dia.d); ev.dataTransfer.effectAllowed = 'move';
+    S.dragging = true; d.classList.add('dragging');
+  });
+  d.addEventListener('dragend', () => { S.dragging = false; d.classList.remove('dragging'); if (S._renderDepois) { S._renderDepois = false; render(); } });
+  d.addEventListener('click', () => { if (!S.dragging) capAbre(c.id, dia.d); });
+  d.addEventListener('keydown', ev => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === d) { ev.preventDefault(); d.click(); } });
+  return d;
 }
-function capFechar() {
-  if (!CAP.aberto) return;
-  CAP.aberto = false; clearInterval(CAP.timer); clearTimeout(CAP.pollT); capFechaMenu(); capFechaFolha();
-  document.getElementById('cap').hidden = true; document.body.classList.remove('cap-on');
-  const b = document.getElementById('btnCap'); if (b) b.focus({ preventScroll: true });
+/** O cabeçalho de cada mês no modo captação: quantas captações e a legenda das três situações. */
+function capCabMes(mes) {
+  const l = capLista().filter(c => capNaAba(c) && c.dias.some(x => x.d.startsWith(mes)));
+  const n = { agravar: 0, gravada: 0, faltou: 0 };
+  for (const c of l) n[capSit(c)]++;
+  const chip = (k, t) => '<span class="cp-lc s-' + k + (n[k] ? '' : ' zero') + '"><i></i>' + t + '<b>' + n[k] + '</b></span>';
+  return { texto: capPl(l.length, 'captação', 'captações') + ' · ' + nomeAba(S.aba),
+    legenda: '<span class="mesleg cp-leg">' + chip('agravar', 'A gravar') + chip('gravada', 'Gravada') + chip('faltou', 'Faltou gravar') + '</span>' };
 }
-function capEditando() { const a = document.activeElement; return !!(a && a.closest && a.closest('#cap') && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')); }
-/** Chamado quando o documento fecha e depois do Ctrl+Z: o que mudou lá aparece aqui. */
-function capAoVoltar() { if (CAP.aberto) capCarrega(); }
-async function capCarrega() {
-  const n = ++CAP.pede;
-  try {
-    const d = await api('/api/captacao' + (CAP.semana ? '?semana=' + CAP.semana : ''));
-    if (n !== CAP.pede || !CAP.aberto) return;
-    CAP.dados = d; CAP.semana = d.semana;
-    capDesenha();
-  } catch (e) {
-    if (n !== CAP.pede) return;
-    if (!CAP.dados) document.getElementById('capCorpo').innerHTML = '<div class="pp-erro">Não consegui abrir o quadro: ' + esc(e.message) + '</div>';
-    else toast(e.message, true);
-  }
+/** O número da aba no modo captação: as captações do mês naquela empresa. */
+function capNaAbaDoMes(aba, mes) {
+  return capLista().filter(c => (aba === ABA_TODOS || !c.aba || c.aba === aba) && c.dias.some(x => x.d.startsWith(mes))).length;
 }
-function capIrSemana(dias) {
-  if (!CAP.dados) return;
-  CAP.semana = capSoma(CAP.dados.semana, dias); CAP.dados = null; CAP.apaga = null;
-  capDesenha(); capCarrega();
+/** Soltou o card num dia: aquele dia da captação muda (o gravado nele vai junto). */
+async function capSolta(dado, para) {
+  const [, id, de] = dado.split(':');
+  const c = capPorId(id); if (!c || !para || de === para) return;
+  if (c.dias.some(x => x.d === para)) return toast('Essa captação já tem gravação em ' + capDiaL(para), true);
+  await capSalva(c.id, cc => capMudaDia(cc, de, para), 'Movida pra ' + capDiaL(para) + ' · Ctrl+Z desfaz');
 }
 
-// ---------------- desenho ----------------
-const CAP_ROTEIRO = {
-  sem: ['sem doc', 'neu', 'Ainda não tem documento: clique pra criar e escrever o roteiro'],
-  vazio: ['roteiro vazio', 'neu', 'O documento só tem o modelo do roteiro'],
-  escrevendo: ['escrevendo', 'neu', 'Roteiro sendo escrito'],
-  aprovacao: ['em aprovação', 'or', 'Roteiro esperando aprovação'],
-  alterar: ['pra alterar', 'red', 'Pediram alteração no roteiro'],
-  aprovado: ['aprovado', 'ok', 'Roteiro aprovado'],
-};
-function capCard(v) {
-  const [rot, cls, dica] = CAP_ROTEIRO[v.roteiro] || CAP_ROTEIRO.sem;
-  const meta = [v.onde ? v.onde : '', v.tomadas ? capPl(v.tomadas, 'tomada', 'tomadas') : ''].filter(Boolean).join(' · ');
-  const nome = (v.titulo || 'vídeo') + ', ' + (v.contaNome || '') + (v.date ? ', sai ' + capDiaL(v.date) : '') + ', roteiro ' + rot;
-  return '<article class="cap-card' + (v.postado ? ' postado' : '') + '" draggable="true" tabindex="0" data-id="' + esc(v.id) + '" aria-label="' + esc(nome) + '">' +
-    '<div class="cap-k1"><i class="cap-cor" style="background:' + contaCor(v.conta) + '"></i><span class="cap-conta">' + esc(contaCurta(v.conta)) + '</span>' +
-      '<span class="cap-sai">' + (v.postado ? 'postado' : v.date ? 'sai ' + esc(lpDiaC(v.date)) : 'sem dia') + '</span>' +
-      '<button type="button" class="cap-mv" data-mv="' + esc(v.id) + '" aria-label="Mover pra outro bloco" data-tip="Mover pra…">' + capIc('mover') + '</button></div>' +
-    '<div class="cap-tt">' + esc(v.titulo || 'vídeo') + '</div>' +
-    '<div class="cap-k2"><span class="lp-pil ' + cls + '" title="' + esc(dica) + '">' + esc(rot) + '</span>' +
-      (v.vaga ? '<span class="lp-pil neu">falta criar</span>' : '') + (meta ? '<span class="cap-meta" title="' + esc(meta) + '">' + esc(meta) + '</span>' : '') + '</div>' +
-    (v.hub ? '<div class="cap-k3">' + (v.hub.captado ? '<span class="lp-pil ok" title="A subtarefa andou no MKT Hub">' + icon('check') + 'captado</span>' : '<span class="lp-pil neu">pra captar</span>') +
-      '<a class="cap-mkt" href="' + esc(v.hub.url || '#') + '" target="_blank" rel="noopener" title="Abrir a subtarefa no MKT Hub">' + esc(v.hub.codigo || 'MKT Hub') + icon('external') + '</a></div>' : '') +
-  '</article>';
+// ---------------- criar: o link da task de captação no dia ----------------
+/** O corpo que troca o dia de: pro dia para (o horário e os roteiros gravados nele vão junto). */
+function capMudaDia(cc, de, para) {
+  if (!cc.dias.some(x => x.d === de) || cc.dias.some(x => x.d === para)) return null;
+  return { dias: cc.dias.map(x => x.d === de ? { d: para, h: x.h } : x), roteiros: cc.roteiros.map(r => r.g === de ? { id: r.id, n: r.n, g: para } : { id: r.id, n: r.n, g: r.g }) };
 }
-function capColuna(b, vids) {
-  const tom = vids.reduce((n, v) => n + (v.tomadas || 0), 0);
-  const semAp = vids.filter(v => v.roteiro !== 'aprovado').length;
-  let cab;
-  if (!b) {
-    cab = '<div class="cap-ch"><div class="cap-ct">' + capIc('box') + '<b>A organizar</b><span class="cap-n">' + vids.length + '</span></div>' +
-      '<div class="cap-cs">' + (vids.length ? 'Arraste cada vídeo pro bloco do dia em que vai ser captado' : 'Nenhum vídeo desta semana sem bloco') + '</div></div>';
-  } else {
-    const armado = CAP.apaga === b.id, hb = b.hub || null, trava = !!(hb && hb.travado), dis = trava ? ' disabled' : '';
-    const job = hb && hb.job, indo = !!(job && job.st === 'enviando'), hubT = (CAP.dados && CAP.dados.hub) || {};
-    // quem capta: com o MKT Hub ligado, a lista de pessoas do Hub (vira o responsável da task); sem ele, texto
-    const pess = hubT.ligado && hubT.pessoas ? hubT.pessoas.slice() : null;
-    if (pess && b.resp && !pess.some(q => q.id === b.resp)) pess.push({ id: b.resp, nome: (b.quem || 'pessoa') + ' (fora do Hub)' });
-    const quem = pess
-      ? '<label class="cap-f cap-fq' + (b.resp ? '' : ' falta') + '"><span>Quem capta</span><select data-bid="' + b.id + '" data-k="resp"' + dis + '><option value="">escolha a pessoa do MKT Hub</option>' +
-        pess.map(q => '<option value="' + esc(q.id) + '"' + (q.id === b.resp ? ' selected' : '') + '>' + esc(q.nome) + '</option>').join('') + '</select></label>'
-      : '<label class="cap-f cap-fq"><span>Quem capta</span><input type="text" data-bid="' + b.id + '" data-k="quem" maxlength="60" value="' + esc(b.quem || '') + '" placeholder="filmmaker"' + dis + '></label>';
-    // o bloco no Hub: a task de cada empresa, o envio e o que falta mandar
-    let hubH = '';
-    if (hb && hb.maes && hb.maes.length) hubH += '<div class="cap-hub">' + hb.maes.map(m => '<a class="cap-mkt" href="' + esc(m.url || '#') + '" target="_blank" rel="noopener" title="Abrir a task no MKT Hub">' + esc(m.codigo || 'MKT Hub') + icon('external') + '</a>' +
-      '<span class="cap-hube">' + esc([m.empresa && m.empresa.nome, m.etapa].filter(Boolean).join(' · ')) + '</span>').join('') + '</div>';
-    if (trava) hubH += '<div class="cap-trava">' + icon('pin') + 'Dia, quem capta e nota mudam no MKT Hub.</div>';
-    if (indo) hubH += '<div class="cap-envio" role="status"><i></i>Mandando pro MKT Hub… ' + Math.min(job.feitos || 0, job.total || 1) + ' de ' + (job.total || 1) + '</div>';
-    else if (job && job.st === 'erro') hubH += '<div class="cap-erro" role="alert">' + icon('alerta') + '<span>Não foi pro MKT Hub: ' + esc(job.erro || 'erro') + '</span></div>';
-    const pend = hb ? (hb.novos || 0) + (hb.mudados || 0) : vids.length;
-    let mandaB = '';
-    if (hubT.escrita && vids.length && !indo && (!trava || pend)) {
-      const rot = !trava ? 'Mandar pro MKT Hub' : hb.novos && hb.mudados ? 'Mandar ' + capPl(pend, 'mudança', 'mudanças') : hb.novos ? 'Mandar ' + capPl(hb.novos, 'vídeo novo', 'vídeos novos') : 'Atualizar ' + capPl(hb.mudados, 'roteiro', 'roteiros');
-      mandaB = '<button type="button" class="mbtn primary cap-manda" data-hub="' + b.id + '" title="' + esc(!trava ? 'Cria a task de Captação no MKT Hub (1 por empresa), com uma subtarefa por vídeo' : 'Manda pro MKT Hub o que entrou ou mudou depois do envio') + '">' + icon('hub') + esc(rot) + '</button>';
+function capFechaNovo() { const p = document.getElementById('cpNovo'); if (p) p.remove(); CAPM.novo = null; }
+function capNovo(dia, btn) {
+  if (CAPM.novo === dia) { capFechaNovo(); return; }
+  capFechaNovo(); CAPM.novo = dia;
+  const p = document.createElement('div');
+  p.className = 'cpnovo'; p.id = 'cpNovo'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Nova captação em ' + capDiaL(dia));
+  p.innerHTML = '<b>' + icon('camera') + 'Captação em ' + esc(capDiaL(dia)) + '</b>' +
+    '<label for="cpNovoLink">Cole o link da task de captação do MKT Hub</label>' +
+    '<input id="cpNovoLink" placeholder="https://www.mkthub.space/... ou MKT-1234" autocomplete="off">' +
+    '<div class="cpnovo-pe"><span class="cpnovo-msg" id="cpNovoMsg"></span><button type="button" class="mbtn primary" id="cpNovoOk">Criar</button></div>';
+  document.body.appendChild(p);
+  const r = btn.getBoundingClientRect(), w = 300;
+  p.style.left = Math.min(Math.max(8, r.right - w), innerWidth - w - 8) + 'px';
+  p.style.top = (r.bottom + p.offsetHeight + 12 > innerHeight ? Math.max(8, r.top - p.offsetHeight - 6) : r.bottom + 6) + 'px';
+  const inp = p.querySelector('#cpNovoLink'), msg = p.querySelector('#cpNovoMsg'), ok = p.querySelector('#cpNovoOk');
+  const vai = async () => {
+    const link = inp.value.trim();
+    if (!link) { msg.textContent = 'cole o link'; inp.focus(); return; }
+    ok.disabled = true; msg.textContent = 'procurando no MKT Hub…';
+    try {
+      const j = await api('/api/captacao', { method: 'POST', body: JSON.stringify({ dia, link }) });
+      capVersao(j.rev);
+      capFechaNovo(); await loadState(false, true); render();
+      toast('Captação criada em ' + capDiaL(dia) + (j.aviso ? ' · ' + j.aviso : '') + ' · Ctrl+Z desfaz', !!j.aviso);
+      capAbre(j.captacao.id, dia);
+    } catch (e) {
+      ok.disabled = false;
+      if (e.status === 409 && e.data && e.data.id) { capFechaNovo(); toast('Essa task já está numa captação: abri ela pra você pôr o dia novo', true); capAbre(e.data.id); return; }
+      msg.textContent = e.message;
     }
-    cab = '<div class="cap-ch">' +
-      '<div class="cap-ct">' + icon('camera') + '<b>' + esc(capNomeBloco(b)) + '</b><span class="cap-n">' + vids.length + '</span></div>' + hubH +
-      '<div class="cap-campos">' +
-        '<label class="cap-f cap-fd' + (b.dia ? '' : ' falta') + '"><span>Dia</span><input type="date" data-bid="' + b.id + '" data-k="dia" value="' + esc(b.dia || '') + '"' + dis + '></label>' +
-        '<label class="cap-f cap-fh"><span>Das</span><input type="text" inputmode="numeric" maxlength="6" data-bid="' + b.id + '" data-k="inicio" value="' + esc(capHora(b.inicio)) + '" placeholder="9h" title="9, 9h, 9:30 ou 930"' + dis + '></label>' +
-        '<label class="cap-f cap-fh"><span>Às</span><input type="text" inputmode="numeric" maxlength="6" data-bid="' + b.id + '" data-k="fim" value="' + esc(capHora(b.fim)) + '" placeholder="12h" title="12, 12h, 12:30 ou 1230"' + dis + '></label>' +
-        quem +
-        '<label class="cap-f cap-fn"><span>Nota</span><input type="text" data-bid="' + b.id + '" data-k="nota" maxlength="300" value="' + esc(b.nota || '') + '" placeholder="local, luz, o que levar"' + dis + '></label>' +
-      '</div>' +
-      '<div class="cap-tot">' + capPl(vids.length, 'vídeo', 'vídeos') + (tom ? ' · ' + capPl(tom, 'tomada', 'tomadas') : '') +
-        (trava ? ' · <span class="cap-feitos">' + (hb.captados || 0) + ' de ' + (hb.enviados || 0) + ' ' + ((hb.enviados || 0) === 1 ? 'captado' : 'captados') + '</span>' : '') +
-        (semAp && vids.length ? ' · <span class="cap-falta">' + semAp + ' sem roteiro aprovado</span>' : '') + '</div>' +
-      '<div class="cap-acoes">' + mandaB +
-        '<button type="button" class="mbtn cap-pauta" data-pauta="' + b.id + '"' + (vids.length ? '' : ' disabled') + ' title="Copia o roteiro de cada vídeo do bloco, pra colar no WhatsApp ou na task do MKT Hub">' + capIc('copiar') + 'Copiar pauta</button>' +
-        '<button type="button" class="mbtn critbtn cap-del' + (armado ? ' armado' : '') + '" data-del="' + b.id + '"' + (indo ? ' disabled' : '') + ' aria-label="' + (armado ? 'Excluir mesmo?' : 'Excluir o bloco') + '" title="' + (armado ? 'Clique de novo pra excluir' + (trava ? ' (as tasks continuam no MKT Hub)' : '') : 'Excluir o bloco (os vídeos voltam pra A organizar)') + '">' +
-          capIc('lixo') + (armado ? 'Excluir mesmo?' : '') + '</button>' +   // só o ícone; armado, a pergunta
-      '</div></div>';
-  }
-  return '<section class="cap-col' + (b ? ' bloco' + (b.dia ? '' : ' semdia') + (b.hub && b.hub.travado ? ' nohub' : '') : ' solta') + '" data-drop="' + (b ? b.id : 'solto') + '" aria-label="' + esc(b ? 'Bloco ' + capNomeBloco(b) : 'A organizar') + '">' + cab +
-    '<div class="cap-lista">' + (vids.length ? vids.map(capCard).join('') : '<div class="cap-vazio">' + (b ? 'Arraste pra cá os vídeos deste bloco' : 'Tudo organizado') + '</div>') + '</div></section>';
+  };
+  ok.onclick = vai;
+  inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); vai(); } if (ev.key === 'Escape') { ev.stopPropagation(); capFechaNovo(); } });
+  setTimeout(() => inp.focus(), 20);
 }
-function capDesenha() {
-  const corpo = document.getElementById('capCorpo'); if (!corpo) return;
-  const d = CAP.dados;
-  const rot = document.getElementById('capSemRot');
-  const semRot = (a, b) => '<span class="cap-pre">Saem de </span>' + capBr(a) + ' a ' + capBr(b);   // no celular, só as datas
-  if (!d) { rot.innerHTML = CAP.semana ? semRot(CAP.semana, capSoma(CAP.semana, 6)) : 'carregando'; corpo.innerHTML = '<div class="pp-carrega" role="status">carregando o quadro…</div>'; return; }
-  rot.innerHTML = semRot(d.semana, d.ate);
-  rot.title = 'Os vídeos que vão ao ar de ' + capDiaL(d.semana) + ' a ' + capDiaL(d.ate);
-  // guarda o campo em que o cursor está e o que já foi digitado nele (o redesenho troca os elementos)
-  const a = document.activeElement, foco = a && a.dataset && a.dataset.bid && a.closest('#capCorpo') ? { bid: a.dataset.bid, k: a.dataset.k, valor: a.value } : null;
-  const soltos = d.videos.filter(v => !v.bloco);
-  let h = '';
-  if (d.indefinidos && d.indefinidos.length) {
-    h += '<div class="cap-aviso" role="note">' + icon('alerta') + '<span><b>' + capPl(d.indefinidos.length, 'post desta semana ainda não diz', 'posts desta semana ainda não dizem') + ' se é arte ou vídeo.</b> Abra e escolha no topo do doc:</span>' +
-      '<span class="cap-indef">' + d.indefinidos.map(x => '<button type="button" class="mbtn" data-indef="' + esc(x.id) + '" title="' + esc(x.titulo + ' · ' + x.contaNome + ' · sai ' + capDiaL(x.date)) + '"><span class="ci-t">' + esc(x.titulo) + '</span><small>' + esc(lpDiaC(x.date)) + '</small></button>').join('') + '</span></div>';
-  }
-  if (!d.videos.length && !d.blocos.length) {
-    h += '<div class="cap-nada"><div class="cap-nada-ic">' + icon('camera') + '</div><b>Nenhum vídeo sai nesta semana</b><span>Os vídeos aparecem aqui pela data em que vão ao ar. Use as setas pra ver outra semana.</span></div>';
-  }
-  h += '<div class="cap-cols" id="capCols">' + capColuna(null, soltos);
-  d.blocos.forEach(b => { h += capColuna(b, d.videos.filter(v => v.bloco === b.id)); });
-  h += '<button type="button" class="cap-col cap-nova" data-drop="novo" id="capNova">' + icon('plus') + '<b>Novo bloco</b><span>clique, ou arraste um vídeo pra cá</span></button></div>';
-  corpo.innerHTML = h;
-  capLiga(corpo);
-  capAcompanha(d);
-  if (foco) {
-    const el = corpo.querySelector('[data-bid="' + foco.bid + '"][data-k="' + foco.k + '"]');
-    if (el) { if (el.value !== foco.valor) { el.value = foco.valor; el.dataset.sujo = '1'; } el.focus({ preventScroll: true }); }
-  }
-}
+document.addEventListener('mousedown', ev => { const p = document.getElementById('cpNovo'); if (p && !p.contains(ev.target) && !ev.target.closest('.addbtn')) capFechaNovo(); }, true);
 
-// ---------------- interação ----------------
-function capVideo(id) { return CAP.dados && CAP.dados.videos.find(v => v.id === id); }
-function capLiga(raiz) {
-  raiz.querySelectorAll('.cap-card').forEach(c => {
-    c.addEventListener('click', ev => { if (ev.target.closest('.cap-mv, a')) return; const v = capVideo(c.dataset.id); if (v) capAbreDoc(v); });
-    c.addEventListener('keydown', ev => {
-      if (ev.target !== c) return;
-      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); const v = capVideo(c.dataset.id); if (v) capAbreDoc(v); }
-    });
-    c.addEventListener('dragstart', ev => {
-      CAP.arrasta = c.dataset.id; c.classList.add('arrastando'); document.getElementById('capCols').classList.add('arrastando');
-      try { ev.dataTransfer.setData('text/plain', c.dataset.id); ev.dataTransfer.effectAllowed = 'move'; } catch (e) { }
-    });
-    c.addEventListener('dragend', () => {
-      CAP.arrasta = null; c.classList.remove('arrastando');
-      raiz.querySelectorAll('.alvo').forEach(x => x.classList.remove('alvo'));
-      const cols = document.getElementById('capCols'); if (cols) cols.classList.remove('arrastando');
-    });
-  });
-  raiz.querySelectorAll('[data-drop]').forEach(col => {
-    col.addEventListener('dragover', ev => { if (!CAP.arrasta) return; ev.preventDefault(); try { ev.dataTransfer.dropEffect = 'move'; } catch (e) { } col.classList.add('alvo'); });
-    col.addEventListener('dragleave', ev => { if (!col.contains(ev.relatedTarget)) col.classList.remove('alvo'); });
-    col.addEventListener('drop', ev => {
-      if (!CAP.arrasta) return;
-      ev.preventDefault(); col.classList.remove('alvo');
-      const id = CAP.arrasta; CAP.arrasta = null;
-      capMover(id, col.dataset.drop);
-    });
-  });
-  raiz.querySelectorAll('[data-mv]').forEach(b => b.onclick = ev => { ev.stopPropagation(); capMenuMover(b, b.dataset.mv); });
-  // o campo grava quando o cursor sai dele (ou no Enter): digitar a data ou a hora dispara "change" a cada número, e
-  // gravar no meio redesenharia o quadro debaixo dos dedos
-  raiz.querySelectorAll('input[data-bid]').forEach(inp => {
-    const grava = () => { delete inp.dataset.sujo; capCampo(inp.dataset.bid, inp.dataset.k, inp.value); };
-    inp.addEventListener('change', () => { if (document.activeElement === inp) inp.dataset.sujo = '1'; else grava(); });
-    inp.addEventListener('blur', () => { if (inp.dataset.sujo) grava(); });
-    inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } });
-  });
-  raiz.querySelectorAll('select[data-bid]').forEach(sel => sel.addEventListener('change', () => capCampo(sel.dataset.bid, sel.dataset.k, sel.value)));   // v4.04: quem capta
-  raiz.querySelectorAll('[data-hub]').forEach(b => b.onclick = () => capFolhaHub(b.dataset.hub));
-  raiz.querySelectorAll('[data-pauta]').forEach(b => b.onclick = () => capPauta(b.dataset.pauta));
-  raiz.querySelectorAll('[data-del]').forEach(b => b.onclick = () => capApaga(b.dataset.del));
-  raiz.querySelectorAll('[data-indef]').forEach(b => b.onclick = () => { const x = CAP.dados.indefinidos.find(i => i.id === b.dataset.indef); if (x) capAbreDoc(x); });
-  const nova = raiz.querySelector('#capNova'); if (nova) nova.onclick = () => capNovoBloco(null);
+// ---------------- salvar ----------------
+/**
+ * Salva na fila: cada salvamento espera o anterior e monta o corpo na hora, com a captação mais nova (corpo pode ser
+ * uma função que recebe a captação atual). Assim 3 cliques rápidos em "gravado" valem os 3, e um não desfaz o outro.
+ */
+function capSalva(id, corpo, ok) {
+  const vez = CAPM.fila.then(() => capSalvaJa(id, corpo, ok));
+  CAPM.fila = vez.catch(() => {});
+  return vez;
 }
-/** Abre o doc do post (cria, se ainda não tem). O doc abre por cima do quadro; ao fechar, o quadro se atualiza. */
-async function capAbreDoc(v) {
-  let id = v.docId;
-  if (!id) {
-    try { const r = await api('/api/docs', { method: 'POST', body: JSON.stringify({ slotId: v.id, por: ((typeof PERFIL !== 'undefined' && PERFIL.get()) || {}).nome || '' }) }); id = r.id; v.docId = id; }
-    catch (e) { toast(e.message, true); return; }
-  }
-  abrirDoc(id);
-}
-/** Depois de mexer: o quadro e o calendário (a câmera do card mostra o dia da captação). */
-function capDepois() { capCarrega(); loadState(false, true).catch(() => { }); }
-async function capMover(id, alvo) {
-  const v = capVideo(id); if (!v || CAP.ocupado) return;
-  let bloco = alvo === 'solto' ? null : alvo;
-  if (alvo === 'novo') { bloco = await capNovoBloco(null, true); if (!bloco) return; }
-  if ((v.bloco || null) === bloco) return;
-  const antes = v.bloco || null;
-  v.bloco = bloco; capDesenha();                               // já aparece no lugar novo; o servidor confirma
-  CAP.ocupado = true;
+async function capSalvaJa(id, corpo, ok) {
+  const atual = capPorId(id); if (!atual) return false;
+  const b = typeof corpo === 'function' ? corpo(atual) : corpo;
+  if (!b) return false;
   try {
-    await api('/api/slots/' + id, { method: 'PATCH', body: JSON.stringify({ capBloco: bloco }) });
-    const b = bloco && CAP.dados.blocos.find(x => x.id === bloco);
-    toast((b ? 'No bloco ' + capNomeBloco(b) : 'De volta pra A organizar') + (v.hub ? '. A subtarefa ' + (v.hub.codigo || '') + ' continua no MKT Hub' : '') + ' · Ctrl+Z desfaz', false, v.hub ? 6000 : 0);
-  } catch (e) { v.bloco = antes; capDesenha(); toast(e.message, true); }
-  finally { CAP.ocupado = false; }
-  capDepois();
-}
-/** Bloco novo na semana do quadro. Com "devolve", só cria e devolve o id (o vídeo arrastado vai pra ele em seguida). */
-async function capNovoBloco(dia, devolve) {
-  if (!CAP.dados) return null;
-  try {
-    const r = await api('/api/captacao/blocos', { method: 'POST', body: JSON.stringify(Object.assign({ semana: CAP.dados.semana }, dia ? { dia } : {})) });
-    CAP.dados.blocos.push(r.bloco);
-    if (devolve) return r.bloco.id;
-    capDesenha();
-    const el = document.querySelector('#capCorpo input[data-bid="' + r.bloco.id + '"][data-k="dia"]');
-    if (el) { el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); el.focus({ preventScroll: true }); }
-    capDepois();
-    return r.bloco.id;
-  } catch (e) { toast(e.message, true); return null; }
-}
-/** Hora digitada do jeito que sair: 9, 9h, 9:30, 9h30, 930, 14 → "09:00", "09:30", "14:00". Vazio = ''; inválida = null. */
-function capLeHora(t) {
-  t = String(t || '').trim().toLowerCase().replace(/\s+/g, '').replace(/(hs|hrs|h)$/, '');
-  if (!t) return '';
-  let h, m = 0, x;
-  if ((x = t.match(/^(\d{1,2})$/))) h = +x[1];
-  else if ((x = t.match(/^(\d{1,2})[:h.](\d{1,2})$/))) { h = +x[1]; m = +x[2]; }
-  else if ((x = t.match(/^(\d{1,2})(\d{2})$/))) { h = +x[1]; m = +x[2]; }
-  else return null;
-  if (h > 23 || m > 59) return null;
-  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-}
-async function capCampo(bid, k, valor) {
-  const b = CAP.dados && CAP.dados.blocos.find(x => x.id === bid); if (!b) return;
-  if (k === 'inicio' || k === 'fim') {
-    const h = capLeHora(valor);
-    if (h === null) { toast('Horário não entendido: escreva 9, 9h, 9:30 ou 930', true); capDesenha(); return; }
-    valor = h;
-  }
-  if ((b[k] || '') === (valor || '')) return;
-  try {
-    const r = await api('/api/captacao/blocos/' + bid, { method: 'PATCH', body: JSON.stringify({ [k]: valor || (k === 'dia' ? null : '') }) });
-    Object.assign(b, r.bloco);
-  } catch (e) { toast(e.message, true); }
-  capDepois();
-}
-async function capApaga(bid) {
-  if (CAP.apaga !== bid) {
-    CAP.apaga = bid; capDesenha(); clearTimeout(CAP.apagaT);
-    CAP.apagaT = setTimeout(() => { if (CAP.apaga === bid) { CAP.apaga = null; capDesenha(); } }, 4000);
-    return;
-  }
-  CAP.apaga = null; clearTimeout(CAP.apagaT);
-  try {
-    const r = await api('/api/captacao/blocos/' + bid, { method: 'DELETE' });
-    toast('Bloco excluído' + (r.soltos ? ': ' + capPl(r.soltos, 'vídeo voltou', 'vídeos voltaram') + ' pra A organizar' : '') +
-      (r.noHub && r.noHub.length ? '. No MKT Hub, ' + r.noHub.join(' e ') + (r.noHub.length === 1 ? ' continua lá' : ' continuam lá') : ''), false, r.noHub && r.noHub.length ? 7000 : 0);
-  } catch (e) { toast(e.message, true); }
-  capDepois();
-}
-async function capCopia(t) {
-  try { await navigator.clipboard.writeText(t); return true; }
-  catch (e) {
-    const ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-    document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e2) { } ta.remove(); return ok;
-  }
-}
-async function capPauta(bid) {
-  try {
-    const r = await api('/api/captacao/blocos/' + bid + '/pauta');
-    const ok = await capCopia(r.texto);
-    toast(ok ? 'Pauta copiada (' + r.nome + '): cole no WhatsApp ou na task do MKT Hub' : 'Não consegui copiar a pauta', !ok);
-  } catch (e) { toast(e.message, true); }
-}
-
-// ---------------- v4.04: mandar o bloco pro MKT Hub ----------------
-/** Enquanto um bloco vai pro Hub, o quadro pergunta de novo a cada 1,2 s; quando termina, avisa como foi. */
-function capAcompanha(d) {
-  let indo = false;
-  for (const b of d.blocos) {
-    const j = b.hub && b.hub.job, st = j ? j.st : null, antes = CAP.jobs[b.id];
-    if (antes === 'enviando' && st === 'ok') toast('No MKT Hub: ' + (b.hub.maes || []).map(m => m.codigo).filter(Boolean).join(', ') + ' (' + capNomeBloco(b) + ')', false, 6000);
-    if (antes === 'enviando' && st === 'erro') toast('O bloco ' + capNomeBloco(b) + ' não foi pro MKT Hub: ' + (j.erro || 'erro'), true);
-    CAP.jobs[b.id] = st;
-    if (st === 'enviando') indo = true;
-  }
-  clearTimeout(CAP.pollT); CAP.pollT = null;
-  if (indo && CAP.aberto) CAP.pollT = setTimeout(() => { CAP.pollT = null; if (CAP.aberto && !capEditando()) capCarrega(); }, 1200);
-  else if (Object.values(CAP.jobs).length && !indo && CAP.jobsMudou) { CAP.jobsMudou = false; loadState(false, true).catch(() => { }); }
-}
-function capFechaFolha() { const f = document.getElementById('capFolha'); if (f) f.remove(); }
-/** A folha de mandar: o que vai (1 task por empresa, os vídeos), o que falta e os pontos (digitados na hora). */
-async function capFolhaHub(bid) {
-  capFechaFolha();
-  const b = CAP.dados && CAP.dados.blocos.find(x => x.id === bid); if (!b) return;
-  const f = document.createElement('div'); f.id = 'capFolha'; f.className = 'cap-folha-fundo';
-  f.innerHTML = '<div class="cap-folha" role="dialog" aria-modal="true" aria-labelledby="cfTit"><div class="cf-topo"><h2 id="cfTit">Mandar pro MKT Hub</h2>' +
-    '<button type="button" class="cf-x" aria-label="Fechar">' + icon('x') + '</button></div><div class="cf-corpo" id="cfCorpo"><div class="pp-carrega" role="status">conferindo o MKT Hub…</div></div></div>';
-  document.body.appendChild(f);   // no body (como o menu): dentro do quadro rolado, o fixed ficaria preso à página (a animação deixa transform)
-  f.addEventListener('mousedown', ev => { if (ev.target === f) capFechaFolha(); });
-  f.querySelector('.cf-x').onclick = capFechaFolha;
-  let o;
-  try { o = await api('/api/captacao/blocos/' + bid + '/hub'); }
-  catch (e) { const c = document.getElementById('cfCorpo'); if (c) c.innerHTML = '<div class="pp-erro">' + esc(e.message) + '</div>'; return; }
-  const c = document.getElementById('cfCorpo'); if (!c) return;
-  const novaMae = o.grupos.some(g => !g.mae);
-  const vai = o.grupos.reduce((n, g) => n + g.videos.filter(v => !v.noHub || v.mudou).length, 0);
-  const faltas = (o.faltas || []).concat(o.erro ? [o.erro] : []).concat(!o.escrita ? ['a chave do MKT Hub precisa ser de nível completa (está ' + (o.nivel || 'sem resposta') + ')'] : []);
-  c.innerHTML =
-    '<p class="cf-sub"><b>' + esc(capNomeBloco(b)) + '</b> · prazo ' + esc(o.prazo ? capDiaL(o.prazo) : 'sem dia') + ' · quem capta: ' + esc((o.resp && o.resp.nome) || 'ninguém') + '</p>' +
-    (faltas.length ? '<div class="cap-erro" role="alert">' + icon('alerta') + '<span>' + faltas.map(esc).join('; ') + '.</span></div>' : '') +
-    '<div class="cf-grupos">' + o.grupos.map(g => '<div class="cf-g"><div class="cf-gt"><b>' + esc(g.empresa.nome) + '</b>' +
-      (g.mae ? '<a class="cap-mkt" href="' + esc(g.mae.url || '#') + '" target="_blank" rel="noopener">' + esc(g.mae.codigo) + icon('external') + '</a>' : '<span class="cf-nova">task nova</span>') + '</div>' +
-      '<ul>' + g.videos.map(v => '<li><span class="cf-vt">' + esc(v.titulo) + '</span><span class="cf-vm">' + esc(v.conta) + (v.date ? ' · sai ' + esc(lpDiaC(v.date)) : '') + '</span>' +
-        (v.noHub && !v.mudou ? '<span class="lp-pil neu">' + esc(v.codigo || 'no Hub') + '</span>' : v.mudou ? '<span class="lp-pil or">roteiro mudou</span>' : '<span class="lp-pil ' + (v.roteiro ? 'ok' : 'or') + '">' + (v.roteiro ? 'roteiro aprovado' : 'roteiro não aprovado') + '</span>') +
-        '</li>').join('') + '</ul></div>').join('') + '</div>' +
-    '<div class="cf-campos">' +
-      '<label class="cap-f"><span>Tipo</span><select id="cfTipo">' + o.tipos.map(t => '<option' + (t === o.sugestao.tipo ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select></label>' +
-      (novaMae ? '<label class="cap-f"><span>Pontos da task</span><input id="cfPontos" type="number" min="1" max="100" step="1" value="' + esc(o.sugestao.pontos) + '"></label>' : '') +
-      '<label class="cap-f"><span>Pontos de cada vídeo</span><input id="cfPontosSub" type="number" min="1" max="100" step="1" value="' + esc(o.sugestao.pontosSub) + '"></label>' +
-    '</div>' +
-    '<p class="cf-nota">' + (novaMae ? '1 task de Captação por empresa, no nome de quem capta, com a pauta no briefing; cada vídeo vira subtarefa com o roteiro. ' : 'Os vídeos entram como subtarefa na task que já existe. ') +
-      'Os pontos vêm da última captação: confira antes de mandar.</p>' +
-    '<div class="cf-pe"><button type="button" class="mbtn" id="cfCancela">Cancelar</button>' +
-      '<button type="button" class="mbtn primary" id="cfManda"' + (faltas.length || !vai ? ' disabled' : '') + '>' + icon('hub') + 'Mandar ' + capPl(vai, 'vídeo', 'vídeos') + '</button></div>';
-  c.querySelector('#cfCancela').onclick = capFechaFolha;
-  c.querySelector('#cfManda').onclick = () => capMandaHub(bid);
-  const foco = c.querySelector('#cfPontos') || c.querySelector('#cfPontosSub');
-  if (foco && !faltas.length) { foco.focus(); foco.select(); }
-  c.querySelectorAll('input').forEach(i => i.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); capMandaHub(bid); } }));
-}
-async function capMandaHub(bid) {
-  const bt = document.getElementById('cfManda'); if (!bt || bt.disabled) return;
-  const pts = document.getElementById('cfPontos'), sub = document.getElementById('cfPontosSub');
-  const corpo = { tipo: document.getElementById('cfTipo').value, pontos: pts ? +pts.value : 1, pontosSub: sub ? +sub.value : 1 };
-  const rot = bt.innerHTML; bt.disabled = true; bt.innerHTML = icon('hub') + 'Mandando…';   // até o servidor aceitar
-  try {
-    await api('/api/captacao/blocos/' + bid + '/hub', { method: 'POST', body: JSON.stringify(corpo) });
-    capFechaFolha();
-    CAP.jobs[bid] = 'enviando'; CAP.jobsMudou = true;
-    toast('Mandando pro MKT Hub…');
-    capCarrega();
+    const j = await api('/api/captacao/' + id, { method: 'PATCH', body: JSON.stringify(b) });
+    capVersao(j.rev);
+    const i = capLista().findIndex(c => c.id === id);
+    if (i >= 0 && j.captacao) S.captacoes[i] = j.captacao;
+    render(); capRedesenha();
+    if (ok || j.aviso) toast((ok || '') + (j.aviso ? (ok ? ' · ' : '') + j.aviso : ''), !!j.aviso);
+    loadState(false, true).then(() => { render(); capRedesenha(); }).catch(() => {});
+    return true;
   } catch (e) {
-    bt.disabled = false; bt.innerHTML = rot; toast(e.message, true);
-    const campo = e.j && e.j.campo, el = campo === 'pontos' ? pts : campo === 'pontosSub' ? sub : null;
-    if (el) { el.focus(); el.select(); }
+    if (e.status === 409 && e.data && e.data.id) { toast('Essa task já está noutra captação', true); return false; }
+    toast(e.message, true); capRedesenha(); return false;
   }
 }
 
-// ---------------- mover pelo menu (teclado e celular, onde não tem arrastar) ----------------
-function capFechaMenu() { const m = document.getElementById('capMenu'); if (m) m.remove(); }
-function capMenuMover(ancora, id) {
-  capFechaMenu();
-  const v = capVideo(id); if (!v || !CAP.dados) return;
-  const destinos = [{ k: 'solto', r: 'A organizar' }].concat(CAP.dados.blocos.map(b => ({ k: b.id, r: capNomeBloco(b) }))).concat([{ k: 'novo', r: 'Bloco novo' }]);
-  const m = document.createElement('div'); m.id = 'capMenu'; m.className = 'cap-menu'; m.setAttribute('role', 'menu');
-  m.innerHTML = '<div class="cap-mtit">Mover pra</div>' + destinos.map(x => {
-    const atual = (v.bloco || 'solto') === x.k;
-    return '<button type="button" role="menuitem" data-pra="' + esc(x.k) + '"' + (atual ? ' disabled aria-current="true"' : '') + '>' +
-      (x.k === 'novo' ? icon('plus') : x.k === 'solto' ? capIc('box') : icon('camera')) + '<span>' + esc(x.r) + '</span>' + (atual ? icon('check', 'cap-atual') : '') + '</button>';
-  }).join('');
-  document.body.appendChild(m);
-  const r = ancora.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
-  m.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
-  m.style.top = (r.bottom + 6 + h > innerHeight - 8 ? Math.max(8, r.top - h - 6) : r.bottom + 6) + 'px';
-  m.querySelectorAll('[data-pra]').forEach(b => b.onclick = () => { capFechaMenu(); capMover(id, b.dataset.pra); });
-  const primeiro = m.querySelector('button:not([disabled])'); if (primeiro) primeiro.focus();
-  setTimeout(() => document.addEventListener('mousedown', function fora(ev) {
-    if (!ev.target.closest || !ev.target.closest('#capMenu')) { capFechaMenu(); document.removeEventListener('mousedown', fora); }
-  }), 0);
+// ---------------- a folha da captação ----------------
+function capAbre(id, diaCtx) {
+  const c = capPorId(id); if (!c) return;
+  CAPM.aberta = id; CAPM.diaCtx = diaCtx || null; CAPM.pick = false; CAPM.busca = ''; CAPM.apaga = false;
+  capDesenhaFolha();
+  document.getElementById('ovCap').classList.add('open');
+}
+function capRedesenha() { const ov = document.getElementById('ovCap'); if (ov && ov.classList.contains('open') && CAPM.aberta) capDesenhaFolha(); }
+/** Chamado depois do Ctrl+Z e quando o documento fecha: a folha aberta mostra o que mudou. */
+function capAoVoltar() { capRedesenha(); }
+/** O dia que o "gravado" ganha: o do card que abriu a folha; senão o último que já chegou; senão o primeiro. */
+function capDiaPadrao(c) {
+  const ds = c.dias.map(x => x.d), hoje = hojeStr();
+  if (CAPM.diaCtx && ds.includes(CAPM.diaCtx)) return CAPM.diaCtx;
+  const ja = ds.filter(d => d <= hoje);
+  return ja.length ? ja[ja.length - 1] : ds[0] || '';
+}
+function capDesenhaFolha() {
+  const c = capPorId(CAPM.aberta);
+  const ov = document.getElementById('ovCap');
+  if (!c) { if (ov) ov.classList.remove('open'); return; }
+  // o que está sendo digitado (roteiro novo, nota, nome de roteiro, link) sobrevive ao redesenho depois de um salvamento
+  const ant = document.activeElement, emFolha = ant && ant.closest && ant.closest('#ovCap');
+  const foco = emFolha && (ant.id ? '#' + ant.id : ant.dataset.cpn ? '[data-cpn="' + ant.dataset.cpn + '"]' : ant.dataset.cpdia ? '[data-cpdia="' + ant.dataset.cpdia + '"]' : ant.dataset.cphora ? '[data-cphora="' + ant.dataset.cphora + '"]' : '');
+  const texto = emFolha && (ant.tagName === 'TEXTAREA' || (ant.tagName === 'INPUT' && !/^(date|time)$/.test(ant.type))) ? { v: ant.value, a: ant.selectionStart, b: ant.selectionEnd } : null;
+  const rascNovo = (document.getElementById('cpNovoRot') || {}).value || '';
+  const h = c.hub, n = c.roteiros.length, g = capGravados(c), sit = capSit(c), alerta = capAlerta(c);
+  const empresa = (h && h.empresa) || (c.aba ? nomeAba(c.aba) : '');
+  const link = (h && h.url) || c.taskUrl;
+  document.getElementById('cpHead').innerHTML =
+    '<div class="cp-eyebrow"' + (c.aba ? ' style="--cp-emp:' + capCorEmpresa(c.aba) + '"' : '') + '>' + icon('camera') + 'Captação' + (empresa ? ' · ' + esc(empresa) : '') + '</div>' +
+    // sem a task do Hub (link que o Hub não achou, ou o Hub fora do ar), o nome se escreve aqui
+    (h ? '<h2 class="cp-tit" title="' + esc(capTitulo(c)) + '">' + esc(capTituloCurto(c)) + '</h2>'
+      : '<input id="cpTitulo" class="cp-tit cp-titinp" value="' + esc(c.titulo || '') + '" placeholder="Nome da captação" maxlength="120" autocomplete="off" aria-label="Nome da captação">') +
+    '<div class="cp-meta">' +
+      (h ? (link ? '<a class="cp-hub" href="' + esc(link) + '" target="_blank" rel="noopener" title="Abrir a task no MKT Hub"' : '<span class="cp-hub"') + (h.etapa ? ' style="--cp-et:' + esc(h.etapa.cor) + '"' : '') + '><i></i>' +
+        esc([h.codigo, h.etapa && h.etapa.nome].filter(Boolean).join(' · ') || 'MKT Hub') + (link ? icon('external') + '</a>' : '</span>') : '') +
+      (h && h.resp ? '<span>' + icon('users') + esc(h.resp) + ' capta</span>' : '') +
+      (h && h.prazo ? '<span>' + icon('calendar') + 'prazo no Hub ' + esc(capDiaL(String(h.prazo).slice(0, 10))) + '</span>' : '') +
+    '</div>' +
+    (!c.taskId ? '<div class="cp-semtask">' + icon('alerta') + '<span>' + (c.taskUrl ? 'O link não achou a task no MKT Hub (ou o Hub não respondeu).' : 'Sem task do MKT Hub.') + '</span>' +
+      '<input id="cpLink" placeholder="Cole o link da task de captação" value="' + esc(c.taskUrl || '') + '" autocomplete="off"><button type="button" class="mbtn" data-cp="link">Ligar</button></div>' : '');
+
+  // ---- dias ----
+  const temG = d => c.roteiros.some(r => r.g === d);
+  const dias = c.dias.map((x, i) =>
+    '<div class="cp-diarow' + (x.d < hojeStr() ? ' passou' : x.d === hojeStr() ? ' hoje' : '') + '">' +
+      '<span class="cp-dn">' + (c.dias.length > 1 ? 'Dia ' + (i + 1) : 'Dia') + '</span>' +
+      '<input type="date" value="' + x.d + '" data-cpdia="' + i + '" aria-label="Dia ' + (i + 1) + ' da gravação">' +
+      '<input type="time" value="' + esc(x.h || '') + '" data-cphora="' + i + '" aria-label="Horário do dia ' + (i + 1) + '">' +
+      '<span class="cp-dg">' + (c.roteiros.filter(r => r.g === x.d).length ? capPl(c.roteiros.filter(r => r.g === x.d).length, 'gravado', 'gravados') : '') + '</span>' +
+      '<button type="button" class="cp-x" data-cptira="' + i + '"' + (temG(x.d) || c.dias.length === 1 ? ' disabled' : '') +
+        ' title="' + (temG(x.d) ? 'Tem roteiro gravado neste dia: desmarque antes' : c.dias.length === 1 ? 'A captação precisa de um dia' : 'Tirar este dia') + '" aria-label="Tirar o dia ' + (i + 1) + '">' + icon('x') + '</button>' +
+    '</div>').join('');
+  const falta = n - g;
+  // ---- roteiros ----
+  const ds = c.dias.map(x => x.d);
+  const rots = c.roteiros.map(r =>
+    '<div class="cp-rot' + (r.g ? ' g' : '') + '" data-rid="' + r.id + '">' +
+      '<button type="button" class="cp-chk" data-cpg="' + r.id + '" role="checkbox" aria-checked="' + (r.g ? 'true' : 'false') + '" title="' + (r.g ? 'Gravado: clique pra desmarcar' : 'Marcar como gravado') + '">' + (r.g ? icon('check') : '') + '</button>' +
+      '<input class="cp-rn" value="' + esc(r.n) + '" data-cpn="' + r.id + '" aria-label="Nome do roteiro" maxlength="120">' +
+      (r.g ? (ds.length > 1 ? '<select class="cp-rd" data-cprd="' + r.id + '" aria-label="Dia em que foi gravado">' + ds.map(d => '<option value="' + d + '"' + (d === r.g ? ' selected' : '') + '>' + esc(capDiaL(d)) + '</option>').join('') + '</select>'
+        : '<span class="cp-rd1">' + esc(capDiaL(r.g)) + '</span>') : '<span class="cp-rpend">a gravar</span>') +
+      '<button type="button" class="cp-x" data-cprx="' + r.id + '" title="Tirar o roteiro" aria-label="Tirar o roteiro ' + esc(r.n) + '">' + icon('x') + '</button>' +
+    '</div>').join('');
+  // ---- posts ----
+  const posts = capPostsDe(c);
+  const linhaPost = s => {
+    const st = s.statusCache, prazo = s.hub && s.hub.prazo ? String(s.hub.prazo).slice(0, 10) : '';
+    return '<div class="cp-post" data-psid="' + s.id + '">' +
+      '<span class="cdot" style="background:' + contaCor(s.conta) + '"></span>' +
+      '<span class="cp-pt"><b>' + esc(s.tituloCache || s.titulo || 'Post sem nome') + '</b>' +
+        '<small>' + esc(nomeConta(s.conta)) + (s.date ? ' · sai ' + esc(capDiaL(s.date)) : ' · sem dia') +
+        (prazo ? ' · edição até ' + esc(capDiaL(prazo)) : '') + (st && st.nome ? ' · ' + esc(st.nome) : '') + '</small></span>' +
+      '<button type="button" class="cp-x" data-cppx="' + s.id + '" title="Desligar o post" aria-label="Desligar o post">' + icon('x') + '</button></div>';
+  };
+  const pick = CAPM.pick ? capPicker(c) : '';
+  document.getElementById('cpBody').innerHTML =
+    (alerta ? '<div class="cp-alerta ' + alerta.c + '">' + icon('alerta') + '<span>' + esc(alerta.dica) + '</span></div>' : '') +
+    '<section class="cp-sec"><h3>Dias de gravação</h3><div class="cp-dias">' + dias + '</div>' +
+      '<div class="cp-maisdia">' + (falta && n ? '<span class="cp-faltam">' + capPl(falta, 'roteiro falta', 'roteiros faltam') + '</span>' : '') +
+        '<button type="button" class="mbtn" data-cp="dia">' + icon('plus') + (falta && n && sit !== 'agravar' ? 'Outro dia pra terminar' : 'Outro dia') + '</button></div></section>' +
+    '<section class="cp-sec"><h3>Roteiros <span class="cp-cont">' + (n ? g + ' de ' + n + ' gravados' : 'nenhum ainda') + '</span></h3>' +
+      (n ? '<div class="cp-prog" aria-hidden="true"><i style="width:' + Math.round(100 * g / n) + '%"></i></div>' : '') +
+      '<div class="cp-rots">' + rots + '</div>' +
+      '<textarea id="cpNovoRot" class="cp-novorot" rows="1" placeholder="Novo roteiro (Enter). Cole uma lista: um roteiro por linha"></textarea></section>' +
+    '<section class="cp-sec"><h3>Posts ligados <span class="cp-cont">' + (posts.length ? capPl(posts.length, 'post', 'posts') : 'nenhum ainda') + '</span></h3>' +
+      '<div class="cp-posts">' + posts.map(linhaPost).join('') + '</div>' +
+      (CAPM.pick ? pick : '<button type="button" class="mbtn" data-cp="pick">' + capIc('ligar') + 'Ligar post ou task de edição</button>') + '</section>' +
+    '<section class="cp-sec"><h3>Nota</h3><textarea id="cpNota" rows="2" maxlength="500" placeholder="Onde, quem aparece, o que levar…">' + esc(c.nota || '') + '</textarea></section>';
+  document.getElementById('cpFoot').innerHTML =
+    '<button type="button" class="mbtn cp-del' + (CAPM.apaga ? ' armado' : '') + '" data-cp="del"' + (CAPM.apaga ? '' : ' title="Excluir a captação" aria-label="Excluir a captação"') + '>' + capIc('lixo') + (CAPM.apaga ? 'Confirmar: excluir' : '') + '</button>' +
+    '<span class="cp-pe">' + (CAPM.apaga ? 'Sai só do B.O.N.E: a task no MKT Hub continua lá.' : '') + '</span>' +
+    '<button type="button" class="mbtn primary" data-close-cp>Pronto</button>';
+  capLigaFolha(c);
+  const nr = document.getElementById('cpNovoRot');
+  if (nr && rascNovo && !nr.value) { nr.value = rascNovo; if (/\n/.test(rascNovo)) nr.rows = Math.min(8, rascNovo.split('\n').length); }
+  if (foco) {
+    const el = document.querySelector('#ovCap ' + foco);
+    if (el) { if (texto) el.value = texto.v; el.focus(); if (texto) try { el.setSelectionRange(texto.a, texto.b); } catch (e) {} }
+  }
+}
+/** A lista de posts pra ligar: os que saem de 14 dias atrás a 60 pra frente, vídeo primeiro; a busca também aceita o link da task. */
+function capPicker(c) {
+  const q = capSemAcento(CAPM.busca), hoje = hojeStr(), lo = capSoma(hoje, -14), hi = capSoma(hoje, 60);
+  const taskQ = (CAPM.busca.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i) || [])[0] || (CAPM.busca.match(/MKT-\d+/i) || [])[0] || '';
+  let l = S.slots.filter(s => !c.posts.includes(s.id) && !s.postado && s.date && s.date >= lo && s.date <= hi && !(s.sugestao && !s.taskId));
+  if (taskQ) {
+    const t = taskQ.toLowerCase();
+    l = l.filter(s => String(s.taskId || '').toLowerCase() === t || (s.hub && String(s.hub.codigo || '').toLowerCase() === t) || String(s.taskUrl || '').toLowerCase().includes(t));
+  } else if (q) l = l.filter(s => capSemAcento([s.tituloCache, s.titulo, nomeConta(s.conta), s.hub && s.hub.codigo, s.date && capDiaL(s.date)].filter(Boolean).join(' ')).includes(q));
+  l.sort((a, b) => ((pecaDoPost(b) === 'video') - (pecaDoPost(a) === 'video')) || a.date.localeCompare(b.date));
+  l = l.slice(0, 40);
+  return '<div class="cp-pick"><input id="cpBusca" placeholder="Buscar post (nome, conta, dia) ou colar o link da task de edição" value="' + esc(CAPM.busca) + '" autocomplete="off">' +
+    '<div class="cp-pl">' + (l.length ? l.map(s => '<button type="button" class="cp-po" data-cpliga="' + s.id + '">' +
+      '<span class="cdot" style="background:' + contaCor(s.conta) + '"></span><span class="cp-pt"><b>' + esc(s.tituloCache || s.titulo || 'Post sem nome') + '</b>' +
+      '<small>' + esc(nomeConta(s.conta)) + ' · sai ' + esc(capDiaL(s.date)) + (s.hub && s.hub.codigo ? ' · ' + esc(s.hub.codigo) : '') + '</small></span>' +
+      (pecaDoPost(s) === 'video' ? '<span class="cp-vid">' + icon('camera') + 'vídeo</span>' : '') + '</button>').join('')
+      : '<div class="cp-pvazio">' + (taskQ ? 'Nenhum post do calendário está ligado a essa task.' : 'Nenhum post encontrado.') + '</div>') + '</div>' +
+    '<div class="cp-pickpe"><button type="button" class="mbtn" data-cp="pickfim">Fechar a busca</button></div></div>';
+}
+function capLigaFolha(c) {
+  const ov = document.getElementById('ovCap');
+  ov.querySelectorAll('[data-close-cp]').forEach(b => b.onclick = () => closeOv('ovCap'));
+  const rs = cc => cc.roteiros.map(r => ({ id: r.id, n: r.n, g: r.g }));
+  ov.querySelectorAll('[data-cp]').forEach(b => b.onclick = async () => {
+    const a = b.dataset.cp;
+    if (a === 'dia') {
+      const base = capUltimo(c) || hojeStr();
+      let d = capSoma(base < hojeStr() ? hojeStr() : base, 1);
+      while (c.dias.some(x => x.d === d)) d = capSoma(d, 1);
+      if (await capSalva(c.id, cc => cc.dias.some(x => x.d === d) ? null : { dias: cc.dias.concat([{ d, h: '' }]) }, 'Dia novo: ' + capDiaL(d) + ' (mude a data se quiser) · Ctrl+Z desfaz')) {
+        setTimeout(() => { const el = document.querySelector('[data-cpdia="' + capPorId(c.id).dias.findIndex(x => x.d === d) + '"]'); if (el) el.focus(); }, 30);
+      }
+    } else if (a === 'pick') { CAPM.pick = true; CAPM.busca = ''; capDesenhaFolha(); setTimeout(() => { const i = document.getElementById('cpBusca'); if (i) i.focus(); }, 20); }
+    else if (a === 'pickfim') { CAPM.pick = false; capDesenhaFolha(); }
+    else if (a === 'link') { const v = document.getElementById('cpLink').value.trim(); if (v) await capSalva(c.id, { link: v }, 'Task ligada · Ctrl+Z desfaz'); }
+    else if (a === 'del') {
+      if (!CAPM.apaga) { CAPM.apaga = true; clearTimeout(CAPM.apagaT); CAPM.apagaT = setTimeout(() => { CAPM.apaga = false; capRedesenha(); }, 4000); capDesenhaFolha(); return; }
+      try { capVersao((await api('/api/captacao/' + c.id, { method: 'DELETE' })).rev); closeOv('ovCap'); await loadState(false, true); render(); toast('Captação excluída (a task do MKT Hub continua lá) · Ctrl+Z desfaz'); }
+      catch (e) { toast(e.message, true); }
+    }
+  });
+  // dias
+  ov.querySelectorAll('[data-cpdia]').forEach(inp => inp.onchange = () => {
+    const i = +inp.dataset.cpdia, de = c.dias[i].d, para = inp.value;
+    if (!para) { inp.value = de; return; }
+    if (c.dias.some((x, j) => j !== i && x.d === para)) { toast('Esse dia já está na captação', true); inp.value = de; return; }
+    capSalva(c.id, cc => capMudaDia(cc, de, para), 'Dia mudado pra ' + capDiaL(para) + ' · Ctrl+Z desfaz');
+  });
+  ov.querySelectorAll('[data-cphora]').forEach(inp => inp.onchange = () => {
+    const d = c.dias[+inp.dataset.cphora].d, h = inp.value || '';
+    capSalva(c.id, cc => ({ dias: cc.dias.map(x => x.d === d ? { d: x.d, h } : x) }));
+  });
+  ov.querySelectorAll('[data-cptira]').forEach(b => b.onclick = () => {
+    const d = c.dias[+b.dataset.cptira].d;
+    capSalva(c.id, cc => ({ dias: cc.dias.filter(x => x.d !== d) }), 'Dia tirado · Ctrl+Z desfaz');
+  });
+  // roteiros
+  ov.querySelectorAll('[data-cpg]').forEach(b => b.onclick = () => {
+    const id = b.dataset.cpg, r = c.roteiros.find(x => x.id === id), gd = capDiaPadrao(c);
+    if (!r.g && !gd) return toast('A captação precisa de um dia pra marcar o gravado', true);
+    // na hora: o check muda já (o salvamento entra na fila e a folha se redesenha com o que o servidor guardou)
+    const quer = b.getAttribute('aria-checked') !== 'true';
+    b.setAttribute('aria-checked', quer ? 'true' : 'false'); b.innerHTML = quer ? icon('check') : ''; b.closest('.cp-rot').classList.toggle('g', quer);
+    capSalva(c.id, cc => ({ roteiros: rs(cc).map(x => x.id === id ? Object.assign(x, { g: quer ? (x.g || gd) : '' }) : x) }));
+  });
+  ov.querySelectorAll('[data-cprd]').forEach(sel => sel.onchange = () => {
+    const id = sel.dataset.cprd, g = sel.value;
+    capSalva(c.id, cc => ({ roteiros: rs(cc).map(x => x.id === id ? Object.assign(x, { g }) : x) }));
+  });
+  ov.querySelectorAll('[data-cpn]').forEach(inp => {
+    const salva = () => {
+      const id = inp.dataset.cpn, r = c.roteiros.find(x => x.id === id), v = inp.value.replace(/\s+/g, ' ').trim();
+      if (!r || v === r.n) return;
+      if (!v) { inp.value = r.n; return; }
+      capSalva(c.id, cc => ({ roteiros: rs(cc).map(x => x.id === id ? Object.assign(x, { n: v }) : x) }));
+    };
+    inp.onblur = salva;
+    inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } if (ev.key === 'Escape') { ev.stopPropagation(); const r = c.roteiros.find(x => x.id === inp.dataset.cpn); inp.value = r ? r.n : ''; inp.blur(); } };
+  });
+  ov.querySelectorAll('[data-cprx]').forEach(b => b.onclick = () => {
+    const id = b.dataset.cprx;
+    capSalva(c.id, cc => ({ roteiros: rs(cc).filter(x => x.id !== id) }), 'Roteiro tirado · Ctrl+Z desfaz');
+  });
+  const novo = document.getElementById('cpNovoRot');
+  if (novo) novo.onkeydown = ev => {
+    if (ev.key !== 'Enter' || ev.shiftKey) return;
+    ev.preventDefault();
+    const bruto = novo.value, nomes = bruto.split(/\r?\n/).map(t => t.replace(/^\s*(?:[-•*]|\d+[.)])\s*/, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+    if (!nomes.length) return;
+    novo.value = ''; novo.rows = 1;
+    capSalva(c.id, cc => ({ roteiros: rs(cc).concat(nomes.map(nm => ({ n: nm, g: '' }))) }), nomes.length > 1 ? nomes.length + ' roteiros novos · Ctrl+Z desfaz' : '')
+      .then(okk => { const i = document.getElementById('cpNovoRot'); if (!i) return; if (!okk && !i.value) i.value = bruto; i.focus(); });
+  };
+  if (novo) novo.addEventListener('paste', () => setTimeout(() => { if (/\n/.test(novo.value)) novo.rows = Math.min(8, novo.value.split('\n').length); }, 0));
+  // posts
+  ov.querySelectorAll('[data-cppx]').forEach(b => b.onclick = () => { const sid = b.dataset.cppx; capSalva(c.id, cc => ({ posts: cc.posts.filter(id => id !== sid) }), 'Post desligado · Ctrl+Z desfaz'); });
+  ov.querySelectorAll('[data-cpliga]').forEach(b => b.onclick = () => { const sid = b.dataset.cpliga; capSalva(c.id, cc => cc.posts.includes(sid) ? null : { posts: cc.posts.concat([sid]) }, 'Post ligado · Ctrl+Z desfaz'); });
+  const busca = document.getElementById('cpBusca');
+  if (busca) busca.oninput = () => { CAPM.busca = busca.value; const pos = busca.selectionStart; capDesenhaFolha(); const i = document.getElementById('cpBusca'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } };
+  if (busca) busca.onkeydown = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); CAPM.pick = false; capDesenhaFolha(); } };
+  // nota
+  const nota = document.getElementById('cpNota');
+  if (nota) nota.onblur = () => { const v = nota.value.trim(); if (v !== (c.nota || '')) capSalva(c.id, cc => v === (cc.nota || '') ? null : { nota: v }); };
+  const tit = document.getElementById('cpTitulo');
+  if (tit) {
+    tit.onblur = () => { const v = tit.value.replace(/\s+/g, ' ').trim(); if (v !== (c.titulo || '')) capSalva(c.id, cc => v === (cc.titulo || '') ? null : { titulo: v }); };
+    tit.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); tit.blur(); } if (ev.key === 'Escape') { ev.stopPropagation(); tit.value = c.titulo || ''; tit.blur(); } };
+  }
+  const link = document.getElementById('cpLink');
+  if (link) link.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); ov.querySelector('[data-cp="link"]').click(); } };
 }
 
-// Esc volta pro calendário (o menu e os campos primeiro); com o quadro aberto, os atalhos de 1 tecla do painel ficam
-// quietos (1 a 9, [ e ] trocariam a empresa por trás). Registrado antes do script do painel, então roda primeiro.
-document.addEventListener('keydown', ev => {
-  if (!CAP.aberto || document.querySelector('.ov.open') || document.body.classList.contains('comdoc')) return;
-  const t = ev.target, campo = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
-  if (ev.key === 'Escape') {
-    ev.preventDefault(); ev.stopImmediatePropagation();
-    if (document.getElementById('capMenu')) { capFechaMenu(); return; }
-    if (document.getElementById('capFolha')) { capFechaFolha(); return; }
-    if (campo) { t.blur(); return; }
-    capFechar(); return;
+// ---------------- no calendário dos posts ----------------
+/**
+ * A câmera no card do post: ligado a uma captação, o dia da gravação ("gravado" quando a captação terminou); vídeo sem
+ * captação, a câmera (e "captar" quando a copy ou o roteiro foi aprovado). Arte sem captação não ganha nada.
+ */
+function capMarca(s, e) {
+  if (s.postado || (e && (e.k === 'ar' || e.k === 'esp'))) return '';
+  const cs = capsDoPost(s.id);
+  if (cs.length) {
+    const c = cs[0], n = c.roteiros.length, g = capGravados(c), sit = capSit(c);
+    const t = 'Captação: ' + capTitulo(c) + ' · ' + c.dias.map(x => capDiaL(x.d)).join(' e ') + (n ? ' · ' + g + ' de ' + n + ' roteiros gravados' : '');
+    if (sit === 'gravada') return '<span class="lp-mk cap feito" title="' + esc(t) + '">' + icon('check') + '<span class="t">gravado</span></span>';
+    const hoje = hojeStr(), prox = (c.dias.find(x => x.d >= hoje) || c.dias[c.dias.length - 1] || {}).d;
+    return '<span class="lp-mk cap ok' + (sit === 'faltou' ? ' falta' : '') + '" title="' + esc(t) + '">' + icon('camera') + (prox ? '<span class="t">' + esc(lpDiaC(prox)) + '</span>' : '') + '</span>';
   }
-  if (campo) return;
-  if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && /^[1-9\[\]]$/.test(ev.key)) ev.stopImmediatePropagation();
-});
-// no menu: setas sobem e descem
-document.addEventListener('keydown', ev => {
-  const m = document.getElementById('capMenu'); if (!m || !m.contains(document.activeElement)) return;
-  if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
-  ev.preventDefault();
-  const bs = [...m.querySelectorAll('button:not([disabled])')], i = bs.indexOf(document.activeElement);
-  const j = ev.key === 'ArrowDown' ? (i + 1) % bs.length : (i - 1 + bs.length) % bs.length;
-  if (bs[j]) bs[j].focus();
-});
+  if (pecaDoPost(s) !== 'video' || (s.sugestao && !s.taskId)) return '';
+  // a task de produção já passou da edição (em aprovação, ajustar ou pronta): a captação ficou pra trás
+  if (typeof stBucket === 'function' && ['pronto', 'aprovar', 'alterar'].includes(stBucket(s))) return '';
+  if (s.aprov && s.aprov.c && s.aprov.c.st === 'aprovado') return '<span class="lp-mk cap pede" title="Roteiro aprovado: pra captar. Falta ligar a uma captação (botão Captação)">' +
+    icon('camera') + '<span class="t">captar</span></span>';
+  return '<span class="lp-mk cap" title="Vídeo: tem captação">' + icon('camera') + '</span>';
+}

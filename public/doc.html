@@ -1972,13 +1972,13 @@ function pintaPeca(){
   const auto = !!p.peca && !p.pecaEscolhida;
   box.hidden = false; box.classList.toggle('aberto', !p.peca);
   box.innerHTML = ['arte','video'].map(v => {
-    const dica = (v === 'video' ? 'Vídeo: tem captação. A folha vira o roteiro pra captar e o vídeo entra no quadro de captação'
+    const dica = (v === 'video' ? 'Vídeo: tem captação. A folha vira o roteiro pra captar e o post pode ser ligado a uma captação'
       : 'Arte: sem captação (carrossel, estático, story, corte de podcast ou edição do que já existe)') + (p.peca === v && auto && p.formato ? '. Veio do formato do post ('+p.formato+')' : '');
     return '<button type="button" data-peca="'+v+'"'+(p.peca === v ? ' class="on"' : '')+' aria-pressed="'+(p.peca === v)+'"'+(LEITURA ? ' disabled' : '')+' title="'+esc(dica)+'">'+
       ic(v === 'video' ? 'camera' : 'img')+'<span class="rot">'+PECA_NOME[v]+'</span></button>';
   }).join('');
   box.querySelectorAll('button').forEach(b => b.onclick = ()=> escolhePeca(b.dataset.peca));
-  if(!p.peca && !LEITURA) faixa('peca', '<b>Este post é arte ou vídeo?</b> No vídeo, a folha vira o roteiro pra captar e o post entra no quadro de captação.', [
+  if(!p.peca && !LEITURA) faixa('peca', '<b>Este post é arte ou vídeo?</b> No vídeo, a folha vira o roteiro pra captar e o post pode ser ligado a uma captação.', [
     { r:'Arte', f:()=> escolhePeca('arte') }, { r:'Vídeo', f:()=> escolhePeca('video') } ], 'azul');
   else tiraFaixa('peca');
 }
@@ -1997,7 +1997,7 @@ async function escolhePeca(v){
   pintaPeca(); pintaAprovacao(); montaLateral(); agendaContagem();
   if(v !== antes){
     const oferece = v === 'video' && !temModeloNaFolha();
-    toast(v === 'video' ? 'Agora é vídeo: entra no quadro de captação.' : 'Agora é arte.', oferece ? { r:'Pôr o modelo do roteiro', f:()=> poeModelo(false) } : null);
+    toast(v === 'video' ? 'Agora é vídeo: dá pra ligar a uma captação.' : 'Agora é arte.', oferece ? { r:'Pôr o modelo do roteiro', f:()=> poeModelo(false) } : null);
   }
   avisaPai('peca');
 }
