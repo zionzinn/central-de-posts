@@ -184,9 +184,10 @@ function capCard(c, i) {
     : '<span class="cpc-barra" aria-hidden="true">' + c.roteiros.map(r => '<i class="' + (r.g ? (r.g === dia.d || nd === 1 ? 'g' : 'g outro') : '') + '"></i>').join('') + '</span>';
   const rot = !n ? 'sem roteiros' : g === n ? capPl(n, 'roteiro gravado', 'roteiros gravados') : g + ' de ' + n + ' gravados';
   const postsTxt = posts.length ? capPl(posts.length, 'post', 'posts') + (l ? ' · ' + (l.tipo === 'edicao' ? 'prazo ' : '1º sai ') + lpDiaC(l.d) : '') : 'sem post ligado';
-  d.setAttribute('aria-label', 'Captação: ' + capTitulo(c) + '. ' + capDiaL(dia.d) + (nd > 1 ? ', dia ' + (i + 1) + ' de ' + nd : '') + '. ' + rot + '. ' + postsTxt + '.');
+  d.setAttribute('aria-label', 'Captação' + (c.aba ? ' da ' + nomeAba(c.aba) : ' sem empresa') + ': ' + capTitulo(c) + '. ' + capDiaL(dia.d) + (nd > 1 ? ', dia ' + (i + 1) + ' de ' + nd : '') + '. ' + rot + '. ' + postsTxt + '.');
   d.innerHTML =
-    '<div class="cpc-top"><span class="cpc-et">' + (sit === 'gravada' ? icon('check') + 'Gravada' : 'Captação') + '</span>' +
+    // v4.17: a empresa no lugar da palavra "Captação" (o modo já diz que é captação); sem empresa, avisa
+    '<div class="cpc-top"><span class="cpc-et' + (c.aba ? '' : ' sem') + '">' + (sit === 'gravada' ? icon('check') + 'Gravada · ' : '') + esc(c.aba ? nomeAba(c.aba) : 'Sem empresa') + '</span>' +
       (nd > 1 ? '<span class="cpc-dia">dia ' + (i + 1) + ' de ' + nd + '</span>' : '') +
       (dia.h ? '<span class="cpc-h">' + esc(capHora(dia.h)) + '</span>' : '') +
       (alerta ? '<span class="lp-pil ' + alerta.c + '" title="' + esc(alerta.dica) + '">' + icon('alerta') + esc(alerta.t) + '</span>' : '') + '</div>' +
@@ -281,7 +282,7 @@ function capNovo(dia, btn) {
     if (!link) { msg.textContent = 'cole o link'; inp.focus(); return; }
     ok.disabled = true; msg.textContent = 'procurando no MKT Hub…';
     try {
-      const j = await api('/api/captacao', { method: 'POST', body: JSON.stringify({ dia, link }) });
+      const j = await api('/api/captacao', { method: 'POST', body: JSON.stringify(Object.assign({ dia, link }, ehTodos() ? {} : { aba: S.aba })) });   // v4.17: criada na aba da empresa, fica nela
       capVersao(j.rev);
       capFechaNovo(); await loadState(false, true); render();
       toast('Captação criada em ' + capDiaL(dia) + (j.aviso ? ' · ' + j.aviso : '') + ' · Ctrl+Z desfaz', !!j.aviso);
@@ -364,14 +365,17 @@ function capDesenhaFolhaJa() {
   const texto = emFolha && (ant.tagName === 'TEXTAREA' || (ant.tagName === 'INPUT' && !/^(date|time)$/.test(ant.type))) ? { v: ant.value, a: ant.selectionStart, b: ant.selectionEnd } : null;
   const rascNovo = (document.getElementById('cpNovoRot') || {}).value || '';
   const h = c.hub, n = c.roteiros.length, g = capGravados(c), sit = capSit(c), alerta = capAlerta(c);
-  const empresa = (h && h.empresa) || (c.aba ? nomeAba(c.aba) : '');
   const link = (h && h.url) || c.taskUrl;
   document.getElementById('cpHead').innerHTML =
-    '<div class="cp-eyebrow"' + (c.aba ? ' style="--cp-emp:' + capCorEmpresa(c.aba) + '"' : '') + '>' + icon('camera') + 'Captação' + (empresa ? ' · ' + esc(empresa) : '') + '</div>' +
+    '<div class="cp-eyebrow"' + (c.aba ? ' style="--cp-emp:' + capCorEmpresa(c.aba) + '"' : '') + '>' + icon('camera') + 'Captação</div>' +
     // sem a task do Hub (link que o Hub não achou, ou o Hub fora do ar), o nome se escreve aqui
     (h ? '<h2 class="cp-tit" title="' + esc(capTitulo(c)) + '">' + esc(capTituloCurto(c)) + '</h2>'
       : '<input id="cpTitulo" class="cp-tit cp-titinp" value="' + esc(c.titulo || '') + '" placeholder="Nome da captação" maxlength="120" autocomplete="off" aria-label="Nome da captação">') +
     '<div class="cp-meta">' +
+      // v4.17: a empresa (diz em que aba a captação aparece; a Todos mostra todas)
+      '<label class="cp-empsel' + (c.aba ? '' : ' sem') + '" title="Empresa da captação: ela aparece na aba dessa empresa e na Todos"' + (c.aba ? ' style="--cp-emp:' + capCorEmpresa(c.aba) + '"' : '') + '><i></i>' +
+        '<select id="cpEmp" aria-label="Empresa da captação">' + (c.aba ? '' : '<option value="" selected>Escolha a empresa</option>') +
+        (S.abas || []).map(a => '<option value="' + esc(a) + '"' + (a === c.aba ? ' selected' : '') + '>' + esc(nomeAba(a)) + '</option>').join('') + '</select>' + icon('chevR', 'cp-empseta') + '</label>' +
       (h ? (link ? '<a class="cp-hub" href="' + esc(link) + '" target="_blank" rel="noopener" title="Abrir a task no MKT Hub"' : '<span class="cp-hub"') + (h.etapa ? ' style="--cp-et:' + esc(h.etapa.cor) + '"' : '') + '><i></i>' +
         esc([h.codigo, h.etapa && h.etapa.nome].filter(Boolean).join(' · ') || 'MKT Hub') + (link ? icon('external') + '</a>' : '</span>') : '') +
       (h && h.resp ? '<span>' + icon('users') + esc(h.resp) + ' capta</span>' : '') +
@@ -556,7 +560,7 @@ function capLigaFolha(c) {
       capSalva(c.id, cc => ({ roteiros: rs(cc).map(x => x.id === id ? Object.assign(x, { n: v }) : x) }));
     };
     inp.onblur = () => { if (!CAPM.redesenhando && inp.isConnected) salva(); };
-    inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } if (ev.key === 'Escape') { ev.stopPropagation(); const r = c.roteiros.find(x => x.id === inp.dataset.cpn); inp.value = r ? r.n : ''; inp.blur(); } };
+    inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } };
   });
   // v4.16: abrir e fechar o roteiro completo; o texto salva ao sair do campo; o doc ao sair, no Enter ou ao colar
   ov.querySelectorAll('[data-cpabre]').forEach(b => b.onclick = () => {
@@ -574,7 +578,6 @@ function capLigaFolha(c) {
       CAPM.textos[id] = v.trim();
       capSalva(c.id, cc => ({ roteiros: rs(cc).map(x => x.id === id ? Object.assign(x, { t: v }) : x) }), v.trim() ? '' : 'Texto do roteiro apagado · Ctrl+Z desfaz');
     };
-    t.onkeydown = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); t.blur(); } };
   });
   // v4.16: o doc dos roteiros (Enter, Salvar, colar ou sair do campo salvam; Esc desiste)
   const docIn = document.getElementById('cpDoc');
@@ -587,7 +590,6 @@ function capLigaFolha(c) {
   if (docIn) {
     docIn.onkeydown = ev => {
       if (ev.key === 'Enter') { ev.preventDefault(); salvaDoc(); }
-      else if (ev.key === 'Escape') { ev.stopPropagation(); CAPM.docEdit = false; capDesenhaFolha(); }
     };
     docIn.onblur = () => { if (!CAPM.redesenhando && docIn.isConnected && CAPM.docEdit) salvaDoc(); };
     docIn.addEventListener('paste', () => setTimeout(() => { if (docIn.isConnected && CAPM.docEdit) salvaDoc(); }, 0));
@@ -600,7 +602,6 @@ function capLigaFolha(c) {
   if (novo) {
     novo.onkeydown = ev => {
       if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); addRot(true); }
-      else if (ev.key === 'Escape' && novo.value) { ev.stopPropagation(); novo.value = ''; novo.rows = 1; }   // vazio, o Esc fecha a folha
     };
     // sair do campo põe o roteiro; o blur do redesenho (o texto passa pro campo novo) não conta
     novo.onblur = () => { if (!CAPM.redesenhando && novo.isConnected && novo.value.trim()) addRot(false); };
@@ -617,10 +618,16 @@ function capLigaFolha(c) {
   // nota
   const nota = document.getElementById('cpNota');
   if (nota) nota.onblur = () => { if (CAPM.redesenhando || !nota.isConnected) return; const v = nota.value.trim(); if (v !== (c.nota || '')) capSalva(c.id, cc => v === (cc.nota || '') ? null : { nota: v }); };
+  const emp = document.getElementById('cpEmp');
+  if (emp) emp.onchange = () => {
+    const a = emp.value; if (!a || a === c.aba) return;
+    const sai = !ehTodos() && S.aba !== a;
+    capSalva(c.id, cc => (cc.aba === a && cc.abaFixa ? null : { aba: a }), 'Captação da ' + nomeAba(a) + (sai ? ': agora aparece na aba ' + nomeAba(a) + ' e na Todos' : '') + ' · Ctrl+Z desfaz');
+  };
   const tit = document.getElementById('cpTitulo');
   if (tit) {
     tit.onblur = () => { if (CAPM.redesenhando || !tit.isConnected) return; const v = tit.value.replace(/\s+/g, ' ').trim(); if (v !== (c.titulo || '')) capSalva(c.id, cc => v === (cc.titulo || '') ? null : { titulo: v }); };
-    tit.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); tit.blur(); } if (ev.key === 'Escape') { ev.stopPropagation(); tit.value = c.titulo || ''; tit.blur(); } };
+    tit.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); tit.blur(); } };
   }
   const link = document.getElementById('cpLink');
   if (link) link.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); ov.querySelector('[data-cp="link"]').click(); } };
@@ -766,3 +773,12 @@ function capHoverAbre(c, card) {
 window.addEventListener('scroll', () => { if (CPH.pop || CPH.svg) capHoverFecha(); }, true);
 window.addEventListener('resize', capHoverFecha);
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && CPH.pop) { capHoverFecha(); ev.stopPropagation(); } }, true);   // Esc com o balão só fecha o balão (o modo captação fica)
+
+// v4.17: Esc na folha da captação fecha guardando o que foi escrito: antes de a folha fechar, o campo com o cursor sai
+// (e o "sair do campo" de cada um salva: roteiro novo, texto, nome do roteiro, doc, nota). A busca de posts e o
+// campo do link da captação nova continuam com o Esc deles (fechar a busca, desistir de criar).
+document.addEventListener('keydown', ev => {
+  if (ev.key !== 'Escape') return;
+  const ov = document.getElementById('ovCap'), a = document.activeElement;
+  if (ov && ov.classList.contains('open') && a && ov.contains(a) && a.id !== 'cpBusca' && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) a.blur();
+}, true);
