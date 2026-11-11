@@ -49,6 +49,11 @@
       <button data-v="semana">Semana</button>
       <button data-v="mapa" hidden title="O que cada captação da semana destrava: a edição e o dia que o post sai">Mapa</button>
     </div>
+    <!-- v4.21: no modo captação, Captações ou Eventos (os eventos da semana, com responsável) -->
+    <div class="vtoggle cptipo" id="cpTipo" role="radiogroup" aria-label="Captações ou eventos">
+      <button type="button" role="radio" data-ct="cap" class="on" aria-checked="true">Captações</button>
+      <button type="button" role="radio" data-ct="ev" aria-checked="false">Eventos</button>
+    </div>
     <!-- v4.01: lente. Cada post no dia em que ele SAI (padrão) ou no dia em que FICA PRONTO (entrega no MKT Hub) -->
     <div class="lente" id="lente" role="radiogroup" aria-label="Mostrar cada post no dia em que ele">
       <span class="lt">Mostrar no dia que</span>
@@ -449,7 +454,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.20'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.21'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',

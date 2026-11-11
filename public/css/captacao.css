@@ -372,3 +372,27 @@ html[data-modo="claro"] .cpm-sai .cpm-bar{box-shadow:inset 0 0 0 1px rgba(0,0,0,
 .cp-contlink:hover{background:color-mix(in srgb, var(--cp-a) 26%, transparent)}
 .cp-contlink .ic{width:12px; height:12px}
 .cpc-cont{font-size:10px; font-weight:700; color:var(--cp-at); padding:0 6px; border-radius:999px; background:color-mix(in srgb, var(--cp-a) 18%, transparent); white-space:nowrap; line-height:16px}
+
+/* ---- v4.21: Captações | Eventos (o evento tem responsável e local) ---- */
+#cpTipo{display:none}
+body[data-modo="cap"] #cpTipo{display:flex}
+.cpc-local{display:flex; align-items:center; gap:5px; min-width:0; font-size:11.5px; color:var(--ink-2)}
+.cpc-local .ic{width:12px; height:12px; flex:none; color:var(--cp-at)}
+.cpc-local span{min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.cp-respsel{background:var(--fill-3)}
+.cp-respsel:hover{background:var(--fill-2)}
+.cp-respsel.sem > i{background:var(--e-orange)}
+.cp-respav{width:20px; height:20px; border-radius:50%; display:inline-grid; place-items:center; flex:none; font-size:8.5px; font-weight:800; letter-spacing:0; background:var(--fill-2); color:var(--ink)}
+.cp-respsel .cp-respav{width:18px; height:18px; margin-left:-4px}
+.cp-respmenu{min-width:240px; max-width:300px}
+.cp-respmenu input{height:30px; margin:0 2px 6px; padding:0 9px; border-radius:8px; border:1px solid var(--hair); background-color:var(--fill-4); color:var(--ink); font:inherit; font-size:13px}
+.cp-respmenu input:focus{outline:none; border-color:var(--focus)}
+.cp-resplista{display:flex; flex-direction:column; gap:2px; max-height:min(320px, 50vh); overflow:auto}
+.cp-respmsg{padding:6px 10px; font-size:12px; color:var(--ink-3)}
+.cp-respmenu .cp-resptira{color:var(--ink-3)}
+.cp-localrow{display:grid; grid-template-columns:52px minmax(0,1fr); align-items:center; gap:8px; margin-top:8px}
+@media (max-width:520px){ .cp-localrow{grid-template-columns:44px minmax(0,1fr)} }
+#ovCap .cp-localrow input{flex:1; min-width:0; height:32px; padding:0 9px; border-radius:8px; border:1px solid var(--hair); background-color:var(--fill-4); color:var(--ink); font:inherit}
+#ovCap .cp-localrow input:focus{outline:none; border-color:var(--focus); background-color:var(--cell)}
+.lp-av.cpc-semresp{background:var(--e-orange); color:#000; box-shadow:none}
+html[data-modo="claro"] .lp-av.cpc-semresp{background:var(--e-orange); color:#000}

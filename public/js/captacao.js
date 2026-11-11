@@ -66,6 +66,7 @@ const CAP_ICONS = {
   texto: '<path d="M5 6.5h14M5 10.5h14M5 14.5h9M5 18.5h6"/>',
   abre: '<path d="M9 6l6 6-6 6"/>',
   tesoura: '<circle cx="6.5" cy="7" r="2.5"/><circle cx="6.5" cy="17" r="2.5"/><path d="M8.6 8.4L19 16M8.6 15.6L19 8"/>',
+  local: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10" r="2.4"/>',   // v4.21: onde é o evento
   lixo: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/>',
   ligar: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
 };
@@ -116,9 +117,33 @@ function capAlerta(c) {
 }
 /** Na aba de uma empresa: as captações dela e as que ainda não têm empresa. Na Todos, todas. */
 function capNaAba(c) { return ehTodos() || !c.aba || c.aba === S.aba; }
+// v4.21: Captações | Eventos. O evento é uma captação com tipo 'evento' (nasce pelo nome, tem responsável e local); a escolha
+// da opção fica neste navegador. capVisivel = a empresa da aba e a opção escolhida.
+function capEv() {
+  if (S.capTipo === undefined) { try { S.capTipo = localStorage.getItem('bone.capTipo') === 'ev' ? 'ev' : 'cap'; } catch (e) { S.capTipo = 'cap'; } }
+  return S.capTipo === 'ev';
+}
+function capEhEvento(c) { return !!c && c.tipo === 'evento'; }
+function capVisivel(c) { return capNaAba(c) && capEhEvento(c) === capEv(); }
+/** Quem é o responsável: o escolhido (evento) ou quem capta na task do MKT Hub. */
+function capResp(c) { return (c.resp && c.resp.nome) || (c.hub && c.hub.resp) || ''; }
+/** "captação"/"captações" ou "evento"/"eventos", conforme a opção. */
+function capPalavra(n) { return capEv() ? capPl(n, 'evento', 'eventos') : capPl(n, 'captação', 'captações'); }
+function capTipoTroca(t) {
+  if ((t === 'ev') === capEv()) return;
+  S.capTipo = t === 'ev' ? 'ev' : 'cap';
+  try { localStorage.setItem('bone.capTipo', S.capTipo); } catch (e) {}
+  capFechaNovo(); render();
+}
+/** O seletor Captações | Eventos (só aparece no modo captação). */
+function capTipoSync() {
+  const el = document.getElementById('cpTipo'); if (!el) return;
+  el.querySelectorAll('[data-ct]').forEach(b => { const on = (b.dataset.ct === 'ev') === capEv(); b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
+  if (!el._liga) { el._liga = true; el.querySelectorAll('[data-ct]').forEach(b => b.addEventListener('click', () => capTipoTroca(b.dataset.ct))); }
+}
 function capsDoDia(iso) {
   const l = [];
-  for (const c of capLista()) { if (!capNaAba(c)) continue; const i = c.dias.findIndex(x => x.d === iso); if (i >= 0) l.push({ c, i }); }
+  for (const c of capLista()) { if (!capVisivel(c)) continue; const i = c.dias.findIndex(x => x.d === iso); if (i >= 0) l.push({ c, i }); }
   return l.sort((a, b) => (a.c.dias[a.i].h || '99').localeCompare(b.c.dias[b.i].h || '99') || capTitulo(a.c).localeCompare(capTitulo(b.c)));
 }
 function capsDoPost(sid) { return capLista().filter(c => c.posts.includes(sid)); }
@@ -136,6 +161,7 @@ function capBotao() {
   b.classList.toggle('tem', !!n);
   b.classList.toggle('on', !!S.modoCap);
   b.setAttribute('aria-pressed', S.modoCap ? 'true' : 'false');
+  capTipoSync();   // v4.21
   b.dataset.tip = S.modoCap ? 'Voltar pros posts (Esc)'
     : (n ? capPl(n, 'vídeo sai', 'vídeos saem') + ' nos próximos 14 dias sem captação ligada · ' : '') + 'Calendário de captação: as tasks de captação no dia da gravação';
 }
@@ -172,7 +198,7 @@ function capCelula(c, di, semana) {
 function capCard(c, i) {
   const d = document.createElement('div');
   const sit = capSit(c), n = c.roteiros.length, g = capGravados(c), dia = c.dias[i], alerta = capAlerta(c);
-  const nd = c.dias.length, posts = capPostsDe(c), l = capLimite(c), resp = c.hub && c.hub.resp;
+  const nd = c.dias.length, posts = capPostsDe(c), l = capLimite(c), resp = capResp(c);
   d.className = 'card lp cpc s-' + sit + (resp ? ' tem-av' : '');
   d.draggable = souAdmin();
   d.tabIndex = 0;
@@ -184,7 +210,7 @@ function capCard(c, i) {
     : '<span class="cpc-barra" aria-hidden="true">' + c.roteiros.map(r => '<i class="' + (r.g ? (r.g === dia.d || nd === 1 ? 'g' : 'g outro') : '') + '"></i>').join('') + '</span>';
   const rot = !n ? 'sem roteiros' : g === n ? capPl(n, 'roteiro gravado', 'roteiros gravados') : g + ' de ' + n + ' gravados';
   const postsTxt = posts.length ? capPl(posts.length, 'post', 'posts') + (l ? ' · ' + (l.tipo === 'edicao' ? 'prazo ' : '1º sai ') + lpDiaC(l.d) : '') : 'sem post ligado';
-  d.setAttribute('aria-label', 'Captação' + (c.aba ? ' da ' + nomeAba(c.aba) : ' sem empresa') + ': ' + capTitulo(c) + '. ' + capDiaL(dia.d) + (nd > 1 ? ', dia ' + (i + 1) + ' de ' + nd : '') + '. ' + rot + '. ' + postsTxt + '.');
+  d.setAttribute('aria-label', (capEhEvento(c) ? 'Evento' : 'Captação') + (c.aba ? ' da ' + nomeAba(c.aba) : ' sem empresa') + ': ' + capTitulo(c) + '. ' + capDiaL(dia.d) + (nd > 1 ? ', dia ' + (i + 1) + ' de ' + nd : '') + '. ' + rot + '. ' + postsTxt + '.');
   d.innerHTML =
     // v4.17: a empresa no lugar da palavra "Captação" (o modo já diz que é captação); sem empresa, avisa
     '<div class="cpc-top"><span class="cpc-et' + (c.aba ? '' : ' sem') + '">' + (sit === 'gravada' ? icon('check') + 'Gravada · ' : '') + esc(c.aba ? nomeAba(c.aba) : 'Sem empresa') + '</span>' +
@@ -194,8 +220,10 @@ function capCard(c, i) {
       (alerta ? '<span class="lp-pil ' + alerta.c + '" title="' + esc(alerta.dica) + '">' + icon('alerta') + esc(alerta.t) + '</span>' : '') + '</div>' +
     '<div class="tit">' + esc(capTituloCurto(c)) + '</div>' +
     '<div class="cpc-rot">' + barra + '<span>' + esc(rot) + '</span></div>' +
+    (c.local ? '<div class="cpc-local" title="' + esc(c.local) + '">' + capIc('local') + '<span>' + esc(c.local) + '</span></div>' : '') +   // v4.21: onde é o evento
     '<div class="cpc-posts" title="' + esc(posts.map(s => nomeConta(s.conta) + ': ' + (s.tituloCache || s.titulo || 'post') + (s.date ? ' · sai ' + capDiaL(s.date) : '')).join('\n')) + '">' + icon('film') + '<span>' + esc(postsTxt) + '</span></div>' +
-    (resp ? '<span class="lp-av" title="' + esc(resp + ' capta') + '">' + esc(initials(resp)) + '</span>' : '');
+    (resp ? '<span class="lp-av" title="' + esc(resp + (capEhEvento(c) ? ' é o responsável' : ' capta')) + '">' + esc(initials(resp)) + '</span>'
+      : capEhEvento(c) ? '<span class="lp-av cpc-semresp" title="Sem responsável: escolha na folha do evento">?</span>' : '');   // v4.21: evento sem responsável aparece
   d.addEventListener('dragstart', ev => {
     if (!souAdmin()) { ev.preventDefault(); return; }
     ev.dataTransfer.setData('text/plain', 'cp:' + c.id + ':' + dia.d); ev.dataTransfer.effectAllowed = 'move';
@@ -214,16 +242,16 @@ function capCard(c, i) {
 }
 /** O cabeçalho de cada mês no modo captação: quantas captações e a legenda das três situações. */
 function capCabMes(mes) {
-  const l = capLista().filter(c => capNaAba(c) && c.dias.some(x => x.d.startsWith(mes)));
+  const l = capLista().filter(c => capVisivel(c) && c.dias.some(x => x.d.startsWith(mes)));
   const n = { agravar: 0, gravada: 0, faltou: 0 };
   for (const c of l) n[capSit(c)]++;
   const chip = (k, t) => '<span class="cp-lc s-' + k + (n[k] ? '' : ' zero') + '"><i></i>' + t + '<b>' + n[k] + '</b></span>';
-  return { texto: capPl(l.length, 'captação', 'captações') + ' · ' + nomeAba(S.aba),
+  return { texto: capPalavra(l.length) + ' · ' + nomeAba(S.aba),
     legenda: '<span class="mesleg cp-leg">' + chip('agravar', 'A gravar') + chip('gravada', 'Gravada') + chip('faltou', 'Faltou gravar') + '</span>' };
 }
 /** O número da aba no modo captação: as captações do mês naquela empresa. */
 function capNaAbaDoMes(aba, mes) {
-  return capLista().filter(c => (aba === ABA_TODOS || !c.aba || c.aba === aba) && c.dias.some(x => x.d.startsWith(mes))).length;
+  return capLista().filter(c => (aba === ABA_TODOS || !c.aba || c.aba === aba) && capEhEvento(c) === capEv() && c.dias.some(x => x.d.startsWith(mes))).length;
 }
 /** Soltou o card num dia: aquele dia da captação muda (o gravado nele vai junto). */
 async function capSolta(dado, para) {
@@ -267,11 +295,15 @@ function capFechaNovo() { const p = document.getElementById('cpNovo'); if (p) p.
 function capNovo(dia, btn) {
   if (CAPM.novo === dia) { capFechaNovo(); return; }
   capFechaNovo(); CAPM.novo = dia;
+  const ev = capEv();   // v4.21: na opção Eventos, o evento nasce pelo nome (sem task do MKT Hub)
   const p = document.createElement('div');
-  p.className = 'cpnovo'; p.id = 'cpNovo'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Nova captação em ' + capDiaL(dia));
-  p.innerHTML = '<b>' + icon('camera') + 'Captação em ' + esc(capDiaL(dia)) + '</b>' +
-    '<label for="cpNovoLink">Cole o link da task de captação do MKT Hub</label>' +
-    '<input id="cpNovoLink" placeholder="https://www.mkthub.space/... ou MKT-1234" autocomplete="off">' +
+  p.className = 'cpnovo'; p.id = 'cpNovo'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', (ev ? 'Novo evento em ' : 'Nova captação em ') + capDiaL(dia));
+  p.innerHTML = (ev ? '<b>' + icon('calendar') + 'Evento em ' + esc(capDiaL(dia)) + '</b>' +
+      '<label for="cpNovoLink">Nome do evento</label>' +
+      '<input id="cpNovoLink" placeholder="Ex.: encontro, feira, palestra" autocomplete="off" maxlength="120">'
+    : '<b>' + icon('camera') + 'Captação em ' + esc(capDiaL(dia)) + '</b>' +
+      '<label for="cpNovoLink">Cole o link da task de captação do MKT Hub</label>' +
+      '<input id="cpNovoLink" placeholder="https://www.mkthub.space/... ou MKT-1234" autocomplete="off">') +
     '<div class="cpnovo-pe"><span class="cpnovo-msg" id="cpNovoMsg"></span><button type="button" class="mbtn primary" id="cpNovoOk">Criar</button></div>';
   document.body.appendChild(p);
   const r = btn.getBoundingClientRect(), w = 300;
@@ -280,13 +312,14 @@ function capNovo(dia, btn) {
   const inp = p.querySelector('#cpNovoLink'), msg = p.querySelector('#cpNovoMsg'), ok = p.querySelector('#cpNovoOk');
   const vai = async () => {
     const link = inp.value.trim();
-    if (!link) { msg.textContent = 'cole o link'; inp.focus(); return; }
-    ok.disabled = true; msg.textContent = 'procurando no MKT Hub…';
+    if (!link) { msg.textContent = ev ? 'escreva o nome do evento' : 'cole o link'; inp.focus(); return; }
+    ok.disabled = true; msg.textContent = ev ? 'criando…' : 'procurando no MKT Hub…';
     try {
-      const j = await api('/api/captacao', { method: 'POST', body: JSON.stringify(Object.assign({ dia, link }, ehTodos() ? {} : { aba: S.aba })) });   // v4.17: criada na aba da empresa, fica nela
+      const corpo = ev ? { dia, titulo: link, tipo: 'evento' } : { dia, link };
+      const j = await api('/api/captacao', { method: 'POST', body: JSON.stringify(Object.assign(corpo, ehTodos() ? {} : { aba: S.aba })) });   // v4.17: criada na aba da empresa, fica nela
       capVersao(j.rev);
       capFechaNovo(); await loadState(false, true); render();
-      toast('Captação criada em ' + capDiaL(dia) + (j.aviso ? ' · ' + j.aviso : '') + ' · Ctrl+Z desfaz', !!j.aviso);
+      toast((ev ? 'Evento criado em ' : 'Captação criada em ') + capDiaL(dia) + (j.aviso ? ' · ' + j.aviso : '') + ' · Ctrl+Z desfaz', !!j.aviso);
       capAbre(j.captacao.id, dia);
     } catch (e) {
       ok.disabled = false;
@@ -371,25 +404,29 @@ function capDesenhaFolhaJa() {
   const link = (h && h.url) || c.taskUrl;
   const mae = c.de ? capPorId(c.de) : null, filhas = capLista().filter(x => x.de === c.id).sort((a, b) => ((a.dias[0] || {}).d || '').localeCompare((b.dias[0] || {}).d || ''));
   const sepAberta = !!(CAPM.sep && CAPM.sep.id === c.id);
+  const ev = capEhEvento(c);   // v4.21: o evento (responsável escolhido, local, "O que captar")
   document.getElementById('cpHead').innerHTML =
-    '<div class="cp-eyebrow"' + (c.aba ? ' style="--cp-emp:' + capCorEmpresa(c.aba) + '"' : '') + '>' + icon('camera') + 'Captação</div>' +
+    '<div class="cp-eyebrow"' + (c.aba ? ' style="--cp-emp:' + capCorEmpresa(c.aba) + '"' : '') + '>' + (ev ? icon('calendar') + 'Evento' : icon('camera') + 'Captação') + '</div>' +
     // sem a task do Hub (link que o Hub não achou, ou o Hub fora do ar), o nome se escreve aqui
     (h ? '<h2 class="cp-tit" title="' + esc(capTitulo(c)) + '">' + esc(capTituloCurto(c)) + '</h2>'
-      : '<input id="cpTitulo" class="cp-tit cp-titinp" value="' + esc(c.titulo || '') + '" placeholder="Nome da captação" maxlength="120" autocomplete="off" aria-label="Nome da captação">') +
+      : '<input id="cpTitulo" class="cp-tit cp-titinp" value="' + esc(c.titulo || '') + '" placeholder="' + (ev ? 'Nome do evento' : 'Nome da captação') + '" maxlength="120" autocomplete="off" aria-label="' + (ev ? 'Nome do evento' : 'Nome da captação') + '">') +
     '<div class="cp-meta">' +
       // v4.17: a empresa (diz em que aba a captação aparece; a Todos mostra todas)
       // v4.18: um botão que abre o menu do painel (a lista do sistema saía branca e sem texto no Windows)
       '<button type="button" id="cpEmp" class="cp-empsel' + (c.aba ? '' : ' sem') + '" aria-haspopup="menu" aria-expanded="false" title="Empresa da captação: ela aparece na aba dessa empresa e na Todos"' +
         (c.aba ? ' style="--cp-emp:' + capCorEmpresa(c.aba) + '"' : '') + '><i></i><span>' + esc(c.aba ? nomeAba(c.aba) : 'Escolha a empresa') + '</span>' + icon('chevR', 'cp-empseta') + '</button>' +
+      // v4.21: o responsável pelo evento (o Zion escolhe, das pessoas do MKT Hub)
+      (ev ? '<button type="button" id="cpResp" class="cp-empsel cp-respsel' + (c.resp ? '' : ' sem') + '" aria-haspopup="menu" aria-expanded="false" title="Responsável pelo evento (as pessoas do MKT Hub)">' +
+        (c.resp ? '<span class="cp-respav">' + esc(initials(c.resp.nome)) + '</span><span>' + esc(c.resp.nome) + '</span>' : '<i></i><span>Escolha o responsável</span>') + icon('chevR', 'cp-empseta') + '</button>' : '') +
       (h ? (link ? '<a class="cp-hub" href="' + esc(link) + '" target="_blank" rel="noopener" title="Abrir a task no MKT Hub"' : '<span class="cp-hub"') + (h.etapa ? ' style="--cp-et:' + esc(h.etapa.cor) + '"' : '') + '><i></i>' +
         esc([h.codigo, h.etapa && h.etapa.nome].filter(Boolean).join(' · ') || 'MKT Hub') + (link ? icon('external') + '</a>' : '</span>') : '') +
-      (h && h.resp ? '<span>' + icon('users') + esc(h.resp) + ' capta</span>' : '') +
+      (h && h.resp && !ev ? '<span>' + icon('users') + esc(h.resp) + ' capta</span>' : '') +
       (h && h.prazo ? '<span>' + icon('calendar') + 'prazo no Hub ' + esc(capDiaL(String(h.prazo).slice(0, 10))) + '</span>' : '') +
       // v4.20: a continuação (o que faltou gravar virou outra captação) aponta pra original, e a original pra ela
       (mae ? '<button type="button" class="cp-contlink" data-cpir="' + mae.id + '" title="Abrir a captação de onde esta saiu">' + capIc('ligar') + 'continuação de ' + esc(mae.dias[0] ? capDiaL(mae.dias[0].d) : 'outra captação') + '</button>' : '') +
       filhas.map(x => '<button type="button" class="cp-contlink" data-cpir="' + x.id + '" title="Abrir a captação com o que faltou gravar">' + icon('chevR') + 'continua em ' + esc(x.dias[0] ? capDiaL(x.dias[0].d) : 'outra captação') + '</button>').join('') +
     '</div>' +
-    (!c.taskId ? '<div class="cp-semtask">' + icon('alerta') + '<span>' + (c.taskUrl ? 'O link não achou a task no MKT Hub (ou o Hub não respondeu).' : 'Sem task do MKT Hub.') + '</span>' +
+    (!c.taskId && !ev ? '<div class="cp-semtask">' + icon('alerta') + '<span>' + (c.taskUrl ? 'O link não achou a task no MKT Hub (ou o Hub não respondeu).' : 'Sem task do MKT Hub.') + '</span>' +
       '<input id="cpLink" placeholder="Cole o link da task de captação" value="' + esc(c.taskUrl || '') + '" autocomplete="off"><button type="button" class="mbtn" data-cp="link">Ligar</button></div>' : '');
 
   // ---- dias ----
@@ -433,12 +470,13 @@ function capDesenhaFolhaJa() {
   const pick = CAPM.pick ? capPicker(c) : '';
   document.getElementById('cpBody').innerHTML =
     (alerta ? '<div class="cp-alerta ' + alerta.c + '">' + icon('alerta') + '<span>' + esc(alerta.dica) + '</span></div>' : '') +
-    '<section class="cp-sec"><h3>Dias de gravação</h3><div class="cp-dias">' + dias + '</div>' +
+    '<section class="cp-sec"><h3>' + (ev ? 'Dia do evento' : 'Dias de gravação') + '</h3><div class="cp-dias">' + dias + '</div>' +
+      (ev ? '<div class="cp-localrow"><span class="cp-dn">Local</span><input id="cpLocal" value="' + esc(c.local || '') + '" placeholder="Onde é (lugar ou endereço)" maxlength="120" autocomplete="off" aria-label="Local do evento"></div>' : '') +
       // v4.20: um caminho só pro que falta: vira uma captação nova (com os roteiros e os posts marcados), no lugar de mais um dia nesta
       '<div class="cp-maisdia">' + (falta && n ? '<span class="cp-faltam">' + capPl(falta, 'roteiro falta', 'roteiros faltam') + '</span>' +
         (sepAberta ? '' : '<button type="button" class="mbtn" data-cp="dia">' + icon('plus') + (g ? 'Gravar o que falta em outro dia' : 'Gravar parte em outro dia') + '</button>') : '') + '</div>' +
       (sepAberta ? capSepForm(c) : '') + '</section>' +
-    '<section class="cp-sec"><h3>Roteiros <span class="cp-cont">' + (n ? g + ' de ' + n + ' gravados' : 'nenhum ainda') + '</span>' + capDocCab(c) + '</h3>' + (CAPM.docEdit ? capDocEdit(c) : '') +
+    '<section class="cp-sec"><h3>' + (ev ? 'O que captar' : 'Roteiros') + ' <span class="cp-cont">' + (n ? g + ' de ' + n + ' gravados' : 'nenhum ainda') + '</span>' + capDocCab(c) + '</h3>' + (CAPM.docEdit ? capDocEdit(c) : '') +
       (n ? '<div class="cp-prog" aria-hidden="true"><i style="width:' + Math.round(100 * g / n) + '%"></i></div>' : '') +
       // v4.15: a linha do roteiro novo já parece um roteiro (a caixinha vazia na frente) e tem o botão Adicionar;
       // o que foi escrito entra sozinho ao sair do campo (o Zion escreveu e não sabia que era pra apertar Enter)
@@ -453,7 +491,7 @@ function capDesenhaFolhaJa() {
     '<section class="cp-sec"><h3>Nota</h3><textarea id="cpNota" rows="2" maxlength="500" placeholder="Onde, quem aparece, o que levar…">' + esc(c.nota || '') + '</textarea></section>';
   document.getElementById('cpFoot').innerHTML =
     '<button type="button" class="mbtn cp-del' + (CAPM.apaga ? ' armado' : '') + '" data-cp="del"' + (CAPM.apaga ? '' : ' title="Excluir a captação" aria-label="Excluir a captação"') + '>' + capIc('lixo') + (CAPM.apaga ? 'Confirmar: excluir' : '') + '</button>' +
-    '<span class="cp-pe">' + (CAPM.apaga ? 'Sai só do B.O.N.E: a task no MKT Hub continua lá.' : '') + '</span>' +
+    '<span class="cp-pe">' + (CAPM.apaga ? (c.taskId ? 'Sai só do B.O.N.E: a task no MKT Hub continua lá.' : 'Sai do B.O.N.E (Ctrl+Z desfaz).') : '') + '</span>' +
     '<button type="button" class="mbtn primary" data-close-cp>Pronto</button>';
   capLigaFolha(c);
   const nr = document.getElementById('cpNovoRot');
@@ -504,6 +542,76 @@ function capMenuEmpresa(btn, c) {
   itens.forEach(b => b.onclick = () => { fecha(true); capTrocaEmpresa(c, b.dataset.aba); });
   CAPM.menuFecha = fecha;
   setTimeout(() => { document.addEventListener('mousedown', fora, true); document.addEventListener('keydown', tecla, true); (itens.find(b => b.dataset.aba === c.aba) || itens[0]).focus(); }, 0);
+}
+// ---------------- v4.21: o responsável pelo evento ----------------
+// Escolha do Zion (09/11/2026): "Pessoas do MKT Hub" (a mesma lista da task de produção). Sem o Hub, escreve o nome.
+async function capPessoas() {
+  if (CAPM.pessoas && Date.now() - CAPM.pessoas.em < 5 * 60e3) return CAPM.pessoas;
+  try { const j = await api('/api/captacao/pessoas'); CAPM.pessoas = { l: j.pessoas || [], erro: j.erro || '', em: Date.now() - (j.erro ? 4 * 60e3 : 0) }; }
+  catch (e) { CAPM.pessoas = { l: [], erro: 'não consegui ler as pessoas agora: escreva o nome', em: Date.now() - 4 * 60e3 }; }
+  return CAPM.pessoas;
+}
+function capMenuResp(btn, c) {
+  if (CAPM.menuFecha) { CAPM.menuFecha(true); return; }
+  const m = document.createElement('div');
+  m.className = 'vagapop bk-escolhe cp-empmenu cp-respmenu'; m.id = 'cpRespMenu'; m.setAttribute('role', 'menu'); m.setAttribute('aria-label', 'Responsável pelo evento');
+  m.innerHTML = '<h4>Responsável pelo evento</h4><input id="cpRespBusca" placeholder="Buscar ou escrever o nome" autocomplete="off" aria-label="Buscar ou escrever o nome">' +
+    '<div class="cp-resplista"><div class="cp-respmsg">Carregando as pessoas do MKT Hub…</div></div>';
+  document.body.appendChild(m);
+  const busca = m.querySelector('#cpRespBusca'), lista = m.querySelector('.cp-resplista');
+  let itens = [];
+  const posiciona = () => {
+    const r = btn.getBoundingClientRect(), mr = m.getBoundingClientRect();
+    m.style.left = Math.max(8, Math.min(r.left, innerWidth - mr.width - 8)) + 'px';
+    m.style.top = (r.bottom + 6 + mr.height > innerHeight - 8 ? Math.max(8, r.top - mr.height - 6) : r.bottom + 6) + 'px';
+  };
+  const marcado = x => !!(c.resp && (c.resp.id ? c.resp.id === x.id : capSemAcento(c.resp.nome) === capSemAcento(x.nome)));
+  const desenha = () => {
+    const P = CAPM.pessoas || { l: [], erro: '' }, q = capSemAcento(busca.value), livre = busca.value.replace(/\s+/g, ' ').trim();
+    const l = P.l.filter(x => !q || capSemAcento(x.nome).includes(q));
+    let h = l.map(x => '<button type="button" role="menuitemradio" aria-checked="' + marcado(x) + '" data-pid="' + esc(x.id) + '" data-pnome="' + esc(x.nome) + '">' +
+      '<span class="cp-respav">' + esc(initials(x.nome)) + '</span><span>' + esc(x.nome) + '</span>' + (marcado(x) ? icon('check') : '') + '</button>').join('');
+    if (P.erro) h += '<div class="cp-respmsg">' + esc(P.erro) + '</div>';
+    else if (!l.length) h += '<div class="cp-respmsg">' + (q ? 'Ninguém com esse nome no MKT Hub.' : 'O MKT Hub não tem pessoas ativas.') + '</div>';
+    if (livre && !l.some(x => capSemAcento(x.nome) === capSemAcento(livre))) h += '<button type="button" role="menuitem" data-pid="" data-pnome="' + esc(livre.slice(0, 80)) + '">' + icon('plus') + '<span>Usar "' + esc(livre.slice(0, 80)) + '"</span></button>';
+    if (c.resp) h += '<button type="button" role="menuitem" data-ptira="1" class="cp-resptira">' + icon('x') + '<span>Tirar o responsável</span></button>';
+    lista.innerHTML = h;
+    itens = [...lista.querySelectorAll('button')];
+    itens.forEach(b => b.onclick = () => { fecha(true); capTrocaResp(c, b.dataset.ptira ? null : { id: b.dataset.pid || '', nome: b.dataset.pnome }); });
+    posiciona();
+  };
+  posiciona();
+  btn.setAttribute('aria-expanded', 'true');
+  const fecha = foco => {
+    document.removeEventListener('mousedown', fora, true); document.removeEventListener('keydown', tecla, true);
+    m.remove(); CAPM.menuFecha = null;
+    if (btn.isConnected) { btn.setAttribute('aria-expanded', 'false'); if (foco) btn.focus(); }
+  };
+  const fora = ev => { if (!m.contains(ev.target) && !btn.contains(ev.target)) fecha(false); };
+  const tecla = ev => {
+    if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); fecha(true); return; }
+    if (ev.key === 'Tab') { fecha(false); return; }
+    if (ev.key === 'Enter' && document.activeElement === busca) { ev.preventDefault(); if (itens[0]) itens[0].click(); return; }
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      const i = itens.indexOf(document.activeElement), n = itens.length;
+      if (!n) return;
+      if (i < 0) { (ev.key === 'ArrowDown' ? itens[0] : itens[n - 1]).focus(); return; }
+      itens[(i + (ev.key === 'ArrowDown' ? 1 : -1) + n) % n].focus();
+    }
+  };
+  busca.oninput = desenha;
+  CAPM.menuFecha = fecha;
+  setTimeout(() => { document.addEventListener('mousedown', fora, true); document.addEventListener('keydown', tecla, true); busca.focus(); }, 0);
+  capPessoas().then(() => { if (m.isConnected) desenha(); });
+}
+function capTrocaResp(c, r) {
+  capSalva(c.id, cc => {
+    const a = cc.resp;
+    if (!r && !a) return null;
+    if (r && a && a.nome === r.nome && (a.id || '') === (r.id || '')) return null;
+    return { resp: r };
+  }, r ? 'Responsável: ' + r.nome + ' · Ctrl+Z desfaz' : 'Responsável tirado · Ctrl+Z desfaz');
 }
 /** Troca a empresa (a escolha fica fixa, mesmo que seja a mesma que vinha do MKT Hub) e avisa onde ela aparece. */
 function capTrocaEmpresa(c, a) {
@@ -677,6 +785,13 @@ function capLigaFolha(c) {
   if (nota) nota.onblur = () => { if (CAPM.redesenhando || !nota.isConnected) return; const v = nota.value.trim(); if (v !== (c.nota || '')) capSalva(c.id, cc => v === (cc.nota || '') ? null : { nota: v }); };
   const emp = document.getElementById('cpEmp');
   if (emp) emp.onclick = () => capMenuEmpresa(emp, c);
+  const rsp = document.getElementById('cpResp');   // v4.21
+  if (rsp) rsp.onclick = () => capMenuResp(rsp, c);
+  const loc = document.getElementById('cpLocal');
+  if (loc) {
+    loc.onblur = () => { if (CAPM.redesenhando || !loc.isConnected) return; const v = loc.value.replace(/\s+/g, ' ').trim(); if (v !== (c.local || '')) capSalva(c.id, cc => v === (cc.local || '') ? null : { local: v }); };
+    loc.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); loc.blur(); } };
+  }
   const tit = document.getElementById('cpTitulo');
   if (tit) {
     tit.onblur = () => { if (CAPM.redesenhando || !tit.isConnected) return; const v = tit.value.replace(/\s+/g, ' ').trim(); if (v !== (c.titulo || '')) capSalva(c.id, cc => v === (cc.titulo || '') ? null : { titulo: v }); };
@@ -841,7 +956,8 @@ function capHoverAbre(c, card) {
   pop.className = 'cph-pop'; pop.setAttribute('role', 'group'); pop.setAttribute('aria-label', 'O que a captação destrava');
   const fora = d => (d && !naTela.has(d) ? '<i>fora da tela</i>' : '');
   pop.innerHTML = '<div class="cph-tit">' + (itens.length ? 'Destrava ' + capPl(itens.length, 'post', 'posts') : 'Nenhum post ligado ainda') + '</div>' +
-    '<div class="cph-grava">' + icon('camera') + '<span>Grava ' + esc(c.dias.map(x => capDiaL(x.d) + (x.h ? ' ' + capHora(x.h) : '')).join(' e ') || 'sem dia') + '</span></div>' +
+    '<div class="cph-grava">' + (capEhEvento(c) ? icon('calendar') + '<span>Evento ' : icon('camera') + '<span>Grava ') + esc(c.dias.map(x => capDiaL(x.d) + (x.h ? ' ' + capHora(x.h) : '')).join(' e ') || 'sem dia') +
+      (capEhEvento(c) && c.local ? ' · ' + esc(c.local) : '') + (capEhEvento(c) && c.resp ? ' · ' + esc(c.resp.nome) : '') + '</span></div>' +
     (itens.length ? '<div class="cph-lista">' + itens.map(it => {
       const s = it.s, e = it.e, k = e && LP.NOME[e.k] ? e.k : '';
       return '<div class="cph-p" data-sid="' + s.id + '" title="Abrir a folha do post">' +
@@ -953,10 +1069,10 @@ function capMapa(g) {
   g.classList.add('cpmapa-on');
   const primeiro = c => (c.dias.find(x => x.d >= seg && x.d <= dom) || c.dias[0] || {}).d || '';
   const urg = c => { const a = capAlerta(c); return a ? (a.c === 'red' ? 0 : 1) : 2; };
-  const caps = capLista().filter(c => capNaAba(c) && c.dias.some(x => x.d >= seg && x.d <= dom))
+  const caps = capLista().filter(c => capVisivel(c) && c.dias.some(x => x.d >= seg && x.d <= dom))
     .sort((a, b) => primeiro(a).localeCompare(primeiro(b)) || urg(a) - urg(b) || capTitulo(a).localeCompare(capTitulo(b)));
   if (!caps.length) {
-    g.innerHTML = '<div class="cpm-vazio">' + icon('camera') + '<b>Nenhuma captação nesta semana' + (ehTodos() ? '' : ' na ' + esc(nomeAba(S.aba))) + '</b>' +
+    g.innerHTML = '<div class="cpm-vazio">' + icon(capEv() ? 'calendar' : 'camera') + '<b>' + (capEv() ? 'Nenhum evento' : 'Nenhuma captação') + ' nesta semana' + (ehTodos() ? '' : ' na ' + esc(nomeAba(S.aba))) + '</b>' +
       '<span>Use as setas pra ver outra semana. Pra criar, o + do dia no Mês ou na Semana.</span></div>';
     return;
   }
@@ -978,7 +1094,7 @@ function capMapa(g) {
   };
   // ---- GRAVA ----
   const capNo = c => {
-    const n = c.roteiros.length, gv = capGravados(c), a = capAlerta(c), resp = c.hub && c.hub.resp, cor = capCorEmpresa(c.aba);
+    const n = c.roteiros.length, gv = capGravados(c), a = capAlerta(c), resp = capResp(c), cor = capCorEmpresa(c.aba);
     return '<button type="button" class="cpm-n cpm-cap' + (capPostsDe(c).length ? '' : ' semp') + '" data-cap="' + c.id + '" data-dia="' + primeiro(c) + '"' + (cor ? ' style="--cp-emp:' + cor + '"' : '') + ' title="Abrir a captação">' +
       '<span class="cpm-l1"><span class="cpm-t">' + esc(capTituloCurto(c)) + '</span>' +
         (a ? '<span class="lp-pil ' + a.c + '" title="' + esc(a.dica) + '">' + icon('alerta') + esc(a.t) + '</span>' : capSit(c) === 'gravada' ? '<span class="cpm-ok">' + icon('check') + 'gravada</span>' : '') + '</span>' +
@@ -1011,7 +1127,7 @@ function capMapa(g) {
   let col3 = '';
   for (const x of grupos('sai', 'Sem dia no calendário')) col3 += '<div class="cpm-g"><div class="cpm-gh">' + esc(x.nome) + ' <span>· ' + capPl(x.l.length, 'post', 'posts') + '</span></div>' + x.l.map(p => caixa(p, 'sai')).join('') + '</div>';
   g.innerHTML = '<div class="cpm-rola"><div class="cpm" id="cpMapa"><svg class="cpm-svg" aria-hidden="true"></svg>' +
-    '<div class="cpm-col"><div class="cpm-ch">' + icon('camera') + 'Grava <small>' + capPl(caps.length, 'captação', 'captações') + '</small></div>' + col1 + '</div>' +
+    '<div class="cpm-col"><div class="cpm-ch">' + (capEv() ? icon('calendar') + 'Evento <small>' : icon('camera') + 'Grava <small>') + capPalavra(caps.length) + '</small></div>' + col1 + '</div>' +
     '<div class="cpm-col"><div class="cpm-ch">' + capIc('tesoura') + 'Edição até <small>' + capPl(lista.length, 'edição', 'edições') + '</small></div>' + (col2 || '<p class="cpm-nada">Nenhum post ligado ainda.</p>') + '</div>' +
     '<div class="cpm-col"><div class="cpm-ch">' + icon('calendar') + 'Sai <small>' + capPl(lista.length, 'post', 'posts') + '</small></div>' + (col3 || '<p class="cpm-nada">Ligue os posts na folha da captação.</p>') + '</div>' +
     '</div></div><p class="cpm-dica">Mouse numa captação acende o caminho dela. Clique na edição ou no post pra abrir a folha do post. A barrinha da edição fica vermelha quando vence no dia da gravação ou antes (ou depois do dia que o post sai) e laranja com 1 ou 2 dias pra editar.</p>';
