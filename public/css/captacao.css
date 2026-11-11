@@ -395,3 +395,40 @@ body[data-modo="cap"] #cpTipo{display:flex}
 #ovCap .cp-localrow input:focus{outline:none; border-color:var(--focus); background-color:var(--cell)}
 .lp-av.cpc-semresp{background:var(--e-orange); color:#000; box-shadow:none}
 html[data-modo="claro"] .lp-av.cpc-semresp{background:var(--e-orange); color:#000}
+
+/* ---------- v4.23: o evento concluído ou desmarcado, as mensagens e o alarme ---------- */
+/* desmarcado: fica no dia, apagado e riscado (pra contar quantos caíram) */
+.card.lp.cpc.s-desmarcado{--c:var(--ink-4); --ct:var(--ink-3); opacity:.62; background:color-mix(in srgb, var(--fill-4) 70%, transparent)}
+.card.lp.cpc.s-desmarcado .tit{text-decoration:line-through; text-decoration-thickness:1.5px; color:var(--ink-3)}
+.card.lp.cpc.s-desmarcado:hover{opacity:.9}
+.cp-lc.s-desmarcado{--c:var(--ink-4)}
+.cp-lc.s-agravar{--c:var(--cp-a)}
+.cp-lc .cp-pct{font-style:normal; font-weight:600; color:var(--ink-3); font-variant-numeric:tabular-nums}
+/* a situação na folha: controle segmentado (HIG > Segmented controls) */
+.cp-stseg{display:flex; gap:2px; padding:2px; border-radius:10px; background:var(--fill-3); width:max-content; max-width:100%}
+.cp-st{display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 14px; border:0; border-radius:8px; background:transparent; color:var(--ink-2); font:inherit; font-size:13px; font-weight:600; cursor:pointer}
+.cp-st .ic{width:14px; height:14px}
+.cp-st:hover{color:var(--ink)}
+.cp-st.on{background:var(--elev); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.cp-st.s-agendado.on .ic{color:var(--cp-at)}
+.cp-st.s-concluido.on .ic{color:var(--e-pronto-t, var(--green))}
+.cp-st.s-desmarcado.on{color:var(--ink-2)} .cp-st.s-desmarcado.on .ic{color:var(--red)}
+.cp-st:focus-visible{outline:3px solid color-mix(in srgb, var(--focus) 55%, transparent); outline-offset:1px}
+.cp-msgs,.cp-alrow{display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:12px}
+.cp-msgs .cp-dn{margin-right:2px}
+.cp-msgs .mbtn .ic,.cp-alarme .mbtn .ic{width:14px; height:14px}
+.cp-alrow{font-size:12.5px; color:var(--ink-2)}
+.cp-alrow > .ic{width:15px; height:15px; color:var(--cp-at); flex:none}
+.cp-alrow > span{flex:1 1 220px; min-width:0}
+/* o aviso do alarme: no canto de baixo, acima de tudo, até alguém fechar */
+.cp-alarmes{position:fixed; right:16px; bottom:16px; z-index:9900; display:flex; flex-direction:column; gap:10px; width:min(380px, calc(100vw - 32px))}
+.cp-alarme{background:var(--elev); color:var(--ink); border:1px solid color-mix(in srgb, var(--orange) 55%, var(--hair)); border-radius:14px; padding:12px 14px;
+  box-shadow:0 12px 36px rgba(0,0,0,.35); animation:cpAlEntra .35s cubic-bezier(.2,1.2,.4,1) both}
+.cp-alh{display:flex; align-items:flex-start; gap:8px}
+.cp-alh > .ic{width:18px; height:18px; color:var(--orange); flex:none; margin-top:1px; animation:cpAlSino .9s ease-in-out 3}
+.cp-alh b{flex:1; font-size:14px; line-height:1.3}
+.cp-alt{margin:4px 0 10px 26px; font-size:12.5px; color:var(--ink-2)}
+.cp-ala{display:flex; gap:8px; flex-wrap:wrap; margin-left:26px}
+@keyframes cpAlEntra{from{opacity:0; transform:translateY(14px) scale(.97)} to{opacity:1; transform:none}}
+@keyframes cpAlSino{0%,100%{transform:rotate(0)} 20%{transform:rotate(14deg)} 40%{transform:rotate(-14deg)} 60%{transform:rotate(9deg)} 80%{transform:rotate(-6deg)}}
+@media (prefers-reduced-motion: reduce){ .cp-alarme,.cp-alh > .ic{animation:none} }
