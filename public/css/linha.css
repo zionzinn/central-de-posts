@@ -17,19 +17,19 @@
 
 /* ---------- tokens das etapas ---------- */
 :root{
-  --e-mz:#FCC100; --e-copy:#0091FF; --e-prod:#FF8AD1; --e-pronto:#7EE0A1; --e-ar:#7EE0A1; --e-neu:#8E8E93;
+  --e-novo:#0091FF; --e-prod:#FF8AD1; --e-pronto:#7EE0A1; --e-ar:#7EE0A1; --e-neu:#8E8E93;
   --e-red:#FF4245; --e-orange:#FF9230; --e-red-on:#000;
   /* as mesmas cores quando viram TEXTO (contraste de leitura em cima do fundo) */
-  --e-mz-t:#FCC100; --e-copy-t:#55B3FF; --e-prod-t:#FF9BD8; --e-pronto-t:#7EE0A1; --e-ar-t:#7EE0A1;
+  --e-novo-t:#55B3FF; --e-prod-t:#FF9BD8; --e-pronto-t:#7EE0A1; --e-ar-t:#7EE0A1;
   --e-red-t:#FF6B6E; --e-orange-t:#FFA654;
   --e-entr:#2EAB98; --e-entr-t:#5CC9B5;                       /* v4.10: Entregue */
   --e-lider:#FD822F; --e-lider-t:#FFA654;                     /* v4.13: Entregue na Aprovação líder (laranja) */
   --lp-tinta:13%; --lp-sombra:0 12px 28px rgba(0,0,0,.5); --lp-mola:cubic-bezier(.22,1.2,.36,1);
 }
 html[data-modo="claro"]{
-  --e-mz:#E0A800; --e-copy:#0077EE; --e-prod:#D63FA0; --e-pronto:#2AA557; --e-ar:#2AA557;
+  --e-novo:#0077EE; --e-prod:#D63FA0; --e-pronto:#2AA557; --e-ar:#2AA557;
   --e-red:#E0262B; --e-orange:#E07000; --e-red-on:#fff;
-  --e-mz-t:#7A5A00; --e-copy-t:#0062C4; --e-prod-t:#B42D85; --e-pronto-t:#1D7A3D; --e-ar-t:#1D7A3D;
+  --e-novo-t:#0062C4; --e-prod-t:#B42D85; --e-pronto-t:#1D7A3D; --e-ar-t:#1D7A3D;
   --e-red-t:#C41E23; --e-orange-t:#A85300;
   --e-entr:#037465; --e-entr-t:#02675A;
   --e-lider:#EB6607; --e-lider-t:#A64200;
@@ -43,8 +43,7 @@ html[data-modo="claro"]{
   background:color-mix(in srgb, var(--c) var(--lp-tinta), var(--cell)); border:1px solid color-mix(in srgb, var(--c) 36%, transparent);
   transition:transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s, opacity .3s, filter .3s, background-color .25s, border-color .25s}
 .card.lp::before{display:none}
-.card.lp.e-mz{--c:var(--e-mz); --ct:var(--e-mz-t); border-style:dashed}
-.card.lp.e-copy{--c:var(--e-copy); --ct:var(--e-copy-t)}
+.card.lp.e-novo{--c:var(--e-novo); --ct:var(--e-novo-t)}
 .card.lp.e-prod{--c:var(--e-prod); --ct:var(--e-prod-t)}
 .card.lp.e-entr{--c:var(--e-entr); --ct:var(--e-entr-t)}
 /* v4.13: na Aprovação líder o Entregue fica laranja (o card, a barra de cima, a etiqueta, o passo da linha e a bolinha) */
@@ -76,7 +75,7 @@ body.lente-ent .card.lp{cursor:pointer}
 /* barra da linha do post (em cima): cheia = feita · brilhando = agora · pontilhada = pulou */
 .lp-kp{position:absolute; left:10px; right:10px; top:0; height:4px; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:3px; pointer-events:none}
 .lp-kp i{border-radius:0 0 3px 3px; background:var(--fill-3); transition:background .5s, box-shadow .5s}
-.lp-kp i.s-mz{--sc:var(--e-mz)} .lp-kp i.s-copy{--sc:var(--e-copy)} .lp-kp i.s-prod{--sc:var(--e-prod)} .lp-kp i.s-entr{--sc:var(--e-entr)} .lp-kp i.s-pronto{--sc:var(--e-pronto)}
+.lp-kp i.s-novo{--sc:var(--e-novo)} .lp-kp i.s-prod{--sc:var(--e-prod)} .lp-kp i.s-entr{--sc:var(--e-entr)} .lp-kp i.s-pronto{--sc:var(--e-pronto)}
 .lp-kp i.f{background:var(--sc)}
 .lp-kp i.n{background:var(--sc); box-shadow:0 2px 10px color-mix(in srgb, var(--sc) 70%, transparent)}
 .lp-kp i.x{background:repeating-linear-gradient(90deg, var(--ink-4) 0 3px, transparent 3px 6px)}
@@ -106,9 +105,6 @@ body.lente-ent .card.lp{cursor:pointer}
 .lp-dt.feita{color:var(--ink-3)}
 .lp-dt.feita > .ic{color:var(--e-pronto-t)}
 .lp-dt.feita.red{color:var(--ink-2)}
-.lp-mzd{display:inline-flex; gap:2px; margin-left:4px}
-.lp-mzd i{width:5px; height:5px; border-radius:50%; background:var(--fill-3)}
-.lp-mzd i.f{background:var(--e-mz)}
 .lp-marcas{display:inline-flex; align-items:center; gap:4px; flex:none; margin-left:auto}
 .lp-mk{display:inline-flex; align-items:center; gap:2px; line-height:1; color:var(--ink-3)}
 .lp-mk .ic{width:12px; height:12px; stroke-width:2}
@@ -152,7 +148,7 @@ html[data-modo="claro"] .lp-ac{box-shadow:0 4px 14px rgba(0,0,0,.14)}
 /* Postei: o card comemora (estouro nas cores das etapas + o check se desenhando) */
 .card.lp.lp-estoura{opacity:1}
 .lp-boom{position:absolute; left:50%; top:50%; width:8px; height:8px; margin:-4px; border-radius:50%; pointer-events:none; z-index:5;
-  box-shadow:0 -40px 0 0 var(--e-pronto), 36px -18px 0 0 var(--e-mz), 36px 20px 0 0 var(--e-copy), 0 40px 0 0 var(--e-prod), -36px 20px 0 0 var(--e-pronto), -36px -18px 0 0 var(--e-copy);
+  box-shadow:0 -40px 0 0 var(--e-pronto), 36px -18px 0 0 var(--e-entr), 36px 20px 0 0 var(--e-novo), 0 40px 0 0 var(--e-prod), -36px 20px 0 0 var(--e-pronto), -36px -18px 0 0 var(--e-novo);
   animation:lp-boom .75s ease-out forwards}
 @keyframes lp-boom{from{transform:scale(.25); opacity:1} to{transform:scale(1.35); opacity:0}}
 .lp-ok{position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; z-index:5; animation:lp-somebem .9s .5s ease forwards}
@@ -165,8 +161,7 @@ html[data-modo="claro"] .lp-ac{box-shadow:0 4px 14px rgba(0,0,0,.14)}
 .card.lp-fantasma{z-index:30; pointer-events:none; box-shadow:none}
 
 /* ---------- legenda: prévia (hover) e filtro (clique) apagam o que não é da etapa ---------- */
-body[data-lp-ver="mz"] .card[data-etapa]:not([data-etapa="mz"]),
-body[data-lp-ver="copy"] .card[data-etapa]:not([data-etapa="copy"]),
+body[data-lp-ver="novo"] .card[data-etapa]:not([data-etapa="novo"]),
 body[data-lp-ver="prod"] .card[data-etapa]:not([data-etapa="prod"]),
 body[data-lp-ver="entr"] .card[data-etapa]:not([data-etapa="entr"]),
 body[data-lp-ver="pronto"] .card[data-etapa]:not([data-etapa="pronto"]),
@@ -184,8 +179,7 @@ body[data-lp-ver] .card[data-etapa]:hover{opacity:1; filter:none}
   transition:background .18s, transform .25s var(--lp-mola), box-shadow .18s, opacity .18s}
 .lp-lc i{width:9px; height:9px; border-radius:3px; background:var(--c); flex:none; box-sizing:border-box}
 .lp-lc b{color:var(--ink-3); font-weight:600; font-variant-numeric:tabular-nums}
-.lp-lc.e-mz{--c:var(--e-mz)} .lp-lc.e-mz i{background:transparent; border:1.5px dashed var(--c)}
-.lp-lc.e-copy{--c:var(--e-copy)} .lp-lc.e-prod{--c:var(--e-prod)} .lp-lc.e-entr{--c:var(--e-entr)} .lp-lc.e-pronto{--c:var(--e-pronto)} .lp-lc.e-ar{--c:var(--e-ar)}
+.lp-lc.e-novo{--c:var(--e-novo)} .lp-lc.e-prod{--c:var(--e-prod)} .lp-lc.e-entr{--c:var(--e-entr)} .lp-lc.e-pronto{--c:var(--e-pronto)} .lp-lc.e-ar{--c:var(--e-ar)}
 .lp-lc.e-alerta{--c:var(--e-red); color:var(--e-red-t)} .lp-lc.e-alerta i{border-radius:50%}
 .lp-lc.e-ar i{width:13px; height:13px; border-radius:50%; display:inline-grid; place-items:center}
 .lp-lc.e-ar i svg{width:8px; height:8px; fill:none; stroke:#000; stroke-width:3.8; stroke-linecap:round; stroke-linejoin:round}
@@ -211,7 +205,7 @@ body[data-lp-ver] .card[data-etapa]:hover{opacity:1; filter:none}
 .lseg button.on{color:var(--ink); font-weight:600}
 
 /* na lente "fica pronto" a célula é o dia da entrega: o tipo da matriz e a estrela do GM (do dia que sai) saem */
-body.lente-ent .mzdia, body.lente-ent .gmday{display:none}
+body.lente-ent .gmday{display:none}
 body.lente-ent .day.gmpede .dnum{color:var(--ink-2)}
 .mesfora{margin-left:8px; font-size:11.5px; font-weight:600; color:var(--e-prod-t); background:color-mix(in srgb, var(--e-prod) 13%, transparent);
   padding:2px 9px; border-radius:999px; white-space:nowrap}
@@ -239,10 +233,10 @@ body.lente-ent .day.gmpede .dnum{color:var(--ink-2)}
 .lp-chip i{width:8px; height:8px; border-radius:50%; background:var(--c)}
 .lp-chip span{font-weight:500; color:var(--ink-2)}
 .lp-chip span::before{content:"·"; margin-right:5px}
-.lp-chip.e-mz{--c:var(--e-mz)} .lp-chip.e-copy{--c:var(--e-copy)} .lp-chip.e-prod{--c:var(--e-prod)} .lp-chip.e-entr{--c:var(--e-entr)} .lp-chip.e-entr.lider{--c:var(--e-lider)} .lp-chip.e-pronto{--c:var(--e-pronto)} .lp-chip.e-ar{--c:var(--e-ar)}
+.lp-chip.e-novo{--c:var(--e-novo)} .lp-chip.e-prod{--c:var(--e-prod)} .lp-chip.e-entr{--c:var(--e-entr)} .lp-chip.e-entr.lider{--c:var(--e-lider)} .lp-chip.e-pronto{--c:var(--e-pronto)} .lp-chip.e-ar{--c:var(--e-ar)}
 /* bolinha das linhas do balão de entregas: a cor da etapa (antes vinha a cor de cada etapa do Hub) */
 .epdot.e-prod{background:var(--e-prod)} .epdot.e-entr{background:var(--e-entr)} .epdot.e-entr.lider{background:var(--e-lider)} .epdot.e-pronto{background:var(--e-pronto)} .epdot.e-ar{background:var(--e-ar)}
-.epdot.e-copy{background:var(--e-copy)} .epdot.e-mz{background:var(--e-mz)}
+.epdot.e-novo{background:var(--e-novo)}
 
 /* ---------- folha do post: a linha do post e as duas datas ---------- */
 .lpf{padding:14px 22px 2px}
@@ -251,20 +245,18 @@ body.lente-ent .day.gmpede .dnum{color:var(--ink-2)}
 .lpf-sec::after{content:""; flex:1; height:1px; background:var(--hair)}
 .lpf-grupos{display:grid; gap:6px; margin-bottom:8px}
 .lpf-grupos span{font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); text-align:center; border-bottom:1.5px solid var(--hair); padding-bottom:4px}
-.lpf-grupos .bone{border-color:color-mix(in srgb, var(--e-copy) 55%, transparent)}
+.lpf-grupos .bone{border-color:color-mix(in srgb, var(--e-novo) 55%, transparent)}
 .lpf-grupos .hub{border-color:color-mix(in srgb, var(--e-prod) 60%, transparent)}
 .lpf-nos{display:grid; position:relative; margin-bottom:16px}
 .lpf-trilho{position:absolute; left:calc(50% / var(--n)); right:calc(50% / var(--n)); top:14px; height:3px; border-radius:2px; background:var(--fill-3); overflow:hidden}
 .lpf-trilho i{position:absolute; left:0; top:0; bottom:0; border-radius:2px; background-repeat:no-repeat;
-  background-image:linear-gradient(90deg, var(--e-mz), var(--e-copy), var(--e-prod), var(--e-entr), var(--e-pronto), var(--e-ar)); transition:width .9s var(--lp-mola)}
-.lpf-nos.sem-mz .lpf-trilho i{background-image:linear-gradient(90deg, var(--e-copy), var(--e-prod), var(--e-entr), var(--e-pronto), var(--e-ar))}
-.lpf-nos.lider .lpf-trilho i{background-image:linear-gradient(90deg, var(--e-mz), var(--e-copy), var(--e-prod), var(--e-lider), var(--e-pronto), var(--e-ar))}
-.lpf-nos.sem-mz.lider .lpf-trilho i{background-image:linear-gradient(90deg, var(--e-copy), var(--e-prod), var(--e-lider), var(--e-pronto), var(--e-ar))}
+  background-image:linear-gradient(90deg, var(--e-novo), var(--e-prod), var(--e-entr), var(--e-pronto), var(--e-ar)); transition:width .9s var(--lp-mola)}
+.lpf-nos.lider .lpf-trilho i{background-image:linear-gradient(90deg, var(--e-novo), var(--e-prod), var(--e-lider), var(--e-pronto), var(--e-ar))}
 .lpf-no{display:flex; flex-direction:column; align-items:center; gap:5px; text-align:center; position:relative; z-index:1; min-width:0; padding:0 2px}
 .lpf-bo{width:30px; height:30px; border-radius:50%; display:grid; place-items:center; border:2px solid var(--fill-3); background:var(--elev); box-sizing:border-box;
   transition:transform .3s var(--lp-mola)}
 .lpf-bo .ic{width:14px; height:14px; stroke-width:2.6}
-.lpf-no.s-mz{--sc:var(--e-mz)} .lpf-no.s-copy{--sc:var(--e-copy)} .lpf-no.s-prod{--sc:var(--e-prod)} .lpf-no.s-entr{--sc:var(--e-entr)} .lpf-no.s-entr.lider{--sc:var(--e-lider)} .lpf-no.s-pronto{--sc:var(--e-pronto)} .lpf-no.s-ar{--sc:var(--e-ar)}
+.lpf-no.s-novo{--sc:var(--e-novo)} .lpf-no.s-prod{--sc:var(--e-prod)} .lpf-no.s-entr{--sc:var(--e-entr)} .lpf-no.s-entr.lider{--sc:var(--e-lider)} .lpf-no.s-pronto{--sc:var(--e-pronto)} .lpf-no.s-ar{--sc:var(--e-ar)}
 .lpf-no.f .lpf-bo{background:var(--sc); border-color:var(--sc); color:#000}
 .lpf-no.n .lpf-bo{border-color:var(--sc); color:var(--sc); box-shadow:0 0 0 5px color-mix(in srgb, var(--sc) 22%, transparent); animation:lp-respira 2.4s ease-in-out infinite}
 .lpf-no.x .lpf-bo{border-style:dashed; color:var(--ink-4)}

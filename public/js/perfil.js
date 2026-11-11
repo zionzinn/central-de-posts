@@ -3,11 +3,11 @@
    assim ... ter vários personagens pra pessoa escolher" (aprovado depois dos prints: "pode fazer o commit").
    - abre clicando na sua bolinha (canto de cima, à direita); "Calendário" ou Esc voltam
    - card do personagem (12 originais, public/js/personagens.js; 1 por pessoa) e Trocar personagem
-   - Comigo agora: o que depende de você (cada quadro abre o lugar certo: Minhas copys, Pra aprovar, a tarefa, o post)
-   - Esta semana: copys aprovadas (de primeira), mandadas, aprovadas pelo ADMIN, tempo no relógio por dia
-   - Time: o personagem de cada um e quem está online; clique abre o perfil da pessoa (o colega vê só o personagem e
-     as copys aprovadas; o ADMIN vê tudo: quem decide é o servidor, lib/perfil.js)
-   - a cabeça do personagem vira a bolinha de quem está online (aqui e no documento da copy)
+   - Comigo agora: entrega do MKT Hub atrasada ou em risco nos posts da pessoa (o quadro abre o post)
+   - Time: o personagem de cada um e quem está online; clique abre o perfil da pessoa (o colega vê só o personagem;
+     o ADMIN vê tudo: quem decide é o servidor, lib/perfil.js)
+   - a cabeça do personagem vira a bolinha de quem está online
+   v4.22: a copy, a matriz, o "Esta semana" e o tempo no relógio saíram junto com o fluxo da copywriter.
    Os números vêm do GET /api/perfil, contados na hora e só quando a aba abre (nada novo no /api/state).
    Sem nível por enquanto (fica pra quando o Zion escolher a regra).
    ===================================================================== */
@@ -19,14 +19,6 @@ function ppChave(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g
 function ppNomeLocal() { const p = typeof PERFIL !== 'undefined' ? PERFIL.get() : null; return p ? p.nome : ''; }
 function ppMeuId() { return S.eu ? S.eu.id : 'local:' + ppChave(ppNomeLocal()); }
 function ppQ(path) { return S.eu ? path : path + (path.includes('?') ? '&' : '?') + 'nome=' + encodeURIComponent(ppNomeLocal()); }
-/** "hoje às 14:20", "ontem", "há 3 dias". */
-function ppHa(iso) {
-  const t = Date.parse(iso || ''); if (isNaN(t)) return '';
-  const d = new Date(t), dia = tfIso(d), hoje = hojeStr();
-  if (dia === hoje) return 'hoje às ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-  const n = Math.round((Date.parse(hoje + 'T12:00:00') - Date.parse(dia + 'T12:00:00')) / 864e5);
-  return n === 1 ? 'ontem' : 'há ' + n + ' dias';
-}
 const ppPl = (n, um, varios) => n + ' ' + (n === 1 ? um : varios);
 
 // ---------------------------------------------------------------- bolinha de quem está online
@@ -103,17 +95,15 @@ function ppDesenha() {
   $('#ppTit').textContent = souEu ? 'Meu perfil' : 'Perfil de ' + p.nome;
   let topo = '';
   if (souEu) {
-    topo += '<button type="button" class="mbtn" data-pp="tempo">' + icon('clock') + 'Meu tempo</button>';
     topo += S.eu ? '<button type="button" class="mbtn" data-pp="sair">Sair</button>' : '<button type="button" class="mbtn" data-pp="nome">' + icon('pencil') + 'Trocar nome</button>';
   } else topo += '<button type="button" class="mbtn" data-pp="meu">' + icon('users') + 'Meu perfil</button>';
   $('#ppTopDir').innerHTML = topo;
   let h = '<aside class="pp-esq">' + ppCard(p, souEu) + '</aside><div class="pp-dir">';
   if (!p.limitado) h += ppAgora(p, souEu);
-  h += ppSemana(p, souEu) + ppTime(r, p) + '</div>';
+  h += ppTime(r, p) + '</div>';
   const corpo = $('#ppCorpo');
   corpo.innerHTML = h;
   ppLiga(corpo); ppLiga($('#ppTopDir'));
-  ppLigaGrafico();
 }
 function ppCard(p, souEu) {
   const d = p.personagem && window.PG ? PG.dados(p.personagem) : null;
@@ -132,17 +122,6 @@ function ppCard(p, souEu) {
 /** Comigo agora: só o que depende da pessoa, cada quadro abre o lugar de resolver. */
 function ppAgora(p, souEu) {
   const a = p.agora, t = [];
-  const contas = l => [...new Set(l.map(x => contaCurta(x.conta)))].slice(0, 3).join(', ');
-  if (a.alterar.n) {
-    const x = a.alterar.itens[0];
-    t.push({ cor: 'var(--red)', rot: 'Pra alterar', n: a.alterar.n, sub: (a.alterar.n > 1 ? 'copys' : 'copy') + ' · ' + contas(a.alterar.itens) + (x.quem ? ' · pedido de ' + x.quem : ''), acao: 'alterar' });
-  }
-  if (a.esperando.n) t.push({ cor: 'var(--orange)', rot: 'Esperando aprovação', n: a.esperando.n,
-    sub: (a.esperando.n > 1 ? 'copys prontas' : 'copy pronta') + ' · ' + (a.esperando.n > 1 ? 'a mais antiga mandada ' : 'mandada ') + ppHa(a.esperando.itens[0].em), acao: 'esperando' });
-  if (a.praAprovar && a.praAprovar.n) t.push({ cor: 'var(--orange)', rot: 'Pra aprovar', n: a.praAprovar.n,
-    sub: (a.praAprovar.n > 1 ? 'copys esperando · a mais antiga mandada ' : 'copy esperando · mandada ') + ppHa(a.praAprovar.itens[0].em), acao: 'praAprovar' });
-  for (const f of a.fazer) t.push({ cor: 'var(--blue)', rot: 'Copy pra fazer', n: f.falta, sub: nomeAba(f.aba) + ' · ' + brData(f.de) + ' a ' + brData(f.ate) + ' · ' + f.falta + ' de ' + f.total + ' posts', acao: 'tarefa:' + f.tarefa });
-  for (const m of a.matriz) t.push({ cor: 'var(--sb)', rot: 'Matriz', n: m.feitos + '/' + m.total, sub: nomeAba(m.aba) + ' · ' + brData(m.de) + ' a ' + brData(m.ate) + ' · ' + ppPl(m.total - m.feitos, 'card falta', 'cards faltam'), acao: 'tarefa:' + m.tarefa });
   if (a.atrasadas.n || a.risco.n) {
     const x = a.atrasadas.itens[0] || a.risco.itens[0];
     const partes = [a.atrasadas.n ? ppPl(a.atrasadas.n, 'atrasada', 'atrasadas') : '', a.risco.n ? a.risco.n + ' em risco' : ''].filter(Boolean).join(' · ');
@@ -155,59 +134,6 @@ function ppAgora(p, souEu) {
     '<span class="pp-tl"><i class="pp-dot"></i>' + esc(x.rot) + '</span><span class="pp-big">' + esc(String(x.n)) + '</span><span class="pp-ts">' + esc(x.sub) + '</span>' +
     '<span class="pp-ir" aria-hidden="true">' + icon('chevR') + '</span></button>').join('') + '</div></section>';
   return h;
-}
-/** Esta semana: só os números que a pessoa tem (quem não escreve copy não vê quadro de copy zerado). */
-function ppSemana(p, souEu) {
-  const s = p.semana, n = p.nums, t = [];
-  const de = n.aprovadas - n.dePrimeira;
-  // quem não escreveu copy na semana (só aprova, só edita, só tem relógio) não vê o quadro de copy zerado
-  if (p.limitado || n.aprovadas || n.mandadas) t.push({ rot: 'Copys aprovadas', big: String(n.aprovadas), sub: n.aprovadas ? n.dePrimeira + ' de primeira' + (de ? ' · ' + de + ' depois de ajuste' : '') : 'nenhuma ainda nesta semana' });
-  if (!p.limitado) {
-    if (n.mandadas) t.push({ rot: 'Copys mandadas', big: String(n.mandadas), sub: 'pra aprovação nesta semana' });
-    const tot = n.matrizSeg + n.copySeg;
-    if (tot) t.push({ rot: 'Tempo no relógio', big: CRON.fmtLongo(tot), sub: 'matriz ' + CRON.fmtLongo(n.matrizSeg) + ' · copy ' + CRON.fmtLongo(n.copySeg) });
-    if (n.copySeg && n.mandadas) t.push({ rot: 'Tempo por copy', big: CRON.fmtLongo(Math.round(n.copySeg / n.mandadas)), sub: 'tempo de copy ÷ copys mandadas' });
-    if (n.aprovou) t.push({ rot: souEu ? 'Copys que você aprovou' : 'Copys que aprovou', big: String(n.aprovou), sub: 'esperaram em média ' + CRON.fmtLongo(Math.round(n.esperaMs / n.aprovou / 1000)) });
-  }
-  let h = '<section class="pp-sec" aria-labelledby="ppSemT"><h2 id="ppSemT">Esta semana <small>' + brData(s.de) + ' a ' + brData(s.ate) + '</small></h2>';
-  if (!t.length) return h + '<div class="pp-vazio cinza">' + icon('calendar') + 'Nada registrado nesta semana ainda: copy mandada, aprovada e o tempo no relógio aparecem aqui.</div></section>';
-  h += '<div class="pp-tiles">' + t.map(x => '<div class="pp-tile num"><span class="pp-tl">' + esc(x.rot) + '</span><span class="pp-big">' + esc(x.big) + '</span><span class="pp-ts">' + esc(x.sub) + '</span></div>').join('') + '</div>';
-  if (p.limitado) return h + '<p class="pp-nota">O tempo no relógio e o que está pendente ficam só pra própria pessoa e pro ADMIN.</p></section>';
-  // o gráfico só aparece pra quem usou o relógio na semana (pra quem não usa, seria um quadro vazio)
-  const tot = n.matrizSeg + n.copySeg;
-  if (tot) h += '<div class="pp-box"><div class="pp-boxh"><b>Tempo no relógio por dia</b><span class="tp-leg"><span><i class="tp-sw m"></i>Matriz ' + CRON.fmtLongo(n.matrizSeg) + '</span><span><i class="tp-sw c"></i>Copy ' + CRON.fmtLongo(n.copySeg) + '</span></span>' +
-    '<button type="button" class="mbtn pp-rel" data-pp="relatorio">Relatório completo' + icon('chevR') + '</button></div>' + ppGrafico(p.dias, s.hoje) + '</div>';
-  return h + '</section>';
-}
-/** Barras empilhadas por dia (matriz embaixo, copy em cima), no mesmo desenho do relatório de tempo (tempo.js). */
-function ppGrafico(dias, hoje) {
-  const max = Math.max(0, ...dias.map(d => d.m + d.c));
-  const { passo, topo } = tpEscala(max);
-  let linhas = '';
-  for (let v = passo; v <= topo; v += passo) linhas += '<div class="tp-linha" style="bottom:' + (v / topo * 100) + '%"><span>' + tpRotEixo(v) + '</span></div>';
-  return '<div class="tp-graf pp-graf" id="ppGraf"><div class="tp-grade">' + linhas + '<div class="tp-linha zero" style="bottom:0"><span>0</span></div></div>' +
-    '<div class="tp-barras" style="--n:' + dias.length + '">' + dias.map((d, i) => {
-      const alt = (d.m + d.c) / topo * 100, futuro = d.dia > hoje;
-      return '<div class="tp-col' + (d.dia === hoje ? ' hoje' : '') + (futuro ? ' futuro' : '') + '" data-i="' + i + '" tabindex="' + (d.m + d.c ? 0 : -1) + '" aria-label="' + esc(tfDia(d.dia)) + ': matriz ' + CRON.fmtLongo(d.m) + ', copy ' + CRON.fmtLongo(d.c) + '">' +
-        '<div class="tp-pilha" style="height:' + alt.toFixed(2) + '%">' + (d.c ? '<i class="c" style="flex:' + d.c + '"></i>' : '') + (d.m ? '<i class="m" style="flex:' + d.m + '"></i>' : '') + '</div>' +
-        '<span class="tp-rot">' + tfDia(d.dia).slice(0, 3) + (d.dia === hoje ? '<span class="pp-hoje"> · hoje</span>' : '') + '</span></div>';
-    }).join('') + '</div><div class="tp-dica" id="ppDica" hidden></div></div>';
-}
-function ppLigaGrafico() {
-  const g = $('#ppGraf'); if (!g || !PP.dados) return;
-  const p = PP.dados.eu || PP.dados.pessoa, dica = $('#ppDica');
-  const mostra = col => {
-    const d = p.dias[+col.dataset.i]; if (!d || !(d.m + d.c)) { dica.hidden = true; return; }
-    dica.innerHTML = '<b>' + esc(tfDia(d.dia)) + '</b><span><i class="tp-sw m"></i>Matriz ' + CRON.fmtLongo(d.m) + '</span><span><i class="tp-sw c"></i>Copy ' + CRON.fmtLongo(d.c) + '</span><span class="tot">Total ' + CRON.fmtLongo(d.m + d.c) + '</span>';
-    dica.hidden = false;
-    const r = col.getBoundingClientRect(), rg = g.getBoundingClientRect(), cx = r.left - rg.left + r.width / 2;
-    let x = cx + 16;
-    if (x + dica.offsetWidth > rg.width) x = cx - 16 - dica.offsetWidth;
-    dica.style.left = Math.max(0, x) + 'px';
-  };
-  g.querySelectorAll('.tp-col').forEach(col => { col.onmouseenter = () => mostra(col); col.onfocus = () => mostra(col); });
-  g.onmouseleave = () => { dica.hidden = true; };
-  g.addEventListener('focusout', () => { dica.hidden = true; });
 }
 function ppTime(r, p) {
   const l = r.time || [];
@@ -229,21 +155,12 @@ function ppLiga(raiz) {
   raiz.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => ppAcao(b.dataset.pp));
 }
 function ppAcao(a) {
-  const p = PP.dados ? (PP.dados.eu || PP.dados.pessoa) : null;
   if (a === 'recarrega') return ppCarrega();
   if (a === 'escolher') return abrirEscolha();
-  if (a === 'tempo' || a === 'relatorio') { TP.per = 'semana'; TP.aba = ''; TP.por = p ? p.nome : null; return abrirTempo(); }
   if (a === 'sair') return sair();
   if (a === 'nome') return openPerfil();
   if (a === 'meu') return abrirPerfil();
-  if (a === 'alterar') return abrirAprovar('alterar');
-  if (a === 'esperando' || a === 'praAprovar') return abrirAprovar('esperando');
   if (a.startsWith('pessoa:')) return abrirPerfil(a.slice(7) || null);
-  if (a.startsWith('tarefa:')) {
-    const id = a.slice(7);
-    if (!tfPorId(id)) { toast('Essa tarefa não está aberta no painel agora', true); return; }
-    return abrirTarefa(id);
-  }
   if (a.startsWith('post:')) {
     // o post pode ser de outra empresa: vai pra aba dela antes (o calendário só desenha a empresa aberta)
     const sid = a.slice(5), s = S.slots.find(x => x.id === sid), aba = s && S.contas[s.conta] ? S.contas[s.conta].aba : null;
@@ -259,7 +176,7 @@ function ppMontaEscolha() {
   const ov = document.createElement('div');
   ov.className = 'ov'; ov.id = 'ovPg'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-labelledby', 'pgTit');
   ov.innerHTML = '<div class="modal pg-modal" style="position:relative"><button class="mclose" data-close="ovPg" aria-label="Fechar">✕</button>' +
-    '<div class="mhead"><div class="mtit" id="pgTit">Escolha seu personagem</div><div class="pg-sub">Aparece no seu perfil, na bolinha de quem está online e no documento da copy. Dá pra trocar quando quiser.</div></div>' +
+    '<div class="mhead"><div class="mtit" id="pgTit">Escolha seu personagem</div><div class="pg-sub">Aparece no seu perfil e na bolinha de quem está online. Dá pra trocar quando quiser.</div></div>' +
     '<div class="mbody"><div class="pg-grade" id="pgGrade" role="group" aria-label="Personagens"></div></div>' +
     '<div class="mfoot"><span class="pg-nota" id="pgNota">1 personagem por pessoa: o que já tem dono fica apagado, com o nome de quem escolheu.</span>' +
     '<button type="button" class="mbtn" id="pgCancela">Cancelar</button><button type="button" class="mbtn primary" id="pgUsar">Usar</button></div></div>';

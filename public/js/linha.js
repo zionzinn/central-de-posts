@@ -7,7 +7,7 @@
 //
 // A regra do visual (uma só, em todo o painel):
 //   COR = onde o post está · PALAVRA = o que falta · DIA DO CALENDÁRIO = dia que sai · CAIXINHA = dia que fica pronto
-//   Matriz (amarelo, tracejado) e Copy (azul): no B.O.N.E · Produção (rosa) e Pronto (verde): no MKT Hub ·
+//   Sem task (azul; até a v4.21 eram Matriz e Copy): no B.O.N.E · Produção (rosa) e Pronto (verde): no MKT Hub ·
 //   Postado (verde cheio com o check; até a v4.05 era "No ar", cinza apagado): no Instagram. Laranja e vermelho só como ALERTA (pílula ou data):
 //   laranja = esperando aprovação ou vence hoje/amanhã; vermelho = voltou pra alterar ou atrasou.
 //
@@ -24,12 +24,15 @@
 // Decisões do Zion (02/10/2026): as duas datas na folha do post só MOSTRAM (a entrega é do MKT Hub e muda lá; o dia
 // que sai é o do calendário); a task de produção continua só do ADMIN. Nada aqui grava dado novo nem cria rota:
 // é desenho em cima do que o /api/state já traz.
+//
+// v4.22 (pedido do Zion em 11/11/2026: a copywriter não usa mais o B.O.N.E): saíram as etapas Matriz e Copy. O post
+// sem task de produção fica em "Sem task" (no B.O.N.E) e o próximo passo dele é criar a task no MKT Hub.
 // =====================================================================
 
 const LP = {
-  ORDEM: ['mz', 'copy', 'prod', 'entr', 'pronto', 'ar'],
-  NOME: { mz: 'Matriz', copy: 'Copy', prod: 'Produção', entr: 'Entregue', pronto: 'Pronto', ar: 'Postado' },   // v4.06: o "No ar" virou Postado; v4.10: Entregue
-  ONDE: { mz: 'no B.O.N.E', copy: 'no B.O.N.E', prod: 'no MKT Hub', entr: 'no MKT Hub', pronto: 'no MKT Hub', ar: 'no Instagram' },
+  ORDEM: ['novo', 'prod', 'entr', 'pronto', 'ar'],
+  NOME: { novo: 'Sem task', prod: 'Produção', entr: 'Entregue', pronto: 'Pronto', ar: 'Postado' },   // v4.06: o "No ar" virou Postado; v4.10: Entregue
+  ONDE: { novo: 'no B.O.N.E', prod: 'no MKT Hub', entr: 'no MKT Hub', pronto: 'no MKT Hub', ar: 'no Instagram' },
 };
 // v4.06: o check do postado (no card, num círculo preto; na legenda, no lugar do quadradinho)
 const LP_OK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
@@ -56,23 +59,19 @@ function lpDiaC(iso) { return LP_DS[new Date(lpMs(iso)).getUTCDay()] + ' ' + iso
 function lpDiaL(iso) { return lpDiaC(iso) + '/' + iso.slice(5, 7); }
 function lpRel(n) { return n < 0 ? (n === -1 ? 'ontem' : 'há ' + (-n) + ' dias') : n === 0 ? 'hoje' : n === 1 ? 'amanhã' : 'em ' + n + ' dias'; }
 function lpPrimeiro(nome) { return String(nome || '').trim().split(/\s+/)[0] || ''; }
-/** A conta tem matriz (SeuBoné e Weevo)? Sem matriz, a linha começa na copy. */
-function lpTemMatriz(conta) { const a = S.contas[conta] && S.contas[conta].aba; return !!(a && mzDaAba(a)); }
-/** A tarefa (matriz ou copy) que cobre o post: diz quem preenche ou escreve. */
-function lpTarefa(s, tipo) { return (S.tarefas || []).find(t => t.tipo === tipo && (t.itens || []).includes(s.id)) || null; }
 
 // ---------------- em que etapa o post está ----------------
 /**
- * A etapa do post e o que o card mostra: k (mz, copy, prod, pronto, ar; 'esp' = falta criar ou sugestão, que têm
- * desenho próprio), a palavra do que falta (sub) ou a pílula de alerta (pil), a data que importa (dt), os pontinhos
- * da matriz (mzd), se pede atenção (alerta), de quem é a vez (av) e as ações do hover (a primeira com texto é a do momento).
+ * A etapa do post e o que o card mostra: k (novo, prod, entr, pronto, ar; 'esp' = falta criar ou sugestão, que têm
+ * desenho próprio), a palavra do que falta (sub) ou a pílula de alerta (pil), a data que importa (dt), se pede
+ * atenção (alerta), de quem é a vez (av) e as ações do hover (a primeira com texto é a do momento).
  */
 function lpEtapa(s) {
-  const e = { k: 'copy', sub: '', pil: null, dt: null, mzd: null, alerta: false, av: '', avNome: '', acoes: [] };
+  const e = { k: 'novo', sub: '', pil: null, dt: null, alerta: false, av: '', avNome: '', acoes: [] };
   const hoje = hojeStr(), nS = s.date ? lpDif(s.date, hoje) : null;
   const ac = (id, txt, ic) => e.acoes.push({ id, txt: txt || '', ic: ic || '' });
   const pessoa = (nome, verbo) => { if (nome) { e.av = initials(nome); e.avNome = lpPrimeiro(nome) + ' ' + verbo; } };
-  // matriz e copy: o dia que sai, pra saber quanto tempo falta (vermelho se já passou; não entra na Atenção)
+  // sem task: o dia que sai, pra saber quanto tempo falta (vermelho se já passou; não entra na Atenção)
   const dtSai = () => {
     e.dt = nS === null ? { c: '', ic: 'calendar', t: 'sem dia no calendário', b: '' }
       : { c: nS < 0 ? 'red' : nS <= 2 ? 'or' : '', ic: 'calendar', t: 'sai', b: lpRel(nS), dica: 'Vai ao ar ' + lpDiaL(s.date) };
@@ -92,7 +91,7 @@ function lpEtapa(s) {
       if (nS === 0) { e.pil = { c: 'ok', t: 'sai hoje', ic: 'calendar' }; e.sub = ''; }
       else if (nS !== null && nS < 0) { e.pil = { c: 'red', t: 'atrasado', ic: 'alerta' }; e.alerta = true; e.sub = ''; }
       if (prazo) e.dt = { c: 'feita', ic: 'check', t: 'entregue · prazo ' + lpDiaC(prazo), b: '', dica: 'Arte pronta no MKT Hub' + onde };
-      ac('postar', 'Postei', 'check'); if (lk) ac('hub', '', 'external'); if (s.docId) ac('copy', '', 'doc'); ac('del');
+      ac('postar', 'Postei', 'check'); if (lk) ac('hub', '', 'external'); ac('del');
       return e;
     }
     // v4.10: ENTREGUE = a arte ou o vídeo já foi pra aprovação no MKT Hub (Aprovação ou Aprovação líder)
@@ -106,7 +105,7 @@ function lpEtapa(s) {
       e.dt = prazo ? { c: 'feita', ic: 'check', t: 'entregue · prazo ' + (lpDif(prazo, hoje) < 0 ? 'era ' : '') + lpDiaC(prazo), b: '', dica: 'Entregue no MKT Hub' + onde + ' · prazo ' + lpDiaL(prazo) }
         : { c: 'feita', ic: 'check', t: 'entregue', b: '', dica: 'Entregue no MKT Hub' + onde };
       if (lk) ac('hub', 'Abrir no MKT Hub', 'external'); else ac('abrir', 'Abrir', 'doc');
-      ac('postar', '', 'check'); if (s.docId) ac('copy', '', 'doc'); ac('del');
+      ac('postar', '', 'check'); ac('del');
       return e;
     }
     e.k = 'prod';
@@ -128,68 +127,36 @@ function lpEtapa(s) {
       else e.dt = { c: '', ic: 'box', t: 'prazo ' + lpDiaC(prazo), b: lpRel(nE), dica: d };
     } else if (ehDoHub(s.taskId)) e.dt = { c: '', ic: 'box', t: 'sem prazo no MKT Hub', b: '' };
     if (lk) ac('hub', 'Abrir no MKT Hub', 'external'); else ac('abrir', 'Abrir', 'doc');
-    ac('postar', '', 'check'); if (s.docId) ac('copy', '', 'doc'); ac('del');
-    return e;
-  }
-  if (isCopy(s)) {
-    const ce = copyEstado(s), a = s.aprov && s.aprov.c, tf = lpTarefa(s, 'copy');
-    if (ce.cod === 'enviado') {
-      e.pil = { c: 'or', t: 'esperando aprovação', ic: 'hour', dica: 'Copy pronta, esperando aprovação' + (a && a.por ? ' (enviada por ' + a.por + (a.em ? ' ' + brData(a.em.slice(0, 10)) : '') + ')' : '') }; dtSai();
-      if (adm) { ac('aprovar', 'Aprovar', 'check'); ac('copy', '', 'doc'); } else ac('copy', 'Abrir a copy', 'doc');
-    } else if (ce.cod === 'alterar') {
-      e.pil = { c: 'red', t: 'pra alterar', ic: 'pencil', dica: 'Pra alterar' + (a && a.nota ? ': ' + a.nota : '') + (a && a.ap ? ' (pedido por ' + a.ap + ')' : '') }; e.alerta = true; dtSai();
-      pessoa((a && a.por) || (tf && tf.por), 'altera');
-      ac('copy', 'Abrir a copy', 'doc');
-    } else if (ce.cod === 'aprovado') {
-      if (S.temFonte) e.pil = { c: 'neu', t: 'falta a task', ic: 'plus' }; else e.sub = 'aprovada';
-      e.dt = { c: nS !== null && nS < 0 ? 'red' : 'feita', ic: 'check', t: 'aprovada · sai', b: nS === null ? 'sem dia' : lpRel(nS) };
-      if (podeProd) { ac('producao', 'Criar task de produção', 'send'); ac('copy', '', 'doc'); } else ac('copy', 'Abrir a copy', 'doc');
-    } else {
-      e.sub = 'escrevendo'; dtSai(); pessoa(tf && tf.por, 'escreve');
-      ac('copy', 'Abrir a copy', 'doc');
-    }
-    if (s.matrizSB) ac('matriz', '', 'sparkle');
-    ac('del');
+    ac('postar', '', 'check'); ac('del');
     return e;
   }
   if (isBanco(s)) {
-    // v3.96: o material do banco entra no lugar da copy (a copy é opcional); o próximo passo é a task de produção
-    e.sub = 'do banco'; e.subDica = 'Material do banco: ' + bancoRotulo(s.banco) + (s.banco.titulo ? ' · ' + s.banco.titulo : '') + ' (a copy é opcional)'; dtSai();
+    // v3.96: o post usa um material do banco; o próximo passo é a task de produção
+    e.sub = 'do banco'; e.subDica = 'Material do banco: ' + bancoRotulo(s.banco) + (s.banco.titulo ? ' · ' + s.banco.titulo : ''); dtSai();
     if (podeProd) ac('producao', 'Criar task de produção', 'send'); else ac('abrir', 'Abrir', 'box');
     ac('del');
     return e;
   }
-  if (isMatriz(s)) {
-    e.k = 'mz';
-    const p = mzProgresso(s.matrizSB, mzContaDe(s));
-    e.sub = p.cheio ? 'pronta pra copy' : p.n ? 'preenchendo' : 'a preencher';
-    e.mzd = p;
-    const tf = lpTarefa(s, 'matriz'); pessoa(tf && tf.por, 'preenche');
-    if (p.cheio) { ac('copy', 'Escrever a copy', 'pencil'); ac('matriz', '', 'sparkle'); } else ac('matriz', 'Preencher', 'pencil');
-    ac('del');
-    return e;
-  }
-  // post sem matriz, sem copy e sem task (ex.: os DD_MM da tarefa de copy, v4.00): o próximo passo é a copy
-  e.sub = 'a escrever'; dtSai();
-  const tf = lpTarefa(s, 'copy'); pessoa(tf && tf.por, 'escreve');
-  ac('copy', 'Escrever a copy', 'pencil'); ac('del');
+  // post sem task (v4.22: era a matriz e a copy): o próximo passo é a task de produção
+  e.sub = 'falta a task'; dtSai();
+  if (podeProd) ac('producao', 'Criar task de produção', 'send'); else ac('abrir', 'Abrir', 'doc');
+  ac('del');
   return e;
 }
-/** A barra de cima do card: Matriz, Copy, Produção, Entregue, Pronto (sem a Matriz nas contas que não têm). f feita · n agora · x pulada. */
+/** A barra de cima do card: Sem task, Produção, Entregue, Pronto. f feita · n agora · x pulada. */
 function lpProg(s, e) {
-  const ks = (lpTemMatriz(s.conta) || s.matrizSB ? ['mz'] : []).concat(['copy', 'prod', 'entr', 'pronto']);
+  const ks = ['novo', 'prod', 'entr', 'pronto'];
   const cur = LP.ORDEM.indexOf(e.k);
   return ks.map(k => {
     const i = LP.ORDEM.indexOf(k);
-    const pulou = (k === 'mz' && !s.matrizSB) || (k === 'copy' && !s.docId && !s.banco);
+    const pulou = k !== 'novo' && !s.taskId;     // v4.09: post sem task (ex.: o "Já foi postado") não passou pelo MKT Hub
     return { k, st: e.k === 'ar' || i < cur ? (pulou ? 'x' : 'f') : i === cur ? 'n' : '' };
   });
 }
 
 // ---------------- o card ----------------
 function lpTitulo(s, e) {
-  if (e.k === 'mz') { const m = s.matrizSB || {}; return { t: m.tema || (m.tipo ? m.tipo + ' · tema a definir' : 'escolher o tipo'), vazio: !m.tema }; }
-  // v4.08: o nome que alguém deu ao post (na folha) vale mais que o do material; o automático da tarefa de copy (DD_MM), não
+  // v4.08: o nome que alguém deu ao post (na folha) vale mais que o do material; o automático da antiga tarefa de copy (DD_MM), não
   if (isBanco(s)) return { t: (s.titulo && !tTitAuto(s.titulo) ? s.titulo : '') || s.banco.titulo || (s.matrizSB && s.matrizSB.tema) || bancoRotulo(s.banco), vazio: false };
   return { t: slotTitulo(s), vazio: false };
 }
@@ -198,7 +165,7 @@ function lpContaTag(s) { return '<div class="contatag">' + esc(contaCurta(s.cont
 function lpMarcas(s, e) {
   let h = '';
   // v4.12: na aba Todos, o post da SeuBoné também avisa o dia de GM (a cadência é só da SeuBoné)
-  const gmPede = !isGm(s) && (S.aba === 'SEUBONÉ' || (ehTodos() && s.conta === 'seubone')) && s.date && (e.k === 'mz' || e.k === 'copy') && gmCadenciaDia(s.date);
+  const gmPede = !isGm(s) && (S.aba === 'SEUBONÉ' || (ehTodos() && s.conta === 'seubone')) && s.date && e.k === 'novo' && gmCadenciaDia(s.date);
   if (isGm(s)) h += '<span class="lp-mk gm" title="Grande marca na capa">' + icon('star') + '</span>';
   else if (gmPede) h += '<span class="lp-mk gm pede" title="Dia de grande marca na capa (GM)">' + icon('star') + '</span>';
   const clb = s.collab || [];
@@ -221,16 +188,11 @@ function lpDataHtml(s, e) {
     const nS = lpDif(s.date, hojeStr());
     return lpDt({ c: nS < 0 ? 'red' : nS <= 1 ? 'or' : '', ic: 'calendar', t: 'sai ' + lpDiaC(s.date), b: lpRel(nS), dica: 'Vai ao ar ' + lpDiaL(s.date) });
   }
-  if (e.mzd) {
-    const p = e.mzd;
-    return '<span class="lp-dt mzd" title="' + p.n + ' de ' + p.total + ' campos da matriz preenchidos">' + p.n + ' de ' + p.total +
-      '<span class="lp-mzd">' + Array.from({ length: p.total }, (_, i) => '<i' + (i < p.n ? ' class="f"' : '') + '></i>').join('') + '</span></span>';
-  }
   return e.dt ? lpDt(e.dt) : '';
 }
 const LP_AC = {
-  postar: 'Postei: marcar que foi ao ar', despostar: 'Desmarcar postado', aprovar: 'Aprovar a copy (Ctrl+Z desfaz)',
-  producao: 'Criar a task de produção no MKT Hub', copy: 'Abrir a copy', matriz: 'Ver a matriz', hub: 'Abrir a task no MKT Hub',
+  postar: 'Postei: marcar que foi ao ar', despostar: 'Desmarcar postado',
+  producao: 'Criar a task de produção no MKT Hub', hub: 'Abrir a task no MKT Hub',
   abrir: 'Abrir o post', del: 'Excluir este post do painel', post: 'Ver o post publicado',
 };
 /** Botões do hover: a ação do momento (com texto) e os atalhos (só ícone). */
@@ -282,11 +244,8 @@ function lpAcao(id, s) {
   lpDesliga();
   if (id === 'postar') return lpPostei(s);
   if (id === 'despostar') return togglePostado(s);
-  if (id === 'aprovar') return apAcao(s.id, 'aprovar');
   if (id === 'producao') return abrirProducao(s.id);
-  if (id === 'copy') return abrirCopy(s.id);
-  if (id === 'matriz') return openMatriz(s.id);
-  if (id === 'abrir') return isBanco(s) && s.matrizSB ? openMatriz(s.id) : openTask(s.id);
+  if (id === 'abrir') return openTask(s.id);
   if (id === 'cdiv') { const c = contaDivergente(s); if (c) corrigirConta(s, c.sugerida); return; }
   if (id === 'del') return lpExclui(s);
 }
@@ -399,8 +358,7 @@ function lpLigaEntregas(dia, btn) {
 
 // ---------------- legenda do mês: 6 botões em 4 grupos (no lugar do filtro de 16 opções) ----------------
 const LP_DICA = {
-  mz: 'Matriz: o plano do post (tema, tese, gancho), no B.O.N.E',
-  copy: 'Copy: o texto do post, escrito e aprovado no B.O.N.E',
+  novo: 'Sem task: o post está no calendário e ainda não tem a task de produção no MKT Hub',
   prod: 'Produção: falta entregar (a arte ou o vídeo está a fazer, fazendo ou ajustando no MKT Hub)',
   entr: 'Entregue: a arte ou o vídeo já foi entregue no MKT Hub e espera a aprovação (Aprovação ou Aprovação líder; com a líder, o card fica laranja)',
   pronto: 'Pronto: arte aprovada no MKT Hub, é só postar',
@@ -408,14 +366,14 @@ const LP_DICA = {
   alerta: 'Atenção: voltou pra alterar, a entrega atrasou ou vence hoje/amanhã, ou o post pronto passou do dia',
 };
 function lpLegendaMes(lista) {
-  const n = { mz: 0, copy: 0, prod: 0, entr: 0, pronto: 0, ar: 0, alerta: 0 };
+  const n = { novo: 0, prod: 0, entr: 0, pronto: 0, ar: 0, alerta: 0 };
   for (const s of lista) { const e = lpEtapa(s); if (e.k in n) n[e.k]++; if (e.alerta) n.alerta++; }
   const f = S.filtro;
   const chip = k => '<button type="button" class="lp-lc e-' + k + (n[k] ? '' : ' zero') + (f === k ? ' on' : '') + '" data-f="' + k + '" aria-pressed="' + (f === k) + '" title="' +
     esc(LP_DICA[k] + ' · passe o mouse pra ver, clique pra filtrar') + '">' + (k === 'ar' ? '<i>' + LP_OK_SVG + '</i>' : '<i></i>') + (k === 'alerta' ? 'Atenção' : LP.NOME[k]) + '<b>' + n[k] + '</b></button>';
   const grp = (rot, ks) => '<span class="lp-grp"><span class="lp-gl">' + rot + '</span><span class="lp-chips">' + ks.map(chip).join('') + '</span></span>';
   return '<span class="mesleg lp-leg">' +
-    grp('no B.O.N.E', (ehTodos() ? Object.keys(S.matrizes || {}).length : mzDaAba(S.aba)) ? ['mz', 'copy'] : ['copy']) + grp('no MKT Hub', ['prod', 'entr', 'pronto']) + grp('no Instagram', ['ar']) + grp('precisa agir', ['alerta']) +
+    grp('no B.O.N.E', ['novo']) + grp('no MKT Hub', ['prod', 'entr', 'pronto']) + grp('no Instagram', ['ar']) + grp('precisa agir', ['alerta']) +
   '</span>';
 }
 /** Hover na legenda = prévia (o resto apaga); clique = filtro (clique de novo tira). Nada é redesenhado: é só CSS. */
@@ -472,7 +430,7 @@ function lpAnimaTroca(antes) {
       c.animate([{ opacity: 0, transform: 'translateY(10px) scale(.86)' }, { opacity: 1, transform: 'none' }], { duration: 560, delay: Math.min(nasce++, 14) * 30, easing: mola, fill: 'backwards' });
     }
   });
-  // o que saiu da vista (na lente "fica pronto": matriz, copy e post sem entrega) some no lugar onde estava
+  // o que saiu da vista (na lente "fica pronto": post sem task e sem entrega) some no lugar onde estava
   antes.forEach((a, id) => {
     if (vistos.has(id)) return;
     const f = a.el;
@@ -500,21 +458,17 @@ function lpFolha(s) {
   const e = lpEtapa(s);
   if (e.k === 'esp') { box.hidden = true; box.innerHTML = ''; return; }
   box.hidden = false;
-  const comMz = lpTemMatriz(s.conta) || !!s.matrizSB;
-  const ks = (comMz ? ['mz'] : []).concat(['copy', 'prod', 'entr', 'pronto', 'ar']);
-  const cur = LP.ORDEM.indexOf(e.k), a = s.aprov && s.aprov.c, hoje = hojeStr();
+  const ks = ['novo', 'prod', 'entr', 'pronto', 'ar'];
+  const cur = LP.ORDEM.indexOf(e.k), hoje = hojeStr();
   const prazo = (s.hub && s.hub.prazo) || '', nS = s.date ? lpDif(s.date, hoje) : null;
   const pal = e.pil ? e.pil.t : e.sub;
   const passos = ks.map(k => {
     const i = LP.ORDEM.indexOf(k);
     // v4.09: post sem task (ex.: o "Já foi postado") não passou pelo MKT Hub
-    const pulou = (k === 'mz' && !s.matrizSB) || (k === 'copy' && !s.docId && !s.banco) || ((k === 'prod' || k === 'entr' || k === 'pronto') && !s.taskId);
+    const pulou = (k === 'prod' || k === 'entr' || k === 'pronto') && !s.taskId;
     const st = e.k === 'ar' || i < cur ? (pulou ? 'x' : 'f') : i === cur ? 'n' : 'v';
     const det = {
-      mz: st === 'x' ? 'não passou' : st === 'f' ? 'preenchida' : st === 'n' ? (e.mzd ? e.mzd.n + ' de ' + e.mzd.total + ' campos' : pal) : 'a fazer',
-      copy: st === 'x' ? 'não passou' : st === 'f' || (st === 'n' && a && a.st === 'aprovado')
-        ? (s.banco && !s.docId ? 'material do banco' : a && a.st === 'aprovado' ? 'aprovada' + (a.ap ? ' por ' + lpPrimeiro(a.ap) : '') : 'escrita')
-        : st === 'n' ? pal : comMz ? 'depois da matriz' : 'a escrever',
+      novo: st === 'f' ? (s.banco ? 'material do banco' : 'no calendário') : pal || 'falta a task',
       prod: st === 'x' ? 'não passou' : st === 'f' ? 'entregue' : st === 'n' ? [lpPrimeiro(s.assigneeCache || s.responsavelManual), (s.statusCache && s.statusCache.nome) || pal].filter(Boolean).join(' · ') : 'nasce com a task',
       entr: st === 'x' ? 'não passou' : st === 'f' ? 'aprovada' : st === 'n' ? ((s.statusCache && s.statusCache.nome) || pal) : 'depois da arte',   // v4.10
       pronto: st === 'x' ? 'não passou' : st === 'f' ? 'liberado' : st === 'n' ? pal : 'depois da aprovação',
@@ -536,7 +490,7 @@ function lpFolha(s) {
     ent = '<div class="lpf-dc ent"><span class="lpf-dl">' + icon('box') + 'Fica pronto (entrega)</span><span class="lpf-dv">' + lpDiaL(prazo) + '</span>' +
       '<span class="lpf-dr ' + cls + '">' + rel + '</span><span class="lpf-src">prazo da task ' + esc(s.hub.codigo || '') + ' no MKT Hub</span></div>';
   } else {
-    const podeCriar = souAdmin() && S.temFonte && !s.taskId && ((a && a.st === 'aprovado') || isBanco(s));
+    const podeCriar = souAdmin() && S.temFonte && !s.taskId && !s.postado;
     const pq = !s.taskId && s.postado ? 'Esse post não passou pelo MKT Hub.'          // v4.09: o "Já foi postado"
       : !s.taskId ? 'A entrega nasce junto com a task de produção no MKT Hub.'
       : ehDoHub(s.taskId) ? 'A task ' + ((s.hub && s.hub.codigo) || '') + ' não tem entrega marcada no MKT Hub.' : 'A task deste post não é do MKT Hub, então não tem entrega aqui.';
@@ -554,11 +508,11 @@ function lpFolha(s) {
     fcls = f < 0 ? ' red' : f === 0 ? ' or' : '';
   }
   const grupos = '<div class="lpf-grupos" style="grid-template-columns:repeat(' + ks.length + ',minmax(0,1fr))">' +
-    '<span class="bone" style="grid-column:span ' + (comMz ? 2 : 1) + '">no B.O.N.E</span><span class="hub" style="grid-column:span 3">no MKT Hub</span><span class="ig">no Instagram</span></div>';
+    '<span class="bone">no B.O.N.E</span><span class="hub" style="grid-column:span 3">no MKT Hub</span><span class="ig">no Instagram</span></div>';
   box.style.setProperty('--c', 'var(--e-' + e.k + ')');
   box.innerHTML =
     '<div class="lpf-sec">Linha do post</div>' + grupos +
-    '<div class="lpf-nos' + (comMz ? '' : ' sem-mz') + (e.lider ? ' lider' : '') + '" style="grid-template-columns:repeat(' + ks.length + ',minmax(0,1fr))"><div class="lpf-trilho" style="--n:' + ks.length + '"><i style="width:' + trilho + '%;' + degrade + '"></i></div>' + passos.join('') + '</div>' +
+    '<div class="lpf-nos' + (e.lider ? ' lider' : '') + '" style="grid-template-columns:repeat(' + ks.length + ',minmax(0,1fr))"><div class="lpf-trilho" style="--n:' + ks.length + '"><i style="width:' + trilho + '%;' + degrade + '"></i></div>' + passos.join('') + '</div>' +
     '<div class="lpf-sec">As duas datas</div>' +
     '<div class="lpf-datas">' + ent + '<div class="lpf-folga' + fcls + '">' + (folga ? '<svg viewBox="0 0 44 10" aria-hidden="true"><path d="M2 5h40"/></svg><span>' + folga + '</span>' : '') + '</div>' + sai + '</div>' +
     '<p class="lpf-aviso">' + icon('help') + '<span>Aqui só mostra: a entrega é do MKT Hub (muda lá) e o dia que sai é o do calendário (arraste o card pra mudar)' +

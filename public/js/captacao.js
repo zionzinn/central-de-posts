@@ -34,7 +34,7 @@ function capNomeDiz(s) {
   return null;
 }
 function capSemAcento(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
-/** 'arte', 'video' ou null (em aberto: o doc pergunta). */
+/** 'arte', 'video' ou null (em aberto). slot.peca: a marcação antiga do doc da copy (o dado ficou; v4.22: a tela de marcar saiu). */
 function pecaDoPost(s) {
   if (!s) return null;
   if (s.peca === 'arte' || s.peca === 'video') return s.peca;
@@ -863,7 +863,7 @@ function capSepCria(c) {
 // ---------------- no calendário dos posts ----------------
 /**
  * A câmera no card do post: ligado a uma captação, o dia da gravação ("gravado" quando a captação terminou); vídeo sem
- * captação, a câmera (e "captar" quando a copy ou o roteiro foi aprovado). Arte sem captação não ganha nada.
+ * captação, a câmera. Arte sem captação não ganha nada. (v4.22: o "captar" da copy aprovada saiu com o fluxo da copy.)
  */
 function capMarca(s, e) {
   if (s.postado || (e && (e.k === 'ar' || e.k === 'esp'))) return '';
@@ -878,8 +878,6 @@ function capMarca(s, e) {
   if (pecaDoPost(s) !== 'video' || (s.sugestao && !s.taskId)) return '';
   // a task de produção já passou da edição (em aprovação, ajustar ou pronta): a captação ficou pra trás
   if (typeof stBucket === 'function' && ['pronto', 'aprovar', 'alterar'].includes(stBucket(s))) return '';
-  if (s.aprov && s.aprov.c && s.aprov.c.st === 'aprovado') return '<span class="lp-mk cap pede" title="Roteiro aprovado: pra captar. Falta ligar a uma captação (botão Captação)">' +
-    icon('camera') + '<span class="t">captar</span></span>';
   return '<span class="lp-mk cap" title="Vídeo: tem captação">' + icon('camera') + '</span>';
 }
 

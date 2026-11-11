@@ -16,9 +16,6 @@
 .mbtn.tr-big.hub{background:color-mix(in srgb, var(--e-prod) 15%, var(--fill-3)); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--e-prod) 55%, transparent)}
 .mbtn.tr-big.hub:hover{background:color-mix(in srgb, var(--e-prod) 25%, var(--fill-3))}
 .mbtn.tr-big.hub .ic{color:var(--e-prod-t)}
-.mbtn.tr-big.tr-copy{background:color-mix(in srgb, var(--e-copy) 15%, var(--fill-3)); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--e-copy) 50%, transparent)}
-.mbtn.tr-big.tr-copy:hover{background:color-mix(in srgb, var(--e-copy) 25%, var(--fill-3))}
-.mbtn.tr-big.tr-copy .ic{color:var(--e-copy-t)}
 /* v4.09: post já no ar com o link dele: ver o post (verde do Postado) */
 .mbtn.tr-big.tr-ig{background:color-mix(in srgb, var(--e-ar) 16%, var(--fill-3)); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--e-ar) 55%, transparent)}
 .mbtn.tr-big.tr-ig:hover{background:color-mix(in srgb, var(--e-ar) 26%, var(--fill-3))}

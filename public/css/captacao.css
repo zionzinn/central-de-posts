@@ -11,7 +11,7 @@
 html[data-modo="claro"]{ --cp-a:#5B4FE8; --cp-at:#4335C9; }
 
 /* ---------- o modo captação: o que é dos posts sai da frente ---------- */
-body[data-modo="cap"] #faixa, body[data-modo="cap"] #legend, body[data-modo="cap"] #lente,
+body[data-modo="cap"] #legend, body[data-modo="cap"] #lente,
 body[data-modo="cap"] #fabCriar, body[data-modo="cap"] #drawerN, body[data-modo="cap"] #selbar{display:none !important}
 .capbtn .ab-ic .ic{width:15px; height:15px}
 .capbtn.on{border-color:var(--cp-a); background:color-mix(in srgb, var(--cp-a) 20%, var(--surface-2)); color:var(--ink)}
@@ -171,7 +171,6 @@ html[data-modo="claro"] .cp-rot.g .cp-chk{color:#fff}
 
 /* ---------- no calendário dos posts: a câmera no card ---------- */
 .lp-mk.cap .t{font-size:10px; font-weight:700; letter-spacing:.01em; font-variant-numeric:tabular-nums}
-.lp-mk.cap.pede{color:var(--e-orange-t)}
 .lp-mk.cap.ok{color:var(--cp-at)}
 .lp-mk.cap.ok.falta{color:var(--e-red-t)}
 .lp-mk.cap.feito{color:var(--e-pronto-t)}

@@ -89,14 +89,6 @@ button.pp-tile:hover .pp-ir{color:var(--ink-2); transform:translateX(2px)}
 .pp-vazio.cinza .ic{color:var(--ink-3)}
 .pp-nota{margin:10px 2px 0; font-size:12.5px; color:var(--ink-3); line-height:1.45}
 
-/* tempo por dia (o gráfico é o mesmo do relatório: .tp-graf em tarefas.css) */
-.pp-box{margin-top:12px; background:var(--cell); border-radius:18px; padding:14px 16px 12px}
-.pp-boxh{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
-.pp-boxh b{font-size:14px; font-weight:650}
-.pp-rel{margin-left:auto}
-.pp-rel .ic{width:14px; height:14px}
-.pp-graf{height:190px; margin-top:12px}
-.pp-graf .tp-col.futuro .tp-rot{color:var(--ink-4)}
 
 /* time */
 .pp-time{display:flex; flex-wrap:wrap; gap:10px}

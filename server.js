@@ -2,7 +2,7 @@
 /*
  * B.O.N.E (Bora Organizar Nossas Entregas) - Grupo SB · v3.0 (neo brutal)
  * Servidor local (Node.js >= 18, sem dependências externas).
- * - data/data.json é o BANCO oficial (datas, posts, matriz, documentos, referências)
+ * - data/data.json é o BANCO oficial (datas, posts, banco, captações; e os dados antigos da matriz e da copy, v4.22)
  * - v3.77: o ClickUp e a pauta saíram (decisões 8 e 12). Cada post guarda só o LINK da task de produção;
  *   a próxima fonte de status/artes é o MKT Hub (API só leitura, v3.78)
  * - Undo universal no servidor (Ctrl+Z no front)
@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '4.21'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '4.22'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -34,9 +34,6 @@ if (!fs.existsSync(DATA_FILE)) {
 let db = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 // migrações leves (nunca destrutivas)
 if (!Array.isArray(db.banco)) db.banco = [];   // v3.83: banco de cada empresa (lib/banco.js); as referências gerais saem na migração
-// matriz da SeuBoné: dias em que o card amarelo já foi gerado (legado da geração automática, que acabou na v3.88;
-// só a limpeza da v3.77 ainda escreve aqui, em dados antigos)
-if (!db.matrizSBGeradas || typeof db.matrizSBGeradas !== 'object' || Array.isArray(db.matrizSBGeradas)) db.matrizSBGeradas = {};
 // cadência automática de GM (grande marca na capa) — só SeuBoné. ancora null = desligado até configurar.
 if (!db.gmCadencia || typeof db.gmCadencia !== 'object' || Array.isArray(db.gmCadencia))
   db.gmCadencia = { ativo: false, ancora: null, periodo: 3 };
@@ -156,106 +153,8 @@ function taskDoLink(link) {
   return { taskId: 'L' + crypto.createHash('sha1').update(u).digest('hex').slice(0, 10), taskUrl: u };
 }
 
-// ---------------- MATRIZ DE CONTEÚDO DA SEUBONÉ ----------------
-// Card AMARELO da matriz: o tipo do dia (Case, Educação...) vem da rotação A/B e a copywriter preenche formato,
-// ângulo, tese, gancho... As regras moram em lib/matriz-seubone.js. O card só vira "post normal" quando ganha a
-// task de produção. v3.88: o card nasce quando a copywriter cria a tarefa de matriz dos dias que escolheu
-// (lib/tarefas.js chama criaCardsMatriz); acabou a geração automática de 3 meses e o botão "preencher o mês".
-const MZ = require('./lib/matriz-seubone.js');
-const MZ_CONTA = 'seubone';
-// v3.91: a Weevo também tem matriz (lib/matriz-weevo.js). lib/matrizes.js diz qual matriz vale pra cada conta e aba.
-const MZS = require('./lib/matrizes.js');
-/** As regras da matriz de um post (pela conta; o campo continua matrizSB). */
-const mzDe = s => MZS.doPost(s).mod;
-// as regras de todas as matrizes, montadas uma vez (vão pelo GET /api/matrizes, com ETag: o navegador guarda)
-const MATRIZES_JSON = JSON.stringify({ versao: VERSAO, matrizes: MZS.publicas() });
-const MATRIZES_ETAG = 'W/"mz' + crypto.createHash('md5').update(MATRIZES_JSON).digest('hex').slice(0, 18) + '"';
-/** Dia já tem post da SeuBoné (próprio ou collab)? Então a matriz não põe card ali. */
-function temPostSeubone(iso) {
-  return db.slots.some(s => s.date === iso && (s.conta === MZ_CONTA || (s.collab || []).includes(MZ_CONTA)));
-}
-function novoSlotMatriz(iso, matrizSB, mzTarefa, conta) {
-  return {
-    id: 's' + crypto.randomBytes(4).toString('hex'),
-    conta: conta || MZ_CONTA, date: iso || null, taskId: null, titulo: null, formato: '', angulo: '', obs: '', notas: '',
-    gm: '', collab: [], drive: '', linkRef: '', aprovado: false, postado: false,
-    responsavelManual: '', origem: 'matriz', cat: '', fonteId: '', matrizSB,
-    ...(mzTarefa ? { mzTarefa } : {}),        // v3.88: a tarefa de matriz que criou o card (excluir a tarefa leva os vazios)
-    tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: new Date().toISOString(),
-  };
-}
-/**
- * v3.91: o dia já tem o post da matriz? SeuBoné: qualquer post da conta (próprio ou collab), porque a matriz é o post
- * do dia. Weevo: só um card da matriz dela (os hacks e virais do dia são outros posts, fora da matriz).
- */
-function diaOcupado(iso, mz) {
-  if (mz.umPorDia) return db.slots.some(s => s.date === iso && (s.conta === mz.conta || (s.collab || []).includes(mz.conta)));
-  // v4.00: o post do dia criado pela tarefa de copy (DD_MM) também é o post da matriz daquele dia na Weevo
-  return db.slots.some(s => s.date === iso && s.conta === mz.conta && (!!s.matrizSB || !!s.cpTarefa));
-}
-/**
- * v3.88: a tarefa de matriz cria os cards amarelos dos dias dela (v3.91: SeuBoné e Weevo). Dia ocupado fica como
- * está; dia antes do começo da matriz (Weevo: 01/10/2026) também. Devolve os ids criados.
- */
-function criaCardsMatriz(tf) {
-  const mz = tf && tf.tipo === 'matriz' ? MZS.porAba(tf.aba) : null;
-  if (!mz || !db.contas[mz.conta]) return [];
-  const criados = [];
-  for (let d = tf.de; d <= tf.ate; d = addDiaISO(d, 1)) {
-    if (!mz.mod.tipoDoDia(d) || diaOcupado(d, mz)) continue;
-    const slot = novoSlotMatriz(d, mz.mod.cardDoDia(d), tf.id, mz.conta);
-    db.slots.push(slot); criados.push(slot.id);
-  }
-  return criados;
-}
-/** v3.88: excluir a tarefa de matriz leva junto os cards que ELA criou e que continuam vazios. Devolve quantos. */
-function limpaCardsMatriz(tf) {
-  const sai = new Set(db.slots.filter(s => s.mzTarefa === tf.id && s.matrizSB && !s.taskId && !s.postado && !s.docId
-    && !(s.aprov && s.aprov.c) && !rotaCaptacao.temPost(s.id) && mzDe(s).vazio(s.matrizSB)).map(s => s.id));   // v4.14: ligado a uma captação, fica
-  if (sai.size) db.slots = db.slots.filter(s => !sai.has(s.id));
-  return sai.size;
-}
-// ---------------- v4.00: a tarefa de copy (POST) sem a de matriz ----------------
-// Pedido do Zion em 01/10/2026: "a terafa POST pode vim sem necessáriamente ter a tarefa MATRIZ antes, em alguns casos.
-// então, ela deve criar as tarefinhas com o nome: dia_mês (exemplo 01_10)" (a tarefa POST é a de copy). Escolha dele: as contas da empresa aparecem
-// na tarefa nova, todas marcadas; cada conta marcada ganha 1 post "DD_MM" em cada dia do período que ainda não tem post
-// dela (dia com post, card da matriz ou post já postado fica como está). O post guarda a tarefa que o criou (cpTarefa).
-/** O nome do post do dia: 01_10. */
-function nomeDoDia(iso) { return iso.slice(8, 10) + '_' + iso.slice(5, 7); }
-/** A conta já tem post nesse dia? (próprio ou collab; sugestão da pauta sem task não conta, igual aos itens da tarefa) */
-function temPostDaConta(iso, conta) {
-  return db.slots.some(s => s.date === iso && (s.conta === conta || (s.collab || []).includes(conta)) && !(s.sugestao && !s.taskId));
-}
-/** Cria os posts DD_MM da tarefa de copy nas contas dela (tf.contas). Devolve os ids criados. */
-function criaPostsCopy(tf) {
-  const contas = (Array.isArray(tf.contas) ? tf.contas : []).filter(c => db.contas[c] && db.contas[c].aba === tf.aba);
-  const criados = [];
-  for (let d = tf.de; d <= tf.ate; d = addDiaISO(d, 1)) {
-    for (const c of contas) {
-      if (temPostDaConta(d, c)) continue;
-      const slot = montaSlot({ conta: c, date: d, titulo: nomeDoDia(d) });
-      slot.cpTarefa = tf.id;
-      db.slots.push(slot); criados.push(slot.id);
-    }
-  }
-  return criados;
-}
-/**
- * Excluir a tarefa de copy leva junto os posts DD_MM que ELA criou e que ninguém mexeu: continuam com o nome do dia em
- * que estão, na conta em que nasceram, sem documento, task, aprovação, tempo no relógio, nota, GM, pino, collab etc.
- */
-function limpaPostsCopy(tf) {
-  const contas = Array.isArray(tf.contas) ? tf.contas : [];
-  const temTempo = s => { const t = rotaTempo.tempoDoPost(s.id); return (t[0] || 0) + (t[1] || 0) > 0; };
-  const vazio = s => contas.includes(s.conta) && s.titulo === nomeDoDia(s.date || '') && !s.taskId && !s.postado && !s.docId
-    && !(s.aprov && s.aprov.c) && !s.banco && !s.matrizSB && !s.vaga && !s.gm && !s.fixo && !s.aprovado && !(s.collab || []).length   // fixo: o pino de antes da v4.05 (quem cravou, mexeu)
-    && !String(s.notas || '').trim() && !s.obs && !s.angulo && !s.drive && !s.linkRef && !s.formato && !String(s.responsavelManual || '').trim()
-    && !s.peca && !rotaCaptacao.temPost(s.id)                   // v4.03: marcado como arte/vídeo fica; v4.14: ligado a uma captação também
-    && !temTempo(s);
-  const sai = new Set(db.slots.filter(s => s.cpTarefa === tf.id && s.date && vazio(s)).map(s => s.id));
-  if (sai.size) db.slots = db.slots.filter(s => !sai.has(s.id));
-  return sai.size;
-}
+// v4.22: a matriz (cards amarelos, rotação A/B) e a tarefa de copy (posts DD_MM) saíram com o fluxo da copywriter.
+// O código está no backup _backup-v4.21-fluxo-copy; os dados (matrizSB, docId, aprov, tarefas, tempo) ficaram no data.json.
 function hojeRecife() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Recife' }); }
 // ---------------- app instalável (PWA) ----------------
 // O manifesto e o ícone são SERVIDOS PELO CÓDIGO, não como arquivos na pasta public.
@@ -417,27 +316,14 @@ function aovivoPersonagem(nome, pg) {
   }
 }
 
-// Documentos (a copy do post, editor estilo Docs em public/doc.html). Rotas em lib/docs.js.
-const rotaDocs = require('./lib/docs.js')({ db, saveDb, readBody, json, pushUndo, MZ, mzDe, backupAgora, usoInvalida: () => USO.invalida(),
-  personagemDoNome: n => rotaPerfil.doNome(n),   // v3.99: a bolinha de quem está com o documento aberto mostra o personagem
-  comHub: s => rotaHub.sobrepoe([s])[0] });      // v4.03: a peça (arte ou vídeo) olha o nome da task do MKT Hub
-// v3.80: tarefas da copywriter (matriz e copy por empresa, com aprovação post a post) e o relógio delas
-const rotaTempo = require('./lib/tempo.js')({ db, saveDb, readBody, json, equipe: () => AUTH.ligado() ? AUTH.usuarios().map(u => u.nome) : [] });
-/** v3.88: o card da matriz está completo (os campos obrigatórios cheios); v3.96: com material do banco, está resolvido. */
-const mzCheio = (m, s) => !!(s && s.banco) || (!!m && mzDe(s).OBRIGATORIOS.every(k => String(m[k] || '').trim()));
-const rotaTarefas = require('./lib/tarefas.js')({ db, saveDb, readBody, json, undoSlots, tempo: rotaTempo,
-  criaCards: criaCardsMatriz, limpaCards: limpaCardsMatriz, mzCheio,
-  criaPosts: criaPostsCopy, limpaPosts: limpaPostsCopy,   // v4.00: a tarefa de copy cria os posts DD_MM
-  abasMatriz: MZS.ABAS });   // v3.91: SeuBoné e Weevo
 // v3.81: MKT Hub (leitura; chave só na variável MKH_CHAVE). Sem chave, fica desligado.
-const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/docs.js').limpaHtml });
-// v3.84: a tarefa de matriz ou copy vira no Hub uma tarefa mãe com uma subtarefa por post (só com a chave de nível completa)
-const rotaHubEnvio = require('./lib/hubenvio.js')({ db, saveDb, readBody, json, hub: rotaHub, tempo: rotaTempo, itens: rotaTarefas.itens, soAdmin, gravaJa: () => gravarAgora() });
+const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('./lib/html.js').limpaHtml });   // v4.22: limpaHtml saiu do lib/docs.js
+// v3.90: a task de produção de um post no MKT Hub (só com a chave de nível completa). v4.22: só isso ficou no lib/hubenvio.js
+const rotaHubEnvio = require('./lib/hubenvio.js')({ db, saveDb, readBody, json, hub: rotaHub, soAdmin, gravaJa: () => gravarAgora() });
 // v4.14: a captação no calendário (a task de captação do MKT Hub com os dias de gravação, os roteiros e os posts ligados).
 // Substitui o quadro de blocos (v4.03) e a criação da task de Captação pelo B.O.N.E (v4.04).
 const rotaCaptacao = require('./lib/captacao.js')({ db, saveDb, readBody, json, soAdmin, hub: rotaHub, pushUndo, backupAgora });
 rotaHub.extras = rotaCaptacao.refs;                       // v4.14: a task de captação (até subtarefa) também é relida
-rotaTarefas.hubPublico = rotaHubEnvio.publico;
 // v3.90: depois de cada leitura do Hub, a data do post que não foi na hora vai de novo; v3.95: e a limpeza do Vídeo fábrica
 rotaHub.depois = async () => { await rotaHubEnvio.reenviaDatas(); limpezaV395Hub(); };
 // v3.82: login pelo Zoho (liga só com ZOHO_CLIENT_ID e ZOHO_CLIENT_SECRET; sem elas, senha opcional como antes)
@@ -459,21 +345,19 @@ function montaSlot(b) {
     drive: b.drive || '', linkRef: b.linkRef || '', aprovado: false, postado: b.postado === true,   // v4.09: "Já foi postado" nasce postado
     ...(b.linkPost ? { linkPost: limpaLinkPost(b.linkPost) } : {}),                                  // v4.09: o link do post publicado
     responsavelManual: String(b.responsavelManual || '').slice(0, 80), origem: 'painel',   // v3.83: sem "criativo" e "banco" (o banco antigo saiu)
-    ...(b.matrizSB ? { matrizSB: mzDe(b).limpa(Object.assign({ tipo: b.date ? ((mzDe(b).tipoDoDia(b.date) || {}).tipo || '') : '' }, b.matrizSB)) } : {}),   // v3.91: a matriz da conta
     ...(b.peca === 'arte' || b.peca === 'video' ? { peca: b.peca } : {}),   // v4.03: arte ou vídeo (a cópia de um post leva junto)
     tituloCache: null, statusCache: null, assigneeCache: null, dueCache: null, atualizadoEm: null,
   };
   // VAGA = "falta criar este post". Só faz sentido sem task: se já tem task, não falta criar.
   if (b.vaga && !slot.taskId) slot.vaga = true;
-  if (slot.matrizSB) slot.origem = 'matriz';
   return slot;
 }
 // v3.83: banco de cada empresa (Reutilizar, Drive de conteúdos, Referência de posts, Cortes de podcasts)
 const rotaBanco = require('./lib/banco.js')({ db, saveDb, readBody, json, pushUndo, montaSlot });
-// v3.99: aba Perfil (personagem de cada um, "Comigo agora", a semana e o time). Regras, quem vê o quê e custo em lib/perfil.js.
+// v3.99: aba Perfil (personagem de cada um, "Comigo agora" e o time). Regras, quem vê o quê e custo em lib/perfil.js.
 const rotaPerfil = require('./lib/perfil.js')({ db, saveDb, readBody, json,
   ligado: () => AUTH.ligado(), usuarios: () => AUTH.ligado() ? USUARIOS_LOGIN : [],
-  online: () => [...aovivo.values()].map(x => x.nome), itens: rotaTarefas.itens, mzCheio,
+  online: () => [...aovivo.values()].map(x => x.nome),
   sobrepoe: slots => rotaHub.sobrepoe(slots), mudou: (eu, pg) => aovivoPersonagem(eu.nome, pg) });
 /**
  * v3.86: colou o link (ou o código MKT, ou o uuid) de uma tarefa do MKT Hub num post: acha a tarefa NA HORA (na memória
@@ -537,12 +421,8 @@ const server = http.createServer(async (req, res) => {
       if (!validAuthToken(parseCookies(req.headers.cookie).sb_auth)) return json(res, 401, { erro: 'login', precisaLogin: true });
     }
 
-    // ---------- documentos (copy) ----------
-    if (p.startsWith('/api/docs') && await rotaDocs(req, res, p, u)) return;
-    // ---------- tarefas e relógio (v3.80); mandar a tarefa pro MKT Hub (v3.84, antes: a /hub de cada tarefa é de lá) ----------
-    if ((/^\/api\/tarefas\/t[0-9a-f]{8}\/hub$/.test(p) || /^\/api\/slots\/[a-z0-9]+\/producao$/i.test(p) || p === '/api/hub/escrita' || p === '/api/hub/config') && await rotaHubEnvio(req, res, p, u)) return;   // v3.90: task de produção
-    if ((p.startsWith('/api/tarefas') || /^\/api\/slots\/[a-z0-9]+\/copy$/i.test(p)) && await rotaTarefas(req, res, p, u)) return;   // v3.89: a copy de um post
-    if (p.startsWith('/api/tempo') && await rotaTempo(req, res, p, u)) return;
+    // ---------- task de produção no MKT Hub (v3.90) e a configuração da escrita no Hub ----------
+    if ((/^\/api\/slots\/[a-z0-9]+\/producao$/i.test(p) || p === '/api/hub/escrita') && await rotaHubEnvio(req, res, p, u)) return;   // v3.90: task de produção
     if (p.startsWith('/api/banco') && await rotaBanco(req, res, p)) return;
     if (p.startsWith('/api/perfil') && await rotaPerfil(req, res, p, u)) return;   // v3.99
     if (p.startsWith('/api/captacao') && await rotaCaptacao(req, res, p)) return;   // v4.14: captação no calendário
@@ -565,18 +445,16 @@ const server = http.createServer(async (req, res) => {
         versao: VERSAO,
         contas: db.contas, abas: db.abas,
         slots: rotaHub.sobrepoe(slots), banco: db.banco, bancoPastas: db.bancoPastas || [],   // v3.97: pastas por pessoa nos cortes   // v3.81: status do Hub por cima dos posts (sem gravar); v3.83: banco de cada empresa
-        tarefas: rotaTarefas.publicas(),                  // v3.80: tarefas abertas (matriz e copy), com os posts de cada uma
         captacoes: rotaCaptacao.publicos(),               // v4.14: as captações (o calendário de captação e a câmera no card do post)
         capRev: rotaCaptacao.rev(),                        // v4.14: a versão delas (o navegador não volta pra uma mais velha)
         capPendentes: !req.eu || req.eu.papel === 'admin' ? rotaCaptacao.pendentes() : 0,   // v4.14: vídeos dos próximos 14 dias sem captação
         temFonte: rotaHub.ligado(),                       // v3.81: true com a chave do MKT Hub (artes e comentários das tasks)
-        hubEscrita: rotaHubEnvio.escrita(),               // v3.84: true com a chave de nível completa (a tarefa vai pro Hub)
+        hubEscrita: rotaHubEnvio.escrita(),               // v3.84: true com a chave de nível completa (dá pra criar a task de produção)
         temSenha: !!config.senha,
         eu: req.eu || null, zoho: AUTH.ligado(),          // v3.82: quem está logado e se o login é pelo Zoho
         equipe: AUTH.ligado() ? AUTH.usuarios().map(x => x.nome) : undefined,   // nomes pro "quem faz" (60 bytes)
         gmCadencia: db.gmCadencia,
         uso: !req.eu || req.eu.papel === 'admin' ? USO.curto() : undefined,   // v3.95: o uso do Render é só do ADMIN
-        // v3.91: as regras das matrizes saíram daqui (eram 10 KB comprimidos em toda resposta cheia): GET /api/matrizes
       });
       // v3.72: o painel pergunta a cada 20 s; se nada mudou, a resposta é um 304 de ~0,3 KB em vez de ~17 KB.
       // O navegador guarda a última resposta e devolve ela pro painel sozinho (nada muda no front).
@@ -584,12 +462,6 @@ const server = http.createServer(async (req, res) => {
       // v3.82: a resposta tem quem está logado: "private" (nenhum cache no caminho guarda pra outra pessoa)
       if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, 'Cache-Control': 'private, no-cache', Vary: 'Accept-Encoding' }); USO.resposta(0); return res.end(); }
       return jsonTexto(res, 200, corpo, { ETag: etag, 'Cache-Control': 'private, no-cache' });
-    }
-
-    // ---------- v3.91: regras das matrizes (SeuBoné e Weevo): mudam só com versão nova, então o navegador guarda ----------
-    if (p === '/api/matrizes' && req.method === 'GET') {
-      if (req.headers['if-none-match'] === MATRIZES_ETAG) { res.writeHead(304, { ETag: MATRIZES_ETAG, 'Cache-Control': 'private, no-cache', Vary: 'Accept-Encoding' }); USO.resposta(0); return res.end(); }
-      return jsonTexto(res, 200, MATRIZES_JSON, { ETag: MATRIZES_ETAG, 'Cache-Control': 'private, no-cache' });
     }
 
     // ---------- uso de banda do mês (v3.72) ----------
@@ -605,7 +477,7 @@ const server = http.createServer(async (req, res) => {
       const lig = b.taskUrl ? await ligaHub(b.taskUrl) : null;                 // v3.86: a tarefa do Hub já na hora
       const slot = montaSlot(b);
       if (lig && lig.t) { slot.taskId = lig.t.id; slot.taskUrl = lig.t.url || slot.taskUrl; slot.vaga = false; }
-      undoSlots(slot.vaga ? 'sinalizar falta criar' : (slot.matrizSB ? 'novo card da matriz' : slot.postado ? 'novo post já postado' : 'novo post'), [], [slot.id]);
+      undoSlots(slot.vaga ? 'sinalizar falta criar' : (slot.postado ? 'novo post já postado' : 'novo post'), [], [slot.id]);
       db.slots.push(slot); saveDb();
       return json(res, 200, { ok: true, slot: rotaHub.sobrepoe([slot])[0], aviso: (lig && lig.aviso) || undefined });
     }
@@ -652,13 +524,10 @@ const server = http.createServer(async (req, res) => {
       if (!e) return json(res, 200, { ok: false, motivo: 'nada pra desfazer' });
       if (e.tipo === 'slots') {
         for (const id of e.criados || []) db.slots = db.slots.filter(s => s.id !== id);
-        // v3.84: a aprovação do que foi pro MKT Hub não volta no Ctrl+Z (quem manda nela é o Hub); o resto volta como era
-        const noHub = (x, k) => !!(x && x.aprov && x.aprov[k] && x.aprov[k].hub);
         for (const cp of e.antes || []) {
           const i = db.slots.findIndex(s => s.id === cp.id);
           if (i >= 0) {
             const atual = db.slots[i];
-            for (const k of ['m', 'c']) if (noHub(atual, k) || noHub(cp, k)) { const ap = Object.assign({}, cp.aprov); if (atual.aprov && atual.aprov[k]) ap[k] = atual.aprov[k]; else delete ap[k]; cp.aprov = ap; }
             // v3.90: a task de produção no Hub não se desfaz no Ctrl+Z: o que o post sabe dela (e o envio que está no ar,
             // com a chave que não deixa duplicar) fica como está agora. A ligação só é segurada se o post está ligado a
             // ela agora (desfazer o "tirar o link" continua valendo)
@@ -694,8 +563,6 @@ const server = http.createServer(async (req, res) => {
         return json(res, 400, { erro: 'conta inválida: ' + b.conta });
       }
       const trocaConta = 'conta' in b && !!db.contas[b.conta] && b.conta !== slot.conta;
-      // v4.03: arte ou vídeo (null volta pro automático, pelo formato). v4.14: o bloco de captação saiu (a captação liga os posts)
-      if ('peca' in b && b.peca !== null && b.peca !== 'arte' && b.peca !== 'video') return json(res, 400, { erro: 'peça inválida (arte ou vídeo)' });
       const descUndo =
         trocaConta ? 'trocar pra ' + db.contas[b.conta].nome :
         'date' in b ? ((b.date || null) ? 'mover post pra ' + String(b.date).split('-').reverse().join('/') : 'mandar post pro banco') :
@@ -704,33 +571,23 @@ const server = http.createServer(async (req, res) => {
         'vaga' in b ? (b.vaga ? 'sinalizar falta criar' : 'dar baixa na vaga') :
         'cat' in b ? 'mudar categoria no banco' :
         'notas' in b && Object.keys(b).length === 1 ? 'editar observação' :
-        'matrizSB' in b ? 'editar card da matriz' :
         'aprovado' in b ? 'mudar aprovação da arte' :
         'collab' in b ? (Array.isArray(b.collab) && b.collab.length ? 'marcar collab' : 'tirar collab') :
         'formato' in b && Object.keys(b).length === 1 ? 'mudar formato' :
         'titulo' in b && Object.keys(b).length === 1 ? 'mudar o título' :                       // v4.08: o título na folha
-        'linkPost' in b && Object.keys(b).length === 1 ? 'mudar o link do post' :                // v4.09
-        'peca' in b ? (b.peca === 'video' ? 'marcar como vídeo' : b.peca === 'arte' ? 'marcar como arte' : 'peça pelo formato') : 'editar post';
+        'linkPost' in b && Object.keys(b).length === 1 ? 'mudar o link do post' : 'editar post';   // v4.09
       undoSlots(descUndo, [slot]);
       if (trocaConta) slot.conta = b.conta; // ANTES do collab: collab não pode conter a própria conta
       if ('date' in b) slot.date = b.date || null;
       for (const k of ['titulo', 'formato', 'obs', 'drive', 'linkRef', 'angulo', 'notas']) if (k in b) slot[k] = b[k] || '';
       if ('titulo' in b) slot.titulo = String(slot.titulo).replace(/\s+/g, ' ').trim().slice(0, 200);   // v4.08: uma linha, até 200
       if ('linkPost' in b) { const l = limpaLinkPost(b.linkPost); if (l) slot.linkPost = l; else delete slot.linkPost; }   // v4.09
-      if ('matrizSB' in b) {                                               // campos da matriz da SeuBoné
-        slot.matrizSB = mzDe(slot).limpa(b.matrizSB, slot.matrizSB);   // v3.91: a matriz da conta do post
-        if (slot.matrizSB) slot.postado = slot.matrizSB.status === 'Postado'; // status da matriz e "postado" andam juntos
-      }
       if ('responsavelManual' in b) slot.responsavelManual = String(b.responsavelManual || '').slice(0, 80);
-      if ('postado' in b) {
-        slot.postado = !!b.postado;
-        if (slot.matrizSB) slot.matrizSB.status = slot.postado ? 'Postado' : (slot.matrizSB.status === 'Postado' ? 'Aprovado' : slot.matrizSB.status);
-      }
+      if ('postado' in b) slot.postado = !!b.postado;
       if ('gm' in b) slot.gm = (b.gm === 'sim' || b.gm === 'nao') ? b.gm : '';
       if ('vaga' in b) slot.vaga = !!b.vaga; // vaga = falta criar este post
       if ('cat' in b) slot.cat = typeof b.cat === 'string' ? b.cat : '';
       if ('aprovado' in b) slot.aprovado = !!b.aprovado;
-      if ('peca' in b) { if (b.peca) slot.peca = b.peca; else delete slot.peca; }            // v4.03
       if ('collab' in b) slot.collab = Array.isArray(b.collab) ? b.collab.filter(c => db.contas[c] && c !== slot.conta) : [];
       // trocou de conta sem mandar collab: tira a nova conta própria do collab (ninguém faz collab consigo)
       if (trocaConta) slot.collab = (slot.collab || []).filter(c => c !== slot.conta);
@@ -848,103 +705,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-// ---------------- limpeza da v3.77 (uma vez só) ----------------
-// Pedido do Zion em 27/09/2026: tirar as tasks de catálogo da SeuBoné que ainda não foram postadas e deixar só a
-// matriz nesses dias. As removidas ficam guardadas 30 dias em db.removidosV377 (dá pra devolver) e o histórico do
-// GitHub dos dados tem o antes. Também some o que era só do ClickUp: fila de datas pendentes e memória de avisos.
-function limpezaV377() {
-  try {
-    if (!db.migracoes || typeof db.migracoes !== 'object') db.migracoes = {};
-    if (db.removidosV377 && Date.now() > Date.parse(db.removidosV377.ate || 0)) { delete db.removidosV377; saveDb(); }
-    if (db.migracoes.v377) return;
-    backupAgora('antes da limpeza v3.77 (catálogo e ClickUp)');
-    const hoje = hojeRecife();
-    const ehCatalogo = s => s.conta === MZ_CONTA && !s.postado && !(s.matrizSB && !s.taskId)
-      && /catalogo/.test(semAcento((s.titulo || '') + ' ' + (s.tituloCache || '')));
-    const alvo = db.slots.filter(ehCatalogo);
-    if (alvo.length) {
-      db.removidosV377 = {
-        em: new Date().toISOString(), ate: new Date(Date.now() + 30 * 86400000).toISOString(),
-        motivo: 'tasks de catálogo da SeuBoné ainda não postadas (pedido do Zion em 27/09/2026)',
-        slots: alvo.map(copiaSlot),
-      };
-      const fora = new Set(alvo.map(s => s.id));
-      db.slots = db.slots.filter(s => !fora.has(s.id));
-    }
-    // matriz no lugar, de hoje em diante, só nos dias que ficaram vazios
-    let matriz = 0;
-    for (const d of [...new Set(alvo.map(s => s.date).filter(d => d && d >= hoje))].sort()) {
-      if (temPostSeubone(d)) continue;
-      db.slots.push(novoSlotMatriz(d, MZ.novoParaDia(d)));
-      db.matrizSBGeradas[d] = true;
-      matriz++;
-    }
-    delete db.dueSync; delete db.avisos; delete db.statusColors;   // restos do ClickUp
-    // só os números: as cópias completas ficam 30 dias em db.removidosV377 e no backup (cada KB aqui vai pro GitHub a cada gravação)
-    db.migracoes.v377 = { em: new Date().toISOString(), catalogoRemovidos: alvo.length, matrizCriada: matriz };
-    saveDb();
-    console.log('[v3.77] ' + alvo.length + ' task(s) de catálogo tirada(s), ' + matriz + ' card(s) da matriz no lugar');
-  } catch (e) { console.log('[v3.77] limpeza falhou:', e.message); }
-}
-
-// ---------------- limpeza da v3.88 (uma vez só) ----------------
-// Pedido do Zion em 30/09/2026 ("vamos rever o fluxo de Elis"): (1) saem os cards amarelos da matriz que ninguém
-// preencheu (os preenchidos ficam; card novo agora nasce da tarefa de matriz); (2) sai tudo de 01/10/2026 em diante
-// da Carbone, da Weevo e da Onevo (posts, cards e tarefas; os documentos desses posts vão pra lixeira, dá pra
-// restaurar); (3) a matriz e a copy não vão mais pro MKT Hub: a copy que esperava aprovação lá volta a esperar aqui,
-// e a matriz não passa mais por aprovação. Backup completo antes (e o histórico do GitHub dos dados tem o antes);
-// em db.removidosV388 fica 30 dias só o resumo de cada post que saiu (a cópia inteira de centenas de posts ia
-// junto pro GitHub em toda gravação).
-const V388_DESDE = '2026-10-01', V388_ABAS = ['CARBONE', 'WEEVO', 'ONEVO'];
-function limpezaV388() {
-  try {
-    if (!db.migracoes || typeof db.migracoes !== 'object') db.migracoes = {};
-    if (db.removidosV388 && Date.now() > Date.parse(db.removidosV388.ate || 0)) { delete db.removidosV388; saveDb(); }
-    if (db.migracoes.v388) return;
-    const bk = backupAgora('antes da limpeza v3.88 (fluxo novo da copywriter)');
-    const abaDe = c => db.contas[c] ? db.contas[c].aba : null;
-    const mzVazio = s => !!s.matrizSB && !s.taskId && !s.postado && !s.docId && !(s.aprov && s.aprov.c) && MZ.vazio(s.matrizSB);
-    const daLimpa = s => !!s.date && s.date >= V388_DESDE && V388_ABAS.includes(abaDe(s.conta));
-    const saem = db.slots.filter(s => mzVazio(s) || daLimpa(s));
-    const agora = new Date().toISOString();
-    // documentos dos posts que saem: pra lixeira (a lista de documentos mostra em "ver excluídos" e restaura)
-    let docs = 0;
-    for (const s of saem) {
-      const d = s.docId && db.docs ? db.docs[s.docId] : null;
-      if (d && !d.excluido) { d.excluido = true; d.excluidoEm = agora; docs++; }
-    }
-    const fora = new Set(saem.map(s => s.id));
-    db.slots = db.slots.filter(s => !fora.has(s.id));
-    // tarefas dessas empresas que começam de 01/10 em diante
-    const tarefas = Object.values(db.tarefas || {}).filter(t => V388_ABAS.includes(t.aba) && t.de >= V388_DESDE);
-    for (const t of tarefas) delete db.tarefas[t.id];
-    // sem MKT Hub na tarefa: a copy que estava lá esperando volta a esperar aqui; o resto fica, sem a marca do Hub
-    let hub = 0;
-    for (const s of db.slots) {
-      const a = s.aprov && s.aprov.c;
-      if (a && (a.hub || a.sub || a.pend)) { delete a.hub; delete a.sub; delete a.pend; hub++; }
-    }
-    const hubs = {};
-    for (const t of Object.values(db.tarefas || {})) if (t.hub) { hubs[t.id] = (t.hub.maes || []).map(m => m.codigo || m.id); delete t.hub; }
-    // "Quem faz" saiu da conta: card com os 7 campos cheios e ainda "Não iniciado" vai pra "Briefing criado"
-    let briefing = 0;
-    for (const s of db.slots) {
-      if (!s.matrizSB || s.matrizSB.status !== 'Não iniciado') continue;
-      const m = MZ.limpa(s.matrizSB);
-      if (m.status !== s.matrizSB.status) { s.matrizSB = m; briefing++; }
-    }
-    db.matrizSBGeradas = {};
-    const resumo = x => ({ id: x.id, conta: x.conta, date: x.date, titulo: x.titulo || x.tituloCache || (x.matrizSB && (x.matrizSB.tema || x.matrizSB.tipo)) || '', taskId: x.taskId || null, docId: x.docId || null });
-    db.removidosV388 = {
-      em: agora, ate: new Date(Date.now() + 30 * 86400000).toISOString(), backup: bk,
-      motivo: 'fluxo novo da copywriter: cards vazios da matriz e tudo de 01/10/2026 em diante da Carbone, Weevo e Onevo (pedido do Zion em 30/09/2026)',
-      slots: saem.map(resumo), tarefas: tarefas.map(t => ({ id: t.id, tipo: t.tipo, aba: t.aba, de: t.de, ate: t.ate, por: t.por })), tarefasHub: hubs,
-    };
-    db.migracoes.v388 = { em: agora, cardsVazios: saem.filter(mzVazio).length, postsDasOutras: saem.filter(daLimpa).length, docsLixeira: docs, tarefas: tarefas.length, copysDoHub: hub, briefing };
-    saveDb();
-    console.log('[v3.88] ' + JSON.stringify(db.migracoes.v388));
-  } catch (e) { console.log('[v3.88] limpeza falhou:', e.message); }
-}
+// v4.22: as limpezas da v3.77 e da v3.88 (uma vez só, já rodaram) saíram junto com a matriz (backup _backup-v4.21-fluxo-copy).
 
 // v3.95 (pedido do Zion em 01/10/2026: "preciso remover todas as TASKS DE VÍDEO FÁBRICA"; resposta dele: "esses e a
 // versão comercial"): saem do painel os posts de "Vídeo fábrica" ([EDIÇÃO] Vídeo fábrica [03_OUT], [10_OUT]...) e a
@@ -1015,13 +776,7 @@ function backupDiario() {
 }
 backupDiario();
 setInterval(backupDiario, 6 * 3600_000);
-// v3.80: faxina do relógio (sessão com mais de 14 dias sai da lista, dia velho vira mês) e das tarefas concluídas
-function faxinaTarefas() { try { rotaTempo.poda(); rotaTarefas.faxina(); } catch (e) { console.log('[tarefas] faxina falhou:', e.message); } }
-faxinaTarefas();
-setInterval(faxinaTarefas, 6 * 3600_000);
-limpezaV377();                                    // v3.77 (dados antigos): catálogo sai, matriz no lugar
 rotaBanco.migra(backupAgora, m => console.log(m)); // v3.83: o banco antigo sai (guardado 30 dias em removidosV383)
-limpezaV388();                                    // v3.88: fluxo novo da copywriter (cards vazios e o que sai de 01/10 em diante)
 limpezaV395();                                    // v3.95: saem as tasks de Vídeo fábrica (e a versão comercial)
 // v3.96: itens do banco sem título com link do Drive ganham o nome do arquivo (uma vez só, em segundo plano)
 setTimeout(() => rotaBanco.nomesDoDrive(backupAgora, m => console.log(m)).catch(e => console.log('[v3.96] nome do Drive falhou:', e.message)), +process.env.BANCO_NOMES_MS || 8000);

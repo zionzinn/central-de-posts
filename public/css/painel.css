@@ -202,23 +202,7 @@ header::before{content:""; position:absolute; inset:0; z-index:-1; pointer-event
 .ico:active{background:var(--fill)}
 .ico .ic{width:18px; height:18px}
 .ico-help .ic{width:17px; height:17px}
-/* sino: liga/desliga os avisos (botão com estado, não interruptor: HIG > Toggles, fora de lista) */
-.mute{position:relative; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  cursor:pointer; border:0; background:transparent; color:var(--ink-2); transition:background var(--t), color var(--t)}
-.mute:hover{background:var(--fill-3); color:var(--ink)}
-.mute-chk{position:absolute; inset:0; width:100%; height:100%; opacity:0; margin:0; cursor:pointer; z-index:2}
-.mute:has(.mute-chk:focus-visible){outline:3px solid color-mix(in srgb, var(--focus) 55%, transparent); outline-offset:1px}
-.mute .ic-ring,.mute .ic-silent{position:absolute; display:flex; transform-origin:50% 15%; transition:opacity .15s}
-.mute .ic{width:18px; height:18px}
-.mute .ic-silent{opacity:0}
-.mute:has(.mute-chk:not(:checked)) .ic-ring{animation:sino-balanca .5s ease-in-out}
-.mute:has(.mute-chk:checked){color:var(--ink-3)}
-.mute:has(.mute-chk:checked) .ic-ring{opacity:0}
-.mute:has(.mute-chk:checked) .ic-silent{opacity:1}
-.mute .mn{position:absolute; top:-2px; right:-3px; min-width:16px; height:16px; padding:0 4px; border-radius:8px;
-  background:var(--red); color:#000; font-size:10px; font-weight:700; line-height:16px; text-align:center; display:none; z-index:3}
-.mute .mn.on{display:block}
-@keyframes sino-balanca{0%{transform:rotate(12deg)}20%{transform:rotate(-12deg)}40%{transform:rotate(16deg)}60%{transform:rotate(-16deg)}80%{transform:rotate(0)}}
+
 /* presença ao vivo: bolinhas de quem está online */
 .presenca{display:flex; align-items:center; padding-right:4px}
 .presenca:empty{display:none}
@@ -281,7 +265,6 @@ html[data-modo="claro"] :is(.dot,.cdot){box-shadow:inset 0 0 0 1px rgba(0,0,0,.1
 .chip.off{opacity:.4}
 .chip.gmchip{background:color-mix(in srgb, var(--sb) 16%, transparent); color:var(--sb-ink); font-weight:600; cursor:default}
 .chip .ic{width:14px; height:14px}
-
 
 /* ---------- gaveta: painel lateral flutuante de vidro (HIG > Sidebars) ---------- */
 .drawer{position:fixed; top:calc(var(--htop,101px) + 8px); right:8px; bottom:8px; width:344px; z-index:55; border-radius:20px; overflow:hidden;
@@ -426,7 +409,6 @@ main.trocou{animation:fadeup .24s ease both}
 .day.temvaga{box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--red) 55%, transparent)}
 .dleft{display:inline-flex; align-items:center; gap:4px; min-width:0; max-width:100%}
 /* v4.01: o tipo do dia da matriz fica neutro (antes eram 4 cores de objetivo): a cor do painel é só da etapa do post */
-.mzdia{font-size:10.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px; color:var(--ink-3); padding:0 2px; line-height:17px}
 .gmday{color:var(--sb-ink); margin-left:2px; display:inline-flex}
 .gmday .ic{width:12px; height:12px; fill:var(--sb); stroke:var(--sb); stroke-width:1}
 .gmday.esperado{opacity:.9}
@@ -587,7 +569,6 @@ select.faltando{box-shadow:0 0 0 2px color-mix(in srgb, var(--red) 55%, transpar
 .gmpill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; background:var(--sb); color:var(--on-sb); border:0; border-radius:999px; padding:2px 9px}
 .aprpill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; background:var(--green); color:#000; border:0; border-radius:999px; padding:2px 9px}
 
-
 /* ---------- folhas (modais): cartão opaco elevado, fundo escurecido e desfocado (HIG > Sheets) ---------- */
 .ov{position:fixed; inset:0; background:rgba(0,0,0,.42); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
   z-index:60; display:none; align-items:flex-start; justify-content:center; overflow:auto; padding:5vh 16px}
@@ -634,17 +615,11 @@ html[data-modo="claro"] .ov{background:rgba(0,0,0,.22)}
 .pf-acoes{display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:18px}
 .pf-depois{color:var(--ink-2); font-weight:500; font-size:13px; padding:0 14px; height:32px; border-radius:999px; transition:background var(--t)}
 .pf-depois:hover{background:var(--fill-3); color:var(--ink)}
-.pf-tempo{margin-right:auto; color:var(--ink); font-weight:600; font-size:13px; padding:0 14px; height:32px; border-radius:999px; background:var(--fill-3); transition:background var(--t)}   /* v3.80 */
-.pf-tempo:hover{background:var(--fill-2)}
 /* v3.81: estado da ligação com o MKT Hub nas Configurações (bolinha + frase) */
 .hubestado{display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:var(--ink-2); line-height:1.45; margin-top:4px}
 .hubestado i{width:8px; height:8px; border-radius:50%; background:var(--gray); margin-top:5px; flex:none}
 .hubestado.ok i{background:var(--green)} .hubestado.erro i{background:var(--red)}
-/* v3.84: matriz e copy no MKT Hub (Configurações, ADMIN) */
-.hub-escrita{margin-top:12px; padding-top:10px; border-top:1px dashed var(--hair)}
-.hub-subtit{font-size:12.5px}
-.hub-pontos{margin-top:8px}
-.hub-pontos input{max-width:120px}
+
 .hubet{font-size:inherit}
 .pf-salvar{background:var(--sb); color:var(--on-sb); border:0; border-radius:999px; padding:0 20px; height:34px;
   font-weight:600; font-size:13px; cursor:pointer; transition:filter var(--t)}
@@ -677,30 +652,6 @@ html[data-modo="claro"] .ov{background:rgba(0,0,0,.22)}
 #ovLogin .loginbox{max-width:380px}
 #ovLogin input{width:100%; margin-top:4px}
 
-/* faixa de "pra aprovar": fixa e tingida, sem piscar (HIG > Accessibility: evitar elemento piscando) */
-#alertaBar{display:none; position:sticky; top:var(--htop,90px); z-index:45;
-  align-items:center; gap:12px; padding:8px 20px; background:color-mix(in srgb, var(--red) 16%, var(--page)); color:var(--ink);
-  border-bottom:1px solid color-mix(in srgb, var(--red) 35%, transparent)}
-#alertaBar.on{display:flex}
-#alertaBar .ab-selo{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
-  background:var(--red); color:#000; border:0; border-radius:999px; padding:2px 10px; white-space:nowrap}
-#alertaBar .ab-selo svg{width:13px; height:13px; stroke:#000}
-#alertaBar .ab-selo.alt{background:var(--orange); color:#000}
-#alertaBar.so-alterar{background:color-mix(in srgb, var(--orange) 16%, var(--page)); border-bottom-color:color-mix(in srgb, var(--orange) 35%, transparent)}
-#alertaBar.so-alterar .ab-item{background:var(--fill-3); color:var(--ink)}
-#alertaBar.so-alterar .ab-item:hover{background:var(--fill-2)}
-#alertaBar .ab-item.alt{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--orange) 60%, transparent)}
-#alertaBar .ab-lista{display:flex; align-items:center; gap:6px; overflow:hidden; flex:1; flex-wrap:wrap}
-#alertaBar .ab-item{background:var(--fill-3); color:var(--ink); border:0;
-  border-radius:999px; padding:3px 10px; font-size:12px; font-weight:500; cursor:pointer; max-width:340px;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-#alertaBar .ab-item:hover{background:var(--fill-2)}
-#alertaBar .ab-mais{font-size:12px; font-weight:500; color:var(--ink-2)}
-#alertaBar button{border:0; border-radius:999px; font-weight:600; font-size:12px;
-  padding:0 12px; height:28px; cursor:pointer; background:var(--fill-3); color:var(--ink)}
-
-#alertaBar .ab-x{width:28px; padding:0; background:transparent}
-
 /* respeitar "reduzir movimento" do sistema (HIG > Accessibility) */
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; transition-delay:0s !important}
@@ -711,56 +662,9 @@ html[data-modo="claro"] .ov{background:rgba(0,0,0,.22)}
    ===================================================================== */
 [hidden]{display:none !important}
 
-/* ---- (i) explicação de cada campo (v3.68): círculo com i ao lado do nome; clique abre a caixinha ---- */
-.ib{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; padding:0; margin:0 0 0 4px; vertical-align:-4px;
-  color:var(--ink-3); border-radius:50%; cursor:pointer; flex:none; transition:color var(--t), transform var(--t)}
-.ib svg{width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:2.1; stroke-linecap:round}
-.ib:hover{color:var(--sb-ink); transform:none}
-.ib.on{color:var(--sb-ink)}
-/* popover (i): vidro "regular" (mais opaco, porque tem texto), um por vez (HIG > Popovers) */
-.infopop{position:fixed; z-index:9800; width:min(360px, calc(100vw - 16px)); color:var(--ink);
-  background:var(--glass-forte); -webkit-backdrop-filter:saturate(180%) blur(28px); backdrop-filter:saturate(180%) blur(28px);
-  border:1px solid var(--glass-borda); border-radius:14px; box-shadow:var(--hard), inset 0 1px 0 var(--glass-luz); padding:12px 14px 10px; font-size:13px; line-height:1.5;
-  text-transform:none; letter-spacing:0; font-weight:400; animation:popin .14s cubic-bezier(.2,.8,.2,1) both}
-.infopop .iph{display:flex; align-items:center; gap:8px; margin-bottom:6px}
-.infopop .iph svg{width:20px; height:20px; fill:none; stroke:var(--sb-ink); stroke-width:2.1; stroke-linecap:round; flex:none}
-.infopop .iph b{font-size:14.5px; flex:1}
-.infopop .ipx{color:var(--ink-3); font-size:13px; padding:2px 7px; border-radius:8px}
-.infopop .ipx:hover{background:var(--hair-2); color:var(--ink)}
-.infopop p{margin:0 0 8px; color:var(--ink-2)}
-.infopop .ipk{font-size:10.5px; font-weight:600; letter-spacing:0; text-transform:none; color:var(--sb-ink); margin:-2px 0 4px}
-.infopop .ipd{font-size:11.5px; color:var(--ink-3); margin:2px 0 2px}
-.infopop .ipl{list-style:none; margin:2px 0 6px; padding:0; display:grid; gap:5px}
-.infopop .ipl li{padding:5px 8px; border-radius:8px; border:1px solid var(--hair); color:var(--ink-2); font-size:12.5px}
-.infopop .ipl li b{color:var(--ink)}
-.infopop .ipl li.atual{border:1.5px solid var(--sb); background:color-mix(in srgb, var(--sb) 12%, transparent)}
-.infopop .ipl li.atual b::after{content:" · este card"; font-weight:600; color:var(--sb-ink); font-size:11px}
-.mzkickw{display:flex; align-items:center; gap:2px}
-.mzkickw .ib{vertical-align:0}
-/* ---- documento da copy (v3.66): pop-up em tela cheia com o editor, e a lista de documentos ---- */
-#ovDoc{position:fixed; inset:0; z-index:9500; background:#F9FBFD; animation:docEntra .16s ease-out both}
-#ovDoc iframe{width:100%; height:100%; border:0; display:block; background:#F9FBFD}
-@keyframes docEntra{from{opacity:0; transform:scale(.985)} to{opacity:1; transform:none}}
-body.comdoc{overflow:hidden}
-.mbtn.mzcopy{background:var(--mz); color:#000; border-color:transparent; display:inline-flex; align-items:center; gap:6px}
-.mbtn.mzcopy svg{width:15px; height:15px}
-.mzhead{position:relative}
-.mbtn.mzcopytop{position:absolute; right:52px; top:18px; box-shadow:var(--hard-s)}
-.dcfil{display:flex; gap:10px; align-items:center}
-.dcfil input#dcBusca{flex:1; border:1px solid var(--hair); border-radius:8px; background:var(--surface-2); padding:9px 11px; font-size:13.5px; color:var(--ink)}
-.dcfil input#dcBusca:focus{outline:none; border-color:var(--sb)}
-.dcexc{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-3); white-space:nowrap; cursor:pointer}
-.dclista{display:flex; flex-direction:column; gap:6px; margin-top:8px; max-height:58vh; overflow:auto}
-.dcl{display:grid; grid-template-columns:auto 1fr auto; gap:3px 12px; align-items:center; padding:10px 12px; border:1px solid var(--hair); border-radius:8px; background:var(--surface-2); cursor:pointer; transition:all var(--t); color:inherit; text-decoration:none}   /* v3.87: é um link (botão do meio abre em outra aba) */
-.dcl:hover{border-color:var(--ink-3); transform:none; box-shadow:var(--hard-s)}
-.dcl .dci{grid-row:1 / span 2; width:34px; height:40px; border-radius:8px; background:color-mix(in srgb, var(--mz) 22%, transparent); display:flex; align-items:center; justify-content:center; color:var(--mz-txt)}
-.dcl .dci svg{width:20px; height:20px}
-.dcl b{font-size:14px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.dcl small{font-size:11.5px; color:var(--ink-3); display:flex; gap:8px; align-items:center; flex-wrap:wrap}
-.dcl .dcr{grid-row:1 / span 2; grid-column:3; text-align:right; font-size:11.5px; color:var(--ink-3); line-height:1.5}
-.dcl .dcr .mbtn{padding:5px 10px; font-size:11.5px}
-.dcl .tg{font-size:9.5px; font-weight:600; letter-spacing:0; text-transform:none; padding:1px 6px; border-radius:8px; border:1px solid var(--hair); color:var(--ink-2)}
-.dcl .tg.ok{border-color:var(--ok); color:var(--ok)}
+
+   
+
 .dcvazio{padding:30px 10px; text-align:center; color:var(--ink-3); font-size:13px}
 /* ---- v3.72: pausa por inatividade, aviso de uso e arquivamento de documentos ---- */
 #pausaOcio{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:80; background:var(--surface); color:var(--ink-2); border:1px solid var(--hair); border-radius:999px; padding:8px 16px; font-size:12.5px; font-weight:700; box-shadow:var(--hard-s); pointer-events:none; white-space:nowrap}
@@ -771,18 +675,9 @@ body.comdoc{overflow:hidden}
 .usoaviso .usobts{display:flex; gap:8px; margin-top:9px; flex-wrap:wrap}
 .usoaviso .mbtn{padding:5px 11px; font-size:12px}
 body.drawer-open .usoaviso{right:374px}
-.dcuso{display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; margin:0 0 12px; padding:10px 12px; border:1px solid var(--hair); border-radius:8px; background:var(--surface-2); font-size:12px; line-height:1.5; color:var(--ink-2)}
-.dcuso b{color:var(--ink)}
-.dcuso .barra{flex:1 1 150px; height:8px; border-radius:99px; background:var(--hair-2); overflow:hidden; min-width:120px}
-.dcuso .barra i{display:block; height:100%; background:var(--ok)}
-.dcuso .barra i.atencao{background:var(--warn)} .dcuso .barra i.alto{background:var(--crit)}
-.dcuso .mbtn{padding:5px 10px; font-size:11.5px}
-.arqlin{display:flex; gap:10px 16px; align-items:center; flex-wrap:wrap; font-size:13px; color:var(--ink-2)}
-#ovArq input[type=date]{border:1px solid var(--hair); border-radius:8px; background:var(--surface-2); padding:7px 9px; color:var(--ink); font:inherit}
-.arqprev{margin-top:12px; padding:12px 14px; border:1px solid var(--hair); border-radius:8px; background:var(--surface-2); font-size:13px; line-height:1.6; color:var(--ink-2)}
-.arqprev b{color:var(--ink)}
-.arqprev.ok{border-color:var(--ok)}
-#arqApagar.confirma{background:var(--crit); color:#fff; border-color:var(--crit)}
+
+ 
+
 /* ---- Novo post v3.65: passo 1 = escolha grande; passo 2 = só os campos do caminho ---- */
 #ovEdit .emodal{width:min(600px,100%)}
 .etopo{display:flex; align-items:center; gap:10px; min-width:0}
@@ -791,20 +686,7 @@ body.drawer-open .usoaviso{right:374px}
 .evoltar:hover{border-color:var(--sb); color:var(--sb-ink)}
 .ectx{font-size:12px; color:var(--ink-3); font-weight:600; margin-top:2px}
 .eopcs{display:grid; gap:10px}
-.eopc{display:flex; align-items:center; gap:14px; text-align:left; padding:14px 16px; border:1px solid var(--hair); border-radius:10px;
-  background:var(--surface-2); color:var(--ink); cursor:pointer; font-family:inherit; transition:all var(--t); width:100%}
-.eopc:hover,.eopc:focus-visible{border-color:var(--ink-2); transform:none; box-shadow:var(--hard-s); outline:none}
-.eopc .eic{width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--hair-2);
-  border:1px solid var(--hair); color:var(--ink); flex:none}
-.eopc .eic .ic{width:20px; height:20px; stroke-width:1.9}
-.eopc .etx{flex:1; min-width:0}
-.eopc b{display:block; font-size:14.5px; font-weight:600}
-.eopc small{display:block; font-size:12px; color:var(--ink-3); margin-top:3px; line-height:1.35}
-.eopc .ekey{font-size:10.5px; font-weight:600; color:var(--ink-3); border:1px solid var(--hair); border-radius:8px; padding:1px 6px; flex:none}
-.eopc.mz{border-color:rgba(252,193,0,.5); background:rgba(252,193,0,.06)}
-.eopc.mz .eic{background:var(--mz); border-color:transparent; color:#000}
-.eopc.mz b{color:var(--mz-ink2)}
-.eopc.mz:hover{border-color:var(--mz-txt); box-shadow:var(--hard-s)}
+
 .echips{display:flex; gap:6px; flex-wrap:wrap}
 .echip{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--hair); border-radius:8px; padding:6px 11px; font-size:12.5px;
   font-weight:700; background:var(--surface-2); color:var(--ink-2); cursor:pointer; font-family:inherit; transition:all var(--t)}
@@ -829,77 +711,8 @@ body.drawer-open .usoaviso{right:374px}
 .emais:hover{color:var(--ink)}
 .emais .emseta{display:inline-block; transition:transform var(--t)}
 .emais.aberto .emseta{transform:rotate(90deg)}
-/* modal do card da matriz */
-#ovMz .modal{width:min(1120px,100%)}
-/* v3.67: formulário em 3 blocos + guia do tipo ao lado */
-.mzprogw{display:flex; align-items:center; gap:10px; padding:0 22px 12px 26px; border-left:6px solid var(--mzc,var(--mz)); background:linear-gradient(90deg, rgba(252,193,0,.10), transparent 60%)}
-.mzprogbar{flex:1; max-width:340px; height:6px; border-radius:8px; background:rgba(252,193,0,.18); overflow:hidden}
-.mzprogbar i{display:block; height:100%; width:0; background:var(--mz); border-radius:8px; transition:width .25s}
-#mzProgTxt{font-size:11.5px; font-weight:600; color:var(--mz-ink2); letter-spacing:0}
-.mzbody{display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:16px; align-items:start}
-.mzcol{gap:12px}
-.mzbloco{border:1px solid var(--hair); border-radius:10px; padding:12px 14px 14px; background:var(--surface-2); display:grid; gap:10px; transition:border-color var(--t)}
-.mzbloco:focus-within{border-color:rgba(252,193,0,.7)}
-.mzbt{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
-.mzbt b{font-size:14px; color:var(--ink)}
-.mzbt small{font-size:11.5px; color:var(--ink-3)}
-.mzbn{width:22px; height:22px; border-radius:50%; border:1px solid var(--hair); display:inline-flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:600; color:var(--ink-2); flex:none; align-self:center}
-.mzbloco.ok .mzbn{background:var(--mz); border-color:transparent; color:#000}
-.mzbloco.ok{border-color:rgba(252,193,0,.35)}
-.mzdica{text-transform:none; letter-spacing:0; font-weight:500; color:var(--ink-3); font-size:11px; margin-left:4px}
-#ovMz .mzbloco input,#ovMz .mzbloco textarea{background:var(--surface)}
-#ovMz textarea{resize:none; overflow:hidden; line-height:1.4}
-/* sugestões: aparecem enquanto o campo está vazio ou em uso; preenchido, some e a tela fica limpa */
-.mzcampo .mzchips{display:none}
-.mzcampo.aberto .mzchips{display:flex}
-.mzver{display:inline; background:none; border:0; padding:0; margin-left:6px; font:inherit; font-size:11px; font-weight:700; color:var(--ink-3); text-decoration:underline; cursor:pointer; text-transform:none; letter-spacing:0}
-.mzver:hover{color:var(--mz-txt)}
-.mzguia{position:sticky; top:12px; display:grid; gap:10px}
-/* Salvar sempre à vista, mesmo com o formulário grande */
-#ovMz .mfoot{position:sticky; bottom:0; z-index:3; background:var(--surface); border-top:1px solid var(--hair); padding-top:12px; border-radius:0 0 12px 12px}
-.mzgbox{border:1px solid var(--hair); border-radius:10px; padding:12px 14px; background:var(--surface-2)}
-.mzgbox label{font-size:10.5px; font-weight:600; color:var(--ink-2); display:block; margin-bottom:6px; letter-spacing:0; text-transform:none}
-.mzgbox select{width:100%; border:1px solid var(--hair); border-radius:8px; padding:8px 10px; background:var(--surface); font-size:13px; color:var(--ink)}
-.mzgbox .echip{padding:5px 9px; font-size:12px}
-.mzpede{display:grid; gap:9px}
-.mzpede .pt{font-size:10.5px; font-weight:600; letter-spacing:0; text-transform:none; color:var(--mz-txt)}
-.mzpede .cta{border:1.5px solid var(--mz); border-radius:8px; padding:8px 10px; background:rgba(252,193,0,.08)}
-.mzpede .cta span{display:block; font-size:9.5px; font-weight:600; letter-spacing:0; text-transform:none; color:var(--mz-ink2)}
-.mzpede .cta b{font-size:14px; color:var(--ink)}
-.mzpede .lin{display:flex; justify-content:space-between; gap:10px; font-size:12px; border-bottom:1px solid var(--hair-2); padding-bottom:6px}
-.mzpede .lin span{color:var(--ink-3)} .mzpede .lin b{color:var(--ink-2); text-align:right; font-weight:700}
-.mzpede .met{font-size:12px; color:var(--ink-2); line-height:1.45}
-.mzpede .met span{display:block; font-size:9.5px; font-weight:600; letter-spacing:0; text-transform:none; color:var(--ink-3)}
-@media (max-width:900px){ .mzbody{grid-template-columns:1fr} .mzguia{position:static; order:-1} }
-.mzhead{border-left:6px solid var(--mzc,var(--mz)); background:linear-gradient(90deg, rgba(252,193,0,.10), transparent 60%)}
-.mzkicker{font-size:10.5px; font-weight:600; letter-spacing:0; color:var(--mz-txt); text-transform:none}
-.mzhead .mtit{display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:22px}
-.mzobjpill{font-size:10.5px; font-weight:600; letter-spacing:0; padding:3px 9px; border-radius:999px; color:#000; background:var(--mzc,var(--mz)); text-transform:none}
-.mzsub{font-size:12.5px; color:var(--ink-2); margin-top:3px}
-.mzgm{margin-top:8px; font-size:12px; font-weight:600; color:#000; background:var(--mz); border:0; border-radius:8px; padding:5px 9px; display:inline-block}
-.mzaberto{border:2px dashed var(--mz); border-radius:8px; padding:10px 12px; background:rgba(252,193,0,.06)}
-.mzaberto .mzopc{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px}
-.mzopc button,.mzchips .mzsb{font-family:inherit; cursor:pointer; border:1px solid var(--hair); background:var(--surface-2); color:var(--ink-2);
-  border-radius:8px; font-size:11.5px; font-weight:700; padding:5px 9px; text-align:left; transition:transform .18s cubic-bezier(.2,.8,.2,1), border-color .15s}
-.mzopc button:hover,.mzchips .mzsb:hover{border-color:var(--mz-txt); color:var(--ink); transform:none}
-.mzopc button.on{background:var(--mz); color:#000; border-color:transparent; box-shadow:var(--hard-s)}
-.mzopc button.on{font-weight:600}
-.mzchips{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
-/* sugestão = nome (usa) + (i) (explica), numa pílula só */
-.mzsug{display:inline-flex; align-items:center; border:1px solid var(--hair); background:var(--surface-2); border-radius:8px; padding-right:3px; transition:border-color .15s, transform .18s}
-.mzsug:hover{border-color:var(--mz-txt)}
-.mzsug .mzsb{border:0 !important; background:transparent !important; padding:5px 4px 5px 9px !important; transform:none !important}
-.mzsug .ib{margin-left:1px; width:18px; height:18px}
-.mzsug.on{background:var(--mz); border-color:transparent; box-shadow:var(--hard-s)}
-.mzsug.on .mzsb,.mzsug.on .ib{color:#000}
-.mzsug.usado .mzsb{text-decoration:line-through; opacity:.6}
 
-.mzaviso{font-size:11.5px; font-weight:700; color:var(--warn); margin-top:5px}
-.mzaviso:empty{display:none}
-#ovMz textarea{min-height:0}
-.mzregras{border:1px dashed var(--hair); border-radius:8px; padding:8px 12px; font-size:12px; color:var(--ink-2)}
-.mzregras summary{cursor:pointer; font-weight:600; color:var(--ink); font-size:12px}
-.mzregras ol,.mzregras ul{margin:8px 0 4px 18px; padding:0; line-height:1.5}
+ 
 
 .wpp-tit{font-size:11px; font-weight:600; letter-spacing:0; text-transform:none; color:var(--sb-ink); margin-bottom:6px}
 .wpp-grid{display:grid; grid-template-columns:1fr 1fr; gap:9px}
@@ -1031,20 +844,18 @@ input[type=checkbox], input[type=radio]{accent-color:var(--sb)}
    (aaronross1) · aprovar = btn-31 (doniaskima) · copiar tudo, no documento = copy button (fabiodevbr)
    ===================================================================== */
 
-/* ---- leque: Bancos, Configurações e Docs empilhados; abrem no hover, no foco (Tab) ou no toque ---- */
-.leque{position:relative; width:112px; height:40px; flex:none}
+/* ---- leque: Bancos e Configurações empilhados; abrem no hover, no foco (Tab) ou no toque (v4.22: o Docs saiu) ---- */
+.leque{position:relative; width:76px; height:40px; flex:none}
 .leque .lq{position:absolute; left:50%; top:50%; width:32px; height:32px; border-radius:9px; padding:0;
   display:flex; align-items:center; justify-content:center; border:1px solid var(--glass-borda);
   box-shadow:inset 0 0 4px rgba(0,0,0,.28); opacity:.9;
   transition:transform .3s cubic-bezier(.2,.8,.2,1), opacity .25s, box-shadow .25s, scale .12s}
 .leque .lq .ic{width:17px; height:17px}
 .leque .lq-c{transform:translate(-50%,-50%) rotate(90deg); z-index:3; background:var(--elev-2); color:var(--ink)}      /* configurações: sai pra esquerda */
-.leque .lq-d{transform:translate(-50%,-50%) rotate(-115deg); z-index:4; background:var(--blue); color:#fff}           /* docs: sai pra direita */
-.leque .lq-b{transform:translate(-50%,-50%) rotate(-45deg); z-index:5; background:var(--sb); color:var(--on-sb)}      /* bancos: fica no meio, por cima */
+.leque .lq-b{transform:translate(-50%,-50%) rotate(-45deg); z-index:5; background:var(--sb); color:var(--on-sb)}      /* bancos: sai pra direita, por cima */
 .leque:is(:hover,:focus-within,.aberto) .lq{opacity:1}
-.leque:is(:hover,:focus-within,.aberto) .lq-c{transform:translate(-170%,-50%) rotate(0deg)}
-.leque:is(:hover,:focus-within,.aberto) .lq-d{transform:translate(70%,-50%) rotate(0deg)}
-.leque:is(:hover,:focus-within,.aberto) .lq-b{transform:translate(-50%,-50%) rotate(0deg)}
+.leque:is(:hover,:focus-within,.aberto) .lq-c{transform:translate(-110%,-50%) rotate(0deg)}
+.leque:is(:hover,:focus-within,.aberto) .lq-b{transform:translate(10%,-50%) rotate(0deg)}
 .leque .lq:hover{box-shadow:inset 0 0 0 1px rgba(255,255,255,.28), var(--hard-s)}
 .leque .lq:active{scale:.9}
 .leque .lq-c:hover .ic{animation:lqgira 4s linear infinite}            /* a engrenagem gira enquanto o mouse está nela */
@@ -1055,8 +866,6 @@ body.drawer-open .leque .lq-b{box-shadow:0 0 0 2px var(--page), 0 0 0 4px var(--
   pointer-events:none; transition:opacity .2s}
 .leque .lq-n:empty{display:none}
 .leque:is(:hover,:focus-within,.aberto) .lq-n{opacity:0}
-.leque .lq-dot{position:absolute; top:-3px; right:-3px; width:9px; height:9px; border-radius:50%; border:1.5px solid var(--page); background:var(--warn); display:none}
-.leque.uso-atencao .lq-d .lq-dot,.leque.uso-alto .lq-d .lq-dot{display:block}
 .leque.uso-alto .lq-d .lq-dot{background:var(--crit)}
 .leque.uso-atencao::after,.leque.uso-alto::after{content:''; position:absolute; left:calc(50% - 22px); top:1px; width:8px; height:8px; border-radius:50%; background:var(--warn); pointer-events:none}
 .leque.uso-alto::after{background:var(--crit)}
@@ -1147,29 +956,11 @@ body.drawer-open .radial.fab{right:calc(344px + 40px)}
 .mfoot .bin{margin-left:auto}
 main{padding-bottom:84px}
 
-/* v3.91: formato "quadro" na matriz (Weevo): já aprovado, mas é sugestão */
-.mzqd{font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); background:color-mix(in srgb, var(--mint) 20%, transparent); border-radius:999px; padding:0 6px; line-height:16px; margin:0 4px 0 -1px; align-self:center}
-.mzsug.on .mzqd{color:#000; background:rgba(0,0,0,.12)}
-.mzpede .mznota{color:var(--ink-2)}
-
 /* botão "Do banco" no card do dia, ao lado do "Escrever a copy" */
 .mbtn.mzbancobt{background:color-mix(in srgb, var(--indigo) 18%, transparent); color:var(--ink); font-weight:600; box-shadow:var(--hard-s)}
 .mbtn.mzbancobt:hover{background:color-mix(in srgb, var(--indigo) 28%, transparent)}
 .mbtn.mzbancobt .ic{color:var(--indigo)}
-/* a faixa do material escolhido, embaixo do título do card do dia */
-.mzbco{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:12px; padding:10px 12px; max-width:720px; border-radius:12px;
-  background:color-mix(in srgb, var(--indigo) 12%, var(--elev)); border:1px solid color-mix(in srgb, var(--indigo) 38%, transparent)}
-.mzbco-ic{width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--indigo); color:#fff; flex:none}
-.mzbco-ic .ic{width:18px; height:18px}
-.mzbco-txt{display:flex; flex-direction:column; gap:1px; min-width:0; flex:1 1 220px}
-.mzbco-txt b{font-size:11.5px; font-weight:650; color:var(--indigo)}
-html[data-modo="claro"] .mzbco-txt b{color:color-mix(in srgb, var(--indigo) 82%, #000)}
-.mzbco-txt span{font-size:14px; font-weight:550; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.mzbco-txt small{font-size:11.5px; color:var(--ink-3)}
-.mzbco-acoes{position:relative; display:flex; align-items:center; gap:6px; flex-wrap:wrap}
-.mzbco-acoes .mbtn{min-height:28px; padding:0 11px; font-size:12px}
-.mzbco-acoes .mbtn:not(.primary){background:var(--elev)}
-.mzbco-acoes .mbtn:not(.primary):hover{background:var(--fill-2)}
+
 /* a lista do banco ("Do banco" e "Trocar"): fundo sólido, por seção, com busca quando tem muitos */
 .bkpick{position:absolute; z-index:80; top:calc(100% + 6px); right:0; width:min(340px, calc(100vw - 32px)); max-height:min(400px, 62vh); display:flex; flex-direction:column;
   background:var(--elev-2); border:1px solid var(--glass-borda); border-radius:14px; box-shadow:var(--hard), inset 0 1px 0 var(--glass-luz); padding:6px; text-align:left;

@@ -5,9 +5,9 @@
 // recortar, deixar o botão de ABRIR TASK fora do card e maior pra ficar mais destacado, aprovar arte + editar post tb
 // junto". Saiu do index.html (era o tRowDraw) pra cá, em 3 andares:
 //   1. o estado: a etapa, a conta, o dia (e os selos de GM e arte aprovada)
-//   2. o próximo passo, grande: abrir a task no MKT Hub (sem task, a copy) e o Postei
+//   2. o próximo passo, grande: abrir a task no MKT Hub (sem task, criar a task de produção) e o Postei
 //   3. os ajustes do post: aprovar arte + editar (um par), GM, collab, formato, ângulo; e o "Mais" com o que é raro
-//      (a copy quando tem task, a matriz, copiar e recortar pra outro dia)
+//      (copiar e recortar pra outro dia). v4.22: a copy e a matriz saíram (o fluxo da copywriter acabou).
 // Escolha do Zion entre 2 opções com prints: "A: 3 andares". O botão "Postado" virou "Postei", a palavra do hover do
 // card (desde a v4.06 "Postado" é o nome da etapa: o botão parecia dizer que o post já tinha ido ao ar).
 // =====================================================================
@@ -50,15 +50,15 @@ document.addEventListener('keydown', ev => {
 // ---------------- v4.08: o título da folha (clicar e escrever) ----------------
 // Pedido do Zion (05/10/2026): "quero poder mudar o titulo da task". Escolha dele: "Clicar no título". Clica, escreve,
 // Enter salva e Esc cancela. Post com task no MKT Hub: o nome é o da task (a API do Hub não deixa trocar o nome
-// daqui), então o título vira o link da task. Matriz (se a folha abrir pra ela): o título é o tema.
+// daqui), então o título vira o link da task.
 const TT = { inp: null, cancela: null };
-/** O que o clique no título muda: 'titulo' (o nome do post), 'tema' (matriz), 'hub' (só abre a task) ou null. */
+/** O que o clique no título muda: 'titulo' (o nome do post), 'hub' (só abre a task) ou null. */
 function tTitModo(s) {
   if (isVaga(s) || isSugestao(s)) return null;
   if (s.taskId && ehDoHub(s.taskId)) return 'hub';
-  return isMatriz(s) ? 'tema' : 'titulo';
+  return 'titulo';
 }
-/** O nome automático do post que a tarefa de copy cria (DD_MM): não é um título de verdade. */
+/** O nome automático que a antiga tarefa de copy dava ao post (DD_MM): não é um título de verdade. */
 function tTitAuto(t) { return /^\d{2}_\d{2}$/.test(String(t || '').trim()); }
 function tTitDraw(s) {
   const el = $('#tTit'), modo = tTitModo(s), t = folhaTitulo(s);
@@ -81,28 +81,28 @@ function tTitDraw(s) {
 function folhaTitulo(s) { return lpTitulo(s, lpEtapa(s)).t; }
 function tTitEdita(s) {
   const el = $('#tTit'), modo = tTitModo(s);
-  if (modo !== 'titulo' && modo !== 'tema') return;
-  const atual = modo === 'tema' ? ((s.matrizSB && s.matrizSB.tema) || '') : (s.titulo || '');
-  el.innerHTML = '<input class="tt-inp" maxlength="200" autocomplete="off" aria-label="' + (modo === 'tema' ? 'Tema do post' : 'Título do post') + '">' +
+  if (modo !== 'titulo') return;
+  const atual = s.titulo || '';
+  el.innerHTML = '<input class="tt-inp" maxlength="200" autocomplete="off" aria-label="Título do post">' +
     '<span class="tt-dica">Enter salva · Esc cancela</span>';
   const inp = el.querySelector('.tt-inp');
   inp.value = atual;
-  inp.placeholder = modo === 'tema' ? 'tema do post' : 'nome do post (ex.: Collab com @membro)';
+  inp.placeholder = 'nome do post (ex.: Collab com @membro)';
   inp.focus(); inp.select();
   let feito = false;
   const fim = async salva => {
     if (feito) return; feito = true; TT.inp = null; TT.cancela = null;
     const novo = inp.value.replace(/\s+/g, ' ').trim();
     if (!salva || novo === atual) { tTitDraw(s); const b = el.querySelector('.tt-bt'); if (b && !salva) b.focus(); return; }
-    const antes = modo === 'tema' ? s.matrizSB : s.titulo;
-    if (modo === 'tema') s.matrizSB = Object.assign({}, s.matrizSB, { tema: novo }); else s.titulo = novo;
+    const antes = s.titulo;
+    s.titulo = novo;
     tTitDraw(s); render();
     try {
-      const r = await api('/api/slots/' + s.id, { method: 'PATCH', body: JSON.stringify(modo === 'tema' ? { matrizSB: { tema: novo } } : { titulo: novo }) });
-      if (r && r.slot) { if (modo === 'tema') s.matrizSB = r.slot.matrizSB; else s.titulo = r.slot.titulo; }
+      const r = await api('/api/slots/' + s.id, { method: 'PATCH', body: JSON.stringify({ titulo: novo }) });
+      if (r && r.slot) s.titulo = r.slot.titulo;
       toast(novo ? 'Título salvo · Ctrl+Z desfaz' : 'Título apagado · Ctrl+Z desfaz');
     } catch (e) {
-      if (modo === 'tema') s.matrizSB = antes; else s.titulo = antes;
+      s.titulo = antes;
       toast(e.message, true);
     }
     if (S.taskSlot && S.taskSlot.id === s.id && $('#ovTask').classList.contains('open')) tTitDraw(s);
@@ -157,7 +157,6 @@ function tRowDraw(s) {
   }
   // v4.09: post que já está no ar com o link dele (ex.: "Já foi postado"): o próximo passo é ver o post
   const oPost = s.linkPost ? bancoOrigem(s.linkPost) : null, verPost = !!(s.postado && s.linkPost && !lk);
-  const semCopyGrande = verPost || (s.postado && !s.docId);       // postado e sem copy: escrever a copy vai pro Mais
   if (lk) {
     const a = mk(pri, icon('external') + '<span>Abrir a task' + (doHub ? ' no MKT Hub' : '') + '</span>' + (cod ? '<span class="tr-cod">' + esc(cod) + '</span>' : ''),
       'tr-big tr-task' + (doHub ? ' hub' : ''), 'Abrir a task de produção' + (doHub ? ' no MKT Hub' : ''), 'a');
@@ -165,10 +164,9 @@ function tRowDraw(s) {
   } else if (verPost) {
     const a = mk(pri, icon('external') + '<span>Ver o post no ' + esc(oPost.nome === 'link' ? 'ar' : oPost.nome) + '</span>', 'tr-big tr-ig', 'Abrir o post publicado', 'a');
     a.href = s.linkPost; a.target = '_blank'; a.rel = 'noopener';
-  } else if (!semCopyGrande) {
-    // sem task: o próximo passo é a copy
-    mk(pri, icon('doc') + '<span>' + (s.docId ? 'Abrir a copy' : 'Escrever a copy' + (s.banco ? ' (opcional)' : '')) + '</span>', 'tr-big tr-copy',
-      s.docId ? 'Abrir o documento da copy deste post' : 'Criar o documento da copy deste post').onclick = () => { closeOv('ovTask'); abrirCopy(s.id); };
+  } else if (!s.taskId && !s.postado && S.temFonte && souAdmin()) {
+    // v4.22: sem task, o próximo passo é a task de produção (antes era a copy)
+    mk(pri, icon('hub') + '<span>Criar task de produção</span>', 'tr-big tr-task hub', 'Criar a task de arte ou vídeo no MKT Hub').onclick = () => { closeOv('ovTask'); abrirProducao(s.id); };
   }
   if (s.drive) {
     const o = bancoOrigem(s.drive), a = mk(pri, icon(o.nome === 'Drive' ? 'folder' : o.icone), 'iconb tr-ext', o.nome === 'Drive' ? 'Abrir o Drive' : 'Abrir o link (' + o.nome + ')', 'a');
@@ -176,17 +174,16 @@ function tRowDraw(s) {
   }
   if (s.linkRef) { const a = mk(pri, icon('link'), 'iconb tr-ext', 'Abrir o vídeo original', 'a'); a.href = s.linkRef; a.target = '_blank'; a.rel = 'noopener'; }
   if (s.linkPost && !verPost) { const a = mk(pri, icon('external'), 'iconb tr-ext', 'Ver o post publicado (' + oPost.nome + ')', 'a'); a.href = s.linkPost; a.target = '_blank'; a.rel = 'noopener'; }   // v4.09
-  // v3.96: "Do banco" no lugar da copy, nos posts sem card da matriz (Carbone, Onevo); o da matriz fica no card do dia
+  // v3.96: "Do banco": o material do banco vira o conteúdo do post (v4.22: em qualquer post sem task)
   const abaT = S.contas[s.conta] && S.contas[s.conta].aba;
-  if (!s.matrizSB && !s.taskId && !s.postado && bancoSecoes(abaT).some(k => BANCO_MATERIAL.includes(k))) {
+  if (!s.taskId && !s.postado && bancoSecoes(abaT).some(k => BANCO_MATERIAL.includes(k))) {
     const w = document.createElement('span'); w.className = 'bkancora'; pri.appendChild(w);
     const bb = document.createElement('button'); bb.type = 'button'; bb.className = 'mbtn mzbancobt'; bb.id = 'tBanco';
     bb.setAttribute('aria-haspopup', 'listbox'); bb.setAttribute('aria-expanded', 'false');
     bb.innerHTML = s.banco ? icon(bancoIcone(s.banco.sec)) + '<span class="bkb-t">' + esc(bancoRotulo(s.banco) + (s.banco.titulo ? ': ' + s.banco.titulo : '')) + '</span>' : icon('box') + 'Do banco';
-    bb.dataset.tip = s.banco ? 'Material do banco deste post: clique pra trocar ou tirar' : 'Usar um material do banco (corte, depoimento, Drive) no lugar de escrever a copy';
+    bb.dataset.tip = s.banco ? 'Material do banco deste post: clique pra trocar ou tirar' : 'Usar um material do banco (corte, depoimento, Drive) neste post';
     bb.onclick = ev => abrirDoBanco(ev.currentTarget, s.id);
     w.appendChild(bb);
-    if (isBanco(s) && S.temFonte && souAdmin()) mk(pri, icon('hub') + 'Criar task de produção', 'primary', 'Criar a task de arte ou vídeo no MKT Hub com o material do banco (a copy é opcional)').onclick = () => { closeOv('ovTask'); abrirProducao(s.id); };
   }
   const bp = mk(pri, s.postado ? icon('undo') + 'Desmarcar postado' : icon('check') + 'Postei', 'tr-postei tr-fim' + (s.postado ? '' : ' primary'), s.postado ? 'Desmarcar postado' : 'Marcar que este post foi ao ar');
   bp.onclick = async () => { await togglePostado(s); tRowDraw(s); };
@@ -249,12 +246,9 @@ function tRowDraw(s) {
   sec.appendChild(ainp);
   // o "Mais": o que é raro
   const itens = [];
-  if (lk || semCopyGrande) itens.push({ ic: 'doc', t: s.docId ? 'Abrir a copy' : 'Escrever a copy' + (s.banco ? ' (opcional)' : ''), fn: () => { closeOv('ovTask'); abrirCopy(s.id); } });
-  if (s.matrizSB) itens.push({ ic: 'sparkle', t: 'Ver a matriz', fn: () => { closeOv('ovTask'); openMatriz(s.id); } });
-  if (itens.length) itens.push('-');
   itens.push({ ic: 'box', t: 'Copiar pra outro dia', k: 'Ctrl+C', fn: () => { setClip(s.id, 'copiar'); closeOv('ovTask'); } });
   itens.push({ ic: 'ff', t: 'Recortar pra outro dia', k: 'Ctrl+X', fn: () => { setClip(s.id, 'recortar'); closeOv('ovTask'); } });
-  const mais = mk(sec, icon('dots') + 'Mais', 'tr-mais tr-fim', 'Copy, matriz, copiar e recortar pra outro dia');
+  const mais = mk(sec, icon('dots') + 'Mais', 'tr-mais tr-fim', 'Copiar e recortar pra outro dia');
   mais.id = 'tMais'; mais.setAttribute('aria-haspopup', 'menu'); mais.setAttribute('aria-expanded', 'false');
   mais.onclick = () => trAbreMais(mais, itens);
   if (!pri.children.length) pri.hidden = true;

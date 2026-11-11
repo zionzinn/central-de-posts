@@ -100,7 +100,7 @@ function bancoOndeHtml(it){
   if(!l.length) return '<div class="bk-onde">'+mao+'</div>';
   return '<div class="bk-onde">'+l.map(o=>{
     const s = S.slots.find(x=>x.id===o.slot), d = (s && s.date) || o.date;
-    const rot = (d ? tfDia(d) : 'sem dia')+' · '+esc(contaCurta(s ? s.conta : o.conta));
+    const rot = (d ? diaCurto(d) : 'sem dia')+' · '+esc(contaCurta(s ? s.conta : o.conta));
     return s ? '<button type="button" data-onde="'+esc(o.slot)+'" title="Ver esse post no calendário">'+icon('calendar')+rot+'</button>'
              : bkPostSumiu() ? '<span class="bk-ondev" title="Esse post foi excluído ou mudou de empresa">'+icon('calendar')+rot+' · post excluído</span>'
              : '<span class="bk-ondev" title="Esse post é de outro mês: na visão Mês dá pra ir até ele">'+icon('calendar')+rot+'</span>';   // v4.11
@@ -494,7 +494,7 @@ function bkHoverAbre(it, el, comSeta){
   const tot = it.usos || usos.length;
   pop.innerHTML = '<div class="bkh-tit">'+(tot ? 'Usado '+tot+' vez'+(tot > 1 ? 'es' : '') : 'Nunca usado')+'</div>'+
     (usos.length ? '<div class="bkh-lista">'+usos.map(u=>{
-      const dia = u.date ? tfDia(u.date) : 'sem dia';
+      const dia = u.date ? diaCurto(u.date) : 'sem dia';
       const sumiu = !u.s && bkPostSumiu();
       return '<div class="bkh-l'+(naTela.has(u.slot) ? ' tela' : '')+(sumiu ? ' fora' : '')+'">'+icon('calendar')+'<span>'+esc(dia)+'</span><b>'+esc(contaCurta(u.conta))+'</b>'+
         (naTela.has(u.slot) ? '<i>na tela</i>' : sumiu ? '<em>post excluído</em>' : '')+'</div>';

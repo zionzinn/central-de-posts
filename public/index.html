@@ -15,8 +15,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/css/painel.css">
-<link rel="stylesheet" href="/css/relogio.css">
-<link rel="stylesheet" href="/css/tarefas.css">
+<link rel="stylesheet" href="/css/producao.css">
 <link rel="stylesheet" href="/css/perfil.css">
 <link rel="stylesheet" href="/css/linha.css">
 <link rel="stylesheet" href="/css/raias.css">
@@ -36,10 +35,6 @@
     <div class="topright">
       <div class="presenca" id="presenca"></div>
       <button class="usocap ok" id="btnUso" aria-haspopup="dialog" hidden></button>
-      <label class="mute" id="btnMute" data-tip="Silenciar os avisos (site e Windows)">
-        <input type="checkbox" class="mute-chk" id="muteChk" aria-label="Silenciar avisos">
-        <span class="ic-ring"></span><span class="ic-silent"></span><span class="mn" id="muteN"></span>
-      </label>
       <button class="ico" id="btnModo" data-tip="Mudar pro modo claro"></button>
     </div>
   </div>
@@ -73,22 +68,17 @@
     <div class="legend" id="legend"></div>
     <div class="spacer"></div>
     <div class="acoes">
-    <!-- v3.89: copys esperando aprovação (ADMIN) ou as suas em aprovação e pra alterar (Usuário) -->
     <!-- v4.14: Captação (ADMIN) liga o calendário de captação (js/captacao.js); o número = vídeos dos próximos 14 dias sem captação -->
     <button class="aprovbtn capbtn" id="btnCap" hidden><span class="ab-ic"></span><span class="ab-rot">Captação</span><b class="ab-n" id="capN"></b></button>
-    <button class="aprovbtn" id="btnAprovar" hidden><span class="ab-ic"></span><span class="ab-rot" id="aprovRot">Pra aprovar</span><b class="ab-n" id="aprovN"></b></button>
-    <!-- v3.78: Bancos, Configurações e Docs num leque (abre no hover, no Tab ou no toque) -->
-    <div class="leque" id="leque" role="group" aria-label="Bancos, configurações e documentos">
+    <!-- v3.78: Bancos e Configurações num leque (abre no hover, no Tab ou no toque) -->
+    <div class="leque" id="leque" role="group" aria-label="Bancos e configurações">
       <button class="lq lq-c" id="btnConfig" data-tip="Configurações (Ctrl+,)" aria-label="Configurações"></button>
-      <button class="lq lq-d" id="btnDocs" data-tip="Documentos de copy" aria-label="Documentos"></button>
       <button class="lq lq-b" id="btnDrawer" data-tip="Banco da empresa: Drive, referências, cortes e o que reutilizar" aria-label="Banco da empresa"></button>
       <span class="lq-n" id="drawerN" aria-hidden="true"></span>
     </div>
     <button class="ico ico-help" id="btnAjuda" data-tip="Ver os atalhos do mouse e do teclado"></button>
     </div>
   </div>
-  <!-- v3.80: as tarefas da empresa (Matriz e Copy), com o relógio e o que está pra aprovar -->
-  <div class="bar bar-tar" id="faixa" role="group" aria-label="Tarefas da empresa"></div>
 </header>
 
 <div class="banner" id="banner"></div>
@@ -101,7 +91,6 @@
 </aside>
 
 <div id="marquee"></div>
-<div id="alertaBar"></div>
 <main>
   <div class="dows" id="dows"><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div><div>Dom</div></div>
   <div class="grid" id="grid"></div>
@@ -109,20 +98,10 @@
 
 
 <!-- v3.78: + flutuante (criar sem dia) e atalhos no canto de baixo à esquerda -->
-<div class="radial fab" id="fabCriar"><button class="rd-main" id="fabMain" aria-expanded="false" data-tip="Criar: post, post do MKT Hub ou matriz do mês" aria-label="Criar"></button></div>
+<div class="radial fab" id="fabCriar"><button class="rd-main" id="fabMain" aria-expanded="false" data-tip="Criar: post ou post do MKT Hub" aria-label="Criar"></button></div>
 <nav class="atalhos" id="atalhos" aria-label="Atalhos">
   <button class="at-main" id="atMain" aria-label="Atalhos" aria-expanded="false"></button>
 </nav>
-
-<!-- v3.80: relógio da tarefa, sempre à vista (até em cima do doc) -->
-<div class="crono" id="crono" hidden role="region" aria-label="Relógio da tarefa">
-  <span class="cr-cor" aria-hidden="true"></span>
-  <button class="cr-info" id="crInfo"><span class="cr-tit" id="crTit"></span><span class="cr-sub" id="crSub"></span></button>
-  <span class="nf cr-nf" id="crNf" role="timer"></span>
-  <span class="cr-oc" id="crOc"><span id="crOcTxt"></span><button id="crOcNao">Não conta</button><button class="sim" id="crOcSim">Conta</button></span>
-  <button class="cr-bt cr-alt" id="crAlt" aria-label="Pausar" data-tip="Pausar"></button>
-  <button class="cr-bt cr-stop" id="crStop" aria-label="Parar e salvar" data-tip="Parar e salvar"></button>
-</div>
 
 <div id="selbar">
   <button id="selLimpar" data-tip="Limpar seleção (Esc)" aria-label="Limpar seleção"></button>
@@ -206,7 +185,7 @@
       <div class="f" id="cContaBloco" hidden>
         <div class="wpp-tit">Sua conta</div>
         <div class="hubestado ok" id="cConta"></div>
-        <p class="note">O acesso é pelo login do Zoho: só entra quem está na lista da equipe. <b>ADMIN</b> (Zion e Maria) aprova matriz e copy, vê o tempo de todo mundo e mexe no GM automático.</p>
+        <p class="note">O acesso é pelo login do Zoho: só entra quem está na lista da equipe. <b>ADMIN</b> (Zion e Maria) mexe no GM automático.</p>
       </div>
       <div class="f" id="cSenhaBloco">
       <div>
@@ -241,21 +220,6 @@
       </div>
       <p class="note">A estrela aparece sozinha a cada N dias contando <b>a partir da última grande marca que você marcou</b> (3 = "2 dias sem, 1 com"). Quando você marca um novo post como GM, as próximas se recalculam sozinhas a partir dele. O campo acima é só o ponto de partida (o último GM antes do sistema). Vale só na SeuBoné. <span id="gmEstado"></span></p>
       </div>
-      <div style="border-top:var(--bw) solid var(--hair); margin:12px 0 2px"></div>
-      <div class="wpp-tit">Aviso quando uma matriz ou copy vai pra aprovar ou pra alterar</div>
-      <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer">
-        <input type="checkbox" id="nAtivo" style="width:15px; height:15px"> avisar (faixa no topo + título da aba piscando)
-      </label>
-      <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer; margin-top:5px">
-        <input type="checkbox" id="nSom" style="width:15px; height:15px"> tocar um bipe junto
-      </label>
-      <div style="display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap">
-        <button class="mbtn" id="nPermitir">Ativar notificação do Windows</button>
-        <button class="mbtn" id="nTestar">Testar o aviso</button>
-        <span class="note" id="nEstado"></span>
-      </div>
-      <p class="note">Matriz ou copy mandada <b>pra aprovação</b>: aviso pra quem aprova. <b>Pedido de alteração</b>: aviso pra quem fez, com a nota e quem pediu. Vem das tarefas de Matriz e Copy (faixa de cima). O que foi pro MKT Hub é aprovado lá: o aviso de aprovar é o do Hub, e o pedido de alteração feito lá também chega aqui.</p>
-      <p class="note">A notificação do Windows aparece no canto da tela e fica na central de notificações, mesmo com o painel minimizado ou atrás de outra janela. Precisa do painel <b>aberto em alguma aba</b>. Pra virar app com ícone na barra de tarefas: no Chrome, ícone de instalar na barra de endereço, ou menu <b>⋮ → Transmitir, salvar e compartilhar → Instalar página como app</b>.</p>
     </div>
   </div>
   <div class="mfoot" style="display:flex; justify-content:space-between; gap:8px"><button class="mbtn" id="cLogout">Sair da sessão</button><button class="mbtn primary" id="cSave">Salvar</button></div>
@@ -272,116 +236,12 @@
   <div class="mfoot"><button class="mbtn primary" id="loginBtn" style="width:100%">Entrar</button></div>
 </div></div>
 
-<!-- card da MATRIZ (SeuBoné e, v3.91, Weevo): a copywriter preenche aqui -->
-<div class="ov" id="ovMz"><div class="modal" style="position:relative">
-  <button class="mclose" data-close="ovMz">✕</button>
-  <div class="mhead mzhead">
-    <div class="mzkickw"><span class="mzkicker" id="mzKicker"></span><span data-ib="semana"></span></div>
-    <div class="mtit"><span id="mzTit">Case</span><span id="mzTitInfo"></span><span class="mzobjpill" id="mzObj"></span></div>
-    <div class="mzsub" id="mzSub"></div>
-    <div class="mzgm" id="mzGm" hidden>☆ este dia pede GRANDE MARCA na capa <span data-ib="gm"></span></div>
-    <div class="tf-aviso" id="mzAprov" hidden></div>
-    <div class="mzacoes">
-      <div class="mzrelw"><span class="nf" id="mzRelNf" role="timer" hidden></span><button class="rl-btn" id="mzRel"></button></div>
-      <button class="mbtn mzbancobt" id="mzBancoBtn" aria-haspopup="listbox" aria-expanded="false" data-tip="Usar um material do banco (corte, depoimento, Drive) no lugar de escrever a copy"></button>
-      <button class="mbtn mzcopy mzcopytop" id="mzCopyTop" data-tip="Salvar a matriz e abrir o documento da copy deste post"></button>
-    </div>
-    <div class="mzbco" id="mzBanco" hidden></div>
-  </div>
-  <div class="mzprogw"><div class="mzprogbar"><i id="mzProgBar"></i></div><span id="mzProgTxt"></span><span data-ib="progresso"></span></div>
-  <div class="mbody mzbody">
-    <!-- v3.67: o que a copywriter preenche em 3 blocos na ordem em que se pensa a peça; o que o tipo pede fica ao lado, sempre à vista -->
-    <div class="mzcol f">
-      <div class="mzaberto" id="mzAberto" hidden>
-        <label><span id="mzAbertoLbl">Slot em aberto: escolha o tipo</span> <span data-ib="slotAberto"></span></label>
-        <div class="mzopc" id="mzOpc"></div>
-      </div>
-      <section class="mzbloco" data-bloco="formato angulo">
-        <div class="mzbt"><span class="mzbn">1</span><b>O que vai ser</b><small>formato e ângulo</small></div>
-        <div class="mzcampo"><label>Formato <span data-ib="formato"></span><button type="button" class="mzver"></button></label><input id="mzFormato" data-mz="formato" placeholder="escolha uma sugestão ou escreva outro" maxlength="200">
-          <div class="mzchips" id="mzFormatos"></div><div class="mzaviso" id="mzAvisoFmt"></div></div>
-        <div class="mzcampo"><label>Ângulo <span data-ib="angulo"></span><button type="button" class="mzver"></button></label><input id="mzAngulo" data-mz="angulo" placeholder="escolha uma sugestão ou escreva um novo" maxlength="300">
-          <div class="mzchips" id="mzAngulos"></div></div>
-      </section>
-      <section class="mzbloco" data-bloco="pautaQuente tema tese gancho">
-        <div class="mzbt"><span class="mzbn">2</span><b>A ideia</b><small>do que a peça fala e por que alguém para pra ver</small></div>
-        <div class="f2">
-          <div><label>Pauta quente <span data-ib="pautaQuente"></span></label><input id="mzPauta" data-mz="pautaQuente" placeholder="assunto do momento, ou ATEMPORAL" maxlength="300"></div>
-          <div><label>Tema <span data-ib="tema"></span><span class="mzdica">vira o nome do card</span></label><input id="mzTema" data-mz="tema" placeholder="o recorte específico" maxlength="300"></div>
-        </div>
-        <div><label>Tese em uma frase <span data-ib="tese"></span><span class="mzdica" id="mzTeseDica">a opinião da SeuBoné</span></label><textarea id="mzTese" data-mz="tese" rows="1" placeholder="sem tese não tem posicionamento"></textarea></div>
-        <div><label>Gancho <span data-ib="gancho"></span><span class="mzdica">entendido em 1,5 s</span></label><textarea id="mzGancho" data-mz="gancho" rows="1" placeholder="bate em dor ou desejo concreto"></textarea></div>
-      </section>
-      <section class="mzbloco" data-bloco="descricao">
-        <div class="mzbt"><span class="mzbn">3</span><b>Como fazer</b><small id="mzComoDica">o que o Samuca e a edição precisam saber</small></div>
-        <div><label>Descrição <span data-ib="descricao"></span><span class="mzdica">2 ou 3 linhas</span></label><textarea id="mzDesc" data-mz="descricao" rows="2" placeholder="cena, estrutura, quem aparece"></textarea></div>
-        <div><label>Refs visuais / inserts <span data-ib="refs"></span><span class="mzdica">opcional</span></label><textarea id="mzRefs" data-mz="refs" rows="1" placeholder="links de referência"></textarea></div>
-        <div><label>Observações <span data-ib="obs"></span><span class="mzdica">opcional</span></label><textarea id="mzObs" data-mz="obs" rows="1" placeholder="o que confirmar antes de gravar, autorização, número..."></textarea></div>
-      </section>
-    </div>
-    <aside class="mzguia">
-      <div class="mzgbox">
-        <label>Status <span data-ib="status" data-lista="1"></span></label>
-        <select id="mzStatus" data-mz="status"></select>
-      </div>
-      <div class="mzgbox mzpede" id="mzTrava"></div>
-      <details class="mzregras" id="mzRegras"><summary>Regras da rotação e checklist</summary><div id="mzRegrasTxt"></div></details>
-    </aside>
-  </div>
-  <div class="mfoot">
-    <button class="mbtn primary" id="mzSalvar">Salvar</button>
-    <button class="mbtn mzcopy" id="mzCopy" data-tip="Salvar a matriz e abrir o documento da copy deste post"></button>
-    <button class="bt-edit" id="mzEditar" data-rot="Editar post" style="--w:122px" data-tip="Editar o post: mudar a data ou colar o link da task" aria-label="Editar o post"></button>
-    <span class="note" id="mzMsg"></span>
-    <button class="bin" id="mzExcluir" data-tip="Excluir o card da matriz (Ctrl+Z desfaz)" aria-label="Excluir o card da matriz"><svg class="bin-top" viewBox="0 0 39 7" fill="none" aria-hidden="true"><line y1="5" x2="39" y2="5" stroke="currentColor" stroke-width="4"/><line x1="12" y1="1.5" x2="26" y2="1.5" stroke="currentColor" stroke-width="3"/></svg><svg class="bin-bottom" viewBox="0 0 33 39" fill="none" aria-hidden="true"><path d="M2 0v34a3 3 0 0 0 3 3h23a3 3 0 0 0 3-3V0" stroke="currentColor" stroke-width="4"/><path d="M12 6v23M21 6v23" stroke="currentColor" stroke-width="4"/></svg></button>
-  </div>
-</div></div>
-<!-- COPY: o editor estilo Docs (public/doc.html) abre aqui dentro, em tela cheia. Só carrega quando alguém abre. -->
-<div id="ovDoc" hidden><iframe id="docFrame" title="Documento da copy"></iframe></div>
-<div class="ov" id="ovDocs"><div class="modal" style="position:relative; width:min(900px,100%)">
-  <button class="mclose" data-close="ovDocs">✕</button>
-  <div class="mhead"><div class="mtit">Documentos</div><div class="ectx">as copys escritas no painel, da mais recente pra mais antiga · botão do meio (ou Ctrl+clique) abre em outra aba</div></div>
-  <div class="mbody">
-    <div class="dcuso" id="dcUso" hidden></div>
-    <div class="dcfil">
-      <input id="dcBusca" placeholder="procurar pelo nome, conta ou post" autocomplete="off">
-      <label class="dcexc"><input type="checkbox" id="dcExc"> ver excluídos</label>
-    </div>
-    <div class="echips" id="dcContas" style="margin:10px 0 4px"></div>
-    <div class="dclista" id="dcLista"></div>
-  </div>
-</div></div>
-<!-- v3.89: Pra aprovar: as copys de todas as empresas, por dia (aprovar e pedir alteração aqui mesmo) -->
-<div class="ov" id="ovAprovar"><div class="modal" style="position:relative; width:min(980px,100%)">
-  <button class="mclose" data-close="ovAprovar">✕</button>
-  <div class="mhead"><div class="mtit" id="apTit">Pra aprovar</div><div class="ectx" id="apSub"></div></div>
-  <div class="mbody">
-    <div class="apabas" id="apAbas" role="tablist"></div>
-    <div class="aplista" id="apLista"></div>
-  </div>
-</div></div>
-<!-- v3.90: copy aprovada vira task de produção no MKT Hub (tela do ADMIN) -->
+<!-- v3.90: task de produção no MKT Hub (tela do ADMIN) -->
 <div class="ov" id="ovProd"><div class="modal prmodal" style="position:relative; width:min(640px,100%)">
   <button class="mclose" data-close="ovProd">✕</button>
   <div class="mhead"><div class="mtit">Criar task de produção</div><div class="ectx pr-ctx" id="prSub"></div></div>
   <div class="mbody pr-body" id="prBody"><div class="dcvazio">carregando…</div></div>
   <div class="mfoot pr-foot" id="prFoot"></div>
-</div></div>
-<div class="ov" id="ovArq"><div class="modal" style="position:relative; width:min(580px,100%)">
-  <button class="mclose" data-close="ovArq">✕</button>
-  <div class="mhead"><div class="mtit">Arquivar documentos antigos</div><div class="ectx">baixa um .zip com os documentos e só depois tira eles do servidor</div></div>
-  <div class="mbody">
-    <div class="arqlin">
-      <label>Documentos de posts até <input type="date" id="arqAte"></label>
-      <label class="dcexc"><input type="checkbox" id="arqLix" checked> incluir os que estão na lixeira</label>
-    </div>
-    <div class="arqprev" id="arqPrevia">calculando…</div>
-  </div>
-  <div class="mfoot" style="display:flex; justify-content:flex-end; align-items:center; gap:8px; flex-wrap:wrap">
-    <span id="arqMsg" class="note" style="margin-right:auto"></span>
-    <button class="mbtn" id="arqApagar" hidden>Apagar do servidor</button>
-    <button class="mbtn primary" id="arqBaixar">1. Baixar .zip</button>
-  </div>
 </div></div>
 <!-- perfil (nome + ícone + cor), sem login ainda: fica salvo neste navegador -->
 <div class="ov" id="ovPerfil">
@@ -398,7 +258,6 @@
       <label class="pf-lbl">cor</label>
       <div class="pf-cores" id="pfCores"></div>
       <div class="pf-acoes">
-        <button type="button" class="pf-tempo" id="pfTempo">Meu tempo</button>
         <button type="button" class="pf-depois" id="pfDepois">depois</button>
         <button type="button" class="pf-depois" id="pfSair" hidden>Sair</button>
         <button type="button" class="pf-salvar" id="pfSalvar">SALVAR</button>
@@ -408,7 +267,6 @@
   </div>
 </div>
 
-<!-- v3.80: folha da tarefa (explicação, período, relógio, posts e aprovação) -->
 <!-- v4.14: a folha da captação (js/captacao.js): dias de gravação, roteiros e posts ligados -->
 <div class="ov" id="ovCap"><div class="modal cpmodal" style="position:relative">
   <button class="mclose" data-close="ovCap">✕</button>
@@ -416,18 +274,7 @@
   <div class="mbody cpbody" id="cpBody"></div>
   <div class="mfoot cpfoot" id="cpFoot"></div>
 </div></div>
-<div class="ov" id="ovTarefa"><div class="modal tmodal" style="position:relative">
-  <button class="mclose" data-close="ovTarefa">✕</button>
-  <div class="mhead tfhead" id="tfHead"></div>
-  <div class="mbody tfbody" id="tfBody"></div>
-  <div class="mfoot tffoot" id="tfFoot"></div>
 </div></div>
-<!-- v3.80: relatório de tempo (matriz e copy), com exportação pro MKT Hub -->
-<div class="ov" id="ovTempo"><div class="modal tpmodal" style="position:relative">
-  <button class="mclose" data-close="ovTempo">✕</button>
-  <div class="mhead"><div class="mtit">Tempo</div><div class="ectx" id="tpSub">quanto tempo foi em matriz e copy</div></div>
-  <div class="mbody" id="tpBody"></div>
-  <div class="mfoot" id="tpFoot"></div>
 </div></div>
 
 <!-- lightbox das artes -->
@@ -441,9 +288,6 @@
 
 <div id="toasts"></div>
 
-<script src="/js/cronometro.js"></script>
-<script src="/js/tarefas.js"></script>
-<script src="/js/tempo.js"></script>
 <script src="/js/banco.js"></script>
 <script src="/js/personagens.js"></script>
 <script src="/js/perfil.js"></script>
@@ -454,7 +298,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.21'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.22'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -518,8 +362,7 @@ const S = {
   editing:null, taskSlot:null, dragging:false, lastSync:null,
   drawer:false, busca:'', bancoEdit:null,
   view:'mes', semIdx:0,
-  filtro:'todos', selecao:new Set(),   // v4.01: filtro = etapa da legenda (mz, copy, prod, pronto, ar, alerta): apaga o resto
-  tarefas:[],   // v3.80: tarefas abertas da copywriter (matriz e copy), com os posts de cada uma
+  filtro:'todos', selecao:new Set(),   // v4.01: filtro = etapa da legenda (novo, prod, entr, pronto, ar, alerta): apaga o resto
   lente:'sai', lpPrevia:null, lpEstoura:null,   // v4.01: cada post no dia que SAI (ou 'ent': no dia que fica pronto)
 };
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
@@ -536,7 +379,7 @@ const NOMES_ABA = { 'TODOS':'Todos', 'SEUBONÉ':'SeuBoné', 'CARBONE':'Carbone',
 function nomeAba(a){ return NOMES_ABA[a] || a || ''; }
 // v4.12: a aba TODOS (pedido do Zion: "uma nova aba no sistema: TODOS, que mostre o calendário de todas as empresas ao mesmo
 // tempo"; escolha dele: "A: Faixa por conta"). Não é empresa, é uma VISTA: S.abas continua sendo só as empresas (vem do
-// servidor) e a barra de cima mostra Todos + as empresas. O que é de cada empresa (tarefa de copy, banco, matriz) fica na aba dela.
+// servidor) e a barra de cima mostra Todos + as empresas. O que é de cada empresa (banco, captação) fica na aba dela.
 const ABA_TODOS = 'TODOS';
 function ehTodos(a){ return (a === undefined ? S.aba : a) === ABA_TODOS; }
 function abasDaBarra(){ return S.abas && S.abas.length > 1 ? [ABA_TODOS].concat(S.abas) : (S.abas || []); }
@@ -595,23 +438,19 @@ async function loadState(fresh, silencioso){
   // fluxo contínuo precisa dos posts de qualquer mês, então não filtra por mês;
   // a visão Semana continua pedindo só o mês em foco (payload menor).
   const q = S.view==='semana' ? ('month='+S.mes) : '';
-  // v3.91: as regras das matrizes (SeuBoné e Weevo) vêm uma vez, à parte, e o navegador guarda (ETag)
-  const pm = S.matrizes ? null : api('/api/matrizes').catch(()=>null);
   try{ j = await api('/api/state'+(q||fresh?'?':'')+q+(fresh?(q?'&':'')+'fresh=1':'')); }
   catch(e){ if(e.status===401){ if(!silencioso) mostrarLogin(); return; } if(silencioso) return; throw e; }
   // assinatura barata do que aparece na tela: se nada mudou, o modo silencioso não redesenha
   // v3.70: a assinatura cobre o post INTEIRO (formato, GM, obs, matriz...) e as referências: mudança
   // feita por outra pessoa aparece no próximo ciclo de 20 s. Antes só o poll de 90 s (removido) pegava isso.
-  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.banco||[]) + '#' + JSON.stringify(j.bancoPastas||[]) + '#' + JSON.stringify(j.tarefas||[]) + '#' + JSON.stringify(j.captacoes||[]) + '#' + (j.capPendentes||0);   // v4.14: as captações
+  const assinatura = JSON.stringify(j.slots) + '#' + JSON.stringify(j.banco||[]) + '#' + JSON.stringify(j.bancoPastas||[]) + '#' + JSON.stringify(j.captacoes||[]) + '#' + (j.capPendentes||0);   // v4.14: as captações
   const mudou = assinatura !== S.assinatura;
   S.assinatura = assinatura;
-  if(pm){ const r = await pm; if(r && r.matrizes) S.matrizes = r.matrizes; }
-  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], bancoPastas:j.bancoPastas||[], tarefas:j.tarefas||[], temFonte:!!j.temFonte, hubEscrita:!!j.hubEscrita, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia, captacoes:capVersaoOk(j.capRev) ? (j.captacoes||[]) : S.captacoes, capPendentes:j.capPendentes||0});   // v4.14: estado velho não desfaz captação recém-salva
+  Object.assign(S, {contas:j.contas, abas:j.abas, slots:j.slots, banco:j.banco||[], bancoPastas:j.bancoPastas||[], temFonte:!!j.temFonte, hubEscrita:!!j.hubEscrita, temSenha:j.temSenha, eu:j.eu||null, zoho:!!j.zoho, equipe:j.equipe||null, gmCadencia:j.gmCadencia||S.gmCadencia, captacoes:capVersaoOk(j.capRev) ? (j.captacoes||[]) : S.captacoes, capPendentes:j.capPendentes||0});   // v4.14: estado velho não desfaz captação recém-salva
   if(!abasDaBarra().includes(S.aba)) S.aba = S.abas[0];
   S.lastSync = new Date();
   contaNaTela();                                        // v3.82: nome da conta no perfil e o que cada papel vê
   mostraUso(j.uso);
-  checarAprovacoes(S.slots);
   if(mudou || !silencioso) render();
   const b = $('#banner');
   if(j.versao !== FRONT_VERSAO){
@@ -629,7 +468,7 @@ function contasDaAba(aba){
 }
 function slotTitulo(s){
   if(s.vaga && !s.taskId) return 'FALTA CRIAR: ' + ((s.formato||'post').toUpperCase());
-  if(isMatriz(s)) return s.matrizSB.tema || ((s.matrizSB.tipo || 'Em aberto') + ' · a preencher');
+  if(s.matrizSB && !s.taskId && !s.titulo && (s.matrizSB.tema || s.matrizSB.tipo)) return s.matrizSB.tema || s.matrizSB.tipo;   // v4.22: card antigo da matriz (o dado ficou)
   // v4.08: post com task no MKT Hub: o nome é o da task (uma fonte só; muda lá). O título do B.O.N.E fica de reserva.
   if(s.taskId && s.tituloCache && ehDoHub(s.taskId)) return s.tituloCache;
   if(s.titulo) return s.titulo;
@@ -649,55 +488,12 @@ const VAGA_FORMATOS = ['estático','carrossel','reels'];
 function isVaga(s){ return !!s.vaga && !s.taskId; }
 /** Sugestão de post vinda pela pauta (dia vazio). Deixa de ser sugestão quando você cola a task. */
 function isSugestao(s){ return !!s.sugestao && !s.taskId; }
-// ---- MATRIZ (SeuBoné e, v3.91, Weevo) ----
-// Card amarelo = post ainda na matriz (sem task). A regra (tipos, rotação A/B, CTA...) vem do servidor
-// (lib/matriz-seubone.js e lib/matriz-weevo.js) pelo /api/matrizes, pra existir num lugar só. O campo do post
-// continua matrizSB; a conta do post diz qual matriz vale.
-function isMatriz(s){ return !!s.matrizSB && !s.taskId; }
-/** v3.89: card de COPY: o post tem documento e ainda não tem task de produção (o card da matriz vira o da copy). */
-function isCopy(s){ return !!s.docId && !s.taskId && !s.postado && !isVaga(s) && !isSugestao(s); }
 /** v3.96: post do BANCO: o card do dia ganhou um material do banco ("Do banco") e ainda não tem copy nem task. */
-function isBanco(s){ return !!s.banco && !s.taskId && !s.postado && !isCopy(s) && !isVaga(s) && !isSugestao(s); }
+function isBanco(s){ return !!s.banco && !s.taskId && !s.postado && !isVaga(s) && !isSugestao(s); }
 function bancoNomeSec(sec){ return ((typeof BANCO_SEC !== 'undefined' && BANCO_SEC[sec]) || {}).padrao || 'Banco'; }
 /** v3.97: o rótulo do material no post: a seção (ou "Vídeo bruto") e a pessoa dos cortes. */
 function bancoRotulo(b){ return (b.tipo==='bruto' ? 'Vídeo bruto' : bancoNomeSec(b.sec)) + (b.pessoa ? ' · '+b.pessoa : ''); }
 function bancoIcone(sec){ return ((typeof BANCO_SEC !== 'undefined' && BANCO_SEC[sec]) || {}).icone || 'box'; }
-/** v3.89: estado da copy do post (a aprovação é aqui no B.O.N.E). */
-// v3.98 (pedido do Zion): a copy em aprovação diz de quem é a vez: "esperando a aprovação de maria"
-// v4.00: "Esperando aprovação" no lugar de "Esperando a Maria" (pedido do Zion: "deve ser na real, esperando aprovação mesmo")
-function copyEstado(s){
-  const a = s.aprov && s.aprov.c;
-  if(a && a.st==='aprovado') return { cod:'aprovado', rot:'aprovada', cor:'var(--green)' };
-  if(a && a.st==='enviado') return { cod:'enviado', rot:'em aprovação', cor:'var(--orange)' };
-  if(a && a.st==='alterar') return { cod:'alterar', rot:'pra alterar', cor:'var(--red)' };
-  return { cod:'escrevendo', rot:'escrevendo', cor:'var(--blue)' };
-}
-const MZ_OBJ_COR = { Atrair:'#00D2E0', Provar:'#6D7CFF', Converter:'#FF9230', Crescer:'#00DAC3' };   // teal, índigo, laranja e menta do sistema
-const MZ_VAZIA = { nome:'', tipos:{}, semanas:{A:[],B:[]}, ancora:'2026-09-28', inicio:null, status:[], obrigatorios:[], regras:[], checklist:[], hacks:'', glossario:{ campos:{}, valores:{}, sugestoes:{} } };
-/** Regras da matriz de uma conta ('seubone' ou 'weevo'); sem conta, a da SeuBoné. */
-function mzCfg(conta){ const l = S.matrizes || {}; return l[conta || 'seubone'] || l.seubone || MZ_VAZIA; }
-/** De qual matriz é o post (pela conta; conta sem matriz própria segue a da SeuBoné, como no servidor). */
-function mzContaDe(s){ return s && S.matrizes && S.matrizes[s.conta] ? s.conta : 'seubone'; }
-/** A matriz da aba (SEUBONÉ → 'seubone', WEEVO → 'weevo'), ou null se a empresa não tem matriz. */
-function mzDaAba(aba){ const l = S.matrizes || {}; return Object.keys(l).find(k => l[k].aba === aba) || null; }
-function mzUtc(iso){ return Date.parse(iso+'T12:00:00Z'); }
-/** Semana A ou B (conta a partir da segunda-âncora de cada matriz, vale pra qualquer mês). */
-function mzSemana(iso, conta){
-  const d = mzUtc(iso), dow = (new Date(d).getUTCDay()+6)%7;
-  const w = Math.round((d - dow*86400000 - mzUtc(mzCfg(conta).ancora)) / 86400000 / 7);
-  return ((w%2)+2)%2===0 ? 'A' : 'B';
-}
-/** O que a matriz pede no dia: tipo fixo, ou slot em aberto com as opções. Antes do começo da matriz: null. */
-function mzTipoDoDia(iso, conta){
-  const cfg = mzCfg(conta);
-  if(!iso || (cfg.inicio && iso < cfg.inicio)) return null;
-  const sem = mzSemana(iso, conta), dow = (new Date(mzUtc(iso)).getUTCDay()+6)%7;
-  const v = (cfg.semanas[sem]||[])[dow];
-  return Array.isArray(v) ? { semana:sem, tipo:null, opcoes:v } : { semana:sem, tipo:v||null, opcoes:null };
-}
-function mzStatus(s){ return s.postado ? 'Postado' : ((s.matrizSB && s.matrizSB.status) || 'Não iniciado'); }
-function mzProgresso(m, conta){ const ob = mzCfg(conta).obrigatorios; const n = ob.filter(k=>m && m[k]).length; return { n, total: ob.length, cheio: n===ob.length }; }
-function mzObjCor(tipo, conta){ const t = mzCfg(conta).tipos[tipo]; return t ? (MZ_OBJ_COR[t.objetivo]||'#FCC100') : '#FCC100'; }
 // v3.65 → v4.01: em que pé está a task de produção (MKT Hub). A cor e a palavra do card saem daqui na linha do post
 // (js/linha.js: pronto = Pronto; aprovar, alterar, produção e o resto = Produção, com pílula ou palavra).
 function stBucket(s){
@@ -800,6 +596,8 @@ function weekRange(week){
 }
 
 function brData(iso){ return iso.split('-').reverse().slice(0,2).join('/'); }
+/** "Seg 16/11" (v4.22: era o tfDia do js/tarefas.js, que saiu com o fluxo da copy). */
+function diaCurto(iso){ return ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][new Date(iso+'T12:00:00').getDay()] + ' ' + brData(iso); }
 // ---- divergência de CONTA (nome da task no ClickUp x conta escolhida no painel) ----
 // O painel NUNCA troca a conta sozinho: quem decide é você. Aqui só sinalizamos quando o
 // nome da task grita uma conta diferente da que está no card, pra nada passar batido.
@@ -910,7 +708,7 @@ function render(){
   if(S.modoCap) document.body.dataset.modo = 'cap'; else delete document.body.dataset.modo;   // v4.14: o modo captação (css/captacao.css)
   if((ehTodos() || S.modoCap) && S.drawer) S.drawer = false;   // o banco é de cada empresa: na aba Todos (e no modo captação) a gaveta fecha
   $('#btnDrawer').dataset.tip = ehTodos() ? 'O banco é de cada empresa: abra a aba dela' : 'Banco da empresa: Drive, referências, cortes e o que reutilizar';
-  renderTabs(); renderFaixa(); renderLegend(); renderDrawer(true); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); pintaBtnAprovar(); capBotao();
+  renderTabs(); renderLegend(); renderDrawer(true); renderGrid(); medirGrudentos(); try{ avisaMinhaAba(); }catch(e){} renderPresenca(); capBotao();
   S.lpPrevia = null; lpVer(); }
 
 function renderTabs(){
@@ -1053,7 +851,7 @@ function renderLegend(){
 }
 
 // ================= card =================
-// v4.01: o card mostra a LINHA DO POST (js/linha.js): a cor diz onde o post está (Matriz e Copy no B.O.N.E, Produção e
+// v4.01: o card mostra a LINHA DO POST (js/linha.js): a cor diz onde o post está (Sem task no B.O.N.E, Produção e
 // Pronto no MKT Hub, Postado no Instagram), a palavra diz o que falta, a data diz o que importa (entrega ou dia que sai)
 // e a bolinha no canto diz de quem é a vez. As ações aparecem no hover. Falta criar e sugestão têm desenho próprio.
 function cardEl(s, naRaia){
@@ -1107,9 +905,6 @@ function cardEl(s, naRaia){
     if(S.dragging) return;
     if(ev.ctrlKey || ev.metaKey){ toggleSelecao(s.id); return; }
     lpDesliga();
-    if(isCopy(s)){ abrirCopy(s.id); return; }        // v3.89: o card da copy abre o documento
-    if(isBanco(s)){ if(s.matrizSB) openMatriz(s.id); else openTask(s.id); return; }   // v3.96: o post do banco abre o card do dia
-    if(isMatriz(s)){ openMatriz(s.id); return; }
     openTask(s.id);
   });
   // teclado: Tab chega no card (as ações aparecem) e Enter abre
@@ -1205,7 +1000,7 @@ function abrirPopVaga(dateStr, btn){
   const pop = document.createElement('div');
   pop.className='vagapop'; pop.id='vagapop';
   pop.innerHTML =
-    '<h4>'+icon('alerta','s')+' falta criar · '+esc(tfDia(dateStr))+'</h4>'+   // v4.12 (bug desde a v3.77: cabDia saiu e o balão não abria)
+    '<h4>'+icon('alerta','s')+' falta criar · '+esc(diaCurto(dateStr))+'</h4>'+   // v4.12 (bug desde a v3.77: cabDia saiu e o balão não abria)
     '<input id="vagaObs" placeholder="obs (opcional): precisa ser sobre…" autocomplete="off" maxlength="140">'+
     contas.map(k=>
       '<div class="vpconta"><span class="cdot" style="background:'+contaCor(k)+'"></span>'+esc(nomeConta(k))+'</div>'+
@@ -1324,7 +1119,7 @@ function entLinha(s){
     '<span class="epdot e-'+e0.k+(e0.lider ? ' lider' : '')+'"></span>'+   // v4.13: com a líder, laranja
     '<span class="eptxt"><span class="eptit">'+(cod ? '<span class="epcod">'+esc(cod)+'</span>' : '')+esc(s.tituloCache || slotTitulo(s))+'</span>'+
       '<span class="epsub">'+esc(st.nome || 'sem etapa')+(s.assigneeCache ? ' · '+esc(s.assigneeCache) : '')+'</span>'+
-      '<span class="eppost">'+icon('calendar')+'sai <b>'+(s.date ? esc(tfDia(s.date)) : 'sem dia')+'</b> · '+esc(nomeConta(s.conta))+'</span></span>'+
+      '<span class="eppost">'+icon('calendar')+'sai <b>'+(s.date ? esc(diaCurto(s.date)) : 'sem dia')+'</b> · '+esc(nomeConta(s.conta))+'</span></span>'+
     '<span class="epfim">'+selo+(url ? '<a class="ephub" href="'+esc(url)+'" target="_blank" rel="noopener" title="Abrir no MKT Hub" aria-label="Abrir no MKT Hub">'+icon('external')+'</a>' : '')+'</span>'+
   '</div>';
 }
@@ -1335,8 +1130,8 @@ function abrirEntregas(dia, ancora){
   fechaEntregas(); if(mesmo) return;                                  // clicar de novo no mesmo dia só fecha
   const lista = (entMapa()[dia] || []).slice(); if(!lista.length) return;
   const p = document.createElement('div');
-  p.className = 'entpop'; p.id = 'entPop'; p.dataset.dia = dia; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Entregas de '+tfDia(dia));
-  p.innerHTML = '<div class="ephead"><b>Entregas de '+esc(tfDia(dia))+'</b><span>prazo no MKT Hub</span></div>'+
+  p.className = 'entpop'; p.id = 'entPop'; p.dataset.dia = dia; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Entregas de '+diaCurto(dia));
+  p.innerHTML = '<div class="ephead"><b>Entregas de '+esc(diaCurto(dia))+'</b><span>prazo no MKT Hub</span></div>'+
     '<div class="eplista">'+lista.map(entLinha).join('')+'</div>'+
     '<div class="epfoot">Clique na linha pra ver o post no dia em que ele sai.</div>';
   document.body.appendChild(p);
@@ -1397,18 +1192,12 @@ function celulaDia(c, di, porDia, semana){
     ? '<span class="gmday" title="Dia de grande marca (GM)">'+icon('star')+'</span>'
     : (gmDia ? '<span class="gmday esperado" title="Este dia precisa de um post de GRANDE MARCA (GM), mesmo sem post ainda">'+icon('star')+'</span>' : '');
   const sb = S.aba==='SEUBONÉ';
-  const mzk = mzDaAba(S.aba);                                  // v3.91: SeuBoné e Weevo
-  const mzd = mzk ? mzTipoDoDia(c.date, mzk) : null;
-  const mzLabel = mzd ? (mzd.tipo || mzd.opcoes.join(' / ')) : '';
-  const mzHacks = mzd && mzk === 'weevo' ? ' · e mais '+((new Date(mzUtc(c.date)).getUTCDay()+6)%7 >= 5 ? 2 : 4)+' hacks e virais (fora da matriz)' : '';
   // v3.94: o que vence neste dia no MKT Hub. v4.01: na lente "fica pronto" os próprios cards são as entregas,
   // então a caixinha sai; e lá não se cria nem se arrasta post (o dia da célula é o da entrega, não o que sai).
   const lenteEnt = S.lente === 'ent';
   const ents = lenteEnt ? [] : (entMapa()[c.date] || []);
   const raias = raiasDaAba();                                  // v4.02: uma faixa por conta (Carbone e Onevo)
   cell.innerHTML = '<div class="day-top"><span class="dleft"><span class="dnum">'+c.dnum+ estrela + '</span>'+
-    // v4.01: o tipo do dia da matriz fica neutro (cinza): a cor do painel é só da etapa do post
-    (mzd ? '<span class="mzdia" title="Matriz: '+esc(mzLabel)+' · semana '+mzd.semana+esc(mzHacks)+'">'+esc(mzd.tipo || 'Em aberto')+'</span>' : '')+
     (ents.length ? entBotao(ents) : '')+
     '</span><span class="day-acts">'+
       (sb || lenteEnt ? '' : '<button class="vagabtn" title="Sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>')+
@@ -1458,7 +1247,7 @@ function blocoMes(mes){
       (S.modoCap ? '<span class="mesn">'+esc(capCabMes(mes).texto)+'</span>'+capCabMes(mes).legenda+'</div>'+   // v4.14: o modo captação
       '<div class="mesdows"><div></div>'+DOWS_TIT.map(d=>'<div>'+d+'</div>').join('')+'</div>' :
       '<span class="mesn">'+(S.lente === 'ent'
-        ? n+' entrega'+(n===1?'':'s')+' · '+esc(nomeAba(S.aba))+(fora ? '<span class="mesfora" title="Matriz, copy e post sem task não têm entrega: voltam na lente sai">'+fora+' sem entrega fora da vista</span>' : '')
+        ? n+' entrega'+(n===1?'':'s')+' · '+esc(nomeAba(S.aba))+(fora ? '<span class="mesfora" title="Post sem task não tem entrega: volta na lente sai">'+fora+' sem entrega fora da vista</span>' : '')
         : n+' post'+(n===1?'':'s')+' · '+esc(nomeAba(S.aba)))+'</span>'+lpLegendaMes(lista)+'</div>'+
     '<div class="mesdows"><div></div>'+DOWS_TIT.map(d=>'<div>'+d+'</div>').join('')+'</div>');
   bloco.appendChild(cab);
@@ -1574,100 +1363,6 @@ function irParaMes(mes, suave){
   window.scrollTo({ top: bloco.getBoundingClientRect().top + window.scrollY - topo, behavior: suave?'smooth':'auto' });
   S.mes = mes; marcarMesFoco();
 }
-// ================= alerta de "PRA APROVAR" e "PRA ALTERAR" =================
-// Grita de três jeitos, do mais discreto pro mais chamativo: faixa no topo do painel,
-// título da aba piscando, e notificação nativa do Windows (quando você autorizar).
-// A detecção é de graça: a atualização automática já traz o status de tudo a cada 20s.
-const ALERTA = {
-  chave: 'sb.alerta',
-  cfg(){ try{ return JSON.parse(localStorage.getItem(this.chave)||'{}'); }catch(e){ return {}; } },
-  salvar(c){ try{ localStorage.setItem(this.chave, JSON.stringify(c)); }catch(e){} },
-  ligado(){ return this.cfg().ligado !== false; },   // ligado por padrão
-  som(){ return this.cfg().som !== false; },
-  // interruptor mestre (o sino no topo): mudo cala faixa, título, bipe E notificação do Windows de uma vez
-  mudo(){ return this.cfg().mudo === true; },
-  setMudo(v){ const c=this.cfg(); c.mudo=!!v; this.salvar(c); },
-};
-let pendentesAprovar = [];     // o que entrou em aprovar/alterar e você ainda não viu ({tipo:'aprovar'|'alterar', ...})
-const AVISA_TIPOS = { aprovar:{ selo:'PRA APROVAR', emoji:'🟡', titulo:'Pra aprovar' }, alterar:{ selo:'PRA ALTERAR', emoji:'✏️', titulo:'Pra alterar' } };
-function contaTipos(){ const c={aprovar:0, alterar:0}; pendentesAprovar.forEach(x=>{ c[x.tipo||'aprovar']++; }); return c; }
-function tituloAlerta(){ const c=contaTipos(); return [c.aprovar? '🟡 ('+c.aprovar+') PRA APROVAR':'', c.alterar? '✏️ ('+c.alterar+') PRA ALTERAR':''].filter(Boolean).join(' · '); }
-let tituloOriginal = document.title, piscaTimer = null;
-
-/** Bipe curto gerado na hora, sem arquivo de som. */
-function bipe(){
-  if(!ALERTA.som()) return;
-  try{
-    const ctx = new (window.AudioContext||window.webkitAudioContext)();
-    [0, 0.18].forEach((atraso, i)=>{
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type='sine'; o.frequency.value = i? 1046 : 784;
-      g.gain.setValueAtTime(0.0001, ctx.currentTime+atraso);
-      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime+atraso+0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+atraso+0.15);
-      o.connect(g); g.connect(ctx.destination);
-      o.start(ctx.currentTime+atraso); o.stop(ctx.currentTime+atraso+0.16);
-    });
-    setTimeout(()=>ctx.close().catch(()=>{}), 800);
-  }catch(e){}
-}
-function piscaTitulo(){
-  clearInterval(piscaTimer);
-  if(!pendentesAprovar.length){ document.title = tituloOriginal; return; }
-  let alt = false;
-  piscaTimer = setInterval(()=>{
-    alt = !alt;
-    document.title = alt ? tituloAlerta() : tituloOriginal;
-  }, 1100);
-}
-function renderAlerta(){
-  const b = $('#alertaBar');
-  pintaMute();
-  // mudo: nada na tela nem no título; o que chegou fica guardado e aparece quando você destravar o sino
-  if(ALERTA.mudo()){ b.classList.remove('on'); clearInterval(piscaTimer); document.title = tituloOriginal; return; }
-  if(!pendentesAprovar.length){ b.classList.remove('on'); piscaTitulo(); return; }
-  const n = pendentesAprovar.length, c = contaTipos();
-  b.classList.toggle('so-alterar', c.aprovar===0 && c.alterar>0);
-  b.innerHTML =
-    (c.aprovar? '<span class="ab-selo">'+icon('alerta')+c.aprovar+' PRA APROVAR</span>' : '')+
-    (c.alterar? '<span class="ab-selo alt">'+icon('msg')+c.alterar+' PRA ALTERAR</span>' : '')+
-    '<span class="ab-lista">'+pendentesAprovar.slice(0,4).map((x,i)=>
-      '<button class="ab-item'+(x.tipo==='alterar'?' alt':'')+'" data-i="'+i+'" title="'+esc(x.tipo==='alterar' ? ('pedido de alteração'+(x.motivo? ': '+x.motivo : '')) : 'abrir pra revisar'+(x.por? ' (mandada por '+x.por+')' : ''))+'">'+(x.tipo==='alterar'?'✏️ ':'')+esc(x.titulo)+'</button>').join('')+
-      (n>4? '<span class="ab-mais">+'+(n-4)+'</span>' : '')+'</span>'+
-    '<button class="ab-x" title="Dispensar">✕</button>';
-  b.classList.add('on');
-  b.querySelectorAll('.ab-item').forEach(btn=> btn.onclick = ()=> abrirTaskDoAlerta(pendentesAprovar[Number(btn.dataset.i)]));
-  b.querySelector('.ab-x').onclick = limparAlerta;
-  piscaTitulo();
-}
-function limparAlerta(){ pendentesAprovar = []; renderAlerta(); }
-function abrirTaskDoAlerta(x){ tfAbrirDoAviso(x); }
-/** Notificação nativa do sistema (aparece no canto e fica na central do Windows). */
-function notificaSistema(novos){
-  if(!('Notification' in window) || Notification.permission !== 'granted') return;
-  novos.slice(0,5).forEach(x=>{
-    try{
-      const t = AVISA_TIPOS[x.tipo||'aprovar'];
-      const n = new Notification(t.emoji+' '+t.titulo+' · '+x.conta, {
-        body: x.titulo + (x.data? '\nPost do dia '+brData(x.data) : '') + (x.motivo? '\n"'+x.motivo+'"'+(x.por? ' ('+x.por+')':'') : ''),
-        icon: '/icone.png', badge: '/icone.png', tag: (x.tipo||'aprovar')+'-'+x.id+'-'+(x.k||''), renotify: false,
-      });
-      n.onclick = ()=>{ window.focus(); abrirTaskDoAlerta(x); n.close(); };
-    }catch(e){}
-  });
-}
-/** v3.80: o que entrou em aprovação (pra quem aprova) ou voltou pra alterar (pra quem fez). Lógica em js/tarefas.js. */
-function checarAprovacoes(slots){ tfChecaAvisos(slots); }
-/** Estado visual do sino: marcado = mudo; contador vermelho quando tem coisa guardada no silêncio. */
-function pintaMute(){
-  const chk = $('#muteChk'), lab = $('#btnMute'), n = $('#muteN');
-  if(!chk || !lab) return;
-  const mudo = ALERTA.mudo();
-  if(chk.checked !== mudo) chk.checked = mudo;
-  lab.dataset.tip = mudo ? 'Avisos silenciados. Clique pra voltar a tocar' : 'silenciar os avisos (site e Windows)';
-  if(n){ const q = mudo ? pendentesAprovar.length : 0; n.textContent = q > 9 ? '9+' : String(q); n.classList.toggle('on', q > 0); }
-}
-
 // ---- atualização automática ----
 // O painel nunca perguntava de novo sozinho: depois de criar um post, o nome e o status só
 // apareciam quando você mexia em outra coisa ou clicava em atualizar. Agora ele pergunta a
@@ -1676,7 +1371,6 @@ const POLL_MS = 20_000;
 function podeAtualizarSozinho(){
   if(S.ocioso) return false;                                  // v3.72: 20 min sem ninguém mexer, fica quieto
   if(document.hidden) return false;
-  if(!document.getElementById('ovDoc').hidden) return false;   // documento aberto: nada de redesenhar por trás
   if(S.dragging || S.clip) return false;
   if(document.querySelector('#grid .card:hover, .lp-lc:hover')) return false;   // v4.01: mouse num card (ou na legenda): não redesenha debaixo da mão (os botões do hover sumiriam)
   if(document.querySelector('.ov.open')) return false;      // qualquer modal aberto
@@ -2067,7 +1761,6 @@ $('#eMaisBtn').onclick = ()=> abreMais($('#eMaisCorpo').hidden);
 function ePasso(){ $('#eForm').hidden = false; $('#eFoot').hidden = false; }
 const E_TITULOS = { link:'Novo post', hub:'Post do MKT Hub', edit:'Editar post', postado:'Já foi postado' };
 function setModo(m){
-  if(m==='matriz'){ const dia = $('#eDate').value || null; closeOv('ovEdit'); criarCardMatriz(dia, mzDaAba(S.aba) || 'seubone'); return; }
   E_MODO = m;
   aplicaModo(m);
   ePasso(2);
@@ -2167,249 +1860,13 @@ $('#eSave').onclick = async ()=>{
   finally{ $('#eSave').disabled = false; }
 };
 
-// ================= (i) EXPLICAÇÃO DE CADA CAMPO (v3.68) =================
-// Os textos moram no servidor (lib/matriz-seubone.js, GLOSSARIO) e chegam no /api/state.
-const ICON_INFO = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><path d="M12 11v5.8"/><circle cx="12" cy="7.7" r="1.15" fill="currentColor" stroke="none"/></svg>';
-let MZ_CONTA_UI = 'seubone';   // v3.91: de qual matriz é o card aberto (o (i) explica pelas regras dela)
-function glo(){ return mzCfg(MZ_CONTA_UI).glossario || { campos:{}, valores:{} }; }
-function infoBtn(chave, valor, lista){ return '<button type="button" class="ib" data-info="'+esc(chave)+'"'+(valor?' data-valor="'+esc(valor)+'"':'')+(lista?' data-lista="1"':'')+' title="O que é isso?" aria-label="o que é isso?">'+ICON_INFO+'</button>'; }
-function trocaMarcadoresInfo(raiz){ (raiz||document).querySelectorAll('span[data-ib]').forEach(el=>{ el.outerHTML = infoBtn(el.dataset.ib, el.dataset.valor, el.dataset.lista); }); }
-let INFO_BTN = null;
-function fechaInfo(){ const p = document.getElementById('infoPop'); if(p) p.remove(); if(INFO_BTN){ INFO_BTN.classList.remove('on'); INFO_BTN = null; } }
-function abreInfo(btn){
-  fechaInfo();
-  const g = glo(), k = btn.dataset.info, v = btn.dataset.valor || '';
-  let tit = '', corpo = '';
-  if(k === 'tipoAtual'){
-    const t = mzCfg(MZ_CONTA_UI).tipos[v]; tit = v;
-    corpo = '<p>'+esc(t ? t.oQueE : '')+'</p>'+(t ? '<ul class="ipl"><li><b>Quando</b>: '+esc(t.quando)+'</li><li><b>Objetivo</b>: '+esc(t.objetivo)+' · <b>CTA</b>: '+esc(t.cta)+'</li></ul>' : '')+
-      (g.campos.tipo ? '<p>'+esc(g.campos.tipo.txt)+'</p>' : '');
-  } else if(k.startsWith('sug:')){
-    // v3.91: a explicação do formato pode ser do tipo (a Weevo tem "Quadro branco" em 2 tipos, com usos diferentes)
-    const tAtual = mzCfg(MZ_CONTA_UI).tipos[$('#ovMz').dataset.tipo || ''] || {};
-    const qual = k.slice(4), txt = (qual==='formato' && (tAtual.formatosTxt||{})[v]) || ((g.sugestoes||{})[qual]||{})[v];
-    tit = v; corpo = '<p class="ipk">Sugestão de '+(qual==='formato'?'formato':'ângulo')+'</p><p>'+esc(txt || 'Sem explicação cadastrada ainda.')+'</p><p class="ipd">Clique no nome da sugestão pra usar ela no campo.</p>';
-  } else {
-    const c = g.campos[k]; if(!c) return;
-    tit = c.tit; corpo = '<p>'+esc(c.txt)+'</p>';
-    // formato/ângulo: se o que está escrito é uma das sugestões, explica ela também
-    const atual = (k==='formato' || k==='angulo') ? (document.querySelector('#ovMz [data-mz="'+k+'"]')||{}).value : '';
-    const tA = mzCfg(MZ_CONTA_UI).tipos[$('#ovMz').dataset.tipo || ''] || {};
-    const exp = atual && ((k==='formato' && (tA.formatosTxt||{})[atual.trim()]) || ((g.sugestoes||{})[k]||{})[atual.trim()]);
-    if(exp) corpo += '<ul class="ipl"><li class="atual"><b>'+esc(atual.trim())+'</b>: '+esc(exp)+'</li></ul>';
-    const vals = g.valores[k];
-    if(vals && (v || btn.dataset.lista)) corpo += '<ul class="ipl">'+Object.entries(vals).map(([nome, txt])=>'<li'+(nome===v?' class="atual"':'')+'><b>'+esc(nome)+'</b>: '+esc(txt)+'</li>').join('')+'</ul>';
-  }
-  const pop = document.createElement('div'); pop.id = 'infoPop'; pop.className = 'infopop'; pop.setAttribute('role', 'dialog');
-  pop.innerHTML = '<div class="iph">'+ICON_INFO+'<b>'+esc(tit)+'</b><button type="button" class="ipx" aria-label="fechar">✕</button></div>'+corpo;
-  document.body.appendChild(pop);
-  const r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
-  const x = Math.min(Math.max(8, r.left - 18), innerWidth - w - 8);
-  let y = r.bottom + 8; if(y + h > innerHeight - 8) y = Math.max(8, r.top - h - 8);
-  pop.style.left = x+'px'; pop.style.top = y+'px';
-  pop.querySelector('.ipx').onclick = fechaInfo;
-  btn.classList.add('on'); INFO_BTN = btn; INFO_EM = Date.now();
-}
-let INFO_EM = 0;   // a rolagem que o próprio clique provoca não fecha a caixinha
-document.addEventListener('click', ev=>{
-  const b = ev.target.closest && ev.target.closest('.ib');
-  if(b){ ev.preventDefault(); ev.stopPropagation(); if(INFO_BTN === b){ fechaInfo(); return; } abreInfo(b); return; }
-  if(!(ev.target.closest && ev.target.closest('#infoPop'))) fechaInfo();
-}, true);
-document.addEventListener('keydown', ev=>{ if(ev.key === 'Escape' && document.getElementById('infoPop')){ ev.stopPropagation(); ev.preventDefault(); fechaInfo(); } }, true);
-document.addEventListener('scroll', ev=>{ if(Date.now() - INFO_EM > 350 && !(ev.target.closest && ev.target.closest('#infoPop'))) fechaInfo(); }, true);
-trocaMarcadoresInfo();
-
-// ================= COPY: documento estilo editor de texto (v3.66) =================
-// O editor mora em public/doc.html (arquivo separado, carregado só quando abre). Aqui só: criar o
-// documento do post, abrir num pop-up em tela cheia, a lista de todos e o link direto (#doc=ID).
-async function abrirCopy(slotId){
-  const s = S.slots.find(x=>x.id===slotId); if(!s) return;
-  let id = s.docId;
-  if(!id){
-    try{ const r = await api('/api/docs', {method:'POST', body:JSON.stringify({ slotId, por:(PERFIL.get()||{}).nome||'' })}); id = r.id; s.docId = id; }
-    catch(e){ toast(e.message, true); return; }
-  }
-  abrirDoc(id);
-}
-function abrirDoc(id){
-  closeOv('ovDocs');
-  $('#docFrame').src = '/doc.html?id='+encodeURIComponent(id);
-  $('#ovDoc').hidden = false; document.body.classList.add('comdoc');
-  try{ history.replaceState(null, '', location.pathname+location.search+'#doc='+id); }catch(e){}
-}
-function fecharDoc(){
-  $('#ovDoc').hidden = true; document.body.classList.remove('comdoc');
-  { const a = document.activeElement; if(a && a.id === 'docFrame') a.blur(); }   // v4.03: o foco volta pro painel (o Esc e os atalhos funcionam de novo)
-  setTimeout(()=>{ $('#docFrame').src = 'about:blank'; }, 50);
-  try{ if(location.hash.startsWith('#doc=')) history.replaceState(null, '', location.pathname+location.search); }catch(e){}
-  // recarrega e redesenha (o modo silencioso não redesenha se só mudou o documento, e a marca do card precisa aparecer)
-  loadState(false, true).then(()=>{ render(); capAoVoltar(); }).catch(()=>{});   // v4.14: a folha da captação aberta também se atualiza
-}
-window.addEventListener('message', ev=>{
-  if(ev.origin !== location.origin || !ev.data || ev.data.bone !== 'doc') return;
-  if(ev.data.tipo === 'fechar') fecharDoc();
-  if(ev.data.tipo === 'excluido'){ const s = S.slots.find(x=>x.docId===ev.data.docId); if(s) delete s.docId; }
-  if(ev.data.tipo === 'aprov') loadState(false, true).then(()=>{ render(); pintaBtnAprovar(); }).catch(()=>{});   // v3.89
-  // v3.90: o documento pede a tela da task de produção (se veio da tarefa, volta pra ela depois dessa tela, não antes)
-  if(ev.data.tipo === 'producao' && ev.data.slotId){ const volta = TF.voltar; TF.voltar = null; fecharDoc(); setTimeout(()=>{ TF.voltar = volta; abrirProducao(ev.data.slotId); }, 250); }
-});
-let DOCS_LISTA = [], DOCS_CONTA = '';
-async function abrirListaDocs(){
-  $('#ovDocs').classList.add('open');
-  desenhaUsoDocs();
-  $('#dcLista').innerHTML = '<div class="dcvazio">carregando…</div>';
-  try{ DOCS_LISTA = (await api('/api/docs'+($('#dcExc').checked?'?excluidos=1':''))).docs; }
-  catch(e){ $('#dcLista').innerHTML = '<div class="dcvazio">Não consegui carregar: '+esc(e.message)+'</div>'; return; }
-  desenhaListaDocs();
-  setTimeout(()=>$('#dcBusca').focus(), 50);
-}
-function desenhaListaDocs(){
-  const contas = [...new Set(DOCS_LISTA.map(d=>d.conta).filter(Boolean))];
-  $('#dcContas').innerHTML = '';
-  [['', 'todas']].concat(contas.map(c=>[c, nomeConta(c)])).forEach(([k, r])=>{
-    const b = document.createElement('button'); b.type='button'; b.className='echip'+(DOCS_CONTA===k?' on':'');
-    b.innerHTML = (k?'<span class="dot" style="background:'+contaCor(k)+'"></span>':'')+esc(r)+' <span style="opacity:.6">'+DOCS_LISTA.filter(d=>!k||d.conta===k).length+'</span>';
-    b.onclick = ()=>{ DOCS_CONTA = k; desenhaListaDocs(); };
-    $('#dcContas').appendChild(b);
-  });
-  const q = $('#dcBusca').value.trim().toLowerCase();
-  const l = DOCS_LISTA.filter(d=>(!DOCS_CONTA || d.conta===DOCS_CONTA) && (!q || (d.titulo+' '+d.contaNome+' '+d.post).toLowerCase().includes(q)));
-  const quando = iso => { if(!iso) return ''; const d = new Date(iso); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
-  $('#dcLista').innerHTML = l.length ? '' : '<div class="dcvazio">'+(DOCS_LISTA.length ? 'Nada com esse filtro.' : ($('#dcExc').checked ? 'Nenhum documento excluído.' : 'Nenhum documento ainda. Abra um card da matriz ou um post e clique em "Escrever a copy".'))+'</div>';
-  l.forEach(d=>{
-    // v3.87: cada documento é um link de verdade (/doc.html?id=…): o botão do meio, o Ctrl+clique e o "abrir em nova
-    // guia" do clique direito abrem em outra aba, sozinho; o clique normal continua abrindo aqui dentro, em tela cheia
-    const row = document.createElement('a'); row.className = 'dcl'; row.href = '/doc.html?id='+encodeURIComponent(d.id);
-    row.innerHTML = '<span class="dci">'+icon('doc')+'</span><b>'+esc(d.titulo)+'</b>'+
-      '<small><span class="cdot" style="background:'+contaCor(d.conta)+'"></span>'+esc(d.contaNome||'')+(d.date?' · post de '+brData(d.date).slice(0,5):' · sem dia')+' · '+d.palavras+' palavra'+(d.palavras===1?'':'s')+
-        (d.temMatriz?' <span class="tg">matriz</span>':'')+(d.taskId?' <span class="tg ok">tem task</span>':'')+(!d.postExiste?' <span class="tg">post excluído</span>':'')+'</small>'+
-      '<span class="dcr">'+(d.excluido?'<button class="mbtn">Restaurar</button>':esc(quando(d.atualizadoEm))+(d.por?'<br>'+esc(d.por):''))+'</span>';
-    if(d.excluido) row.querySelector('.mbtn').onclick = async ev=>{ ev.preventDefault(); ev.stopPropagation(); try{ await api('/api/docs/'+d.id+'/restaurar', {method:'POST'}); toast('Documento restaurado'); await loadState(false, true); abrirListaDocs(); }catch(e){ toast(e.message, true); } };
-    row.onclick = ev=>{ if(ev.button || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return; ev.preventDefault(); abrirDoc(d.id); };
-    $('#dcLista').appendChild(row);
-  });
-}
-$('#dcBusca').addEventListener('input', desenhaListaDocs);
-
-// ================= v3.89: Pra aprovar (as copys de todas as empresas) =================
-// O ADMIN (Zion e Maria) aprova ou pede alteração aqui, com o texto aberto; quem escreve (Usuário) vê as suas em
-// aprovação, pra alterar e aprovadas. É a mesma aprovação da tarefa de copy e do documento (slot.aprov.c).
-const AP = { aba: null, docs: null, aberto: new Set(), alt: null };
-const apChave = t => String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
-function apMinha(a){ return !S.eu || !a || apChave(a.por) === apChave(S.eu.nome); }
-function apItens(){
-  const adm = souAdmin();
-  return S.slots.filter(s => s.aprov && s.aprov.c && s.date && (adm || apMinha(s.aprov.c)))
-    .map(s => ({ s, a: s.aprov.c }))
-    .sort((x, y) => x.s.date.localeCompare(y.s.date) || slotTitulo(x.s).localeCompare(slotTitulo(y.s)));
-}
-function apGrupos(){
-  const l = apItens();
-  return {
-    esperando: l.filter(x => x.a.st === 'enviado'),
-    alterar: l.filter(x => x.a.st === 'alterar'),
-    aprovadas: l.filter(x => x.a.st === 'aprovado' && !x.s.taskId && !x.s.postado),   // aprovadas que ainda não viraram task de produção
-  };
-}
-function pintaBtnAprovar(){
-  const b = $('#btnAprovar'); if(!b) return;
-  const g = apGrupos(), adm = souAdmin();
-  const n = adm ? g.esperando.length : g.alterar.length;
-  b.hidden = !(adm || g.esperando.length || g.alterar.length || g.aprovadas.length);
-  $('#aprovRot').textContent = adm ? 'Pra aprovar' : (g.alterar.length ? 'Pra alterar' : 'Minhas copys');
-  $('#aprovN').textContent = n ? String(n) : '';
-  b.classList.toggle('tem', !!n); b.classList.toggle('alt', !adm && !!g.alterar.length);
-  b.dataset.tip = adm ? 'Copys esperando aprovação, de todas as empresas' : 'As suas copys: em aprovação, pra alterar e aprovadas';
-}
-async function abrirAprovar(aba){
-  const g = apGrupos(), adm = souAdmin();
-  AP.aba = aba || (adm ? (g.esperando.length ? 'esperando' : g.aprovadas.length ? 'aprovadas' : 'esperando') : (g.alterar.length ? 'alterar' : 'esperando'));
-  AP.alt = null;
-  $('#ovAprovar').classList.add('open');
-  desenhaAprovar();
-  try{ const r = await api('/api/docs'); AP.docs = new Map(r.docs.map(d => [d.id, d])); desenhaAprovar(); }catch(e){}
-}
-function desenhaAprovar(){
-  const g = apGrupos(), adm = souAdmin();
-  $('#apTit').textContent = adm ? 'Pra aprovar' : 'Minhas copys';
-  $('#apSub').textContent = adm ? 'as copys mandadas pra aprovação, de todas as empresas, por dia' : 'as suas copys que foram pra aprovação';
-  const abas = [['esperando', adm ? 'Esperando' : 'Em aprovação'], ['alterar', 'Pra alterar'], ['aprovadas', 'Aprovadas sem task']];
-  $('#apAbas').innerHTML = abas.map(([k, r]) => '<button role="tab" class="echip'+(AP.aba===k?' on':'')+'" data-ap="'+k+'" aria-selected="'+(AP.aba===k)+'">'+r+' <span class="apn">'+g[k].length+'</span></button>').join('');
-  $('#apAbas').querySelectorAll('[data-ap]').forEach(b => b.onclick = () => { AP.aba = b.dataset.ap; AP.alt = null; desenhaAprovar(); });
-  const l = g[AP.aba] || [];
-  const vazio = { esperando: adm ? 'Nada esperando aprovação.' : 'Nenhuma copy sua em aprovação.', alterar: 'Nenhuma copy pra alterar.', aprovadas: 'Nenhuma copy aprovada esperando a task de produção.' }[AP.aba];
-  if(!l.length){ $('#apLista').innerHTML = '<div class="dcvazio">'+vazio+'</div>'; return; }
-  let dia = '', h = '';
-  for(const {s, a} of l){
-    if(s.date !== dia){ dia = s.date; h += '<div class="apdia">'+tfDia(s.date)+'</div>'; }
-    const d = AP.docs && s.docId ? AP.docs.get(s.docId) : null, m = s.matrizSB || {};
-    const meta = [m.tipo, m.formato || s.formato, d ? d.palavras+' palavra'+(d.palavras===1?'':'s') : '', a.por ? 'mandada por '+a.por+(a.em ? ' em '+fmtDataHora(Date.parse(a.em)) : '') : ''].filter(Boolean).map(esc).join(' · ');
-    let acoes = '<button class="mbtn" data-apabre="'+s.id+'">'+icon('doc')+'Abrir</button>';
-    if(adm && a.st === 'enviado') acoes += '<button class="bt-edit alterar" data-rot="Pedir alteração" style="--w:136px" data-apalt="'+s.id+'" aria-label="Pedir alteração">'+icon('pencil')+'</button><button class="bt-aprovar mini" data-apok="'+s.id+'"><span class="bt-txt"><span>Aprovar</span></span></button>';
-    if(adm && a.st !== 'enviado') acoes += '<button class="ti-desf" data-apdesf="'+s.id+'" title="Voltar pra esperando aprovação">desfazer</button>';
-    if(adm && a.st === 'aprovado' && !s.taskId && S.temFonte) acoes += '<button class="mbtn primary" data-approd="'+s.id+'">'+icon('hub')+'Criar task no MKT Hub</button>';   // v3.90
-    const aberto = AP.aberto.has(s.id);
-    h += '<div class="apit st-'+a.st+'" data-id="'+s.id+'">'+
-      '<div class="aplin"><span class="cdot" style="background:'+contaCor(s.conta)+'"></span><span class="apconta">'+esc(contaCurta(s.conta))+'</span>'+
-        '<button class="aptit" data-apexp="'+s.id+'" aria-expanded="'+aberto+'">'+esc(slotTitulo(s))+'</button>'+
-        '<span class="apacoes">'+acoes+'</span></div>'+
-      '<div class="apmeta">'+meta+'</div>'+
-      (a.st === 'alterar' && a.nota ? '<div class="ti-nota alt">'+icon('pencil')+'<span><b>'+esc(a.ap || 'Pedido')+':</b> '+esc(a.nota)+'</span></div>' : '')+
-      (a.st === 'enviado' && a.pedido ? '<div class="ti-nota">'+icon('undo')+'<span><b>Tinha sido pedido:</b> '+esc(a.pedido)+'</span></div>' : '')+
-      (a.st === 'aprovado' && a.ap ? '<div class="ti-nota ok">'+icon('check')+'<span>Aprovada por <b>'+esc(a.ap)+'</b>'+(a.apEm ? ' em '+fmtDataHora(Date.parse(a.apEm)) : '')+'</span></div>' : '')+
-      (AP.alt === s.id ? '<div class="ti-altbox"><textarea id="apAltTxt" rows="2" maxlength="500" placeholder="O que precisa mudar? (quem escreveu vê isso no documento e no card)"></textarea><div><button class="mbtn" data-apaltcancela="1">Cancelar</button><button class="mbtn primary" data-apaltmanda="'+s.id+'">Mandar pedido</button></div></div>' : '')+
-      (aberto ? '<div class="aptexto" data-aptexto="'+s.id+'">carregando o texto…</div>' : '')+
-    '</div>';
-  }
-  $('#apLista').innerHTML = h;
-  const L = $('#apLista');
-  L.querySelectorAll('[data-apabre]').forEach(b => b.onclick = () => { closeOv('ovAprovar'); abrirCopy(b.dataset.apabre); });
-  L.querySelectorAll('[data-apexp]').forEach(b => b.onclick = () => { const id = b.dataset.apexp; if(AP.aberto.has(id)) AP.aberto.delete(id); else AP.aberto.add(id); desenhaAprovar(); });
-  L.querySelectorAll('[data-apok]').forEach(b => b.onclick = () => apAcao(b.dataset.apok, 'aprovar'));
-  L.querySelectorAll('[data-apdesf]').forEach(b => b.onclick = () => apAcao(b.dataset.apdesf, 'reabrir'));
-  L.querySelectorAll('[data-approd]').forEach(b => b.onclick = () => abrirProducao(b.dataset.approd));
-  L.querySelectorAll('[data-apalt]').forEach(b => b.onclick = () => { AP.alt = b.dataset.apalt; desenhaAprovar(); setTimeout(() => { const x = $('#apAltTxt'); if(x) x.focus(); }, 30); });
-  L.querySelectorAll('[data-apaltcancela]').forEach(b => b.onclick = () => { AP.alt = null; desenhaAprovar(); });
-  L.querySelectorAll('[data-apaltmanda]').forEach(b => b.onclick = () => { const n = ($('#apAltTxt').value || '').trim(); if(!n){ toast('Escreva o que precisa mudar', true); return; } apAcao(b.dataset.apaltmanda, 'alterar', n); });
-  const altTxt = $('#apAltTxt');
-  if(altTxt) altTxt.addEventListener('keydown', ev => { if(ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); const n = altTxt.value.trim(); if(n) apAcao(AP.alt, 'alterar', n); } });
-  L.querySelectorAll('[data-aptexto]').forEach(el => apCarregaTexto(el.dataset.aptexto));
-}
-/** v3.89: texto do documento com as quebras de linha (innerText fora da tela não quebra os parágrafos). */
-function htmlParaTexto(html){
-  const div = document.createElement('div');
-  div.innerHTML = String(html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|h[1-6]|li|blockquote|tr)>/gi, '$&\n');
-  return (div.textContent || '').replace(/\u200b/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
-}
-async function apCarregaTexto(sid){
-  const s = S.slots.find(x => x.id === sid); if(!s || !s.docId) return;
-  try{
-    const r = await api('/api/docs/'+s.docId);
-    const txt = htmlParaTexto(r.doc.html);
-    const el = document.querySelector('[data-aptexto="'+sid+'"]'); if(!el) return;
-    el.textContent = txt ? (txt.length > 2400 ? txt.slice(0, 2400)+'…' : txt) : 'Documento vazio.';
-  }catch(e){ const el = document.querySelector('[data-aptexto="'+sid+'"]'); if(el) el.textContent = 'Não consegui carregar o texto: '+e.message; }
-}
-async function apAcao(sid, acao, nota){
-  try{
-    await api('/api/slots/'+sid+'/copy', {method:'POST', body:JSON.stringify({ acao, nota: nota || '', quem: (PERFIL.get()||{}).nome || '' })});
-    AP.alt = null;
-    await loadState(false, true); render();
-    if($('#ovAprovar').classList.contains('open')) desenhaAprovar();
-    toast(acao === 'aprovar' ? 'Copy aprovada · Ctrl+Z desfaz' : acao === 'alterar' ? 'Pedido de alteração mandado · Ctrl+Z desfaz' : 'Voltou pra esperando aprovação · Ctrl+Z desfaz');
-  }catch(e){ toast(e.message, true); }
-}
-$('#btnAprovar').onclick = () => abrirAprovar();
 $('#btnCap').onclick = () => capModo();   // v4.14: liga e desliga o modo captação
 
 // ================= v3.90: task de produção no MKT Hub =================
-// Copy aprovada → o ADMIN cria aqui a task de arte ou vídeo: título, tipo, formato, responsável, entrega, data do
-// post, pontos e prioridade (já vem tudo sugerido); o briefing é a copy aprovada e a matriz. O post fica ligado à
-// task no dia dele; a copy continua guardada (ícone do documento no card).
+// O ADMIN cria aqui a task de arte ou vídeo de um post: título, tipo, formato, responsável, entrega, data do post,
+// pontos e prioridade (já vem tudo sugerido). O post fica ligado à task no dia dele. v4.22: sem o fluxo da copy, não
+// precisa mais de copy aprovada; o briefing é o do post (e o material do banco, quando tem).
 const PR = { sid: null, op: null, tipos: new Set(), formato: '', resp: '', prior: 'media', maisTipos: false };
-/** O documento (iframe) pergunta se o painel está ligado ao Hub, pra mostrar "Criar task de produção". */
-function painelTemHub(){ return !!S.temFonte && souAdmin(); }
 async function abrirProducao(sid){
   // o post pode não estar na tela (semana, ou documento aberto pela lista): o que falta vem do servidor
   const s = S.slots.find(x => x.id === sid);
@@ -2431,7 +1888,7 @@ async function abrirProducao(sid){
 function prSubtitulo(p){
   const el = $('#prSub'); if(!p){ el.innerHTML = ''; return; }
   el.innerHTML = (p.conta ? '<span class="cdot" style="background:'+contaCor(p.conta)+'"></span>' : '')+
-    '<span>'+esc(p.contaNome || nomeConta(p.conta))+'</span><span class="pr-pt">·</span><span>'+(p.date ? esc(tfDia(p.date)) : 'sem dia')+'</span><span class="pr-pt">·</span><span class="pr-subtit">'+esc(p.titulo || '')+'</span>';
+    '<span>'+esc(p.contaNome || nomeConta(p.conta))+'</span><span class="pr-pt">·</span><span>'+(p.date ? esc(diaCurto(p.date)) : 'sem dia')+'</span><span class="pr-pt">·</span><span class="pr-subtit">'+esc(p.titulo || '')+'</span>';
 }
 // v3.92 (pedido do Zion: "tá feio. deixe mais clean, mais fácil de se achar"): rótulo em cima de cada campo, o que
 // produzir primeiro (título, formato, tipo), depois quem e quando; formato e prioridade em controle segmentado,
@@ -2441,7 +1898,6 @@ const PR_PRIOR = [['urgente','Urgente'], ['alta','Alta'], ['media','Média'], ['
 const PR_TIPOS_VISIVEIS = 4;
 function desenhaProducao(){
   const o = PR.op, g = o.sugestao || {};
-  if(!o.aprovada){ $('#prBody').innerHTML = '<div class="dcvazio">A copy deste post ainda não foi aprovada.</div>'; return; }
   if(o.taskId && !(o.prod && o.prod.dataPostPend !== undefined)){ $('#prBody').innerHTML = '<div class="dcvazio">Este post já tem task de produção'+(o.prod && o.prod.codigo ? ' ('+esc(o.prod.codigo)+')' : '')+'.</div>'; return; }
   if(o.taskId && o.prod){   // criada, mas a data do post não foi pro Hub
     $('#prBody').innerHTML = '<div class="pr-aviso">A task '+esc(o.prod.codigo || '')+' foi criada, mas a data do post ainda não foi pro Hub.</div>';
@@ -2466,16 +1922,16 @@ function desenhaProducao(){
         '<div class="pr-campo"><span class="pr-l" id="prRespRot">Responsável</span><div class="pr-menu"><button type="button" id="prResp" class="pr-sel pr-pessoa" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="prRespRot prResp"></button></div></div>'+
         '<div class="pr-campo"><label class="pr-l" for="prPrazo">Entrega</label><input type="date" id="prPrazo" class="pr-inp" value="'+esc(g.prazo || '')+'"></div>'+
         // a data do post é a do calendário (uma fonte só): aparece aqui e acompanha o post no Hub quando ele muda de dia
-        '<div class="pr-campo"><span class="pr-l">Post no ar <small>do calendário</small></span><div class="pr-ro" id="prDataPost" data-iso="'+esc(g.dataPost || '')+'" title="O dia do post no calendário. Se o post mudar de dia, a data muda no Hub junto.">'+icon('calendar')+'<b>'+(g.dataPost ? esc(tfDia(g.dataPost)) : 'sem dia')+'</b></div></div>'+
+        '<div class="pr-campo"><span class="pr-l">Post no ar <small>do calendário</small></span><div class="pr-ro" id="prDataPost" data-iso="'+esc(g.dataPost || '')+'" title="O dia do post no calendário. Se o post mudar de dia, a data muda no Hub junto.">'+icon('calendar')+'<b>'+(g.dataPost ? esc(diaCurto(g.dataPost)) : 'sem dia')+'</b></div></div>'+
       '</div>'+
       '<div class="pr-linha pr-l2">'+
         '<div class="pr-campo"><span class="pr-l">Prioridade</span>'+seg('prPrior', 'Prioridade', PR_PRIOR, PR.prior, 'data-prprior')+'</div>'+
         '<div class="pr-campo"><label class="pr-l" for="prPontos">Pontos</label><div class="pr-step"><button type="button" data-prstep="-1" aria-label="Um ponto a menos">−</button><input type="number" id="prPontos" min="1" max="100" value="'+(g.pontos || 1)+'"><button type="button" data-prstep="1" aria-label="Um ponto a mais">+</button></div></div>'+
       '</div>'+
-      // v3.93 (pedido do Zion): só a copy aprovada, sem a matriz, e dá pra mudar o que vai (o texto daqui é o que vai pro Hub)
+      // v3.93: dá pra mudar o que vai (o texto daqui é o que vai pro Hub)
       '<div class="pr-campo"><label class="pr-l" for="prBrief">Briefing <small>vai assim pro MKT Hub</small></label>'+
         '<textarea id="prBrief" class="pr-txt" rows="7" spellcheck="true">'+esc(o.briefing || '')+'</textarea>'+
-        '<div class="pr-briefpe"><button type="button" class="pr-mais" id="prBriefVolta" hidden>'+(o.banco ? 'Voltar ao texto original' : 'Voltar ao texto da copy')+'</button></div></div>'+
+        '<div class="pr-briefpe"><button type="button" class="pr-mais" id="prBriefVolta" hidden>'+'Voltar ao texto original'+'</button></div></div>'+
     '</div>';
   $('#prFoot').innerHTML = '<button class="mbtn" id="prCancelar">Cancelar</button>'+
     '<span class="note pr-msg" id="prMsg">'+(o.empresa ? 'Nasce em Pendente, na '+esc(o.empresa.nome)+'.' : '')+'</span>'+
@@ -2597,19 +2053,15 @@ async function criaProducao(){
     const r = await api('/api/slots/'+PR.sid+'/producao', {method:'POST', body:JSON.stringify(corpo)});
     closeOv('ovProd');
     await loadState(false, true); render();
-    if($('#ovAprovar').classList.contains('open')) desenhaAprovar();
     const s = S.slots.find(x => x.id === PR.sid), dia = s ? s.date : (o && o.post ? o.post.date : null);
     if(r.aviso) toast(r.aviso, true, 9000);
     else toast('Task '+(r.prod && r.prod.codigo ? r.prod.codigo+' ' : '')+'criada no MKT Hub e ligada ao post'+(dia ? ' de '+brData(dia) : ''));
   }catch(e){ prErro(e.message); bt.disabled = false; }
 }
-$('#dcExc').addEventListener('change', abrirListaDocs);
-$('#btnDocs').onclick = abrirListaDocs;
 
-// ================= uso de banda e arquivamento de documentos (v3.72) =================
-// O servidor mede quanto o painel manda pra fora no mês (é o que o Render cobra; grátis até 5 GB) e quanto
-// pesa dos documentos. No Render, cada alteração envia o arquivo de dados INTEIRO pro GitHub, então documento
-// acumulado deixa TODA alteração mais cara. Quando pesa, aparece o aviso e o botão de arquivar.
+// ================= uso de banda (v3.72) =================
+// O servidor mede quanto o painel manda pra fora no mês (é o que o Render cobra; grátis até 5 GB).
+// v4.22: o arquivamento dos documentos de copy saiu junto com o fluxo da copy (os documentos ficam no data.json).
 const fmtMB = b => (b/1048576 >= 10 ? Math.round(b/1048576) : (b/1048576).toFixed(1).replace('.', ',')) + ' MB';
 const fmtGB = b => (b/1e9 >= 10 ? Math.round(b/1e9) : (b/1e9).toFixed(1).replace('.', ',')) + ' GB';
 const fmtTam = b => b >= 1048576 ? fmtMB(b) : Math.max(1, Math.round(b/1024)) + ' KB';
@@ -2617,22 +2069,16 @@ function mostraUso(u){
   if(!souAdmin()) u = null;                          // v3.95: o uso do Render é só do ADMIN (o servidor nem manda)
   S.uso = u || null;
   renderUsoCap(S.uso);
-  const el = $('#usoAviso'), bt = $('#btnDocs');
+  const el = $('#usoAviso');
   const nivel = u ? u.nivel : 'ok';
-  bt.classList.toggle('uso-atencao', nivel==='atencao'); bt.classList.toggle('uso-alto', nivel==='alto');
   { const lq = $('#leque'); if(lq){ lq.classList.toggle('uso-atencao', nivel==='atencao'); lq.classList.toggle('uso-alto', nivel==='alto'); } }
   let adiado = 0; try{ adiado = +localStorage.getItem('bone.usoAdiado') || 0; }catch(e){}
   if(!u || nivel==='ok' || Date.now() < adiado){ el.hidden = true; return; }
   el.className = 'usoaviso' + (nivel==='alto' ? ' alto' : '');
   const prev = 'Previsão de <b>'+fmtGB(u.previsaoBytes)+'</b> de banda este mês (grátis até '+fmtGB(u.limiteBytes)+').';
-  el.innerHTML = u.porDocs
-    ? '<b>'+(nivel==='alto' ? 'Os documentos estão fazendo o painel passar do limite grátis.' : 'Os documentos estão pesando no servidor.')+'</b> '+prev+
-      ' São '+fmtMB(u.docsBytes)+' de documentos'+(u.comGitHub ? ', e cada alteração no painel leva tudo isso junto pro backup.' : '.')+
-      '<div class="usobts"><button class="mbtn" id="usoDepois">Lembrar amanhã</button><button class="mbtn primary" id="usoArq">Arquivar documentos antigos</button></div>'
-    : '<b>O painel está gastando mais banda que o normal.</b> '+prev+'<div class="usobts"><button class="mbtn" id="usoDepois">Lembrar amanhã</button><button class="mbtn primary" id="usoVer">Ver detalhes</button></div>';
+  el.innerHTML = '<b>O painel está gastando mais banda que o normal.</b> '+prev+'<div class="usobts"><button class="mbtn" id="usoDepois">Lembrar amanhã</button><button class="mbtn primary" id="usoVer">Ver detalhes</button></div>';
   el.hidden = false;
-  if($('#usoArq')) $('#usoArq').onclick = ()=>abrirArquivar();
-  if($('#usoVer')) $('#usoVer').onclick = ()=>abrirListaDocs();
+  if($('#usoVer')) $('#usoVer').onclick = ()=>{ const b = $('#btnUso'); if(b && !b.hidden) b.click(); };
   $('#usoDepois').onclick = ()=>{ try{ localStorage.setItem('bone.usoAdiado', String(Date.now()+20*3600_000)); }catch(e){} el.hidden = true; };
 }
 // ---- medidor do Render na barra de cima (v3.76): previsão do mês e quanto vai custar no cartão ----
@@ -2686,309 +2132,23 @@ async function abrirUsoPop(ev){
     '<div class="usep"></div>' +
     '<div class="unota">Acima de ' + fmtBanda(lim) + ' no mês, o Render cobra ' + fmtUSD(u.precoGB || 0.15) + ' por GB no cartão. ' +
       'Estimativa do próprio painel, contada desde ' + new Date(u.desde).toLocaleDateString('pt-BR') + '. O número oficial fica no ' +
-      '<a href="https://dashboard.render.com" target="_blank" rel="noopener">Render › Billing</a>.</div>' +
-    (u.porDocs ? '<div class="ubts"><button class="mbtn" id="usoPopArq">Arquivar documentos antigos</button></div>' : '');
+      '<a href="https://dashboard.render.com" target="_blank" rel="noopener">Render › Billing</a>.</div>';
   document.body.appendChild(p);
   const r = btn.getBoundingClientRect(), w = p.offsetWidth;
   let left = r.right - w; if(left < 10) left = 10;
   p.style.top = (r.bottom + 8) + 'px'; p.style.left = left + 'px';
-  const arq = document.getElementById('usoPopArq'); if(arq) arq.onclick = ()=>{ fecharUsoPop(); abrirArquivar(); };
   const fora = e => {
     if(!p.isConnected){ document.removeEventListener('pointerdown', fora, true); return; }
     if(!p.contains(e.target) && !btn.contains(e.target)){ fecharUsoPop(); document.removeEventListener('pointerdown', fora, true); }
   };
   setTimeout(()=>document.addEventListener('pointerdown', fora, true), 0);
 }
-async function desenhaUsoDocs(){
-  const el = $('#dcUso');
-  let u; try{ u = await api('/api/uso'); }catch(e){ el.hidden = true; return; }
-  const pct = Math.min(100, Math.round(u.previsaoBytes / u.limiteBytes * 100));
-  el.innerHTML = '<span><b>'+u.docsN+' documento'+(u.docsN===1?'':'s')+'</b> no servidor ('+fmtTam(u.docsBytes)+(u.docsLixeira?', '+u.docsLixeira+' na lixeira':'')+') · arquivo de dados: '+fmtTam(u.dataBytes)+'</span>'+
-    '<span class="barra" title="Banda prevista no mês"><i class="'+u.nivel+'" style="width:'+Math.max(2,pct)+'%"></i></span>'+
-    '<span>banda do mês: '+fmtGB(u.totalBytes)+' · previsão '+fmtGB(u.previsaoBytes)+' de '+fmtGB(u.limiteBytes)+'</span>'+
-    '<button class="mbtn" id="dcArq">Arquivar antigos</button>';
-  el.hidden = false;
-  $('#dcArq').onclick = ()=>abrirArquivar();
-}
-
-// ---- arquivar: 1) prévia  2) baixa o .zip (montado aqui, com um .docx por documento)  3) apaga do servidor ----
-const ARQ = { ids:[], baixado:false, bytes:0, arquivo:'' };
-function carregaDocx(){
-  if(window.DOCX) return Promise.resolve();
-  return new Promise((ok, no)=>{ const sc = document.createElement('script'); sc.src = '/js/docx.js'; sc.onload = ok; sc.onerror = ()=>no(new Error('não carregou o gerador de .docx')); document.head.appendChild(sc); });
-}
-function abrirArquivar(){
-  closeOv('ovDocs');
-  const d = new Date(); d.setDate(d.getDate()-30);
-  $('#arqAte').value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  $('#ovArq').classList.add('open');
-  previaArquivar();
-}
-async function previaArquivar(){
-  Object.assign(ARQ, { ids:[], baixado:false, bytes:0, arquivo:'' });
-  $('#arqApagar').hidden = true; $('#arqApagar').classList.remove('confirma'); $('#arqApagar').textContent = '2. Apagar do servidor';
-  $('#arqBaixar').disabled = true; $('#arqMsg').textContent = '';
-  const box = $('#arqPrevia'); box.className = 'arqprev'; box.textContent = 'calculando…';
-  let r; try{ r = await api('/api/docs/arquivo/previa', {method:'POST', body:JSON.stringify({ ate:$('#arqAte').value, lixeira:$('#arqLix').checked })}); }
-  catch(e){ box.textContent = 'Não consegui calcular: '+e.message; return; }
-  ARQ.ids = r.ids; ARQ.bytes = r.bytes;
-  if(!r.n){ box.innerHTML = 'Nenhum documento de post até '+brData($('#arqAte').value)+($('#arqLix').checked ? ' nem na lixeira' : '')+'.'+(S.uso && S.uso.docsN ? ' Os '+S.uso.docsN+' documentos do servidor são de posts depois dessa data: escolha uma data mais recente pra incluir mais.' : '')+(r.abertos ? '<br>'+r.abertos+' documento(s) aberto(s) agora por alguém ficam de fora.' : ''); return; }
-  box.innerHTML = '<b>'+r.n+' documento'+(r.n===1?'':'s')+'</b>'+(r.lixeira ? ' ('+r.lixeira+' da lixeira)' : '')+' · libera cerca de <b>'+fmtTam(r.bytes)+'</b> do servidor.'+
-    '<br>Primeiro você baixa o .zip (um .docx por documento, em pastas por conta, e um arquivo com tudo pra restaurar se precisar). Guarda no Drive, confere, e só então apaga do servidor.'+
-    (r.abertos ? '<br>'+r.abertos+' documento(s) aberto(s) agora por alguém ficam de fora.' : '');
-  $('#arqBaixar').disabled = false;
-}
-const nomeSeguro = t => String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\x20-\x7E]/g,'').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim().slice(0,80) || 'documento';
-async function baixarArquivo_zip(){
-  if(!ARQ.ids.length) return;
-  const bt = $('#arqBaixar'); bt.disabled = true; $('#arqMsg').textContent = 'montando o .zip…';
-  try{
-    await carregaDocx();
-    const r = await api('/api/docs/arquivo/lista', {method:'POST', body:JSON.stringify({ ids:ARQ.ids })});
-    const arquivos = [], usados = new Set();
-    for(const d of r.docs){
-      const m = d.meta || {};
-      const pasta = nomeSeguro(m.contaNome || m.conta || 'sem conta');
-      let base = 'documentos/'+pasta+'/'+(m.date || d.dateSnap || 'sem-dia')+' '+nomeSeguro(d.titulo)+(d.excluido?' (lixeira)':'');
-      let nome = base+'.docx', k = 2; while(usados.has(nome)) nome = base+' ('+(k++)+').docx';
-      usados.add(nome);
-      arquivos.push({ nome, bytes: DOCX.docxDeHtml(d.html, { titulo:d.titulo, autor:d.por||d.criadoPor||'' }) });
-    }
-    const hoje = hojeStr();
-    const dataBr = iso => iso.split('-').reverse().join('/');
-    const leia = 'B.O.N.E - documentos arquivados em '+dataBr(hoje)+'\r\n\r\n'+
-      'Critério: documentos de posts até '+dataBr($('#arqAte').value)+($('#arqLix').checked?', mais os que estavam na lixeira':'')+'.\r\n'+
-      'Total: '+r.docs.length+' documento(s).\r\n\r\n'+
-      'documentos/  um .docx por documento, separado por conta (abre no Word e no Google Docs).\r\n'+
-      'arquivo-documentos.json  tudo o que o painel guardava (texto, versões antigas, quem escreveu), pra restaurar se um dia precisar.\r\n';
-    arquivos.push({ nome:'LEIA-ME.txt', texto:'﻿'+leia });
-    arquivos.push({ nome:'arquivo-documentos.json', texto:JSON.stringify({ geradoEm:r.geradoEm, criterio:{ ate:$('#arqAte').value, lixeira:$('#arqLix').checked }, docs:r.docs }) });
-    const blob = DOCX.zipBlob(arquivos, 'application/zip');
-    ARQ.arquivo = 'bone-documentos-ate-'+$('#arqAte').value+'.zip';
-    const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = ARQ.arquivo; document.body.appendChild(a); a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 4000);
-    ARQ.baixado = true;
-    const box = $('#arqPrevia'); box.className = 'arqprev ok';
-    box.innerHTML = '<b>Baixado: '+esc(ARQ.arquivo)+'</b> ('+fmtTam(blob.size)+', '+r.docs.length+' documento'+(r.docs.length===1?'':'s')+').'+
-      '<br>Guarde no Drive e abra um ou dois pra conferir. Depois clique em <b>2. Apagar do servidor</b>. Antes de apagar o painel ainda faz um backup do arquivo de dados.';
-    $('#arqMsg').textContent = '';
-    $('#arqApagar').hidden = false; bt.textContent = 'Baixar de novo'; bt.disabled = false;
-  }catch(e){ $('#arqMsg').textContent = 'Não consegui montar o .zip: '+e.message; bt.disabled = false; }
-}
-async function apagarArquivados(){
-  const bt = $('#arqApagar');
-  if(!ARQ.baixado || !ARQ.ids.length) return;
-  if(!bt.classList.contains('confirma')){ bt.classList.add('confirma'); bt.textContent = 'Confirmar: apagar '+ARQ.ids.length+' do servidor'; return; }
-  bt.disabled = true; $('#arqMsg').textContent = 'apagando…';
-  try{
-    const r = await api('/api/docs/arquivo/apagar', {method:'POST', body:JSON.stringify({ ids:ARQ.ids, confirmo:true })});
-    toast(r.apagados+' documento'+(r.apagados===1?'':'s')+' arquivado'+(r.apagados===1?'':'s')+' · '+fmtTam(r.liberadoBytes)+' liberados'+(r.pulados&&r.pulados.length?' · '+r.pulados.length+' aberto(s) ficou(aram)':''));
-    closeOv('ovArq');
-    await loadState(false, true); render();
-  }catch(e){ $('#arqMsg').textContent = 'Não apagou: '+e.message; }
-  bt.disabled = false;
-}
-$('#arqAte').addEventListener('change', previaArquivar);
-$('#arqLix').addEventListener('change', previaArquivar);
-$('#arqBaixar').onclick = baixarArquivo_zip;
-$('#arqApagar').onclick = apagarArquivados;
-$('#mzCopy').onclick = $('#mzCopyTop').onclick = async ()=>{
-  const id = MZ_ATUAL; if(!id) return;
-  await salvarMatriz();
-  if($('#ovMz').classList.contains('open')) return;   // não salvou (erro na tela): fica na matriz
-  abrirCopy(id);
-};
-// link direto pro documento: painel/#doc=ID
-function docDoLink(){ const id = location.hash.startsWith('#doc=') ? location.hash.slice(5) : ''; if(/^d[0-9a-f]{6,}$/.test(id) && $('#ovDoc').hidden) abrirDoc(id); }
-setTimeout(docDoLink, 300);
-window.addEventListener('hashchange', docDoLink);
-
-// ================= MATRIZ (SeuBoné e Weevo): o card amarelo =================
-// v3.88: o card nasce quando a copywriter cria a tarefa de matriz dos dias que escolheu: o tipo do dia vem da rotação
-// A/B, e a copywriter preenche formato, ângulo, pauta, tema, tese, gancho, descrição, refs.
-let MZ_ATUAL = null;       // id do card aberto
-let MZ_TIPO_LIVRE = false; // "trocar tipo" num dia de tipo fixo
-function mzTiposPossiveis(s){
-  const k = mzContaDe(s), d = s.date ? mzTipoDoDia(s.date, k) : null;
-  if(d && d.opcoes) return d.opcoes;
-  if(!d) return Object.keys(mzCfg(k).tipos);          // sem data (banco) ou antes do começo da matriz: qualquer tipo
-  return MZ_TIPO_LIVRE ? Object.keys(mzCfg(k).tipos) : null;
-}
-/** Formato já usado por outro card do mesmo tipo na semana anterior ou na mesma semana (regras 2 e 3 da rotação). */
-function mzFormatoRepetido(s, tipo, formato){
-  if(!s.date || !tipo || !formato) return null;
-  const alvo = formato.trim().toLowerCase(); const d = mzUtc(s.date);
-  const seg = d - ((new Date(d).getUTCDay()+6)%7)*86400000;
-  for(const x of S.slots){
-    if(x.id===s.id || x.conta!==s.conta || !x.date || !x.matrizSB) continue;   // v3.91: a mesma conta (SeuBoné ou Weevo)
-    if((x.matrizSB.tipo||'')!==tipo || String(x.matrizSB.formato||'').trim().toLowerCase()!==alvo) continue;
-    const t = mzUtc(x.date);
-    if(t >= seg - 7*86400000 && t < seg + 7*86400000) return x;
-  }
-  return null;
-}
-function mzDesenhaTipo(s, tipo){
-  const k = mzContaDe(s), cfg = mzCfg(k); const t = cfg.tipos[tipo] || null;
-  const d = s.date ? mzTipoDoDia(s.date, k) : null;
-  const dows = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
-  $('#mzKicker').textContent = (cfg.nome ? cfg.nome.toUpperCase()+' · ' : '')+(s.date ? (dows[new Date(mzUtc(s.date)).getUTCDay()]+' '+brData(s.date).slice(0,5)+(d ? ' · semana '+d.semana+(d.opcoes?' · slot em aberto':'') : ' · antes da matriz')) : 'sem data · banco');
-  $('#mzTit').textContent = tipo || 'Escolha o tipo';
-  const cor = tipo ? mzObjCor(tipo, k) : '#FCC100';
-  $('#ovMz').style.setProperty('--mzc', cor);
-  $('#mzObj').textContent = t ? t.objetivo : ''; $('#mzObj').hidden = !t;
-  $('#mzSub').textContent = t ? t.oQueE : 'Este dia é um slot em aberto: escolha o tipo de conteúdo que faz sentido agora.';
-  $('#mzGm').hidden = !(k==='seubone' && s.date && gmCadenciaDia(s.date));   // GM é só da SeuBoné
-  // travadas: saem do tipo, não se mexe aqui
-  // o que o tipo pede (não se mexe aqui): CTA em destaque, o resto em linhas curtas
-  $('#mzTrava').hidden = !t;
-  // v3.91: só o que o tipo tem (a Weevo não tem consciência, emoção nem métricas; tem quem produz e, na Oferta, uma nota)
-  $('#mzTrava').innerHTML = t ? '<div class="pt">O que o tipo '+esc(tipo)+' pede '+infoBtn('pede')+'</div>'+
-    '<div class="cta"><span>CTA '+infoBtn('cta')+'</span><b>'+esc(t.cta)+'</b></div>'+
-    [['Objetivo','objetivo'], ['Funil','funil'], ['Consciência','consciencia'], ['Emoção','emocao']].filter(([,c])=>t[c]).map(([r,c])=>'<div class="lin"><span>'+esc(r)+' '+infoBtn(c, t[c])+'</span><b>'+esc(t[c])+'</b></div>').join('')+
-    (t.metrica1 ? '<div class="met"><span>Métrica principal '+infoBtn('metrica1')+'</span>'+esc(t.metrica1)+'</div>' : '')+(t.metrica2 ? '<div class="met"><span>Métrica secundária '+infoBtn('metrica2')+'</span>'+esc(t.metrica2)+'</div>' : '')+
-    (t.quem ? '<div class="met"><span>Quem produz '+infoBtn('quem')+'</span>'+esc(t.quem)+'</div>' : '')+
-    (t.nota ? '<div class="met mznota"><span>Atenção</span>'+esc(t.nota)+'</div>' : '') : '';
-  $('#mzTitInfo').innerHTML = tipo && t ? infoBtn('tipoAtual', tipo) : infoBtn('tipo');
-  // tipo: slot em aberto (ou "trocar tipo") mostra os botões
-  const poss = mzTiposPossiveis(s);
-  $('#mzAberto').hidden = !poss;
-  if(poss){
-    $('#mzAbertoLbl').textContent = d && d.opcoes ? 'Slot em aberto: escolha o tipo'+(d.opcoes.length <= 3 ? ' ('+d.opcoes.join(', ')+')' : '') : 'Tipo de conteúdo';
-    $('#mzOpc').innerHTML = poss.map(o=>'<button type="button" data-t="'+esc(o)+'" class="'+(o===tipo?'on':'')+'">'+esc(o)+'</button>').join('');
-    $('#mzOpc').querySelectorAll('button').forEach(b=> b.onclick = ()=>{ $('#ovMz').dataset.tipo = b.dataset.t; mzDesenhaTipo(s, b.dataset.t); });
-  }
-  // chips de formato e ângulo do tipo
-  // cada sugestão tem o nome (clique usa) e o (i) do lado (clique explica)
-  // v3.91: QUADRO = formato já aprovado (é sugestão, não obrigação); o (i) só aparece quando tem explicação
-  const g = glo(), explica = (qual, o) => !!((qual==='formato' && t && (t.formatosTxt||{})[o]) || ((g.sugestoes||{})[qual]||{})[o]);
-  const chips = (el, lista, input, qual)=>{
-    el.innerHTML = (lista||[]).map(o=>'<span class="mzsug'+(qual==='formato' && t && (t.quadros||[]).includes(o) ? ' quadro' : '')+'"><button type="button" class="mzsb">'+esc(o)+'</button>'+
-      (qual==='formato' && t && (t.quadros||[]).includes(o) ? '<span class="mzqd" title="Quadro: formato já aprovado (sugestão, não obrigação)">quadro</span>' : '')+(explica(qual, o) ? infoBtn('sug:'+qual, o) : '')+'</span>').join('');
-    el.querySelectorAll('.mzsb').forEach(b=> b.onclick = ()=>{ input.value = b.textContent; mzMarcaChips(s); mzProgresso_(); const c = el.closest('.mzcampo'); c.classList.remove('aberto'); mzRotuloSug(c); input.focus(); });
-  };
-  chips($('#mzFormatos'), t && t.formatos, $('#mzFormato'), 'formato');
-  chips($('#mzAngulos'), t && t.angulos, $('#mzAngulo'), 'angulo');
-  // sugestões começam recolhidas; o botão diz quantas tem
-  document.querySelectorAll('#ovMz .mzcampo').forEach(c=>{ c.classList.remove('aberto'); mzRotuloSug(c); });
-  mzMarcaChips(s);
-  mzProgresso_();
-}
-/** Barra "x de 8" no topo, check nos blocos completos, sugestões somem no campo preenchido e textos crescem sozinhos. */
-function mzProgresso_(){
-  const ob = mzCfg(MZ_CONTA_UI).obrigatorios; const val = k => { const el = document.querySelector('#ovMz [data-mz="'+k+'"]'); return el && el.value.trim(); };
-  const n = ob.filter(val).length;
-  $('#mzProgBar').style.width = Math.round(100*n/ob.length)+'%';
-  $('#mzProgTxt').textContent = n===ob.length ? 'tudo preenchido: pronto pra briefing' : n+' de '+ob.length+' preenchidos';
-  document.querySelectorAll('#ovMz .mzbloco').forEach(b=> b.classList.toggle('ok', b.dataset.bloco.split(' ').every(val)));
-  document.querySelectorAll('#ovMz textarea').forEach(mzCresce);
-}
-function mzCresce(t){ t.style.height = 'auto'; t.style.height = Math.max(t.scrollHeight + 2, 38)+'px'; }
-document.getElementById('ovMz').addEventListener('input', ev=>{ if(ev.target.matches('[data-mz]')) mzProgresso_(); });
-function mzRotuloSug(c){ const n = c.querySelectorAll('.mzchips .mzsb').length; const b = c.querySelector('.mzver'); b.hidden = !n; b.textContent = c.classList.contains('aberto') ? 'esconder sugestões ▴' : 'ver sugestões ('+n+') ▾'; }
-document.querySelectorAll('#ovMz .mzver').forEach(b=> b.onclick = ev=>{ ev.preventDefault(); const c = b.closest('.mzcampo'); c.classList.toggle('aberto'); mzRotuloSug(c); });
-function mzMarcaChips(s){
-  const tipo = $('#ovMz').dataset.tipo || '';
-  const f = $('#mzFormato').value.trim(), a = $('#mzAngulo').value.trim();
-  $('#mzFormatos').querySelectorAll('.mzsb').forEach(b=>{ b.parentNode.classList.toggle('on', b.textContent===f); b.parentNode.classList.toggle('usado', !!mzFormatoRepetido(s, tipo, b.textContent)); });
-  $('#mzAngulos').querySelectorAll('.mzsb').forEach(b=> b.parentNode.classList.toggle('on', b.textContent===a));
-  const rep = mzFormatoRepetido(s, tipo, f);
-  $('#mzAvisoFmt').textContent = rep ? 'Esse formato já está no '+tipo+' de '+brData(rep.date).slice(0,5)+'. A regra é não repetir o formato do mesmo tipo em semanas seguidas'+(mzContaDe(s)==='seubone' ? ' (nem 2 Produtos iguais na semana).' : '.') : '';
-}
-function openMatriz(id){
-  const s = S.slots.find(x=>x.id===id); if(!s) return;
-  MZ_CONTA_UI = mzContaDe(s);                                  // v3.91: SeuBoné ou Weevo
-  const cfg = mzCfg(MZ_CONTA_UI); const m = s.matrizSB || {};
-  MZ_ATUAL = id; MZ_TIPO_LIVRE = false;
-  const hoje = s.date ? mzTipoDoDia(s.date, MZ_CONTA_UI) : null;
-  const tipo = m.tipo || ((hoje && hoje.tipo) || '');
-  // o que muda de uma empresa pra outra no formulário
-  $('#mzTeseDica').textContent = 'a opinião da '+(cfg.nome || 'marca');
-  $('#mzComoDica').textContent = MZ_CONTA_UI==='seubone' ? 'o que o Samuca e a edição precisam saber' : 'o que o time precisa saber pra produzir';
-  $('#ovMz').dataset.tipo = tipo;
-  document.querySelectorAll('#ovMz [data-mz]').forEach(el=>{ if(el.tagName!=='SELECT') el.value = m[el.dataset.mz] || ''; });
-  $('#mzStatus').innerHTML = cfg.status.map(n=>'<option>'+esc(n)+'</option>').join('');
-  $('#mzStatus').value = mzStatus(s);
-  $('#mzRegrasTxt').innerHTML = '<b>Regras da rotação</b><ol>'+cfg.regras.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ol><b>Antes de aprovar qualquer peça</b><ul>'+cfg.checklist.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>'+
-    (cfg.hacks ? '<b>Fora da matriz</b><p>'+esc(cfg.hacks)+'</p>' : '');
-  $('#mzExcluir').hidden = !isMatriz(s);                 // card que já virou post normal se apaga pelo editor
-  $('#mzMsg').textContent = s.taskId ? 'Este post já tem task de produção. Aqui fica o planejamento da matriz.' : '';
-  mzDesenhaTipo(s, tipo);
-  $('#mzCopy').innerHTML = $('#mzCopyTop').innerHTML = icon('doc') + (s.docId ? 'Abrir a copy' : 'Escrever a copy');
-  mzDesenhaBanco(s);                              // v3.96: o material do banco (ou o botão Do banco)
-  // dia de tipo fixo: link discreto pra trocar o tipo mesmo assim
-  if(hoje && hoje.tipo && !$('#mzTrocar')){
-    const a = document.createElement('button'); a.type='button'; a.id='mzTrocar'; a.className='mbtn'; a.style.cssText='padding:3px 9px; font-size:11px';
-    a.textContent = 'trocar tipo'; a.dataset.tip = 'A rotação pede este tipo neste dia. Troque só se tiver motivo';
-    $('#mzSub').after(a);
-  }
-  const tr = $('#mzTrocar');
-  if(tr){ tr.hidden = !(hoje && hoje.tipo); tr.onclick = ()=>{ MZ_TIPO_LIVRE = true; tr.hidden = true; mzDesenhaTipo(s, $('#ovMz').dataset.tipo); }; }
-  $('#ovMz').classList.add('open');
-  tfNaMatriz(s);                                  // v3.80: aviso da aprovação e o relógio da tarefa
-  requestAnimationFrame(()=>mzProgresso_());   // altura dos textos só dá pra medir com a janela aberta
-  setTimeout(()=>{ const alvo = !tipo ? null : (!m.formato ? $('#mzFormato') : (!m.tema ? $('#mzTema') : null)); if(alvo) alvo.focus(); }, 60);
-}
-['#mzFormato','#mzAngulo'].forEach(k=> $(k).addEventListener('input', ()=>{ const s=S.slots.find(x=>x.id===MZ_ATUAL); if(s) mzMarcaChips(s); }));
-async function salvarMatriz(){
-  const s = S.slots.find(x=>x.id===MZ_ATUAL); if(!s) return;
-  const m = { tipo: $('#ovMz').dataset.tipo || '' };
-  document.querySelectorAll('#ovMz [data-mz]').forEach(el=>{ m[el.dataset.mz] = el.value.trim(); });
-  $('#mzSalvar').disabled = true; $('#mzMsg').textContent = 'salvando…';
-  try{
-    const r = await api('/api/slots/'+s.id, {method:'PATCH', body:JSON.stringify({ matrizSB: m })});
-    closeOv('ovMz'); await loadState();
-    const novo = S.slots.find(x=>x.id===s.id);
-    toast('Matriz salva'+(novo && novo.matrizSB && novo.matrizSB.status==='Briefing criado' && m.status==='Não iniciado' ? ' · tudo preenchido: status foi pra Briefing criado' : '')+' · Ctrl+Z desfaz');
-  }catch(e){ $('#mzMsg').textContent = 'Erro: '+e.message; }
-  finally{ $('#mzSalvar').disabled = false; }
-}
-$('#mzSalvar').onclick = salvarMatriz;
-$('#ovMz').addEventListener('keydown', ev=>{ if(ev.key==='Enter' && (ev.ctrlKey||ev.metaKey)){ ev.preventDefault(); salvarMatriz(); } });
-$('#mzEditar').onclick = ()=>{ const id = MZ_ATUAL; closeOv('ovMz'); openEdit(id); };
-$('#mzExcluir').onclick = async ()=>{
-  const s = S.slots.find(x=>x.id===MZ_ATUAL); if(!s) return;
-  if(!confirm('Excluir este card da matriz?\n\n(Ele não volta sozinho nesse dia. Ctrl+Z desfaz.)')) return;
-  try{ await api('/api/slots/'+s.id, {method:'DELETE'}); closeOv('ovMz'); await loadState(); toast('Card da matriz excluído · Ctrl+Z desfaz'); }
-  catch(e){ $('#mzMsg').textContent = 'Erro: '+e.message; }
-};
-
-// ================= v3.96: "Do banco" no card do dia =================
-// Pedido do Zion: "botão de ADICIONAR DO BANCO ao invés de fazer a copy, pq vamos utilizar alguns materiais do banco.
-// ... tem que ter um espaço para criar uma copy também se necessário, mas a ideia é utilizar do banco (podcast,
-// depoimento)". Decisão dele: o card vira post do banco, a copy fica opcional e dá pra criar a task de produção
-// mesmo sem copy. O material escolhido fica no post (slot.banco) e o item do banco guarda onde foi usado.
-function mzDesenhaBanco(s){
-  fechaDoBanco();                                   // a lista aberta de outro card não fica pendurada
-  const bt = $('#mzBancoBtn'), box = $('#mzBanco');
-  const aba = S.contas[s.conta] && S.contas[s.conta].aba;
-  const grupos = typeof bancoMateriais === 'function' ? bancoMateriais(aba) : [];
-  const temSec = (typeof bancoSecoes === 'function' ? bancoSecoes(aba) : []).some(k=>BANCO_MATERIAL.includes(k));
-  bt.hidden = !temSec || !!s.taskId || !!s.postado || !!s.banco;
-  bt.innerHTML = icon('box') + 'Do banco' + (grupos.length ? '' : ' (vazio)');
-  if(!s.banco){ box.hidden = true; box.innerHTML = ''; return; }
-  const b = s.banco, url = /^https?:\/\//i.test(b.url || '') ? b.url : '';
-  const mexe = !s.taskId && !s.postado, podeTask = mexe && S.temFonte && souAdmin();   // com task (ou postado): só mostra
-  box.hidden = false;
-  box.innerHTML = '<span class="mzbco-ic">'+icon(bancoIcone(b.sec))+'</span>'+
-    '<span class="mzbco-txt"><b>Do banco · '+esc(bancoRotulo(b))+'</b><span>'+esc(b.titulo || 'sem título')+'</span>'+
-      '<small>'+(mexe ? 'A copy é opcional: escreva se precisar de legenda.' : s.taskId ? 'Já tem task de produção com este material.' : 'Já foi postado.')+'</small></span>'+
-    '<span class="mzbco-acoes">'+
-      (url ? '<a class="mbtn" href="'+esc(url)+'" target="_blank" rel="noopener">'+icon('external')+'Abrir</a>' : '')+
-      (mexe ? '<button class="mbtn" id="mzBancoTroca" aria-haspopup="listbox">Trocar</button><button class="mbtn" id="mzBancoTira">Tirar</button>' : '')+
-      (podeTask ? '<button class="mbtn primary" id="mzBancoProd">'+icon('hub')+'Criar task de produção</button>' : '')+
-    '</span>';
-  $('#mzCopy').innerHTML = $('#mzCopyTop').innerHTML = icon('doc') + (s.docId ? 'Abrir a copy' : 'Escrever a copy (opcional)');
-  const tr = $('#mzBancoTroca'); if(tr) tr.onclick = ev=> abrirDoBanco(ev.currentTarget);
-  const ti = $('#mzBancoTira'); if(ti) ti.onclick = ()=> mzBancoTira(s.id);
-  const pt = $('#mzBancoProd'); if(pt) pt.onclick = ()=>{ closeOv('ovMz'); abrirProducao(s.id); };
-}
-$('#mzBancoBtn').onclick = ev=> abrirDoBanco(ev.currentTarget);
 let BK_MENU = null;
 function fechaDoBanco(){ if(BK_MENU) BK_MENU.fecha(false); }
 /** Lista dos materiais do banco da empresa, por seção (setas, Enter, Esc, letra; com busca quando tem muitos). */
 function abrirDoBanco(ancora, sid){
   if(BK_MENU){ BK_MENU.fecha(true); return; }
-  const s = S.slots.find(x=>x.id===(sid || MZ_ATUAL)); if(!s) return;
+  const s = S.slots.find(x=>x.id===sid); if(!s) return;
   const aba = S.contas[s.conta] && S.contas[s.conta].aba;
   const grupos = bancoMateriais(aba);
   const total = grupos.reduce((a, g)=>a + g.itens.length, 0);
@@ -3043,7 +2203,6 @@ function abrirDoBanco(ancora, sid){
   if(busca) busca.focus(); else foca(0);
 }
 function bancoRedesenha(sid){
-  if($('#ovMz').classList.contains('open') && MZ_ATUAL===sid) openMatriz(sid);
   const s = S.slots.find(x=>x.id===sid);
   if(s && $('#ovTask').classList.contains('open') && S.taskSlot && S.taskSlot.id===sid){ S.taskSlot = s; tRowDraw(s); }
 }
@@ -3061,16 +2220,7 @@ async function mzBancoTira(sid){
     await loadState(false, true);
     bancoRedesenha(sid);
     const s = S.slots.find(x=>x.id===sid);
-    toast('Material tirado do post'+(s && s.matrizSB ? ': o card voltou pra matriz' : '')+' · Ctrl+Z desfaz');
-  }catch(e){ toast(e.message, true); }
-}
-/** Botão amarelo do dia: cria um card da matriz naquele dia (com o tipo da rotação) e já abre pra preencher. */
-async function criarCardMatriz(dateStr, conta){
-  try{
-    const r = await api('/api/slots', {method:'POST', body:JSON.stringify({ conta: conta || 'seubone', date:dateStr, matrizSB:{} })});   // v3.91: SeuBoné ou Weevo
-    await loadState();
-    toast('Card da matriz criado · Ctrl+Z desfaz');
-    openMatriz(r.slot.id);
+    toast('Material tirado do post · Ctrl+Z desfaz');
   }catch(e){ toast(e.message, true); }
 }
 $('#eDelete').onclick = async ()=>{
@@ -3099,9 +2249,6 @@ async function openConfig(){
   if(S.eu) $('#cConta').innerHTML = '<i></i><span>Você entrou como <b>'+esc(S.eu.nome)+'</b> · '+(S.eu.papel==='admin'?'ADMIN':'Usuário')+' · '+esc(S.eu.email)+'</span>';
   $('#cSenha').value=''; $('#cSemLogin').checked=false;
   atualizaLoginState();
-  $('#nAtivo').checked = ALERTA.ligado();
-  $('#nSom').checked = ALERTA.som();
-  pintaNotificacao();
   // GM automático: reflete o que está salvo; se nunca configurou, sugere hoje como âncora
   const gc = S.gmCadencia || {};
   $('#gmAtivo').checked = !!gc.ativo;
@@ -3123,7 +2270,6 @@ async function hubPintaEstado(){
       : '<i></i>Ligado · '+h.tarefas+' tarefas na memória'+(h.syncEm ? ' · última leitura '+fmtDataHora(Date.parse(h.syncEm)) : '');
   }catch(e){ el.className = 'hubestado erro'; el.textContent = 'Não consegui ver: '+e.message; }
 }
-/** v3.84: a matriz e a copy vão pro Hub? (chave de nível completa) e os pontos de cada tarefa criada lá. */
 $('#hubTestar').onclick = async ()=>{
   const m = $('#hubMsg'); m.textContent = 'testando…';
   try{
@@ -3150,17 +2296,6 @@ $('#cSave').onclick = async ()=>{
     atualizaLoginState();
   }catch(e){ $('#cStatus').textContent = 'Falhou: '+e.message; }
 };
-// ---- configuração dos avisos ----
-function pintaNotificacao(){
-  const el = $('#nEstado'); const btn = $('#nPermitir');
-  if(!('Notification' in window)){ el.textContent = 'Este navegador não faz notificação do sistema.'; btn.style.display='none'; return; }
-  const p = Notification.permission;
-  btn.style.display = p==='granted' ? 'none' : '';
-  el.className = 'note ' + (p==='granted' ? 'ok' : (p==='denied' ? 'err' : ''));
-  el.textContent = p==='granted' ? 'Notificação do Windows ativada.'
-    : p==='denied' ? 'Bloqueada neste site. Libere no cadeado da barra de endereço → Notificações → Permitir.'
-    : 'Ainda não ativada: por enquanto o aviso só aparece dentro do painel.';
-}
 function pintaGm(){
   const el = $('#gmEstado'); if(!el) return;
   const gc = S.gmCadencia || {};
@@ -3179,28 +2314,6 @@ async function salvarGm(){
   }catch(e){ toast(e.message, true); }
 }
 ['#gmAtivo','#gmAncora','#gmPeriodo'].forEach(k=>{ const el=document.querySelector(k); if(el) el.addEventListener('change', salvarGm); });
-$('#nPermitir').onclick = async ()=>{
-  try{
-    const r = await Notification.requestPermission();
-    pintaNotificacao();
-    if(r==='granted') new Notification('Pronto!', { body:'Os avisos de "pra aprovar" e "pra alterar" vão chegar aqui.', icon:'/icone.png' });
-  }catch(e){ $('#nEstado').textContent = 'Não consegui pedir a permissão: '+e.message; }
-};
-$('#nTestar').onclick = ()=>{
-  const ex = [
-    { tipo:'aprovar', taskId:'teste1', id:null, conta:'SeuBoné', titulo:'[CARROSSEL] Exemplo de teste', data:hojeStr() },
-    { tipo:'alterar', taskId:'teste2', id:null, conta:'Onevo', titulo:'[REELS] Exemplo de alteração', data:hojeStr(), motivo:'trocar a foto da capa', por:'Maria Clara' },
-  ];
-  pendentesAprovar = ex.slice();
-  renderAlerta(); bipe();
-  notificaSistema(ex);
-};
-['#nAtivo','#nSom'].forEach(k=>{
-  document.querySelector(k).addEventListener('change', ()=>{
-    ALERTA.salvar({ ligado: $('#nAtivo').checked, som: $('#nSom').checked });
-    if(!$('#nAtivo').checked) limparAlerta();
-  });
-});
 // ---- conta (v3.82): com o login do Zoho, o painel sabe quem é cada um ----
 /** Com o Zoho ligado: vai pra tela de entrada, guardando a aba aberta (o #) pra voltar nela depois. */
 function irProLogin(){
@@ -3220,10 +2333,8 @@ function contaNaTela(){
     if(!S.eu && !PERFIL.get() && !PERFIL.pulou()) setTimeout(()=>{ if(!document.querySelector('.ov.open')) openPerfil(); }, 900);
   }
 }
-/** Sair: salva o relógio ligado e o que ficou na fila ANTES de fechar a sessão (senão o tempo ficaria sem dono). */
 async function sair(){
   if(S.saindo) return; S.saindo = true;
-  try{ if(CRON.estado()) await CRON.parar(); await CRON.enviarFila(); }catch(e){}
   try{ await api('/api/logout',{method:'POST'}); }catch(e){}
   if(S.zoho) location.href = '/login'; else location.reload();
 }
@@ -3284,14 +2395,9 @@ function abrirRadial(el, itens, angs, raio, fab){
   setTimeout(()=>{ if(RADIAL && RADIAL.el===el) el.classList.add('pronto'); }, 520);
   const m = el.querySelector('.rd-main'); if(m) m.setAttribute('aria-expanded','true');
 }
-/** Opções de criar no dia: matriz nova (só onde tem matriz), post avulso e post já feito no MKT Hub. */
+/** Opções de criar no dia: post avulso, post já feito no MKT Hub e post já postado. */
 function itensCriar(dia){
   const l = [];
-  const mzk = mzDaAba(S.aba);                    // v3.91: SeuBoné e Weevo
-  if(mzk){
-    const d = dia ? mzTipoDoDia(dia, mzk) : null;
-    l.push({ rot:'Matriz nova'+(d ? ' ('+(d.tipo || (d.opcoes.length > 3 ? 'em aberto' : d.opcoes.join(' / ')))+')' : ''), ic:'sparkle', cor:'var(--mz)', corOn:'#000', f:()=> criarCardMatriz(dia, mzk) });
-  }
   l.push({ rot:'Post avulso', ic:'pencil', f:()=> openEdit(null, dia) });
   l.push({ rot:'Post feito no MKT Hub', ic:'hub', cor:'var(--indigo)', corOn:'#fff', f:()=> openEdit(null, dia, {modo:'hub'}) });
   // v4.09: o post que entrou fora do plano (ex.: a collab que um membro pediu) e já foi ao ar
@@ -3310,7 +2416,7 @@ function abrirCriarDia(dia, btn){
   const itens = itensCriar(dia);
   // abre pra baixo e pra esquerda; perto do pé da tela, pra cima
   const praCima = r.top > innerHeight - 150;
-  // v4.09: 4 opções (com a matriz): arco um pouco maior, pra não encostar
+  // v4.09: 4 opções: arco um pouco maior, pra não encostar
   const angs = itens.length === 4 ? (praCima ? [185, 150, 115, 80] : [175, 210, 245, 280])
     : itens.length === 3 ? (praCima ? [180, 135, 90] : [180, 225, 270]) : (praCima ? [165, 105] : [195, 255]);
   abrirRadial(el, itens, angs, itens.length === 4 ? 74 : 58, false);
@@ -3431,7 +2537,6 @@ $('#btnAjuda').onclick = (ev)=>{
     '<div><b>Clique</b> num card: abre as artes</div>'+
     '<div><b>+</b> do dia: criar ali (<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> escolhem) · <b>+</b> do canto: criar sem dia</div>'+
     '<div><kbd>0</kbd>: Todos · <kbd>1</kbd> a <kbd>4</kbd>: troca de empresa · <kbd>[</kbd> <kbd>]</kbd>: anterior e próxima · <b>arraste</b> a cápsula das empresas</div>'+
-    '<div>Tarefas de <b>Matriz</b> e <b>Copy</b> na faixa de cima: play no relógio, o painel anota o post aberto sozinho</div>'+
     '<div><kbd>Ctrl</kbd> + <kbd>Z</kbd>: desfaz · <kbd>Ctrl</kbd> + <kbd>,</kbd>: configurações</div>';
   document.body.appendChild(p);
   const w = p.offsetWidth, top = r.bottom + 8;
@@ -3688,7 +2793,7 @@ const PERFIL = {
   chave:'sb.perfil',
   get(){ try{ const p=JSON.parse(localStorage.getItem(this.chave)||'null'); return (p && p.nome) ? p : null; }catch(e){ return null; } },
   set(p){ try{ localStorage.setItem(this.chave, JSON.stringify(p)); }catch(e){} },
-  /** v3.82: com login, o nome é o da conta do Zoho (ícone e cor continuam do navegador). O doc da copy lê daqui. */
+  /** v3.82: com login, o nome é o da conta do Zoho (ícone e cor continuam do navegador). */
   daConta(eu){ const p = this.get(); if(p && p.nome===eu.nome) return; this.set({ nome:eu.nome, icone:(p&&p.icone)||'', cor:(p&&p.cor)||'' }); },
   pulou(){ try{ return localStorage.getItem(this.chave+'.pulou')==='1'; }catch(e){ return false; } },
   marcaPulou(){ try{ localStorage.setItem(this.chave+'.pulou','1'); }catch(e){} },
@@ -3821,8 +2926,6 @@ function sairDoOcio(){
 }
 ['pointerdown','keydown','wheel','touchstart'].forEach(ev=>window.addEventListener(ev, marcaAtividade, {passive:true, capture:true}));
 window.addEventListener('pointermove', ()=>{ const t=Date.now(); if(S.ocioso || t-_ultMovOcio>5000){ _ultMovOcio=t; marcaAtividade(); } }, {passive:true, capture:true});
-// quem está escrevendo no documento (iframe) também está usando o painel
-$('#docFrame').addEventListener('load', ()=>{ try{ const w = $('#docFrame').contentWindow; ['pointerdown','keydown','wheel','touchstart'].forEach(ev=>w.addEventListener(ev, marcaAtividade, {passive:true, capture:true})); }catch(e){} });
 document.addEventListener('visibilitychange', ()=>{
   if(document.hidden){ escondidaDesde = Date.now(); return; }
   escondidaDesde = 0; ultimaAtividade = Date.now();
@@ -3839,30 +2942,18 @@ function initIcons(){
   $('#mPrev').innerHTML = icon('chevL');
   $('#mNext').innerHTML = icon('chevR');
   $('#btnDrawer').innerHTML = icon('box');
-  $('#btnDocs').innerHTML = icon('doc') + '<span class="lq-dot"></span>';
-  $('#btnAprovar .ab-ic').innerHTML = icon('check');   // v3.89
   $('#btnCap .ab-ic').innerHTML = icon('camera');      // v4.03
   $('#fabMain').innerHTML = icon('plus');
   $('#atMain').innerHTML = icon('share');
-  $('#mzEditar').innerHTML = icon('pencil');
   montaAtalhos(); ligaLeque(); ligaFab(); ligaSliderAbas();
   $('#btnAjuda').innerHTML = icon('help');
   $('#btnConfig').innerHTML = icon('gear');
   desenhaBotaoModo(); $('#btnModo').onclick = trocarModo;
-  $('#btnMute .ic-ring').innerHTML = icon('sino');
-  $('#btnMute .ic-silent').innerHTML = icon('sinoOff');
-  pintaMute();
-  $('#muteChk').addEventListener('change', ()=>{
-    ALERTA.setMudo($('#muteChk').checked);
-    renderAlerta();   // mudo esconde tudo; ao destravar, mostra o que ficou guardado
-    toast(ALERTA.mudo() ? 'Avisos silenciados (site e Windows)' : 'Avisos ligados de novo');
-  });
   $('#drTitle').innerHTML = icon('box') + 'Banco';
   atualizaRotuloMover();
   $('#selCollab').innerHTML = icon('users') + 'Collab';
   $('#selBanco').innerHTML = icon('box') + 'Banco';
   $('#selLimpar').innerHTML = icon('x');
-  tfInit();                                       // v3.80: faixa de tarefas, relógio e avisos de aprovação
   lpInit();                                       // v4.01: lente "sai | fica pronto" na barra
   // botão só de ícone ganha nome pra leitor de tela (HIG > VoiceOver)
   document.querySelectorAll('button[data-tip]').forEach(b=>{ if(!b.getAttribute('aria-label') && !b.textContent.trim()) b.setAttribute('aria-label', b.dataset.tip); });
@@ -3889,7 +2980,6 @@ loadState().catch(e=>{ toast('Erro ao carregar: '+e.message, true); })
   .then(()=>{ if(!S.saindo){ try{ aovivoIniciar(); }catch(e){} } });
 // perfil: salvar / depois / preview ao vivo / Enter salva. Na primeira vez sem perfil, abre sozinho (dá pra pular).
 $('#pfSalvar').onclick = salvarPerfil;
-$('#pfTempo').onclick = ()=>{ $('#ovPerfil').classList.remove('open'); abrirTempo(); };
 $('#pfDepois').onclick = ()=>{ PERFIL.marcaPulou(); $('#ovPerfil').classList.remove('open'); };
 $('#pfSair').onclick = sair;
 $('#pfNome').addEventListener('input', pfPreview);

@@ -9,7 +9,7 @@
    ===================================================================== */
 /* o que é de cada empresa fica na aba dela: a faixa de tarefas (copy e matriz) some; o botão do banco continua no leque
    (sem ele o leque desmonta) e o clique avisa onde o banco está; o número do banco some */
-body[data-aba="TODOS"] #faixa, body[data-aba="TODOS"] #drawerN{display:none}
+body[data-aba="TODOS"] #drawerN{display:none}
 /* os 6 botões de conta do topo: só o ícone da faixa, na cor da empresa (o nome vai na dica) */
 .chip.ic-only{width:32px; padding:0; justify-content:center}
 .chip.ic-only .ic{width:15px; height:15px; color:var(--ch-cor, var(--ink-2)); stroke-width:1.9}
