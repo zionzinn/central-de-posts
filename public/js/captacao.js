@@ -167,8 +167,10 @@ function capCorEmpresa(aba) { return aba && typeof temaDaAba === 'function' ? te
 function capBotao() {
   const b = document.getElementById('btnCap'); if (!b) return;
   const adm = typeof souAdmin === 'function' ? souAdmin() : true;
-  b.hidden = !adm;
-  if (!adm && S.modoCap) { S.modoCap = false; }
+  // v4.27: a equipe (sem ADMIN) entra pra ver os Eventos dela (Minhas captações); o calendário de captações segue só do ADMIN
+  b.hidden = false;
+  if (!adm) { if (S.capTipo !== 'ev') S.capTipo = 'ev'; if (S.modoCap && !['minhas', 'equipe', 'semana', 'mes'].includes(S.view)) S.view = 'minhas'; }
+  const ct = document.getElementById('cpTipo'); if (ct) ct.hidden = !adm;
   const n = S.capPendentes || 0;
   document.getElementById('capN').textContent = n ? String(n) : '';
   b.classList.toggle('tem', !!n);
@@ -182,6 +184,7 @@ function capModo(on) {
   const quer = on === undefined ? !S.modoCap : !!on;
   if (quer === !!S.modoCap) return;
   S.modoCap = quer;
+  if (quer && typeof souAdmin === 'function' && !souAdmin()) { S.capTipo = 'ev'; S.view = 'minhas'; }   // v4.27: a equipe cai direto nas Minhas captações
   if (quer) { S.drawer = false; if (S.selecao && S.selecao.size) S.selecao.clear(); S.clip = null; }
   capFechaNovo();
   render();
@@ -518,6 +521,7 @@ function capDesenhaFolhaJa() {
           '<textarea id="cpNovoRot" class="cp-novorot" rows="1" placeholder="' + (n ? 'Mais um roteiro' : 'Escreva o roteiro') + ' e aperte Enter" aria-label="Roteiro novo"></textarea>' +
           '<button type="button" class="mbtn cp-addrot" data-cp="addrot">' + icon('plus') + 'Adicionar</button></div></div>' +
       (n ? '' : '<p class="cp-dica">Cada roteiro ganha a caixinha de gravado. Colou uma lista? Vira um roteiro por linha.</p>') + '</section>') +   // v4.23: o evento não tem roteiro
+    (ev ? capEscalaHtml(c) : '') +   // v4.26: a escala e a confirmação
     (ev ? capFluxoHtml(c) : '') +   // v4.25: o fluxo do evento (o tipo e o andamento de cada dia)
     (ev ? capEntHtml(c) : '') +   // v4.24: a entrega do evento
     '<section class="cp-sec"><h3>Posts ligados <span class="cp-cont">' + (posts.length ? capPl(posts.length, 'post', 'posts') : 'nenhum ainda') + '</span></h3>' +
@@ -752,6 +756,28 @@ function capLigaFolha(c) {
     if (hf && x0.h && hf <= x0.h) { toast('O fim precisa ser depois do início (' + capHora(x0.h) + ')', true); inp.value = x0.hf || ''; return; }
     capSalva(c.id, cc => ({ dias: cc.dias.map(x => x.d === x0.d ? { d: x.d, h: x.h, hf } : x) }));
   });
+  // v4.26: Confirmo / Não dá (o "não dá" pede o motivo), o papel e o horário da escala
+  ov.querySelectorAll('[data-cpconf]').forEach(b => b.onclick = () => {
+    const v = capConf(c, b.dataset.d, b.dataset.n);
+    if (b.dataset.cpconf === 'ok') return capConfirma(c, b.dataset.d, b.dataset.n, v.st === 'ok' ? '' : 'ok');
+    if (v.st === 'nao') return capConfirma(c, b.dataset.d, b.dataset.n, '');
+    CAPM.naoDa = b.dataset.d + ':' + capChave(b.dataset.n); capRedesenha();
+    setTimeout(() => { const i = document.getElementById('cpNaoMotivo'); if (i) i.focus(); }, 0);
+  });
+  ov.querySelectorAll('[data-cpnaook]').forEach(b => b.onclick = () => {
+    const m = (document.getElementById('cpNaoMotivo') || {}).value || '';
+    if (m.trim().length < 3) return toast('Diga o motivo', true);
+    capConfirma(c, b.dataset.cpnaook, b.dataset.n, 'nao', m);
+  });
+  const nm = document.getElementById('cpNaoMotivo');
+  if (nm) nm.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); const b = ov.querySelector('[data-cpnaook]'); if (b) b.click(); } };
+  ov.querySelectorAll('[data-cpnaox]').forEach(b => b.onclick = () => { CAPM.naoDa = null; capRedesenha(); });
+  ov.querySelectorAll('[data-cppapel]').forEach(b => b.onclick = () => {
+    const p = capPessoasDe(c).find(x => capChave(x.nome) === capChave(b.dataset.cppapel)); if (!p) return;
+    const ops = ['apoio', 'inicio', 'fim', 'backdrop', 'takes'].map(v => ({ v, t: { apoio: 'Apoio', inicio: 'Começo (CEC manhã)', fim: 'Fim (CEC manhã)', backdrop: 'Backdrop (Imersão)', takes: 'Takes (Imersão)' }[v] }));
+    capMenuOpcoes(b, 'Papel de ' + p.nome.split(' ')[0], ops, p.papel, v => capMudaEscala(c, p.nome, { papel: v }));
+  });
+  ov.querySelectorAll('[data-cpesch]').forEach(inp => inp.onchange = () => capMudaEscala(c, inp.dataset.cpesch, { h: inp.value || '' }));
   const fxb = document.getElementById('cpFluxo');
   if (fxb) fxb.onclick = () => capMenuFluxo(fxb, c);
   ov.querySelectorAll('[data-cptira]').forEach(b => b.onclick = () => {
@@ -1492,9 +1518,66 @@ function capEntHtml(c) {
 /** As pessoas de um evento: o principal e o apoio. */
 function capPessoasDe(c) {
   const l = [];
-  if (c.resp && c.resp.nome) l.push({ nome: c.resp.nome, papel: 'principal' });
-  for (const p of c.apoio || []) if (!l.some(x => capSemAcento(x.nome) === capSemAcento(p.nome))) l.push({ nome: p.nome, papel: 'apoio' });
+  if (c.resp && c.resp.nome) l.push({ nome: c.resp.nome, papel: 'principal', h: '' });
+  for (const p of (c.escala && c.escala.length ? c.escala : c.apoio || [])) if (!l.some(x => capChave(x.nome) === capChave(p.nome))) l.push({ nome: p.nome, papel: p.papel || 'apoio', h: p.h || '' });   // v4.26: a escala (com papel e horário)
   return l;
+}
+// ---------------- v4.26: a escala e a confirmação ----------------
+const CAP_PAPEIS = { principal: 'principal', apoio: 'apoio', inicio: 'começo', fim: 'fim', backdrop: 'backdrop', takes: 'takes' };
+/** A chave da pessoa (o 1º nome sem acento): a mesma do servidor. */
+function capChave(nome) { return String(nome || '').split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+/** A confirmação de uma pessoa num dia: { st: 'ok' | 'nao' | '' , motivo, velha }. */
+function capConf(c, d, nome) { return ((c.conf || {})[d] || {})[capChave(nome)] || { st: '' }; }
+/** Sou eu? (com login: pelo 1º nome; sem login, ninguém é "eu", mas o ADMIN pode tudo) */
+function capSouEu(nome) { return !!S.eu && capChave(S.eu.nome) === capChave(nome); }
+function capConfIc(v) {
+  return v.st === 'ok' ? '<span class="cpcf ok" title="Confirmou">' + icon('check') + '</span>'
+    : v.st === 'nao' ? '<span class="cpcf nao" title="Não dá: ' + esc(v.motivo || '') + '">' + icon('x') + '</span>'
+    : '<span class="cpcf pend" title="' + (v.velha ? 'Confirmou outro horário: confirmar de novo' : 'Ainda não confirmou') + '">?</span>';
+}
+/** A seção Escala da folha: cada pessoa com o papel, o horário e o Confirmo / Não dá de cada dia. */
+function capEscalaHtml(c) {
+  const ps = capPessoasDe(c), adm = souAdmin();
+  if (!ps.length) return '<section class="cp-sec cp-escsec"><h3>Escala</h3><p class="cp-dica">Escolha o responsável (e quem vai junto no botão Apoio) pra pedir a confirmação.</p></section>';
+  const ds = c.dias.filter(x => x.d >= hojeStr()).length ? c.dias.filter(x => x.d >= hojeStr()) : c.dias.slice(-1);
+  let ok = 0, tot = 0;
+  const blocos = ds.map(x => {
+    const linhas = ps.map(p => {
+      const v = capConf(c, x.d, p.nome), pode = adm || capSouEu(p.nome), k = capChave(p.nome);
+      tot++; if (v.st === 'ok') ok++;
+      const aberto = CAPM.naoDa === x.d + ':' + k;
+      return '<div class="cp-esc' + (v.st ? ' s-' + v.st : '') + '">' +
+        '<span class="cp-respav">' + esc(initials(p.nome)) + '</span>' +
+        '<span class="cp-escn"><b>' + esc(p.nome) + '</b>' +
+          (p.papel === 'principal' || !adm ? '<em>' + esc(CAP_PAPEIS[p.papel] || p.papel) + (p.h ? ' · ' + esc(capHora(p.h)) : '') + '</em>'
+            : '<button type="button" class="cp-escpapel" data-cppapel="' + esc(p.nome) + '" aria-haspopup="menu" title="Papel no dia">' + esc(CAP_PAPEIS[p.papel] || p.papel) + icon('chevR', 'cp-empseta') + '</button>' +
+              '<input type="time" class="cp-esch" data-cpesch="' + esc(p.nome) + '" value="' + esc(p.h || '') + '" aria-label="Horário de ' + esc(p.nome) + '" title="Horário de chegada (vazio: o do evento)">') + '</span>' +
+        '<span class="cp-escst">' + capConfIc(v) + '<span>' + (v.st === 'ok' ? 'confirmou' : v.st === 'nao' ? 'não dá: ' + esc(v.motivo || '') : v.velha ? 'mudou a hora: confirmar de novo' : 'falta confirmar') + '</span></span>' +
+        (pode ? '<span class="cp-escbt">' +
+          '<button type="button" class="mbtn' + (v.st === 'ok' ? ' on' : '') + '" data-cpconf="ok" data-d="' + x.d + '" data-n="' + esc(p.nome) + '">' + icon('check') + 'Confirmo</button>' +
+          '<button type="button" class="mbtn' + (v.st === 'nao' ? ' on' : '') + '" data-cpconf="nao" data-d="' + x.d + '" data-n="' + esc(p.nome) + '">' + icon('x') + 'Não dá</button></span>' : '') +
+        (aberto ? '<div class="cp-escnao"><input id="cpNaoMotivo" maxlength="200" placeholder="Por quê? (o Zion vê na hora)" autocomplete="off" aria-label="Motivo">' +
+          '<button type="button" class="mbtn" data-cpnaook="' + x.d + '" data-n="' + esc(p.nome) + '">Enviar</button><button type="button" class="mbtn" data-cpnaox="1">Cancelar</button></div>' : '') +
+      '</div>';
+    }).join('');
+    return (ds.length > 1 ? '<div class="cp-escdia">' + esc(capDiaL(x.d)) + (x.h ? ' · ' + esc(capHora(x.h)) : '') + '</div>' : '') + linhas;
+  }).join('');
+  return '<section class="cp-sec cp-escsec"><h3>Escala <span class="cp-cont">' + ok + ' de ' + tot + ' confirmados</span></h3>' + blocos + '</section>';
+}
+async function capConfirma(c, d, nome, st, motivo) {
+  try {
+    const j = await api('/api/captacao/' + c.id + '/confirmacao', { method: 'POST', body: JSON.stringify({ d, nome, st, motivo }) });
+    capVersao(j.rev);
+    const i = capLista().findIndex(x => x.id === c.id);
+    if (i >= 0 && j.captacao) S.captacoes[i] = j.captacao;
+    CAPM.naoDa = null;
+    render(); capRedesenha();
+    toast(st === 'ok' ? 'Confirmado' : st === 'nao' ? 'Avisado: não dá' : 'Confirmação tirada');
+  } catch (e) { toast(e.message, true); }
+}
+/** Muda o papel ou o horário de alguém da escala (o resp não está na escala). */
+function capMudaEscala(c, nome, mud) {
+  capSalva(c.id, cc => ({ escala: (cc.escala || []).map(p => capChave(p.nome) === capChave(nome) ? Object.assign({ id: p.id, nome: p.nome, papel: p.papel, h: p.h }, mud) : { id: p.id, nome: p.nome, papel: p.papel, h: p.h }) }));
 }
 /** A Semana da equipe: uma linha por pessoa (principal e apoio), os 7 dias, os eventos no horário. Choque = a mesma pessoa
  *  em 2 ou mais eventos no mesmo dia (sem duração do evento, o painel não sabe se as horas se sobrepõem: mostra as horas). */
@@ -1516,7 +1599,7 @@ function capEquipe(g) {
         const k = capSemAcento(p.nome);
         if (!pess.has(k)) pess.set(k, { nome: p.nome, porDia: {} });
         const pd = pess.get(k).porDia;
-        (pd[x.d] = pd[x.d] || []).push({ c, h: x.h || '', papel: p.papel });
+        (pd[x.d] = pd[x.d] || []).push({ c, h: p.h || x.h || '', papel: p.papel, nome: p.nome });   // v4.26: o horário da pessoa vence o do evento
       }
     }
   }
@@ -1526,7 +1609,7 @@ function capEquipe(g) {
   }
   const lista = [...pess.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   if (Object.keys(semResp.porDia).length) lista.push(semResp);
-  let choques = 0;
+  let choques = 0, conf = 0, confTot = 0, naoDa = 0;   // v4.26: as confirmações da semana
   const linha = p => {
     let celulas = '', temChoque = false;
     for (const d of dias) {
@@ -1535,18 +1618,29 @@ function capEquipe(g) {
       if (choque) { temChoque = true; choques++; }
       celulas += '<div class="cpeq-c' + (d === hoje ? ' hoje' : '') + (choque ? ' choque' : '') + '"' + (choque ? ' title="' + esc(p.nome + ' está em ' + l.length + ' eventos neste dia: ' + l.map(x => (x.h ? capHora(x.h) + ' ' : '') + capTituloCurto(x.c)).join(' e ')) + '"' : '') + '>' +
         (choque ? '<span class="cpeq-alerta">' + icon('alerta') + l.length + ' no dia</span>' : '') +
-        l.map(x => '<button type="button" class="cpeq-ev s-' + capSit(x.c) + '" data-cap="' + x.c.id + '" data-dia="' + d + '"' + (x.c.aba ? ' style="--cp-emp:' + capCorEmpresa(x.c.aba) + '"' : '') + '>' +
-          '<span class="cpeq-h">' + (x.h ? esc(capHora(x.h)) : 'sem hora') + (x.papel === 'apoio' ? '<em>apoio</em>' : '') + '</span>' +
+        l.map(x => { const v = x.nome ? capConf(x.c, d, x.nome) : null; if (v) { confTot++; if (v.st === 'ok') conf++; if (v.st === 'nao') naoDa++; }
+          return '<button type="button" class="cpeq-ev s-' + capSit(x.c) + (v ? ' cf-' + (v.st || 'pend') : '') + '" data-cap="' + x.c.id + '" data-dia="' + d + '"' + (x.c.aba ? ' style="--cp-emp:' + capCorEmpresa(x.c.aba) + '"' : '') + '>' +
+          '<span class="cpeq-h">' + (v ? capConfIc(v) : '') + (x.h ? esc(capHora(x.h)) : 'sem hora') + (x.papel && x.papel !== 'principal' ? '<em>' + esc(CAP_PAPEIS[x.papel] || x.papel) + '</em>' : '') + '</span>' +
           '<span class="cpeq-t">' + esc(capTituloCurto(x.c)) + '</span>' +
-          (x.c.tipoCap || x.c.local ? '<span class="cpeq-s">' + esc([x.c.tipoCap, x.c.local].filter(Boolean).join(' · ')) + '</span>' : '') + '</button>').join('') + '</div>';
+          (x.c.tipoCap || x.c.local ? '<span class="cpeq-s">' + esc([x.c.tipoCap, x.c.local].filter(Boolean).join(' · ')) + '</span>' : '') + '</button>'; }).join('') + '</div>';
     }
     return '<div class="cpeq-p' + (temChoque ? ' choque' : '') + (p.nome ? '' : ' semresp') + '">' +
       (p.nome ? '<span class="cp-respav">' + esc(initials(p.nome)) + '</span><b>' + esc(p.nome) + '</b>' : '<span class="cp-respav cpc-semresp">?</span><b>Sem responsável</b>') + '</div>' + celulas;
   };
   const corpo = lista.map(linha).join('');
+  // v4.26: a escala da semana fechada (ADMIN fecha quando bateu com a equipe) e as confirmações
+  const fech = (S.escalaSemanas || {})[seg], semResp2 = evs.filter(c => !c.resp).length;
+  const topo2 = '<span class="cpeq-resumo' + (naoDa ? ' choque' : conf === confTot && confTot ? '' : ' pend') + '">' + (naoDa ? icon('alerta') : icon('check')) + conf + ' de ' + confTot + ' confirmados' + (naoDa ? ' · ' + naoDa + ' não dá' : '') + '</span>' +
+    (semResp2 ? '<span class="cpeq-resumo choque">' + icon('alerta') + capPl(semResp2, 'evento sem responsável', 'eventos sem responsável') + '</span>' : '') +
+    (fech ? '<span class="cpeq-resumo cpeq-fech">' + icon('check') + 'Escala fechada' + (fech.por && fech.por !== 'sem login' ? ' por ' + esc(fech.por) : '') + '</span>' + (souAdmin() ? '<button type="button" class="mbtn" data-cpfech="0">Reabrir</button>' : '')
+      : souAdmin() ? '<button type="button" class="mbtn cpeq-fechar" data-cpfech="1"' + (semResp2 ? ' disabled title="Todo evento da semana precisa de responsável"' : '') + '>' + icon('check') + 'Fechar a escala da semana</button>' : '<span class="cpeq-resumo pend">Escala ainda aberta</span>');
   g.innerHTML = '<div class="cpeq">' +
-    '<div class="cpeq-top">' + (choques ? '<span class="cpeq-resumo choque">' + icon('alerta') + capPl(choques, 'choque', 'choques') + ' na semana: a mesma pessoa em 2 eventos no mesmo dia</span>'
+    '<div class="cpeq-top">' + topo2 + (choques ? '<span class="cpeq-resumo choque">' + icon('alerta') + capPl(choques, 'choque', 'choques') + ' na semana: a mesma pessoa em 2 eventos no mesmo dia</span>'
       : '<span class="cpeq-resumo">' + icon('check') + 'Ninguém em 2 eventos no mesmo dia nesta semana</span>') + '</div>' +
     '<div class="cpeq-grade"><div class="cpeq-h0">Pessoa</div>' + dias.map(d => '<div class="cpeq-hd' + (d === hoje ? ' hoje' : '') + '">' + esc(capDiaL(d)) + '</div>').join('') + corpo + '</div></div>';
   g.querySelectorAll('.cpeq-ev').forEach(b => b.onclick = () => capAbre(b.dataset.cap, b.dataset.dia));
+  g.querySelectorAll('[data-cpfech]').forEach(b => b.onclick = async () => {
+    try { const j = await api('/api/captacao/escala-semana', { method: 'POST', body: JSON.stringify({ seg, fechada: b.dataset.cpfech === '1' }) }); S.escalaSemanas = j.escalaSemanas; render(); toast(b.dataset.cpfech === '1' ? 'Escala da semana fechada' : 'Escala reaberta'); }
+    catch (e) { toast(e.message, true); }
+  });
 }

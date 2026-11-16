@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '4.25'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '4.27'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -322,6 +322,7 @@ const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('
 const rotaHubEnvio = require('./lib/hubenvio.js')({ db, saveDb, readBody, json, hub: rotaHub, soAdmin, gravaJa: () => gravarAgora() });
 // v4.14: a captação no calendário (a task de captação do MKT Hub com os dias de gravação, os roteiros e os posts ligados).
 // Substitui o quadro de blocos (v4.03) e a criação da task de Captação pelo B.O.N.E (v4.04).
+const PWA = require('./lib/pwa.js');   // v4.27: o service worker do app instalado
 const FLUXOS = require('./lib/fluxos.js');   // v4.25: o fluxograma da captação de eventos (a regra)
 const rotaCaptacao = require('./lib/captacao.js')({ db, saveDb, readBody, json, soAdmin, hub: rotaHub, pushUndo, backupAgora });
 rotaHub.extras = rotaCaptacao.refs;                       // v4.14: a task de captação (até subtarefa) também é relida
@@ -395,7 +396,7 @@ const server = http.createServer(async (req, res) => {
     if ((p.startsWith('/auth/') || p === '/api/eu' || p === '/api/logout') && await AUTH(req, res, p, u)) return;
     if (AUTH.ligado()) {
       // livre sem login: a própria tela de entrada, o ping do cron e o que a tela de entrada usa
-      const livre = p === '/login' || p === '/api/ping' || p.startsWith('/fonts/') || p === '/icone.png' || p === '/manifest.webmanifest' || p === '/favicon.png';
+      const livre = p === '/login' || p === '/api/ping' || p.startsWith('/fonts/') || p === '/icone.png' || p === '/manifest.webmanifest' || p === '/favicon.png' || p === '/sw.js';
       if (!req.eu && !livre) {
         if (p.startsWith('/api/')) return json(res, 401, { erro: 'login', precisaLogin: true, zoho: true });
         // link direto de uma página (ex.: um documento aberto em outra aba): volta pra ela depois do login
@@ -452,6 +453,7 @@ const server = http.createServer(async (req, res) => {
         versao: VERSAO,
         contas: db.contas, abas: db.abas,
         slots: rotaHub.sobrepoe(slots), banco: db.banco, bancoPastas: db.bancoPastas || [],   // v3.97: pastas por pessoa nos cortes   // v3.81: status do Hub por cima dos posts (sem gravar); v3.83: banco de cada empresa
+        escalaSemanas: rotaCaptacao.semanas(),            // v4.26: as semanas com a escala fechada
         captacoes: rotaCaptacao.publicos(),               // v4.14: as captações (o calendário de captação e a câmera no card do post)
         capRev: rotaCaptacao.rev(),                        // v4.14: a versão delas (o navegador não volta pra uma mais velha)
         capPendentes: !req.eu || req.eu.papel === 'admin' ? rotaCaptacao.pendentes() : 0,   // v4.14: vídeos dos próximos 14 dias sem captação
@@ -680,6 +682,12 @@ const server = http.createServer(async (req, res) => {
     if (p === '/manifest.webmanifest' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8', 'Cache-Control': 'no-cache' });
       return res.end(JSON.stringify(MANIFESTO));
+    }
+    // v4.27: o service worker (só a casca da tela; nunca o /api). Sem cache no navegador: deploy novo troca na hora
+    if (p === '/sw.js' && req.method === 'GET') {
+      const t = PWA.sw(VERSAO);
+      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' });
+      USO.resposta(t.length); return res.end(t);
     }
     if (p === '/icone.png' && req.method === 'GET') {
       const buf = Buffer.from(ICONE_APP_B64, 'base64');

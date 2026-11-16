@@ -1,0 +1,93 @@
+/* v4.27 · Minhas captações e o modo captação (tela cheia no celular). Tokens do painel (DESIGN-APPLE). */
+
+/* ---------------- Minhas captações ---------------- */
+#grid.mc-on{display:block}
+.mc{max-width:640px; margin:0 auto; display:flex; flex-direction:column; gap:10px; padding-bottom:24px}
+.mc-dica{display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:14px; background:color-mix(in srgb, var(--cp-at, var(--accent)) 14%, var(--fill-4)); font-size:13px; line-height:1.4}
+.mc-dica .ic{width:18px; height:18px; flex:none; color:var(--cp-at, var(--accent))}
+.mc-dica span{flex:1; min-width:0}
+.mc-dia{margin:12px 0 0; font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3)}
+.mc-dia.hoje{color:var(--cp-at, var(--accent))}
+.mc-ev{position:relative; display:flex; flex-direction:column; gap:8px; padding:14px 14px 14px 18px; border-radius:16px; background:var(--cell); overflow:hidden}
+.mc-ev::before{content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--cp-emp, var(--fill-3))}
+.mc-evtop{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.mc-h{font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--cp-at, var(--accent))}
+.mc-evtop em{font-style:normal; font-size:11px; font-weight:600; color:var(--ink-3); background:var(--fill-3); border-radius:6px; padding:1px 6px}
+.mc-emp{margin-left:auto; font-size:11.5px; color:var(--ink-3)}
+.mc-tit{all:unset; cursor:pointer; font-size:17px; font-weight:650; line-height:1.3; color:var(--ink)}
+.mc-tit:focus-visible{outline:2px solid var(--cp-at, var(--accent)); outline-offset:2px; border-radius:4px}
+.mc-local{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-2)}
+.mc-local .ic{width:14px; height:14px}
+.mc-fx{display:grid; grid-template-columns:minmax(60px,140px) 1fr; align-items:center; gap:10px; font-size:12.5px; color:var(--ink-2)}
+.mc-fx span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.mc-conf{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; padding-top:4px; border-top:1px solid var(--hair)}
+.mc-conf > span:nth-child(2){flex:1; min-width:140px}
+.mc-conf.s-ok > span:nth-child(2){color:var(--e-pronto-t, var(--green))}
+.mc-conf.s-nao > span:nth-child(2){color:var(--red)}
+.mc-confbt{display:flex; gap:6px}
+.mc-confbt .mbtn{height:36px; padding:0 12px}
+.mc-confbt .mbtn.on[data-mcconf="ok"]{background:color-mix(in srgb, var(--green) 18%, transparent); color:var(--e-pronto-t, var(--green))}
+.mc-confbt .mbtn.on[data-mcconf="nao"]{background:color-mix(in srgb, var(--red) 16%, transparent); color:var(--red)}
+.mc-nao{display:flex; gap:6px; width:100%}
+.mc-nao input{flex:1; min-width:0; height:36px; padding:0 10px; border-radius:10px; border:1px solid var(--hair); background:var(--fill-4); font:inherit}
+.mc-abre{display:flex; align-items:center; justify-content:center; gap:8px; height:44px; border:0; border-radius:12px; background:color-mix(in srgb, var(--cp-at, var(--accent)) 22%, var(--fill-4)); color:var(--ink); font:inherit; font-size:15px; font-weight:650; cursor:pointer}
+.mc-abre .ic{width:18px; height:18px}
+
+/* ---------------- o modo captação ---------------- */
+body.mc-travado{overflow:hidden}
+.mc-ov{position:fixed; inset:0; z-index:400; display:none; flex-direction:column; background:var(--bg, #000); color:var(--ink)}
+.mc-ov.open{display:flex}
+.mc-carrega{margin:auto; display:flex; flex-direction:column; gap:12px; align-items:center; color:var(--ink-2); padding:24px; text-align:center}
+.mc-cab{display:grid; grid-template-columns:44px minmax(0,1fr) auto; align-items:center; gap:10px; padding:calc(10px + env(safe-area-inset-top, 0px)) 16px 10px; border-bottom:1px solid var(--hair)}
+.mc-x{width:44px; height:44px; border:0; border-radius:50%; background:var(--fill-3); color:var(--ink); display:grid; place-items:center; cursor:pointer}
+.mc-x .ic{width:20px; height:20px}
+.mc-cabt{display:flex; flex-direction:column; min-width:0}
+.mc-cabt b{font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.mc-cabt span{font-size:12px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.mc-rel{display:flex; flex-direction:column; align-items:flex-end}
+.mc-rel span{font-size:34px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-.02em; line-height:1}
+.mc-rel small{font-size:10.5px; color:var(--e-pronto-t, var(--green))}
+.mc-prog{display:grid; grid-template-columns:1fr auto; align-items:center; gap:10px; padding:10px 16px; font-size:13px; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.mc-prog .cp-fxbar{height:8px; border-radius:4px}
+.mc-lista{flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:4px 16px calc(24px + env(safe-area-inset-bottom, 0px)); display:flex; flex-direction:column; gap:12px}
+.mc-passo{padding:16px; border-radius:18px; background:var(--cell); border:1.5px solid transparent}
+.mc-passo.avail{border-color:var(--cp-at, var(--accent)); background:color-mix(in srgb, var(--cp-at, var(--accent)) 8%, var(--cell))}
+.mc-passo.done{opacity:.72}
+.mc-passo.locked{opacity:.5}
+.mc-passo.agente{border-style:dashed; border-color:var(--hair)}
+.mc-ptop{display:flex; justify-content:space-between; align-items:center; gap:8px}
+.mc-ph{font-size:15px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--cp-at, var(--accent))}
+.mc-pst{display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:var(--ink-3)}
+.mc-passo.done .mc-pst{color:var(--e-pronto-t, var(--green))}
+.mc-passo.avail .mc-pst{color:var(--cp-at, var(--accent))}
+.mc-pst .ic{width:14px; height:14px}
+.mc-passo h4{margin:6px 0 2px; font-size:19px; font-weight:700; line-height:1.25}
+.mc-pwho{font-size:12.5px; color:var(--ink-3)}
+.mc-faz{margin:8px 0 0; padding-left:18px; font-size:14px; line-height:1.45; color:var(--ink-2)}
+.mc-checks{display:flex; flex-direction:column; gap:8px; margin-top:12px}
+.mc-check{display:flex; align-items:center; gap:12px; min-height:56px; padding:8px 14px; border:0; border-radius:14px; background:var(--fill-3); color:var(--ink); font:inherit; font-size:16px; font-weight:600; text-align:left; cursor:pointer; touch-action:manipulation}
+.mc-check:disabled{cursor:not-allowed; opacity:.6}
+.mc-check.indo{opacity:.6}
+.mc-check small{display:block; font-size:11px; font-weight:500; color:var(--ink-3)}
+.mc-cx{flex:none; width:30px; height:30px; border-radius:9px; border:2px solid var(--ink-3); display:grid; place-items:center}
+.mc-cx .ic{width:20px; height:20px}
+.mc-check.on{background:color-mix(in srgb, var(--green) 16%, var(--fill-3))}
+.mc-check.on .mc-cx{background:var(--green); border-color:var(--green); color:#fff}
+.mc-senao{margin-top:10px; font-size:13.5px; color:var(--ink-2)}
+.mc-senao summary{cursor:pointer; font-weight:600; color:var(--orange, #FF9F0A); min-height:32px; display:flex; align-items:center}
+.mc-senao ul{margin:4px 0 0; padding-left:18px; line-height:1.45}
+.mc-links{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.mc-links a{display:inline-flex; align-items:center; gap:4px; height:34px; padding:0 12px; border-radius:10px; background:var(--fill-3); color:var(--ink); font-size:13px; text-decoration:none}
+.mc-links .ic{width:13px; height:13px}
+.mc-pq{font-size:17px; font-weight:700; line-height:1.3}
+.mc-auto{font-size:12px; color:var(--ink-3); margin-top:2px}
+.mc-rotas{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+.mc-rota{flex:1 1 140px; min-height:52px; padding:8px 12px; border:1.5px solid var(--hair); border-radius:14px; background:var(--fill-4); color:var(--ink); font:inherit; font-size:15px; font-weight:600; cursor:pointer}
+.mc-rota.on{border-color:var(--cp-at, var(--accent)); background:color-mix(in srgb, var(--cp-at, var(--accent)) 16%, var(--fill-4))}
+.mc-rota:disabled{opacity:.55; cursor:not-allowed}
+.mc-todas{align-self:center; margin-top:4px}
+@media (max-width:420px){
+  .mc-rel span{font-size:28px}
+  .mc-passo h4{font-size:18px}
+}
+.mc-lista > *{flex:none}   /* sem isso as etapas encolhem e se sobrepõem na lista que rola */

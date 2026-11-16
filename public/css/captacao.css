@@ -512,3 +512,41 @@ html[data-modo="claro"] .lp-av.cpc-semresp{background:var(--e-orange); color:#00
   .cp-stseg{width:100%}
   .cp-st{flex:1 1 0; justify-content:center; padding:0 6px; min-width:0; font-size:12.5px; gap:4px}
 }
+
+/* ---------------- v4.26: a escala e a confirmação ---------------- */
+.cp-esc{display:grid; grid-template-columns:26px minmax(0,1fr) auto auto; align-items:center; gap:8px; padding:8px 0; border-top:1px solid var(--hair)}
+.cp-esc:first-of-type{border-top:0}
+.cp-esc .cp-respav{width:26px; height:26px; font-size:10px}
+.cp-escn{display:flex; align-items:center; gap:6px; min-width:0; flex-wrap:wrap}
+.cp-escn b{font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.cp-escn em{font-style:normal; font-size:11px; color:var(--ink-3); padding:1px 6px; border-radius:6px; background:var(--fill-3)}
+.cp-escpapel{display:inline-flex; align-items:center; gap:2px; height:22px; padding:0 6px; border:0; border-radius:6px; background:var(--fill-3); color:var(--ink-2); font:inherit; font-size:11px; cursor:pointer}
+.cp-escpapel .ic{width:11px; height:11px; transform:rotate(90deg)}
+.cp-esch{height:24px; width:84px; padding:0 6px; border-radius:6px; border:1px solid var(--hair); background:var(--fill-4); font:inherit; font-size:11.5px; font-variant-numeric:tabular-nums}
+.cp-escst{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2); min-width:0}
+.cp-escst span:last-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px}
+.cp-esc.s-nao .cp-escst{color:var(--red)}
+.cp-esc.s-ok .cp-escst{color:var(--e-pronto-t, var(--green))}
+.cp-escbt{display:flex; gap:4px}
+.cp-escbt .mbtn{height:28px; padding:0 10px; font-size:12px}
+.cp-escbt .mbtn .ic{width:13px; height:13px}
+.cp-escbt .mbtn.on[data-cpconf="ok"]{background:color-mix(in srgb, var(--green) 18%, transparent); color:var(--e-pronto-t, var(--green))}
+.cp-escbt .mbtn.on[data-cpconf="nao"]{background:color-mix(in srgb, var(--red) 16%, transparent); color:var(--red)}
+.cp-escnao{grid-column:2 / -1; display:flex; gap:6px}
+.cp-escnao input{flex:1; min-width:0; height:30px; padding:0 8px; border-radius:8px; border:1px solid var(--hair); background:var(--fill-4); font:inherit; font-size:13px}
+.cp-escdia{font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-3); margin-top:10px}
+.cpcf{display:inline-grid; place-items:center; width:16px; height:16px; border-radius:50%; font-size:10px; font-weight:700; flex:none}
+.cpcf .ic{width:10px; height:10px}
+.cpcf.ok{background:var(--green); color:#fff}
+.cpcf.nao{background:var(--red); color:#fff}
+.cpcf.pend{background:var(--fill-3); color:var(--ink-3)}
+.cpeq-h .cpcf{margin-right:4px; vertical-align:-3px}
+.cpeq-ev.cf-nao{box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--red) 60%, transparent)}
+.cpeq-top{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.cpeq-resumo.pend{color:var(--ink-2)}
+.cpeq-fech{color:var(--e-pronto-t, var(--green))}
+.cpeq-fechar{height:30px}
+@media (max-width:560px){
+  .cp-esc{grid-template-columns:26px minmax(0,1fr)}
+  .cp-escst,.cp-escbt{grid-column:2 / -1}
+}
