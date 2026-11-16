@@ -432,3 +432,55 @@ html[data-modo="claro"] .lp-av.cpc-semresp{background:var(--e-orange); color:#00
 @keyframes cpAlEntra{from{opacity:0; transform:translateY(14px) scale(.97)} to{opacity:1; transform:none}}
 @keyframes cpAlSino{0%,100%{transform:rotate(0)} 20%{transform:rotate(14deg)} 40%{transform:rotate(-14deg)} 60%{transform:rotate(9deg)} 80%{transform:rotate(-6deg)}}
 @media (prefers-reduced-motion: reduce){ .cp-alarme,.cp-alh > .ic{animation:none} }
+
+/* ---------- v4.24: tipo de captação, apoio, entrega e a Semana da equipe ---------- */
+.cpc-tipo{font-size:10.5px; font-weight:650; color:var(--cp-at); background:color-mix(in srgb, var(--cp-a) 16%, transparent); border-radius:6px; padding:1px 6px; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cpc-apoio .ic,.cpc-ent .ic{width:12px; height:12px}
+.cpc-ent{color:var(--e-pronto-t, var(--green))}
+/* o apoio na folha: cápsulas pequenas com o x, e o + Apoio */
+.cp-apoio{display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 3px 0 4px; border-radius:999px; background:var(--fill-3); font-size:12.5px; font-weight:600; color:var(--ink-2)}
+.cp-apoio .cp-respav{width:18px; height:18px}
+.cp-apx{display:inline-grid; place-items:center; width:20px; height:20px; border:0; border-radius:50%; background:transparent; color:var(--ink-3); cursor:pointer; padding:0}
+.cp-apx:hover{background:var(--fill-2); color:var(--ink)}
+.cp-apx .ic{width:11px; height:11px}
+.cp-apoioadd{display:inline-flex; align-items:center; gap:4px; height:26px; padding:0 10px 0 7px; border:1px dashed var(--hair); border-radius:999px; background:transparent; color:var(--ink-2); font:inherit; font-size:12.5px; font-weight:600; cursor:pointer}
+.cp-apoioadd:hover{border-color:var(--ink-3); color:var(--ink)}
+.cp-apoioadd .ic{width:12px; height:12px}
+.cp-respmenu small{font-size:11px; color:var(--ink-3); font-weight:500; margin-left:4px}
+.cp-respmenu button[disabled]{opacity:.55; cursor:default}
+/* a entrega */
+.cp-entrow{grid-template-columns:52px minmax(0,1fr) auto}
+.cp-entrow input.cp-entnum{max-width:96px}
+.cp-entabre{min-height:30px; padding:0 9px}
+.cp-entabre .ic{width:14px; height:14px}
+.cp-cont.cp-entfalta{color:var(--e-orange-t)}
+/* a Semana da equipe: uma linha por pessoa, os 7 dias */
+.cpeq{padding:4px 0 24px}
+.cpeq-top{margin:0 0 12px}
+.cpeq-resumo{display:inline-flex; align-items:center; gap:7px; height:30px; padding:0 12px; border-radius:999px; background:var(--fill-3); font-size:13px; font-weight:600; color:var(--ink-2)}
+.cpeq-resumo .ic{width:15px; height:15px; color:var(--e-pronto-t, var(--green))}
+.cpeq-resumo.choque{background:color-mix(in srgb, var(--red) 14%, var(--fill-4)); color:var(--ink)}
+.cpeq-resumo.choque .ic{color:var(--red)}
+.cpeq-grade{display:grid; grid-template-columns:170px repeat(7, minmax(120px, 1fr)); gap:4px; overflow-x:auto}
+.cpeq-h0,.cpeq-hd{font-size:12px; font-weight:600; color:var(--ink-3); padding:4px 8px}
+.cpeq-hd.hoje{color:var(--cp-at)}
+.cpeq-p{display:flex; align-items:center; gap:8px; padding:8px; border-radius:12px; background:var(--cell); min-width:0; position:sticky; left:0; z-index:1}
+.cpeq-p b{font-size:13px; font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cpeq-p.choque{box-shadow:inset 3px 0 0 var(--red)}
+.cpeq-p.semresp b{color:var(--e-orange-t)}
+.cpeq-c{display:flex; flex-direction:column; gap:4px; padding:6px; border-radius:12px; background:var(--cell); min-height:56px; min-width:0}
+.cpeq-c.hoje{background:color-mix(in srgb, var(--cp-a) 9%, var(--cell))}
+.cpeq-c.choque{box-shadow:inset 0 0 0 1.5px var(--red); background:color-mix(in srgb, var(--red) 8%, var(--cell))}
+.cpeq-alerta{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:var(--red)}
+.cpeq-alerta .ic{width:12px; height:12px}
+.cpeq-ev{position:relative; display:flex; flex-direction:column; gap:1px; text-align:left; border:0; border-radius:8px; padding:6px 8px 6px 10px; background:var(--fill-3); color:var(--ink); font:inherit; cursor:pointer; min-width:0}
+.cpeq-ev::before{content:""; position:absolute; left:0; top:6px; bottom:6px; width:3px; border-radius:0 3px 3px 0; background:var(--cp-emp, var(--cp-a))}
+.cpeq-ev:hover{background:var(--fill-2)}
+.cpeq-ev:focus-visible{outline:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--focus) 60%, transparent)}
+.cpeq-h{font-size:11px; font-weight:700; color:var(--cp-at); font-variant-numeric:tabular-nums; display:flex; gap:6px; align-items:center}
+.cpeq-h em{font-style:normal; font-weight:600; font-size:10px; color:var(--ink-3); background:var(--fill-4); border-radius:5px; padding:0 5px}
+.cpeq-t{font-size:12.5px; font-weight:600; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical}
+.cpeq-s{font-size:11px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cpeq-ev.s-gravada .cpeq-h{color:var(--e-pronto-t, var(--green))}
+.cpeq-ev.s-faltou{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--red) 50%, transparent)}
+.cp-entrow input:last-child{grid-column:2 / -1}

@@ -43,6 +43,7 @@
       <button data-v="mes" class="on">Mês</button>
       <button data-v="semana">Semana</button>
       <button data-v="mapa" hidden title="O que cada captação da semana destrava: a edição e o dia que o post sai">Mapa</button>
+      <button data-v="equipe" hidden title="A semana dos eventos por pessoa (responsável e apoio): mostra quem está em dois eventos no mesmo dia">Equipe</button>
     </div>
     <!-- v4.21: no modo captação, Captações ou Eventos (os eventos da semana, com responsável) -->
     <div class="vtoggle cptipo" id="cpTipo" role="radiogroup" aria-label="Captações ou eventos">
@@ -298,7 +299,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.23'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.24'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1272,12 +1273,12 @@ function renderGrid(){
   syncVToggle();
   const g = $('#grid');
   // v4.19: o mapa do que a captação destrava (js/captacao.js), no lugar da grade dos dias
-  if(S.view==='mapa' && S.modoCap && typeof capMapa==='function'){
+  if((S.view==='mapa' || S.view==='equipe') && S.modoCap && typeof capMapa==='function'){
     lpDesliga(); g.classList.remove('fluxo'); raiasNaGrade(g, null);
     $('#dows').classList.remove('withwk'); $('#dows').classList.add('escondida');
-    g.innerHTML = ''; capMapa(g); return;
+    g.innerHTML = ''; if(S.view==='equipe') capEquipe(g); else capMapa(g); return;   // v4.24: a Semana da equipe (só nos Eventos)
   }
-  g.classList.remove('cpmapa-on');
+  g.classList.remove('cpmapa-on'); g.classList.remove('cpeq-on');
   const semana = S.view==='semana';
   lpDesliga();
   g.classList.toggle('fluxo', !semana);
@@ -1405,10 +1406,14 @@ function syncVToggle(){
   const bm = document.querySelector('#vtoggle [data-v="mapa"]');
   if(bm) bm.hidden = !S.modoCap;
   if(S.view==='mapa' && !S.modoCap) S.view = 'semana';
+  // v4.24: a Semana da equipe é dos Eventos (no modo captação)
+  const be = document.querySelector('#vtoggle [data-v="equipe"]'), ev = S.modoCap && typeof capEv==='function' && capEv();
+  if(be) be.hidden = !ev;
+  if(S.view==='equipe' && !ev) S.view = 'semana';
   document.querySelectorAll('#vtoggle button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.view));
 }
 /** v4.19: a Semana e o Mapa andam de semana em semana (as setas, o Hoje e a ida pra um mês). */
-function porSemana(){ return S.view==='semana' || S.view==='mapa'; }
+function porSemana(){ return S.view==='semana' || S.view==='mapa' || S.view==='equipe'; }
 document.querySelectorAll('#vtoggle button').forEach(b=> b.onclick = ()=>{
   if(S.view===b.dataset.v) return;
   const antes = S.view;

@@ -230,10 +230,13 @@ function capCard(c, i) {
       (nd > 1 ? '<span class="cpc-dia">dia ' + (i + 1) + ' de ' + nd + '</span>' : '') +
       (c.de ? '<span class="cpc-cont" title="Continuação: o que faltou gravar de outra captação">continuação</span>' : '') +   // v4.20
       (dia.h ? '<span class="cpc-h">' + esc(capHora(dia.h)) + '</span>' : '') +
+      (ev && c.tipoCap ? '<span class="cpc-tipo" title="Tipo de captação">' + esc(c.tipoCap) + '</span>' : '') +   // v4.24
       (alerta ? '<span class="lp-pil ' + alerta.c + '" title="' + esc(alerta.dica) + '">' + icon('alerta') + esc(alerta.t) + '</span>' : '') + '</div>' +
     '<div class="tit">' + esc(capTituloCurto(c)) + '</div>' +
     (ev ? '' : '<div class="cpc-rot">' + barra + '<span>' + esc(rot) + '</span></div>') +   // v4.23: o evento não tem roteiro
     (c.local ? '<div class="cpc-local" title="' + esc(c.local) + '">' + capIc('local') + '<span>' + esc(c.local) + '</span></div>' : '') +   // v4.21: onde é o evento
+    (ev && (c.apoio || []).length ? '<div class="cpc-local cpc-apoio" title="Apoio: ' + esc(c.apoio.map(p => p.nome).join(', ')) + '">' + icon('users') + '<span>apoio: ' + esc(c.apoio.map(p => p.nome.split(' ')[0]).join(', ')) + '</span></div>' : '') +   // v4.24
+    (ev && capEntTem(c) ? '<div class="cpc-local cpc-ent" title="Entrega">' + icon('check') + '<span>' + esc(capEntResumo(c)) + '</span></div>' : '') +   // v4.24
     '<div class="cpc-posts" title="' + esc(posts.map(s => nomeConta(s.conta) + ': ' + (s.tituloCache || s.titulo || 'post') + (s.date ? ' · sai ' + capDiaL(s.date) : '')).join('\n')) + '">' + icon('film') + '<span>' + esc(postsTxt) + '</span></div>' +
     (resp ? '<span class="lp-av" title="' + esc(resp + (capEhEvento(c) ? ' é o responsável' : ' capta')) + '">' + esc(initials(resp)) + '</span>'
       : capEhEvento(c) ? '<span class="lp-av cpc-semresp" title="Sem responsável: escolha na folha do evento">?</span>' : '');   // v4.21: evento sem responsável aparece
@@ -438,6 +441,10 @@ function capDesenhaFolhaJa() {
       // v4.21: o responsável pelo evento (o Zion escolhe, das pessoas do MKT Hub)
       (ev ? '<button type="button" id="cpResp" class="cp-empsel cp-respsel' + (c.resp ? '' : ' sem') + '" aria-haspopup="menu" aria-expanded="false" title="Responsável pelo evento (as pessoas do MKT Hub)">' +
         (c.resp ? '<span class="cp-respav">' + esc(initials(c.resp.nome)) + '</span><span>' + esc(c.resp.nome) + '</span>' : '<i></i><span>Escolha o responsável</span>') + icon('chevR', 'cp-empseta') + '</button>' : '') +
+      // v4.24: o apoio (várias pessoas além do principal)
+      (ev ? (c.apoio || []).map((p, i) => '<span class="cp-apoio" title="' + esc(p.nome) + ' de apoio"><span class="cp-respav">' + esc(initials(p.nome)) + '</span><span>' + esc(p.nome.split(' ')[0]) + '</span>' +
+          '<button type="button" class="cp-apx" data-cpapx="' + i + '" aria-label="Tirar ' + esc(p.nome) + ' do apoio">' + icon('x') + '</button></span>').join('') +
+        ((c.apoio || []).length < 6 ? '<button type="button" id="cpApoio" class="cp-apoioadd" aria-haspopup="menu" aria-expanded="false" title="Pôr alguém de apoio no evento">' + icon('plus') + 'Apoio</button>' : '') : '') +
       (h ? (link ? '<a class="cp-hub" href="' + esc(link) + '" target="_blank" rel="noopener" title="Abrir a task no MKT Hub"' : '<span class="cp-hub"') + (h.etapa ? ' style="--cp-et:' + esc(h.etapa.cor) + '"' : '') + '><i></i>' +
         esc([h.codigo, h.etapa && h.etapa.nome].filter(Boolean).join(' · ') || 'MKT Hub') + (link ? icon('external') + '</a>' : '</span>') : '') +
       (h && h.resp && !ev ? '<span>' + icon('users') + esc(h.resp) + ' capta</span>' : '') +
@@ -492,6 +499,8 @@ function capDesenhaFolhaJa() {
     (alerta ? '<div class="cp-alerta ' + alerta.c + '">' + icon('alerta') + '<span>' + esc(alerta.dica) + '</span></div>' : '') +
     (ev ? capStHtml(c) : '') +   // v4.23: concluído, desmarcado, as mensagens e o alarme
     '<section class="cp-sec"><h3>' + (ev ? 'Dia do evento' : 'Dias de gravação') + '</h3><div class="cp-dias">' + dias + '</div>' +
+      (ev ? '<div class="cp-localrow"><span class="cp-dn">Tipo</span><input id="cpTipoCap" list="cpTiposLista" value="' + esc(c.tipoCap || '') + '" placeholder="Tipo de captação (ex.: Palestra, Encontro do Club)" maxlength="40" autocomplete="off" aria-label="Tipo de captação">' +
+        '<datalist id="cpTiposLista">' + capTiposUsados().map(t => '<option value="' + esc(t) + '"></option>').join('') + '</datalist></div>' : '') +   // v4.24
       (ev ? '<div class="cp-localrow"><span class="cp-dn">Local</span><input id="cpLocal" value="' + esc(c.local || '') + '" placeholder="Onde é (lugar ou endereço)" maxlength="120" autocomplete="off" aria-label="Local do evento"></div>' : '') +
       // v4.20: um caminho só pro que falta: vira uma captação nova (com os roteiros e os posts marcados), no lugar de mais um dia nesta
       '<div class="cp-maisdia">' + (falta && n && !ev ? '<span class="cp-faltam">' + capPl(falta, 'roteiro falta', 'roteiros faltam') + '</span>' +
@@ -506,6 +515,7 @@ function capDesenhaFolhaJa() {
           '<textarea id="cpNovoRot" class="cp-novorot" rows="1" placeholder="' + (n ? 'Mais um roteiro' : 'Escreva o roteiro') + ' e aperte Enter" aria-label="Roteiro novo"></textarea>' +
           '<button type="button" class="mbtn cp-addrot" data-cp="addrot">' + icon('plus') + 'Adicionar</button></div></div>' +
       (n ? '' : '<p class="cp-dica">Cada roteiro ganha a caixinha de gravado. Colou uma lista? Vira um roteiro por linha.</p>') + '</section>') +   // v4.23: o evento não tem roteiro
+    (ev ? capEntHtml(c) : '') +   // v4.24: a entrega do evento
     '<section class="cp-sec"><h3>Posts ligados <span class="cp-cont">' + (posts.length ? capPl(posts.length, 'post', 'posts') : 'nenhum ainda') + '</span></h3>' +
       '<div class="cp-posts">' + posts.map(linhaPost).join('') + '</div>' +
       (CAPM.pick ? pick : '<button type="button" class="mbtn" data-cp="pick">' + capIc('ligar') + 'Ligar post ou task de edição</button>') + '</section>' +
@@ -573,11 +583,12 @@ async function capPessoas() {
   catch (e) { CAPM.pessoas = { l: [], erro: 'não consegui ler as pessoas agora: escreva o nome', em: Date.now() - 4 * 60e3 }; }
   return CAPM.pessoas;
 }
-function capMenuResp(btn, c) {
+function capMenuResp(btn, c, modo) {
+  const apoio = modo === 'apoio';   // v4.24: o mesmo menu escolhe o apoio (vários) além do responsável principal
   if (CAPM.menuFecha) { CAPM.menuFecha(true); return; }
   const m = document.createElement('div');
-  m.className = 'vagapop bk-escolhe cp-empmenu cp-respmenu'; m.id = 'cpRespMenu'; m.setAttribute('role', 'menu'); m.setAttribute('aria-label', 'Responsável pelo evento');
-  m.innerHTML = '<h4>Responsável pelo evento</h4><input id="cpRespBusca" placeholder="Buscar ou escrever o nome" autocomplete="off" aria-label="Buscar ou escrever o nome">' +
+  m.className = 'vagapop bk-escolhe cp-empmenu cp-respmenu'; m.id = 'cpRespMenu'; m.setAttribute('role', 'menu'); m.setAttribute('aria-label', apoio ? 'Apoio no evento' : 'Responsável pelo evento');
+  m.innerHTML = '<h4>' + (apoio ? 'Apoio no evento' : 'Responsável pelo evento') + '</h4><input id="cpRespBusca" placeholder="Buscar ou escrever o nome" autocomplete="off" aria-label="Buscar ou escrever o nome">' +
     '<div class="cp-resplista"><div class="cp-respmsg">Carregando as pessoas do MKT Hub…</div></div>';
   document.body.appendChild(m);
   const busca = m.querySelector('#cpRespBusca'), lista = m.querySelector('.cp-resplista');
@@ -587,19 +598,25 @@ function capMenuResp(btn, c) {
     m.style.left = Math.max(8, Math.min(r.left, innerWidth - mr.width - 8)) + 'px';
     m.style.top = (r.bottom + 6 + mr.height > innerHeight - 8 ? Math.max(8, r.top - mr.height - 6) : r.bottom + 6) + 'px';
   };
-  const marcado = x => !!(c.resp && (c.resp.id ? c.resp.id === x.id : capSemAcento(c.resp.nome) === capSemAcento(x.nome)));
+  const igual = (p, x) => !!p && (p.id && x.id ? p.id === x.id : capSemAcento(p.nome) === capSemAcento(x.nome));
+  const marcado = x => apoio ? (c.apoio || []).some(p => igual(p, x)) : igual(c.resp, x);
+  const principal = x => apoio && igual(c.resp, x);
   const desenha = () => {
     const P = CAPM.pessoas || { l: [], erro: '' }, q = capSemAcento(busca.value), livre = busca.value.replace(/\s+/g, ' ').trim();
     const l = P.l.filter(x => !q || capSemAcento(x.nome).includes(q));
-    let h = l.map(x => '<button type="button" role="menuitemradio" aria-checked="' + marcado(x) + '" data-pid="' + esc(x.id) + '" data-pnome="' + esc(x.nome) + '">' +
-      '<span class="cp-respav">' + esc(initials(x.nome)) + '</span><span>' + esc(x.nome) + '</span>' + (marcado(x) ? icon('check') : '') + '</button>').join('');
+    let h = l.map(x => '<button type="button" role="' + (apoio ? 'menuitemcheckbox' : 'menuitemradio') + '" aria-checked="' + marcado(x) + '" data-pid="' + esc(x.id) + '" data-pnome="' + esc(x.nome) + '"' + (principal(x) ? ' disabled title="Já é o responsável principal"' : '') + '>' +
+      '<span class="cp-respav">' + esc(initials(x.nome)) + '</span><span>' + esc(x.nome) + (principal(x) ? ' <small>principal</small>' : '') + '</span>' + (marcado(x) ? icon('check') : '') + '</button>').join('');
     if (P.erro) h += '<div class="cp-respmsg">' + esc(P.erro) + '</div>';
     else if (!l.length) h += '<div class="cp-respmsg">' + (q ? 'Ninguém com esse nome no MKT Hub.' : 'O MKT Hub não tem pessoas ativas.') + '</div>';
     if (livre && !l.some(x => capSemAcento(x.nome) === capSemAcento(livre))) h += '<button type="button" role="menuitem" data-pid="" data-pnome="' + esc(livre.slice(0, 80)) + '">' + icon('plus') + '<span>Usar "' + esc(livre.slice(0, 80)) + '"</span></button>';
-    if (c.resp) h += '<button type="button" role="menuitem" data-ptira="1" class="cp-resptira">' + icon('x') + '<span>Tirar o responsável</span></button>';
+    if (!apoio && c.resp) h += '<button type="button" role="menuitem" data-ptira="1" class="cp-resptira">' + icon('x') + '<span>Tirar o responsável</span></button>';
     lista.innerHTML = h;
-    itens = [...lista.querySelectorAll('button')];
-    itens.forEach(b => b.onclick = () => { fecha(true); capTrocaResp(c, b.dataset.ptira ? null : { id: b.dataset.pid || '', nome: b.dataset.pnome }); });
+    itens = [...lista.querySelectorAll('button:not([disabled])')];
+    itens.forEach(b => b.onclick = () => {
+      fecha(true);
+      const p = { id: b.dataset.pid || '', nome: b.dataset.pnome };
+      if (apoio) capTrocaApoio(c, p); else capTrocaResp(c, b.dataset.ptira ? null : p);
+    });
     posiciona();
   };
   posiciona();
@@ -626,6 +643,17 @@ function capMenuResp(btn, c) {
   CAPM.menuFecha = fecha;
   setTimeout(() => { document.addEventListener('mousedown', fora, true); document.addEventListener('keydown', tecla, true); busca.focus(); }, 0);
   capPessoas().then(() => { if (m.isConnected) desenha(); });
+}
+/** v4.24: põe ou tira uma pessoa do apoio (clicar de novo em quem já está tira). */
+function capTrocaApoio(c, p, tira) {
+  const mesma = x => (x.id && p.id ? x.id === p.id : capSemAcento(x.nome) === capSemAcento(p.nome));
+  const sai = tira || (c.apoio || []).some(mesma);
+  capSalva(c.id, cc => {
+    const tem = (cc.apoio || []).some(mesma);
+    if (sai) return tem ? { apoio: cc.apoio.filter(x => !mesma(x)) } : null;
+    if (tem || (cc.resp && mesma(cc.resp))) return null;
+    return { apoio: (cc.apoio || []).concat([{ id: p.id || '', nome: p.nome }]) };
+  }, (sai ? p.nome + ' saiu do apoio' : 'Apoio: ' + p.nome) + ' · Ctrl+Z desfaz');
 }
 function capTrocaResp(c, r) {
   capSalva(c.id, cc => {
@@ -809,6 +837,29 @@ function capLigaFolha(c) {
   if (emp) emp.onclick = () => capMenuEmpresa(emp, c);
   const rsp = document.getElementById('cpResp');   // v4.21
   if (rsp) rsp.onclick = () => capMenuResp(rsp, c);
+  // v4.24: o apoio, o tipo e a entrega
+  const apb = document.getElementById('cpApoio');
+  if (apb) apb.onclick = () => capMenuResp(apb, c, 'apoio');
+  document.querySelectorAll('#ovCap [data-cpapx]').forEach(b => b.onclick = () => { const p = (c.apoio || [])[+b.dataset.cpapx]; if (p) capTrocaApoio(c, p, true); });
+  const tpc = document.getElementById('cpTipoCap');
+  if (tpc) {
+    const salva = () => { if (CAPM.redesenhando || !tpc.isConnected) return; const v = tpc.value.replace(/\s+/g, ' ').trim(); if (v !== (c.tipoCap || '')) capSalva(c.id, cc => v === (cc.tipoCap || '') ? null : { tipoCap: v }, v ? 'Tipo: ' + v + ' · Ctrl+Z desfaz' : 'Tipo tirado · Ctrl+Z desfaz'); };
+    tpc.onblur = salva; tpc.onchange = salva;
+    tpc.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); tpc.blur(); } };
+  }
+  document.querySelectorAll('#ovCap [data-cpent]').forEach(inp => {
+    const k = inp.dataset.cpent;
+    const salva = () => {
+      if (CAPM.redesenhando || !inp.isConnected) return;
+      const v = k === 'stories' ? inp.value.trim() : inp.value.trim();
+      const atual = c.ent ? (k === 'stories' ? (c.ent.stories === null || c.ent.stories === undefined ? '' : String(c.ent.stories)) : c.ent[k] || '') : '';
+      if (v === atual) return;
+      if (k !== 'stories' && v && !/^https?:\/\//i.test(v)) { toast('O link precisa começar com http', true); return; }
+      capSalva(c.id, { ent: { [k]: k === 'stories' ? (v === '' ? null : Math.max(0, Math.round(+v) || 0)) : v } }, 'Entrega salva · Ctrl+Z desfaz');
+    };
+    inp.onblur = salva;
+    inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } };
+  });
   const loc = document.getElementById('cpLocal');
   if (loc) {
     loc.onblur = () => { if (CAPM.redesenhando || !loc.isConnected) return; const v = loc.value.replace(/\s+/g, ' ').trim(); if (v !== (c.local || '')) capSalva(c.id, cc => v === (cc.local || '') ? null : { local: v }); };
@@ -1336,3 +1387,93 @@ function capAlarmeToca(c, x, teste) {
 }
 setTimeout(capAlarmeConfere, 5000);
 setInterval(capAlarmeConfere, 30000);
+
+// ---------------- v4.24: tipo de captação, apoio, entrega e a Semana da equipe ----------------
+// Pedido do Zion (16/11/2026): "Campo 'Tipo de captação' no card de evento", "Mais de um responsável por card (principal +
+// apoio)", "Campos de entrega: link do Drive, álbum da Galeria e nº de stories" e "Visão 'Semana da equipe', uma linha por
+// pessoa, para mostrar choque de horário da mesma pessoa". Escolhas: só nos eventos; sem duração do evento por enquanto (o
+// choque é a mesma pessoa em 2 eventos no mesmo dia). O POP com o checklist vem depois (o Zion está montando os POPs).
+/** Os tipos de captação já usados nos eventos (pra sugerir no campo), do mais usado pro menos. */
+function capTiposUsados() {
+  const n = new Map();
+  for (const c of capLista()) if (capEhEvento(c) && c.tipoCap) n.set(c.tipoCap, (n.get(c.tipoCap) || 0) + 1);
+  return [...n.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(x => x[0]);
+}
+function capEntTem(c) { const e = c.ent || {}; return !!(e.drive || e.galeria || (e.stories !== null && e.stories !== undefined)); }
+function capEntResumo(c) {
+  const e = c.ent || {};
+  return [e.drive ? 'Drive' : '', e.galeria ? 'Galeria' : '', e.stories !== null && e.stories !== undefined ? capPl(e.stories, 'story', 'stories') : ''].filter(Boolean).join(' · ');
+}
+function capEntHtml(c) {
+  const e = c.ent || {}, st = e.stories === null || e.stories === undefined ? '' : String(e.stories);
+  const link = (k, rot, ph) => '<div class="cp-localrow cp-entrow"><span class="cp-dn">' + rot + '</span>' +
+    '<input type="url" data-cpent="' + k + '" value="' + esc(e[k] || '') + '" placeholder="' + ph + '" maxlength="500" autocomplete="off" aria-label="' + rot + '">' +
+    (e[k] ? '<a class="mbtn cp-entabre" href="' + esc(e[k]) + '" target="_blank" rel="noopener" title="Abrir">' + icon('external') + '</a>' : '') + '</div>';
+  const falta = c.st === 'concluido' ? ['Drive', 'Galeria', 'stories'].filter((x, i) => !(i === 0 ? e.drive : i === 1 ? e.galeria : st !== '')) : [];
+  return '<section class="cp-sec"><h3>Entrega' + (falta.length ? ' <span class="cp-cont cp-entfalta">falta ' + esc(falta.join(', ')) + '</span>' : capEntTem(c) ? ' <span class="cp-cont">' + esc(capEntResumo(c)) + '</span>' : '') + '</h3>' +
+    link('drive', 'Drive', 'Link da pasta do Drive com o material') +
+    link('galeria', 'Galeria', 'Link do álbum da Galeria') +
+    '<div class="cp-localrow cp-entrow"><span class="cp-dn">Stories</span><input type="number" min="0" max="999" step="1" inputmode="numeric" data-cpent="stories" value="' + esc(st) + '" placeholder="nº" aria-label="Número de stories" class="cp-entnum"></div>' +
+    '</section>';
+}
+/** As pessoas de um evento: o principal e o apoio. */
+function capPessoasDe(c) {
+  const l = [];
+  if (c.resp && c.resp.nome) l.push({ nome: c.resp.nome, papel: 'principal' });
+  for (const p of c.apoio || []) if (!l.some(x => capSemAcento(x.nome) === capSemAcento(p.nome))) l.push({ nome: p.nome, papel: 'apoio' });
+  return l;
+}
+/** A Semana da equipe: uma linha por pessoa (principal e apoio), os 7 dias, os eventos no horário. Choque = a mesma pessoa
+ *  em 2 ou mais eventos no mesmo dia (sem duração do evento, o painel não sabe se as horas se sobrepõem: mostra as horas). */
+function capEquipe(g) {
+  const dias = capSemanaDatas(), hoje = hojeStr();
+  const seg = dias[0] || hoje, dom = dias[6] || hoje;
+  const rows = rowsDoMes(S.mes), lb = document.getElementById('mesLabel');
+  if (lb && rows[S.semIdx]) lb.textContent = 'Semana ' + (S.semIdx + 1) + ' · ' + weekRange(rows[S.semIdx]) + ' · equipe';
+  g.classList.add('cpmapa-on', 'cpeq-on');
+  const evs = capLista().filter(c => capVisivel(c) && capEhEvento(c) && capSit(c) !== 'desmarcado' && c.dias.some(x => x.d >= seg && x.d <= dom));
+  const pess = new Map();   // nome -> { nome, porDia: { d: [{ c, h, papel }] } }
+  const semResp = { nome: '', porDia: {} };
+  for (const c of evs) {
+    const ps = capPessoasDe(c);
+    for (const x of c.dias) {
+      if (x.d < seg || x.d > dom) continue;
+      if (!ps.length) (semResp.porDia[x.d] = semResp.porDia[x.d] || []).push({ c, h: x.h || '', papel: '' });
+      for (const p of ps) {
+        const k = capSemAcento(p.nome);
+        if (!pess.has(k)) pess.set(k, { nome: p.nome, porDia: {} });
+        const pd = pess.get(k).porDia;
+        (pd[x.d] = pd[x.d] || []).push({ c, h: x.h || '', papel: p.papel });
+      }
+    }
+  }
+  if (!evs.length) {
+    g.innerHTML = '<div class="cpm-vazio">' + icon('users') + '<b>Nenhum evento nesta semana' + (ehTodos() ? '' : ' na ' + esc(nomeAba(S.aba))) + '</b><span>Use as setas pra ver outra semana. O evento desmarcado não entra aqui.</span></div>';
+    return;
+  }
+  const lista = [...pess.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  if (Object.keys(semResp.porDia).length) lista.push(semResp);
+  let choques = 0;
+  const linha = p => {
+    let celulas = '', temChoque = false;
+    for (const d of dias) {
+      const l = (p.porDia[d] || []).slice().sort((a, b) => (a.h || '99').localeCompare(b.h || '99'));
+      const choque = !!p.nome && l.length > 1;
+      if (choque) { temChoque = true; choques++; }
+      celulas += '<div class="cpeq-c' + (d === hoje ? ' hoje' : '') + (choque ? ' choque' : '') + '"' + (choque ? ' title="' + esc(p.nome + ' está em ' + l.length + ' eventos neste dia: ' + l.map(x => (x.h ? capHora(x.h) + ' ' : '') + capTituloCurto(x.c)).join(' e ')) + '"' : '') + '>' +
+        (choque ? '<span class="cpeq-alerta">' + icon('alerta') + l.length + ' no dia</span>' : '') +
+        l.map(x => '<button type="button" class="cpeq-ev s-' + capSit(x.c) + '" data-cap="' + x.c.id + '" data-dia="' + d + '"' + (x.c.aba ? ' style="--cp-emp:' + capCorEmpresa(x.c.aba) + '"' : '') + '>' +
+          '<span class="cpeq-h">' + (x.h ? esc(capHora(x.h)) : 'sem hora') + (x.papel === 'apoio' ? '<em>apoio</em>' : '') + '</span>' +
+          '<span class="cpeq-t">' + esc(capTituloCurto(x.c)) + '</span>' +
+          (x.c.tipoCap || x.c.local ? '<span class="cpeq-s">' + esc([x.c.tipoCap, x.c.local].filter(Boolean).join(' · ')) + '</span>' : '') + '</button>').join('') + '</div>';
+    }
+    return '<div class="cpeq-p' + (temChoque ? ' choque' : '') + (p.nome ? '' : ' semresp') + '">' +
+      (p.nome ? '<span class="cp-respav">' + esc(initials(p.nome)) + '</span><b>' + esc(p.nome) + '</b>' : '<span class="cp-respav cpc-semresp">?</span><b>Sem responsável</b>') + '</div>' + celulas;
+  };
+  const corpo = lista.map(linha).join('');
+  g.innerHTML = '<div class="cpeq">' +
+    '<div class="cpeq-top">' + (choques ? '<span class="cpeq-resumo choque">' + icon('alerta') + capPl(choques, 'choque', 'choques') + ' na semana: a mesma pessoa em 2 eventos no mesmo dia</span>'
+      : '<span class="cpeq-resumo">' + icon('check') + 'Ninguém em 2 eventos no mesmo dia nesta semana</span>') + '</div>' +
+    '<div class="cpeq-grade"><div class="cpeq-h0">Pessoa</div>' + dias.map(d => '<div class="cpeq-hd' + (d === hoje ? ' hoje' : '') + '">' + esc(capDiaL(d)) + '</div>').join('') + corpo + '</div></div>';
+  g.querySelectorAll('.cpeq-ev').forEach(b => b.onclick = () => capAbre(b.dataset.cap, b.dataset.dia));
+}
