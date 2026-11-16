@@ -778,6 +778,9 @@ function capLigaFolha(c) {
     capMenuOpcoes(b, 'Papel de ' + p.nome.split(' ')[0], ops, p.papel, v => capMudaEscala(c, p.nome, { papel: v }));
   });
   ov.querySelectorAll('[data-cpesch]').forEach(inp => inp.onchange = () => capMudaEscala(c, inp.dataset.cpesch, { h: inp.value || '' }));
+  ov.querySelectorAll('[data-cpsug]').forEach(b => b.onclick = () => capSalva(c.id, cc => b.dataset.cpsug === '1' && cc.escalaSug
+    ? { escala: cc.escalaSug.escala.map(p => ({ id: p.id || '', nome: p.nome, papel: p.papel, h: p.h || '' })), escalaSug: null } : { escalaSug: null },
+    b.dataset.cpsug === '1' ? 'Escala aplicada · Ctrl+Z desfaz' : 'Sugestão descartada'));
   const fxb = document.getElementById('cpFluxo');
   if (fxb) fxb.onclick = () => capMenuFluxo(fxb, c);
   ov.querySelectorAll('[data-cptira]').forEach(b => b.onclick = () => {
@@ -1538,7 +1541,7 @@ function capConfIc(v) {
 /** A seção Escala da folha: cada pessoa com o papel, o horário e o Confirmo / Não dá de cada dia. */
 function capEscalaHtml(c) {
   const ps = capPessoasDe(c), adm = souAdmin();
-  if (!ps.length) return '<section class="cp-sec cp-escsec"><h3>Escala</h3><p class="cp-dica">Escolha o responsável (e quem vai junto no botão Apoio) pra pedir a confirmação.</p></section>';
+  if (!ps.length) return '<section class="cp-sec cp-escsec"><h3>Escala</h3>' + capSugHtml(c) + '<p class="cp-dica">Escolha o responsável (e quem vai junto no botão Apoio) pra pedir a confirmação.</p></section>';
   const ds = c.dias.filter(x => x.d >= hojeStr()).length ? c.dias.filter(x => x.d >= hojeStr()) : c.dias.slice(-1);
   let ok = 0, tot = 0;
   const blocos = ds.map(x => {
@@ -1552,7 +1555,8 @@ function capEscalaHtml(c) {
           (p.papel === 'principal' || !adm ? '<em>' + esc(CAP_PAPEIS[p.papel] || p.papel) + (p.h ? ' · ' + esc(capHora(p.h)) : '') + '</em>'
             : '<button type="button" class="cp-escpapel" data-cppapel="' + esc(p.nome) + '" aria-haspopup="menu" title="Papel no dia">' + esc(CAP_PAPEIS[p.papel] || p.papel) + icon('chevR', 'cp-empseta') + '</button>' +
               '<input type="time" class="cp-esch" data-cpesch="' + esc(p.nome) + '" value="' + esc(p.h || '') + '" aria-label="Horário de ' + esc(p.nome) + '" title="Horário de chegada (vazio: o do evento)">') + '</span>' +
-        '<span class="cp-escst">' + capConfIc(v) + '<span>' + (v.st === 'ok' ? 'confirmou' : v.st === 'nao' ? 'não dá: ' + esc(v.motivo || '') : v.velha ? 'mudou a hora: confirmar de novo' : 'falta confirmar') + '</span></span>' +
+        '<span class="cp-escst">' + capConfIc(v) + '<span>' + (v.st === 'ok' ? 'confirmou' : v.st === 'nao' ? 'não dá: ' + esc(v.motivo || '') : v.velha ? 'mudou a hora: confirmar de novo' : 'falta confirmar') +
+          (v.st && v.origem && v.origem !== 'bone' ? ' (pelo ' + (v.origem === 'ssb' ? 'SSB' : 'WhatsApp') + ')' : '') + '</span></span>' +   // v4.29: o que o Ultron leu fora
         (pode ? '<span class="cp-escbt">' +
           '<button type="button" class="mbtn' + (v.st === 'ok' ? ' on' : '') + '" data-cpconf="ok" data-d="' + x.d + '" data-n="' + esc(p.nome) + '">' + icon('check') + 'Confirmo</button>' +
           '<button type="button" class="mbtn' + (v.st === 'nao' ? ' on' : '') + '" data-cpconf="nao" data-d="' + x.d + '" data-n="' + esc(p.nome) + '">' + icon('x') + 'Não dá</button></span>' : '') +
@@ -1562,7 +1566,15 @@ function capEscalaHtml(c) {
     }).join('');
     return (ds.length > 1 ? '<div class="cp-escdia">' + esc(capDiaL(x.d)) + (x.h ? ' · ' + esc(capHora(x.h)) : '') + '</div>' : '') + linhas;
   }).join('');
-  return '<section class="cp-sec cp-escsec"><h3>Escala <span class="cp-cont">' + ok + ' de ' + tot + ' confirmados</span></h3>' + blocos + '</section>';
+  return '<section class="cp-sec cp-escsec"><h3>Escala <span class="cp-cont">' + ok + ' de ' + tot + ' confirmados</span></h3>' + capSugHtml(c) + blocos + '</section>';
+}
+/** v4.29: a escala sugerida pelo Ultron (o ADMIN aplica ou descarta). */
+function capSugHtml(c) {
+  const s = c.escalaSug;
+  if (!s || !s.escala || !souAdmin()) return '';
+  const lista = s.escala.map(p => esc(p.nome.split(' ')[0]) + ' (' + esc(CAP_PAPEIS[p.papel] || p.papel) + (p.h ? ' ' + esc(capHora(p.h)) : '') + ')').join(', ') || 'ninguém além do responsável';
+  return '<div class="cp-sug">' + icon('users') + '<span><b>Escala sugerida pelo ' + esc(s.por || 'Ultron') + ':</b> ' + lista + '</span>' +
+    '<button type="button" class="mbtn" data-cpsug="1">Aplicar</button><button type="button" class="mbtn" data-cpsug="0">Descartar</button></div>';
 }
 async function capConfirma(c, d, nome, st, motivo) {
   try {

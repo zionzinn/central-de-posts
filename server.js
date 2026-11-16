@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '4.28'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '4.29'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -327,7 +327,15 @@ const FLUXOS = require('./lib/fluxos.js');   // v4.25: o fluxograma da captaçã
 const rotaCaptacao = require('./lib/captacao.js')({ db, saveDb, readBody, json, soAdmin, hub: rotaHub, pushUndo, backupAgora });
 // v4.28: os lembretes no celular (Web Push) e o agendador que roda a cada minuto e a cada ping do cron
 const rotaPush = require('./lib/push.js')({ db, saveDb, readBody, json });
-const AGENDA = require('./lib/agenda.js')({ db, saveDb, cap: rotaCaptacao, push: rotaPush, usuarios: () => AUTH.usuarios(), FX: FLUXOS });
+const rotaFila = require('./lib/fila.js')({ db, saveDb, readBody, json });   // v4.29: a fila de mensagens pro Ultron
+const AGENDA = require('./lib/agenda.js')({ db, saveDb, cap: rotaCaptacao, push: rotaPush, usuarios: () => AUTH.usuarios(), FX: FLUXOS, fila: rotaFila });
+/** v4.29: o token do Ultron confere (comparação em tempo constante). Sem ULTRON_TOKEN no ambiente, nenhum token vale. */
+function ultronOk(t) {
+  const k = String(process.env.ULTRON_TOKEN || '');
+  if (k.length < 24) return false;
+  const a = crypto.createHash('sha256').update(String(t || '')).digest(), b = crypto.createHash('sha256').update(k).digest();
+  return crypto.timingSafeEqual(a, b);
+}
 let agendaUltima = 0;
 function agendaRoda() { if (Date.now() - agendaUltima < 30e3) return; agendaUltima = Date.now(); AGENDA.tick().catch(e => console.error('[agenda]', e.message)); }
 setInterval(agendaRoda, 60e3).unref();
@@ -390,7 +398,7 @@ function soAdmin(req, res) {
 
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
-  const p = u.pathname;
+  let p = u.pathname;
   try {
     // ---------- ping (v3.72): pro cron-job.org manter o Render acordado gastando 2 bytes ----------
     if (p === '/api/ping' && (req.method === 'GET' || req.method === 'HEAD')) {
@@ -400,6 +408,20 @@ const server = http.createServer(async (req, res) => {
     }
     // ---------- login pelo Zoho (v3.82) ----------
     req.eu = AUTH.sessao(req);                               // quem está logado (null sem login do Zoho)
+    // v4.29: o Ultron entra pelo token (X-Ultron-Token = ULTRON_TOKEN do Render), só nas rotas dele
+    if (req.headers['x-ultron-token'] !== undefined) {
+      if (!ultronOk(req.headers['x-ultron-token'])) return json(res, 401, { erro: 'token do Ultron inválido' });
+      req.eu = { id: 'ultron', nome: 'Ultron', papel: 'ultron' };
+      const cm = p.match(/^\/api\/captacoes\/(ca[0-9a-f]{8})\/(confirmacao|etapa|vespera|escala-sugerida)$/);
+      if (cm) p = '/api/captacao/' + cm[1] + '/' + cm[2];
+      const dele = p === '/api/captacoes' || p === '/api/captacoes/upsert' || p === '/api/ultron/fila' || /^\/api\/ultron\/fila\/m[0-9a-f]{10}$/.test(p) ||
+        /^\/api\/captacao\/ca[0-9a-f]{8}\/(confirmacao|etapa|vespera|escala-sugerida)$/.test(p) || p === '/api/fluxos';
+      if (!dele) return json(res, 403, { erro: 'o token do Ultron só vale nas rotas do CONTRATO-ULTRON.md' });
+    } else {
+      // pela sessão (o Chrome do Ultron logado como o Zion): o mesmo caminho em /api/captacoes/<id>/...
+      const cm = p.match(/^\/api\/captacoes\/(ca[0-9a-f]{8})\/(confirmacao|etapa|vespera|escala-sugerida)$/);
+      if (cm) p = '/api/captacao/' + cm[1] + '/' + cm[2];
+    }
     if ((p.startsWith('/auth/') || p === '/api/eu' || p === '/api/logout') && await AUTH(req, res, p, u)) return;
     if (AUTH.ligado()) {
       // livre sem login: a própria tela de entrada, o ping do cron e o que a tela de entrada usa
@@ -440,7 +462,8 @@ const server = http.createServer(async (req, res) => {
       if (req.headers['if-none-match'] === FLUXOS.DEF_ETAG) { res.writeHead(304, h); USO.resposta(0); return res.end(); }
       res.writeHead(200, h); USO.resposta(FLUXOS.DEF_JSON.length); return res.end(FLUXOS.DEF_JSON);
     }
-    if (p.startsWith('/api/push/') && await rotaPush(req, res, p)) return;   // v4.28: os lembretes no celular
+    if (p.startsWith('/api/push/') && await rotaPush(req, res, p)) return;
+    if (p.startsWith('/api/ultron/') && await rotaFila(req, res, p)) return;   // v4.29: a fila do Ultron   // v4.28: os lembretes no celular
     // v4.28: rodar o agendador agora (ADMIN). Com PUSH_TESTE ligado, aceita um "agora" de mentira (testes)
     if (p === '/api/agenda/agora' && req.method === 'POST') {
       if (soAdmin(req, res)) return;
@@ -448,7 +471,7 @@ const server = http.createServer(async (req, res) => {
       const t = process.env.PUSH_TESTE && b.agora ? Date.parse(b.agora) : Date.now();
       return json(res, 200, await AGENDA.tick(t));
     }
-    if (p.startsWith('/api/captacao') && await rotaCaptacao(req, res, p)) return;   // v4.14: captação no calendário
+    if ((p.startsWith('/api/captacao') || p.startsWith('/api/captacoes')) && await rotaCaptacao(req, res, p)) return;   // v4.14: captação no calendário
     // ---------- MKT Hub (v3.81): status, artes e comentários das tasks de produção ----------
     if (p === '/api/hub/eu' && soAdmin(req, res)) return;     // v3.82: teste da chave do Hub é configuração (ADMIN)
     if ((p.startsWith('/api/hub') || p.startsWith('/api/task/')) && await rotaHub(req, res, p, u)) return;
