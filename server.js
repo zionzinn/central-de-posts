@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '4.27'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '4.28'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -325,6 +325,12 @@ const rotaHubEnvio = require('./lib/hubenvio.js')({ db, saveDb, readBody, json, 
 const PWA = require('./lib/pwa.js');   // v4.27: o service worker do app instalado
 const FLUXOS = require('./lib/fluxos.js');   // v4.25: o fluxograma da captação de eventos (a regra)
 const rotaCaptacao = require('./lib/captacao.js')({ db, saveDb, readBody, json, soAdmin, hub: rotaHub, pushUndo, backupAgora });
+// v4.28: os lembretes no celular (Web Push) e o agendador que roda a cada minuto e a cada ping do cron
+const rotaPush = require('./lib/push.js')({ db, saveDb, readBody, json });
+const AGENDA = require('./lib/agenda.js')({ db, saveDb, cap: rotaCaptacao, push: rotaPush, usuarios: () => AUTH.usuarios(), FX: FLUXOS });
+let agendaUltima = 0;
+function agendaRoda() { if (Date.now() - agendaUltima < 30e3) return; agendaUltima = Date.now(); AGENDA.tick().catch(e => console.error('[agenda]', e.message)); }
+setInterval(agendaRoda, 60e3).unref();
 rotaHub.extras = rotaCaptacao.refs;                       // v4.14: a task de captação (até subtarefa) também é relida
 // v3.90: depois de cada leitura do Hub, a data do post que não foi na hora vai de novo; v3.95: e a limpeza do Vídeo fábrica
 rotaHub.depois = async () => { await rotaHubEnvio.reenviaDatas(); limpezaV395Hub(); };
@@ -388,6 +394,7 @@ const server = http.createServer(async (req, res) => {
   try {
     // ---------- ping (v3.72): pro cron-job.org manter o Render acordado gastando 2 bytes ----------
     if (p === '/api/ping' && (req.method === 'GET' || req.method === 'HEAD')) {
+      agendaRoda();   // v4.28: o cron acorda o Render e o agendador olha os lembretes na hora
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Length': 2 });
       USO.resposta(2); return res.end(req.method === 'HEAD' ? undefined : 'ok');
     }
@@ -432,6 +439,14 @@ const server = http.createServer(async (req, res) => {
       const h = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ETag: FLUXOS.DEF_ETAG };
       if (req.headers['if-none-match'] === FLUXOS.DEF_ETAG) { res.writeHead(304, h); USO.resposta(0); return res.end(); }
       res.writeHead(200, h); USO.resposta(FLUXOS.DEF_JSON.length); return res.end(FLUXOS.DEF_JSON);
+    }
+    if (p.startsWith('/api/push/') && await rotaPush(req, res, p)) return;   // v4.28: os lembretes no celular
+    // v4.28: rodar o agendador agora (ADMIN). Com PUSH_TESTE ligado, aceita um "agora" de mentira (testes)
+    if (p === '/api/agenda/agora' && req.method === 'POST') {
+      if (soAdmin(req, res)) return;
+      const b = await readBody(req);
+      const t = process.env.PUSH_TESTE && b.agora ? Date.parse(b.agora) : Date.now();
+      return json(res, 200, await AGENDA.tick(t));
     }
     if (p.startsWith('/api/captacao') && await rotaCaptacao(req, res, p)) return;   // v4.14: captação no calendário
     // ---------- MKT Hub (v3.81): status, artes e comentários das tasks de produção ----------

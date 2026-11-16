@@ -20,6 +20,47 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); MC.ins
 const mcInstalado = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const mcIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream;
 
+// ---------------- v4.28: os lembretes no celular (Web Push) ----------------
+MC.push = null;   // { ligado, chave, meus, silencio, assinado }
+async function mcPushEstado() {
+  try { MC.push = await api('/api/push/chave'); } catch (e) { MC.push = { ligado: false }; }
+  MC.push.suporta = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  MC.push.assinado = false;
+  if (MC.push.suporta && MC.push.ligado) {
+    try { const reg = await navigator.serviceWorker.getRegistration(); const s = reg && await reg.pushManager.getSubscription(); MC.push.assinado = !!s && Notification.permission === 'granted'; } catch (e) {}
+  }
+  return MC.push;
+}
+const mcChave = b => { const s = atob(b.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - b.length % 4) % 4)); return Uint8Array.from(s, c => c.charCodeAt(0)); };
+async function mcPushLiga() {
+  try {
+    const p = await Notification.requestPermission();
+    if (p !== 'granted') return toast('Sem a permissão de notificação os lembretes não chegam. Libere nas configurações do navegador.', true);
+    const reg = await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready;
+    let s = await reg.pushManager.getSubscription();
+    if (!s) s = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: mcChave(MC.push.chave) });
+    await api('/api/push/assina', { method: 'POST', body: JSON.stringify({ sub: s.toJSON() }) });
+    toast('Lembretes ligados neste aparelho');
+  } catch (e) { toast('Não deu pra ligar os lembretes: ' + e.message, true); }
+  await mcPushEstado(); render();
+}
+async function mcPushTesta() {
+  try { const j = await api('/api/push/teste', { method: 'POST', body: '{}' }); toast(j.enviados ? 'Teste enviado pra ' + j.enviados + (j.enviados > 1 ? ' aparelhos' : ' aparelho') : 'Nenhum aparelho recebeu: ligue os lembretes de novo', !j.enviados); }
+  catch (e) { toast(e.message, true); }
+}
+async function mcSilencia(id, on) {
+  try { const j = await api('/api/push/silencio', { method: 'POST', body: JSON.stringify({ cap: id, on }) }); MC.push.silencio = j.silencio; render(); toast(on ? 'Lembretes deste evento silenciados (o Zion ainda é avisado se atrasar)' : 'Lembretes deste evento ligados'); }
+  catch (e) { toast(e.message, true); }
+}
+function mcPushHtml() {
+  const p = MC.push;
+  if (!p) { mcPushEstado().then(() => { if (S.view === 'minhas') render(); }); return ''; }
+  if (!p.ligado) return souAdmin() && S.eu ? '<div class="mc-dica mc-push">' + icon('alerta') + '<span>Os lembretes no celular estão desligados no servidor: rode o <b>gerar-vapid.js</b> no PC e cole as chaves no Render.</span></div>' : '';
+  if (!p.suporta) return '';
+  if (p.assinado) return '<div class="mc-dica mc-push ok">' + icon('check') + '<span>Lembretes ligados neste aparelho</span><button type="button" class="mbtn" id="mcPushTeste">Testar</button></div>';
+  return '<div class="mc-dica mc-push">' + icon('alerta') + '<span>Ligue os lembretes: o B.O.N.E avisa a hora de cada etapa e o que atrasou.</span><button type="button" class="mbtn" id="mcPushLiga">Ligar lembretes</button></div>';
+}
+
 /** As definições do fluxograma (uma vez; o servidor responde 304 quando não mudou). */
 async function mcDefs() {
   if (!MC.defs) MC.defs = await api('/api/fluxos');
@@ -48,7 +89,7 @@ function mcMinhas(g) {
   const dica = mcInstalado() ? '' : MC.instalar ? '<div class="mc-dica">' + icon('plus') + '<span>Instale o B.O.N.E no celular pra receber os lembretes.</span><button type="button" class="mbtn" id="mcInstala">Instalar</button></div>'
     : mcIOS() ? '<div class="mc-dica">' + icon('plus') + '<span>No iPhone: toque em <b>Compartilhar</b> e em <b>Adicionar à Tela de Início</b>. Os lembretes só chegam pelo app da tela de início.</span></div>' : '';
   if (!l.length) {
-    g.innerHTML = '<div class="mc">' + dica + '<div class="cpm-vazio">' + icon('calendar') + '<b>Nenhum evento seu nos próximos 14 dias</b><span>' + (S.eu ? 'Quando o Zion puser você na escala de um evento, ele aparece aqui.' : 'Nenhum evento marcado.') + '</span></div></div>';
+    g.innerHTML = '<div class="mc">' + dica + mcPushHtml() + '<div class="cpm-vazio">' + icon('calendar') + '<b>Nenhum evento seu nos próximos 14 dias</b><span>' + (S.eu ? 'Quando o Zion puser você na escala de um evento, ele aparece aqui.' : 'Nenhum evento marcado.') + '</span></div></div>';
   } else {
     let dAnt = '', html = '';
     for (const { c, x, eu } of l) {
@@ -66,10 +107,14 @@ function mcMinhas(g) {
           '<button type="button" class="mbtn' + (v.st === 'nao' ? ' on' : '') + '" data-mcconf="nao" data-id="' + c.id + '" data-d="' + x.d + '">' + icon('x') + 'Não dá</button></span>' +
           (MC.naoDa === k ? '<span class="mc-nao"><input id="mcNaoMotivo" maxlength="200" placeholder="Por quê?" autocomplete="off" aria-label="Motivo"><button type="button" class="mbtn" data-mcnaook="' + c.id + '" data-d="' + x.d + '">Enviar</button></span>' : '') + '</div>' : '') +
         (f ? '<button type="button" class="mc-abre" data-mcmodo="' + c.id + '" data-d="' + x.d + '">' + capIc('fluxo') + 'Abrir o modo captação</button>' : '') +
+        (f && MC.push && MC.push.assinado ? (s => '<button type="button" class="mc-sil' + (s ? ' on' : '') + '" data-mcsil="' + c.id + '" aria-pressed="' + s + '">' + (s ? 'Lembretes silenciados neste evento · religar' : 'Silenciar os lembretes deste evento') + '</button>')((MC.push.silencio || []).includes(c.id)) : '') +   // v4.28
       '</article>';
     }
-    g.innerHTML = '<div class="mc">' + dica + html + '</div>';
+    g.innerHTML = '<div class="mc">' + dica + mcPushHtml() + html + '</div>';
   }
+  const pl = document.getElementById('mcPushLiga'); if (pl) pl.onclick = mcPushLiga;
+  const pt = document.getElementById('mcPushTeste'); if (pt) pt.onclick = mcPushTesta;
+  g.querySelectorAll('[data-mcsil]').forEach(b => b.onclick = () => mcSilencia(b.dataset.mcsil, b.getAttribute('aria-pressed') !== 'true'));
   const ins = document.getElementById('mcInstala');
   if (ins) ins.onclick = async () => { const e = MC.instalar; MC.instalar = null; if (e) { e.prompt(); try { await e.userChoice; } catch (x) {} } render(); };
   g.querySelectorAll('[data-mcfolha]').forEach(b => b.onclick = () => capAbre(b.dataset.mcfolha, b.dataset.d));

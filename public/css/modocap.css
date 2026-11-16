@@ -91,3 +91,11 @@ body.mc-travado{overflow:hidden}
   .mc-passo h4{font-size:18px}
 }
 .mc-lista > *{flex:none}   /* sem isso as etapas encolhem e se sobrepõem na lista que rola */
+
+/* v4.28: os lembretes no celular */
+.mc-push .ic{color:var(--orange, #FF9F0A)}
+.mc-push.ok{background:color-mix(in srgb, var(--green) 12%, var(--fill-4))}
+.mc-push.ok .ic{color:var(--e-pronto-t, var(--green))}
+.mc-sil{all:unset; cursor:pointer; align-self:center; font-size:12px; color:var(--ink-3); padding:4px 8px; border-radius:8px}
+.mc-sil.on{color:var(--orange, #FF9F0A)}
+.mc-sil:focus-visible{outline:2px solid var(--cp-at, var(--accent))}
