@@ -63,6 +63,7 @@ function capDif(a, b) { return Math.round((capMs(a) - capMs(b)) / 864e5); }
 function capHora(h) { return String(h || '').replace(/^0(\d)/, '$1').replace(/:00$/, 'h').replace(/^(\d+):(\d\d)$/, '$1h$2'); }
 const capPl = (n, um, varios) => n + ' ' + (n === 1 ? um : varios);
 const CAP_ICONS = {
+  fluxo: '<rect x="3.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="15.5" width="7" height="5" rx="1.5"/><path d="M7 8.5v4.5a2 2 0 0 0 2 2h4.5"/>',   // v4.25
   texto: '<path d="M5 6.5h14M5 10.5h14M5 14.5h9M5 18.5h6"/>',
   abre: '<path d="M9 6l6 6-6 6"/>',
   tesoura: '<circle cx="6.5" cy="7" r="2.5"/><circle cx="6.5" cy="17" r="2.5"/><path d="M8.6 8.4L19 16M8.6 15.6L19 8"/>',
@@ -236,6 +237,7 @@ function capCard(c, i) {
     (ev ? '' : '<div class="cpc-rot">' + barra + '<span>' + esc(rot) + '</span></div>') +   // v4.23: o evento não tem roteiro
     (c.local ? '<div class="cpc-local" title="' + esc(c.local) + '">' + capIc('local') + '<span>' + esc(c.local) + '</span></div>' : '') +   // v4.21: onde é o evento
     (ev && (c.apoio || []).length ? '<div class="cpc-local cpc-apoio" title="Apoio: ' + esc(c.apoio.map(p => p.nome).join(', ')) + '">' + icon('users') + '<span>apoio: ' + esc(c.apoio.map(p => p.nome.split(' ')[0]).join(', ')) + '</span></div>' : '') +   // v4.24
+    (ev && c.fluxo && c.fluxo.dias[dia.d] && c.fluxo.dias[dia.d].total ? capFluxoCard(c, dia.d) : '') +   // v4.25
     (ev && capEntTem(c) ? '<div class="cpc-local cpc-ent" title="Entrega">' + icon('check') + '<span>' + esc(capEntResumo(c)) + '</span></div>' : '') +   // v4.24
     '<div class="cpc-posts" title="' + esc(posts.map(s => nomeConta(s.conta) + ': ' + (s.tituloCache || s.titulo || 'post') + (s.date ? ' · sai ' + capDiaL(s.date) : '')).join('\n')) + '">' + icon('film') + '<span>' + esc(postsTxt) + '</span></div>' +
     (resp ? '<span class="lp-av" title="' + esc(resp + (capEhEvento(c) ? ' é o responsável' : ' capta')) + '">' + esc(initials(resp)) + '</span>'
@@ -312,7 +314,7 @@ function capQuebraLista(bruto) {
 /** O corpo que troca o dia de: pro dia para (o horário e os roteiros gravados nele vão junto). */
 function capMudaDia(cc, de, para) {
   if (!cc.dias.some(x => x.d === de) || cc.dias.some(x => x.d === para)) return null;
-  return { dias: cc.dias.map(x => x.d === de ? { d: para, h: x.h } : x), roteiros: cc.roteiros.map(r => r.g === de ? { id: r.id, n: r.n, g: para } : { id: r.id, n: r.n, g: r.g }) };
+  return { dias: cc.dias.map(x => x.d === de ? Object.assign({ d: para, h: x.h }, x.hf ? { hf: x.hf } : {}) : x), roteiros: cc.roteiros.map(r => r.g === de ? { id: r.id, n: r.n, g: para } : { id: r.id, n: r.n, g: r.g }) };
 }
 function capFechaNovo() { const p = document.getElementById('cpNovo'); if (p) p.remove(); CAPM.novo = null; }
 function capNovo(dia, btn) {
@@ -459,10 +461,11 @@ function capDesenhaFolhaJa() {
   // ---- dias ----
   const temG = d => c.roteiros.some(r => r.g === d);
   const dias = c.dias.map((x, i) =>
-    '<div class="cp-diarow' + (x.d < hojeStr() ? ' passou' : x.d === hojeStr() ? ' hoje' : '') + '">' +
+    '<div class="cp-diarow' + (ev ? ' ev' : '') + (x.d < hojeStr() ? ' passou' : x.d === hojeStr() ? ' hoje' : '') + '">' +
       '<span class="cp-dn">' + (c.dias.length > 1 ? 'Dia ' + (i + 1) : 'Dia') + '</span>' +
       '<input type="date" value="' + x.d + '" data-cpdia="' + i + '" aria-label="Dia ' + (i + 1) + ' da gravação">' +
-      '<input type="time" value="' + esc(x.h || '') + '" data-cphora="' + i + '" aria-label="Horário do dia ' + (i + 1) + '">' +
+      '<input type="time" value="' + esc(x.h || '') + '" data-cphora="' + i + '" aria-label="' + (ev ? 'Início' : 'Horário') + ' do dia ' + (i + 1) + '">' +
+      (ev ? '<span class="cp-ate">até</span><input type="time" value="' + esc(x.hf || '') + '" data-cphf="' + i + '" aria-label="Fim do dia ' + (i + 1) + '" title="Hora de fim do evento (as entregas contam a partir dela)">' : '') +   // v4.25
       '<span class="cp-dg">' + (c.roteiros.filter(r => r.g === x.d).length ? capPl(c.roteiros.filter(r => r.g === x.d).length, 'gravado', 'gravados') : '') + '</span>' +
       '<button type="button" class="cp-x" data-cptira="' + i + '"' + (temG(x.d) || c.dias.length === 1 ? ' disabled' : '') +
         ' title="' + (temG(x.d) ? 'Tem roteiro gravado neste dia: desmarque antes' : c.dias.length === 1 ? 'A captação precisa de um dia' : 'Tirar este dia') + '" aria-label="Tirar o dia ' + (i + 1) + '">' + icon('x') + '</button>' +
@@ -515,6 +518,7 @@ function capDesenhaFolhaJa() {
           '<textarea id="cpNovoRot" class="cp-novorot" rows="1" placeholder="' + (n ? 'Mais um roteiro' : 'Escreva o roteiro') + ' e aperte Enter" aria-label="Roteiro novo"></textarea>' +
           '<button type="button" class="mbtn cp-addrot" data-cp="addrot">' + icon('plus') + 'Adicionar</button></div></div>' +
       (n ? '' : '<p class="cp-dica">Cada roteiro ganha a caixinha de gravado. Colou uma lista? Vira um roteiro por linha.</p>') + '</section>') +   // v4.23: o evento não tem roteiro
+    (ev ? capFluxoHtml(c) : '') +   // v4.25: o fluxo do evento (o tipo e o andamento de cada dia)
     (ev ? capEntHtml(c) : '') +   // v4.24: a entrega do evento
     '<section class="cp-sec"><h3>Posts ligados <span class="cp-cont">' + (posts.length ? capPl(posts.length, 'post', 'posts') : 'nenhum ainda') + '</span></h3>' +
       '<div class="cp-posts">' + posts.map(linhaPost).join('') + '</div>' +
@@ -742,6 +746,14 @@ function capLigaFolha(c) {
     const d = c.dias[+inp.dataset.cphora].d, h = inp.value || '';
     capSalva(c.id, cc => ({ dias: cc.dias.map(x => x.d === d ? { d: x.d, h } : x) }));
   });
+  // v4.25: a hora de fim do evento (precisa ser depois do início; vazio tira)
+  ov.querySelectorAll('[data-cphf]').forEach(inp => inp.onchange = () => {
+    const x0 = c.dias[+inp.dataset.cphf], hf = inp.value || '';
+    if (hf && x0.h && hf <= x0.h) { toast('O fim precisa ser depois do início (' + capHora(x0.h) + ')', true); inp.value = x0.hf || ''; return; }
+    capSalva(c.id, cc => ({ dias: cc.dias.map(x => x.d === x0.d ? { d: x.d, h: x.h, hf } : x) }));
+  });
+  const fxb = document.getElementById('cpFluxo');
+  if (fxb) fxb.onclick = () => capMenuFluxo(fxb, c);
   ov.querySelectorAll('[data-cptira]').forEach(b => b.onclick = () => {
     const d = c.dias[+b.dataset.cptira].d;
     capSalva(c.id, cc => ({ dias: cc.dias.filter(x => x.d !== d) }), 'Dia tirado · Ctrl+Z desfaz');
@@ -1403,6 +1415,67 @@ function capEntTem(c) { const e = c.ent || {}; return !!(e.drive || e.galeria ||
 function capEntResumo(c) {
   const e = c.ent || {};
   return [e.drive ? 'Drive' : '', e.galeria ? 'Galeria' : '', e.stories !== null && e.stories !== undefined ? capPl(e.stories, 'story', 'stories') : ''].filter(Boolean).join(' · ');
+}
+// ---------------- v4.25: o fluxo do evento ----------------
+const CAP_FLUXOS = [['liga', 'Liga Academy'], ['cec', 'Conselho (CEC)'], ['exp', 'Experiência Carbone'], ['wsc', 'Workshop Carbone'], ['wsw', 'Workshop Weevo'], ['ime', 'Imersão Weevo']];
+/** O andamento do fluxo no card: "3/14 etapas" e a próxima. */
+function capFluxoCard(c, d) {
+  const f = c.fluxo.dias[d], pr = f.prox;
+  const dica = c.fluxo.nome + ': ' + f.feitas + ' de ' + f.total + ' etapas' + (pr ? ' · próxima: ' + pr.t + (pr.q && pr.q.h ? ' (' + capHora(pr.q.h) + ')' : '') : '');
+  return '<div class="cpc-local cpc-fluxo' + (f.feitas === f.total ? ' ok' : '') + '" title="' + esc(dica) + '">' + capIc('fluxo') + '<span>' + f.feitas + '/' + f.total + (pr && f.feitas < f.total ? ' · ' + esc(pr.t) : ' etapas') + '</span></div>';
+}
+function capFluxoHtml(c) {
+  const f = c.fluxo, ds = f ? c.dias.filter(x => f.dias[x.d]) : [];
+  const nomeBtn = f ? f.nome + (f.auto ? ' (pelo nome)' : '') : c.fluxoTipo === 'nenhum' ? 'Sem fluxo' : 'Escolha o tipo';
+  const linhas = ds.map(x => {
+    const o = f.dias[x.d], pr = o.prox, pct = o.total ? Math.round(100 * o.feitas / o.total) : 0;
+    return '<div class="cp-fxdia"><span class="cp-dn">' + esc(capDiaL(x.d)) + '</span>' +
+      '<div class="cp-fxbar" aria-hidden="true"><i style="width:' + pct + '%"></i></div>' +
+      '<span class="cp-fxn">' + o.feitas + ' de ' + o.total + '</span>' +
+      '<span class="cp-fxprox">' + (o.feitas === o.total ? icon('check') + 'tudo feito' : pr ? 'próxima: ' + esc(pr.t) + (pr.q && pr.q.h ? ' · ' + esc((pr.q.d !== x.d ? capDiaL(pr.q.d) + ' ' : '') + capHora(pr.q.h)) : '') : '') + '</span>' +
+      (o.fim ? '<span class="cp-fxfim" title="Fim do evento' + (x.hf ? '' : ' (pela duração do tipo: ponha a hora de fim no dia)') + '">fim ' + esc(capHora(o.fim)) + (x.hf ? '' : '*') + '</span>' : '') + '</div>';
+  }).join('');
+  return '<section class="cp-sec cp-fxsec"><h3>Fluxo' + (f ? ' <span class="cp-cont">' + esc(f.nome) + '</span>' : '') + '</h3>' +
+    '<div class="cp-localrow"><span class="cp-dn">Evento</span><button type="button" id="cpFluxo" class="cp-empsel' + (f ? '' : ' sem') + '" aria-haspopup="menu" aria-expanded="false" title="O tipo de evento define as etapas (o fluxograma)">' +
+      capIc('fluxo') + '<span>' + esc(nomeBtn) + '</span>' + icon('chevR', 'cp-empseta') + '</button></div>' +
+    (f ? linhas : '<p class="cp-dica">' + (c.fluxoTipo === 'nenhum' ? 'Este evento segue sem fluxo.' : 'O nome não diz o tipo (Liga, Conselho, Experiência, Workshop ou Imersão): escolha aqui pra ganhar as etapas.') + '</p>') +
+    '</section>';
+}
+/** O menu do tipo de fluxo: o deduzido pelo nome, os 6 tipos e "sem fluxo". */
+function capMenuFluxo(btn, c) {
+  const ops = [{ v: '', t: 'Pelo nome do evento' }].concat(CAP_FLUXOS.map(([v, t]) => ({ v, t })), [{ v: 'nenhum', t: 'Sem fluxo' }]);
+  capMenuOpcoes(btn, 'Tipo do evento (fluxo)', ops, c.fluxoTipo || '', v => capSalva(c.id, { fluxoTipo: v }, 'Fluxo: ' + (ops.find(o => o.v === v) || {}).t + ' · Ctrl+Z desfaz'));
+}
+/** Um menu simples de opções (o mesmo jeito do menu da empresa: setas, Enter, Esc). */
+function capMenuOpcoes(btn, titulo, ops, atual, escolhe) {
+  if (CAPM.menuFecha) { CAPM.menuFecha(true); return; }
+  const m = document.createElement('div');
+  m.className = 'vagapop bk-escolhe cp-empmenu'; m.setAttribute('role', 'menu'); m.setAttribute('aria-label', titulo);
+  m.innerHTML = '<h4>' + esc(titulo) + '</h4>' + ops.map((o, i) => '<button type="button" role="menuitemradio" aria-checked="' + (o.v === atual) + '" data-i="' + i + '"><span>' + esc(o.t) + '</span>' + (o.v === atual ? icon('check') : '') + '</button>').join('');
+  document.body.appendChild(m);
+  const r = btn.getBoundingClientRect(), mr = m.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(r.left, innerWidth - mr.width - 8)) + 'px';
+  m.style.top = (r.bottom + 6 + mr.height > innerHeight - 8 ? Math.max(8, r.top - mr.height - 6) : r.bottom + 6) + 'px';
+  btn.setAttribute('aria-expanded', 'true');
+  const itens = [...m.querySelectorAll('button')];
+  const fecha = foco => {
+    document.removeEventListener('mousedown', fora, true); document.removeEventListener('keydown', tecla, true);
+    m.remove(); CAPM.menuFecha = null;
+    if (btn.isConnected) { btn.setAttribute('aria-expanded', 'false'); if (foco) btn.focus(); }
+  };
+  const fora = ev => { if (!m.contains(ev.target) && !btn.contains(ev.target)) fecha(false); };
+  const tecla = ev => {
+    if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); fecha(true); return; }
+    if (ev.key === 'Tab') { fecha(false); return; }
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      const i = itens.indexOf(document.activeElement), n = itens.length;
+      itens[((i < 0 ? 0 : i) + (ev.key === 'ArrowDown' ? 1 : -1) + n) % n].focus();
+    }
+  };
+  itens.forEach(b => b.onclick = () => { fecha(true); const o = ops[+b.dataset.i]; if (o.v !== atual) escolhe(o.v); });
+  CAPM.menuFecha = fecha;
+  setTimeout(() => { document.addEventListener('mousedown', fora, true); document.addEventListener('keydown', tecla, true); (itens.find(b => b.getAttribute('aria-checked') === 'true') || itens[0]).focus(); }, 0);
 }
 function capEntHtml(c) {
   const e = c.ent || {}, st = e.stories === null || e.stories === undefined ? '' : String(e.stories);

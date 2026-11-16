@@ -484,3 +484,31 @@ html[data-modo="claro"] .lp-av.cpc-semresp{background:var(--e-orange); color:#00
 .cpeq-ev.s-gravada .cpeq-h{color:var(--e-pronto-t, var(--green))}
 .cpeq-ev.s-faltou{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--red) 50%, transparent)}
 .cp-entrow input:last-child{grid-column:2 / -1}
+
+/* ---------------- v4.25: o fluxo do evento (o tipo e o andamento de cada dia) ---------------- */
+.cp-diarow.ev{grid-template-columns:52px minmax(0,160px) 96px auto 96px 1fr auto}
+.cp-ate{font-size:12px; color:var(--ink-3)}
+.cp-fxdia{display:grid; grid-template-columns:52px minmax(60px,120px) auto 1fr auto; align-items:center; gap:8px; margin-top:8px; font-size:12.5px}
+.cp-fxbar{height:6px; border-radius:3px; background:var(--fill-3, var(--fill-4)); overflow:hidden}
+.cp-fxbar i{display:block; height:100%; border-radius:3px; background:var(--cp-at, var(--accent))}
+.cp-fxn{font-variant-numeric:tabular-nums; color:var(--ink-2); white-space:nowrap}
+.cp-fxprox{color:var(--ink-2); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:4px}
+.cp-fxprox .ic{width:14px; height:14px; color:var(--e-pronto-t, var(--green))}
+.cp-fxfim{font-size:11.5px; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap}
+.cp-fxsec .cp-empsel .ic:first-child{width:15px; height:15px; flex:none}
+.cpc-fluxo .ic{width:13px; height:13px}
+.cpc-fluxo.ok{color:var(--e-pronto-t, var(--green))}
+@media (max-width:560px){
+  .cp-diarow.ev{grid-template-columns:52px minmax(0,1fr) 88px; row-gap:6px}
+  .cp-diarow.ev .cp-ate{grid-column:2; justify-self:end}
+  .cp-diarow.ev .cp-dg:empty{display:none}
+  .cp-diarow.ev .cp-x{grid-row:2; grid-column:1; justify-self:start}
+  .cp-fxdia{grid-template-columns:52px 1fr auto; row-gap:4px}
+  .cp-fxprox{grid-column:2 / -1}
+  .cp-fxfim{grid-column:2 / -1}
+}
+/* v4.25: no celular a situação (Agendado / Concluído / Desmarcado) cabe na largura (antes vazava 40 px em 390) */
+@media (max-width:560px){
+  .cp-stseg{width:100%}
+  .cp-st{flex:1 1 0; justify-content:center; padding:0 6px; min-width:0; font-size:12.5px; gap:4px}
+}

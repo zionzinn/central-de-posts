@@ -17,7 +17,7 @@ const { pipeline } = require('node:stream');
 const zlib = require('node:zlib');
 const { parseTab, slotKey, taskIdFromUrl } = require('./lib/sheet-parser.js');
 
-const VERSAO = '4.24'; // precisa bater com FRONT_VERSAO no public/index.html
+const VERSAO = '4.25'; // precisa bater com FRONT_VERSAO no public/index.html
 const PORT = process.env.PORT || 3777;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data'); // na nuvem: aponte pro disco persistente
@@ -322,6 +322,7 @@ const rotaHub = require('./lib/hub.js')({ db, json, saveDb, limpaHtml: require('
 const rotaHubEnvio = require('./lib/hubenvio.js')({ db, saveDb, readBody, json, hub: rotaHub, soAdmin, gravaJa: () => gravarAgora() });
 // v4.14: a captação no calendário (a task de captação do MKT Hub com os dias de gravação, os roteiros e os posts ligados).
 // Substitui o quadro de blocos (v4.03) e a criação da task de Captação pelo B.O.N.E (v4.04).
+const FLUXOS = require('./lib/fluxos.js');   // v4.25: o fluxograma da captação de eventos (a regra)
 const rotaCaptacao = require('./lib/captacao.js')({ db, saveDb, readBody, json, soAdmin, hub: rotaHub, pushUndo, backupAgora });
 rotaHub.extras = rotaCaptacao.refs;                       // v4.14: a task de captação (até subtarefa) também é relida
 // v3.90: depois de cada leitura do Hub, a data do post que não foi na hora vai de novo; v3.95: e a limpeza do Vídeo fábrica
@@ -425,6 +426,12 @@ const server = http.createServer(async (req, res) => {
     if ((/^\/api\/slots\/[a-z0-9]+\/producao$/i.test(p) || p === '/api/hub/escrita') && await rotaHubEnvio(req, res, p, u)) return;   // v3.90: task de produção
     if (p.startsWith('/api/banco') && await rotaBanco(req, res, p)) return;
     if (p.startsWith('/api/perfil') && await rotaPerfil(req, res, p, u)) return;   // v3.99
+    // v4.25: as definições do fluxograma (mudam só com deploy: ETag, o navegador recebe 304 quando já tem)
+    if (p === '/api/fluxos' && req.method === 'GET') {
+      const h = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ETag: FLUXOS.DEF_ETAG };
+      if (req.headers['if-none-match'] === FLUXOS.DEF_ETAG) { res.writeHead(304, h); USO.resposta(0); return res.end(); }
+      res.writeHead(200, h); USO.resposta(FLUXOS.DEF_JSON.length); return res.end(FLUXOS.DEF_JSON);
+    }
     if (p.startsWith('/api/captacao') && await rotaCaptacao(req, res, p)) return;   // v4.14: captação no calendário
     // ---------- MKT Hub (v3.81): status, artes e comentários das tasks de produção ----------
     if (p === '/api/hub/eu' && soAdmin(req, res)) return;     // v3.82: teste da chave do Hub é configuração (ADMIN)
