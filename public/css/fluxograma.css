@@ -45,7 +45,7 @@
 .fxg-no.agent{border-style:dashed; border-color:var(--fx-ag); background:var(--fx-ag-s)}
 .fxg-no.agent .w{color:var(--fx-ag)}
 .fxg-no.end{border-radius:22px}
-.fxg-no.locked{opacity:.35}
+.fxg-no.locked{opacity:.55}
 .fxg-no.avail{border-color:var(--fx-vez); box-shadow:0 0 0 4px var(--fx-vez-s)}
 .fxg-no.done{background:var(--fx-ok); border-color:var(--fx-ok); color:var(--fx-ok-t)}
 .fxg-no.done .w,.fxg-no.done .q,.fxg-no.done .c{color:var(--fx-ok-t); opacity:.85}
@@ -84,3 +84,4 @@
 .fxg-hist span{color:var(--ink-3); font-size:11.5px}
 .fxg-fecha{margin-top:16px}
 @media (max-width:900px){ .fxg-main{grid-template-columns:1fr} .fxg-panel{border-left:0; border-top:1px solid var(--hair); max-height:45vh} }
+.fxg-bts{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px} .fxg-bts .ic{width:14px; height:14px}

@@ -214,13 +214,13 @@ function mcDesenha(c) {
     if (it.k === 'dec') {
       return '<section class="mc-passo dec ' + s + '" data-id="' + it.id + '"><div class="mc-pq">' + esc(it.t) + '</div>' +
         (o.auto[it.id] !== undefined && o.manual[it.id] === undefined ? '<div class="mc-auto">o B.O.N.E escolheu pela data e hora</div>' : '') +
-        '<div class="mc-rotas">' + it.br.map((b, i) => '<button type="button" class="mc-rota' + (o.rotas[it.id] === i ? ' on' : '') + '" data-mcrota="' + it.id + '" data-i="' + i + '"' + (s === 'locked' || !adm && !pode ? ' disabled' : '') + '>' + esc(b.lab) + '</button>').join('') + '</div></section>';
+        '<div class="mc-rotas">' + it.br.map((b, i) => '<button type="button" class="mc-rota' + (o.rotas[it.id] === i ? ' on' : '') + '" data-mcrota="' + it.id + '" data-i="' + i + '"' + (!adm && !pode ? ' disabled' : '') + '>' + esc(b.lab) + '</button>').join('') + '</div></section>';
     }
     const m = o.marcas[it.id] || [], cs = it.checks || [];
-    const travado = s === 'locked' || (ag && !adm) || !pode;
+    const travado = (ag && !adm) || !pode;   // v4.32: marca em qualquer ordem
     return '<section class="mc-passo ' + s + (ag ? ' agente' : '') + '" data-id="' + it.id + '">' +
       '<div class="mc-ptop"><span class="mc-ph">' + (it.ate ? 'até ' : '') + esc(quando(it.id) || it.w || '') + '</span>' +
-        '<span class="mc-pst">' + (s === 'done' ? icon('check') + 'feito' : s === 'avail' ? 'é a vez' : 'trancada') + '</span></div>' +
+        '<span class="mc-pst">' + (s === 'done' ? icon('check') + 'feito' : s === 'avail' ? 'é a vez' : 'vem depois') + '</span></div>' +
       '<h4>' + esc(it.t) + '</h4><div class="mc-pwho">' + esc(it.who || '') + '</div>' +
       (it.faz && it.faz.length ? '<ul class="mc-faz">' + it.faz.map(t => '<li>' + esc(t) + '</li>').join('') + '</ul>' : '') +
       '<div class="mc-checks">' + cs.map((t, i) => '<button type="button" class="mc-check' + (m[i] ? ' on' : '') + '" role="checkbox" aria-checked="' + !!m[i] + '" data-mcetapa="' + it.id + '" data-i="' + i + '"' + (travado ? ' disabled' : '') + '>' +

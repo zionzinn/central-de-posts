@@ -1051,7 +1051,7 @@ html[data-modo="claro"] .bk-tipo button[aria-checked=true]{background:#fff}
 /* v4.27: no celular a página não pode passar da tela (o Chrome do Android abria tudo afastado, com letra miúda, pra caber
    a barra das empresas e as barras escondidas fora da tela). A barra das empresas rola de lado dentro dela. */
 @media (max-width:600px){
-  html, body{overflow-x:hidden}
+  html, body{overflow-x:clip}   /* v4.32: clip (não hidden): hidden no body quebrava o header grudado no topo no celular */
   .tabswrap{min-width:0; max-width:100%; overflow-x:auto; scrollbar-width:none}
   .tabswrap::-webkit-scrollbar{display:none}
 }

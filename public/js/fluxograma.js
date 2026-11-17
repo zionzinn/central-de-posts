@@ -2,7 +2,7 @@
 // =====================================================================
 // v4.30 · A ABA FLUXOGRAMA (Fase 6 da captação de eventos amarrada)
 // O fluxograma do Ultron dentro do B.O.N.E, no PC: Geral (a varredura e a escala destravam o fluxo de cada tipo) e um
-// por tipo. Escolhendo um evento de verdade, as etapas pintam com o estado dele (feito, a vez, trancada, rota que não
+// por tipo. Escolhendo um evento de verdade, as etapas pintam com o estado dele (feito, a vez, vem depois, rota que não
 // vale) e a folha do lado marca os checks no servidor (a mesma regra do modo captação). Linhas em SVG, zoom.
 // As definições vêm do /api/fluxos (lib/fluxos.js); nada de regra no navegador: o estado vem pronto do servidor.
 // =====================================================================
@@ -54,7 +54,7 @@ function fxgDesenha(g) {
         (o ? '<span class="fxg-prog">' + o.feitas + ' de ' + o.total + ' etapas</span>' : '') +
         '<button type="button" class="mbtn" data-fxz="-1" aria-label="Diminuir">−</button><span class="fxg-zv">' + Math.round(FXG.zoom * 100) + '%</span><button type="button" class="mbtn" data-fxz="1" aria-label="Aumentar">+</button><button type="button" class="mbtn" data-fxz="0">100%</button></div>' +
     '</div>' +
-    '<div class="fxg-leg"><span><i class="l-done"></i>Feito</span><span><i class="l-avail"></i>É a vez</span><span><i class="l-locked"></i>Trancada</span><span><i class="l-agent"></i>Agente (Ultron ou B.O.N.E)</span><span><i class="l-dec"></i>Decisão</span>' +
+    '<div class="fxg-leg"><span><i class="l-done"></i>Feito</span><span><i class="l-avail"></i>É a vez</span><span><i class="l-locked"></i>Vem depois</span><span><i class="l-agent"></i>Agente (Ultron ou B.O.N.E)</span><span><i class="l-dec"></i>Decisão</span>' +
       (o ? '' : '<span class="fxg-modelo">Modelo: escolha um evento pra ver o andamento de verdade</span>') + '</div>' +
     '<div class="fxg-main"><div class="fxg-stage" id="fxgStage"><div class="fxg-canvas" id="fxgCanvas"><svg id="fxgEdges" aria-hidden="true"></svg><div id="fxgFlow"></div></div></div>' +
       '<aside class="fxg-panel" id="fxgPanel"></aside></div></div>';
@@ -75,7 +75,7 @@ function fxgMonta(o) {
         const b = el('button', 'fxg-no' + (it.kind ? ' ' + it.kind : '') + (s ? ' ' + s : '') + (FXG.sel === it.id ? ' sel' : ''));
         b.type = 'button'; b.dataset.id = it.id;
         b.innerHTML = '<div class="w">' + esc(q ? (it.ate ? 'até ' : '') + (q.d !== FXG.d ? capDiaL(q.d) + ' ' : '') + capHora(q.h) : it.w || '') + '</div><div class="t">' + esc(it.t) + '</div><div class="q">' + esc(it.who || '') + '</div>' +
-          (o && !raiz ? '<div class="c">' + (s === 'x' ? 'rota que não vale' : m + '/' + (it.checks || []).length + (s === 'avail' ? ' · é a vez' : s === 'locked' ? ' · trancada' : '')) + '</div>' : '');
+          (o && !raiz ? '<div class="c">' + (s === 'x' ? 'rota que não vale' : m + '/' + (it.checks || []).length + (s === 'avail' ? ' · é a vez' : '')) + '</div>' : '');
         box.appendChild(b); NOS[it.id] = { el: b, def: it };
         prev.forEach(p => LIG.push([p, it.id])); prev = [it.id];
       } else if (it.k === 'dec') {
@@ -147,26 +147,29 @@ function fxgFolha(o) {
     const f = FXG.tipo === 'geral' ? null : D.tipos[FXG.tipo];
     p.innerHTML = '<div class="fxg-meta">' + (f ? 'Fluxo' : 'Visão geral') + '</div><h2>' + esc(FXG.card ? capTituloCurto(FXG.card) : f ? f.nome : 'Todos os eventos') + '</h2>' +
       '<p class="fxg-hint">' + esc(f ? f.sub : 'A varredura do Ultron destrava a escala da semana, e a escala destrava o fluxo de cada evento.') + '</p>' +
-      '<h3>Como usar</h3><ul><li>Clique numa etapa pra ver o que fazer e o checklist.</li><li>Escolha um evento no topo pra ver o andamento dele e marcar daqui.</li><li>Etapa só destrava com as de cima feitas. Desmarcar tranca as de baixo, sem apagar o que já estava marcado.</li><li>Pontilhado é agente: Ultron ou B.O.N.E fazem sozinhos.</li></ul>' +
+      (FXG.card ? '<div class="fxg-bts"><button type="button" class="mbtn" data-fxa="cel">' + capIc('cel') + 'Abrir no celular (modo captação)</button>' +
+        (souAdmin() ? '<button type="button" class="mbtn" data-fxa="editar">' + icon('edit') + 'Editar o evento</button>' : '') + '</div>' : '') +   // v4.32
+      '<h3>Como usar</h3><ul><li>Clique numa etapa pra ver o que fazer e o checklist.</li><li>Escolha um evento no topo pra ver o andamento dele e marcar daqui.</li><li>Dá pra marcar em qualquer ordem. "É a vez" acende a próxima da sequência.</li><li>Pontilhado é agente: Ultron ou B.O.N.E fazem sozinhos.</li></ul>' +
       '<h3>POPs</h3><p class="fxg-hint"><a href="' + esc(D.links.pop) + '" target="_blank" rel="noopener">Abrir os POPs completos</a></p>';
+    p.querySelectorAll('[data-fxa]').forEach(b => b.onclick = () => b.dataset.fxa === 'cel' ? mcAbre(FXG.ev, FXG.d) : capAbre(FXG.ev, FXG.d));
     return;
   }
   const d = n.def, s = o && o.est[FXG.sel], raiz = D.raiz.some(r => r.id === FXG.sel);
-  const stTxt = { locked: 'Trancada: falta a etapa de cima', avail: 'É a vez desta etapa', done: 'Feito', x: 'Rota que não vale' }[s] || (raiz ? 'Semanal (fora do card)' : 'Modelo');
+  const stTxt = { locked: 'Ainda não é a vez (dá pra marcar mesmo assim)', avail: 'É a vez desta etapa', done: 'Feito', x: 'Rota que não vale' }[s] || (raiz ? 'Semanal (fora do card)' : 'Modelo');
   const adm = souAdmin(), eu = FXG.card && S.eu ? capPessoasDe(FXG.card).find(x => capSouEu(x.nome)) : null, pode = !!o && !raiz && (adm || !!eu);
   const hist = FXG.card ? (FXG.card.fluxo.hist || []).filter(h => (h.e === FXG.sel || h.r === FXG.sel) && h.d === FXG.d).slice(-6).reverse() : [];
   let h = '';
   if (d.k === 'dec') {
     h += '<div class="fxg-meta">Decisão</div><h2>' + esc(d.t) + '</h2><span class="fxg-st ' + (s || '') + '">' + stTxt + '</span>' +
       (o && o.auto[FXG.sel] !== undefined && o.manual[FXG.sel] === undefined ? '<p class="fxg-hint">O B.O.N.E escolheu pela data e hora. Dá pra trocar.</p>' : '') +
-      '<div class="fxg-rotas">' + d.br.map((b, i) => '<button type="button" data-fxr="' + i + '" aria-pressed="' + (!!o && o.rotas[FXG.sel] === i) + '"' + (!pode || s === 'locked' || s === 'x' ? ' disabled' : '') + '>' + esc(b.lab) + '</button>').join('') + '</div>' +
+      '<div class="fxg-rotas">' + d.br.map((b, i) => '<button type="button" data-fxr="' + i + '" aria-pressed="' + (!!o && o.rotas[FXG.sel] === i) + '"' + (!pode || s === 'x' ? ' disabled' : '') + '>' + esc(b.lab) + '</button>').join('') + '</div>' +
       (o && o.manual[FXG.sel] !== undefined && o.auto[FXG.sel] !== undefined ? '<button type="button" class="mbtn" data-fxr="auto">Voltar pra escolha automática</button>' : '');
   } else {
     const m = (o && o.marcas[FXG.sel]) || [], q = o && o.horas[FXG.sel];
     h += '<div class="fxg-meta">' + esc(q ? (d.ate ? 'até ' : '') + capDiaL(q.d) + ' ' + capHora(q.h) : d.w || '') + (d.who ? ' · ' + esc(d.who) : '') + '</div><h2>' + esc(d.t) + '</h2><span class="fxg-st ' + (s || '') + '">' + stTxt + '</span>';
     if (d.faz) h += '<h3>O que fazer</h3><ul>' + d.faz.map(f => '<li>' + esc(f) + '</li>').join('') + '</ul>';
     h += '<h3>Só destrava a próxima se</h3>' + (d.checks || []).map((c, j) => '<label class="fxg-chk"><input type="checkbox" data-fxj="' + j + '"' + (m[j] ? ' checked' : '') +
-      (!pode || s === 'locked' || s === 'x' || (d.kind === 'agent' && !adm) ? ' disabled' : '') + '><span>' + esc(c) + (m[j] && m[j].por ? '<small>' + esc(m[j].por) + '</small>' : '') + '</span></label>').join('');
+      (!pode || s === 'x' || (d.kind === 'agent' && !adm) ? ' disabled' : '') + '><span>' + esc(c) + (m[j] && m[j].por ? '<small>' + esc(m[j].por) + '</small>' : '') + '</span></label>').join('');
     if (d.auto) h += '<div class="fxg-auto"><b>' + esc(d.auto[0]) + '</b>' + esc(d.auto[1]) + '</div>';
     if (d.senao) h += '<div class="fxg-senao"><b>Se não der:</b><ul>' + d.senao.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>';
     if (d.links && d.links.length) h += '<h3>Links</h3><ul>' + d.links.map(([t, u]) => '<li><a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(t) + '</a></li>').join('') + '</ul>';
@@ -177,6 +180,7 @@ function fxgFolha(o) {
   p.innerHTML = h;
   p.querySelectorAll('[data-fxj]').forEach(i => i.onchange = () => fxgMarca({ etapa: FXG.sel, i: +i.dataset.fxj, v: i.checked }));
   p.querySelectorAll('[data-fxr]').forEach(b => b.onclick = () => fxgMarca({ rota: FXG.sel, i: b.dataset.fxr === 'auto' ? null : +b.dataset.fxr }));
+  p.querySelectorAll('[data-fxa]').forEach(b => b.onclick = () => b.dataset.fxa === 'cel' ? mcAbre(FXG.ev, FXG.d) : capAbre(FXG.ev, FXG.d));
   const fc = p.querySelector('[data-fxfecha]'); if (fc) fc.onclick = () => { FXG.sel = null; fxgDesenha(document.getElementById('grid')); };
 }
 async function fxgMarca(corpo) {

@@ -566,3 +566,33 @@ html[data-modo="claro"] .lp-av.cpc-semresp{background:var(--e-orange); color:#00
 .cp-vchk.on > span:nth-child(2){color:var(--ink-2)}
 .cp-vchk.on .cp-chk{background:var(--green); border-color:var(--green); color:#fff}
 .cp-vul{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:1px 6px; border-radius:5px; background:color-mix(in srgb, var(--blue, #0A84FF) 16%, transparent); color:var(--blue, #0A84FF); margin-left:auto; flex:none}
+
+/* ---------------- v4.32: o que cada pessoa faz no card do evento (mês e semana) ---------------- */
+.cpa{display:flex; flex-direction:column; gap:6px; margin-top:6px; padding-top:6px; border-top:1px solid var(--hair)}
+.cpa-p{display:flex; flex-direction:column; gap:2px; min-width:0}
+.cpa-n{display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:650; min-width:0}
+.cpa-n .cp-respav{width:16px; height:16px; font-size:7.5px; flex:none}
+.cpa-n i{font-style:normal; font-size:9.5px; font-weight:600; color:var(--ink-3); background:var(--fill-3); border-radius:4px; padding:0 4px}
+.cpa-n i.nao{color:var(--red); background:color-mix(in srgb, var(--red) 14%, transparent)}
+.cpa-n small{margin-left:auto; font-size:10px; font-weight:600; color:var(--ink-3); font-variant-numeric:tabular-nums}
+.cpa-p.eu .cpa-n > span:nth-child(2){color:var(--cp-at, var(--accent))}
+.cpa-p ul{list-style:none; margin:0; padding:0 0 0 21px; display:flex; flex-direction:column; gap:1px}
+.cpa-it{display:flex; align-items:baseline; gap:5px; font-size:11px; line-height:1.3; color:var(--ink-2); min-width:0; border-radius:5px}
+.cpa-it b{font-weight:700; font-variant-numeric:tabular-nums; flex:none; color:var(--ink)}
+.cpa-it span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cpa-it em{font-style:normal; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; flex:none; padding:0 4px; border-radius:4px}
+.cpa-it.h-feito{color:var(--ink-3); text-decoration:line-through}
+.cpa-it.h-breve em{background:color-mix(in srgb, var(--orange, #FF9F0A) 18%, transparent); color:var(--e-orange-t, var(--orange, #FF9F0A))}
+.cpa-it.h-agora{background:color-mix(in srgb, var(--cp-at, var(--accent)) 16%, transparent); margin-left:-4px; padding:1px 4px; color:var(--ink)}
+.cpa-it.h-agora em{background:var(--cp-at, var(--accent)); color:#0b0b14}
+.cpa-it.h-atrasado{background:color-mix(in srgb, var(--red) 14%, transparent); margin-left:-4px; padding:1px 4px; color:var(--ink)}
+.cpa-it.h-atrasado em{background:var(--red); color:#fff}
+.cpc-ev:has(.cpa.q-agora){box-shadow:0 0 0 2px var(--cp-at, var(--accent)); animation:cpaPulsa 2s ease-in-out infinite}
+.cpc-ev:has(.cpa.q-atrasado){box-shadow:0 0 0 2px var(--red)}
+@keyframes cpaPulsa{50%{box-shadow:0 0 0 4px color-mix(in srgb, var(--cp-at, var(--accent)) 45%, transparent)}}
+@media (prefers-reduced-motion: reduce){ .cpc-ev:has(.cpa.q-agora){animation:none} }
+.cpc-acts{display:flex; gap:4px; margin-top:6px; flex-wrap:wrap}
+.cpc-act{display:inline-flex; align-items:center; gap:3px; height:22px; padding:0 7px; border:0; border-radius:6px; background:var(--fill-3); color:var(--ink-2); font:inherit; font-size:10.5px; font-weight:600; text-decoration:none; cursor:pointer}
+.cpc-act:hover{background:var(--fill-2, var(--fill-3)); color:var(--ink)}
+.cpc-act .ic{width:12px; height:12px}
+.cpc-act.ic-so{margin-left:auto; padding:0 6px}

@@ -63,6 +63,7 @@ function capDif(a, b) { return Math.round((capMs(a) - capMs(b)) / 864e5); }
 function capHora(h) { return String(h || '').replace(/^0(\d)/, '$1').replace(/:00$/, 'h').replace(/^(\d+):(\d\d)$/, '$1h$2'); }
 const capPl = (n, um, varios) => n + ' ' + (n === 1 ? um : varios);
 const CAP_ICONS = {
+  cel: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',   // v4.32
   fluxo: '<rect x="3.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="15.5" width="7" height="5" rx="1.5"/><path d="M7 8.5v4.5a2 2 0 0 0 2 2h4.5"/>',   // v4.25
   texto: '<path d="M5 6.5h14M5 10.5h14M5 14.5h9M5 18.5h6"/>',
   abre: '<path d="M9 6l6 6-6 6"/>',
@@ -239,12 +240,14 @@ function capCard(c, i) {
     '<div class="tit">' + esc(capTituloCurto(c)) + '</div>' +
     (ev ? '' : '<div class="cpc-rot">' + barra + '<span>' + esc(rot) + '</span></div>') +   // v4.23: o evento não tem roteiro
     (c.local ? '<div class="cpc-local" title="' + esc(c.local) + '">' + capIc('local') + '<span>' + esc(c.local) + '</span></div>' : '') +   // v4.21: onde é o evento
-    (ev && (c.apoio || []).length ? '<div class="cpc-local cpc-apoio" title="Apoio: ' + esc(c.apoio.map(p => p.nome).join(', ')) + '">' + icon('users') + '<span>apoio: ' + esc(c.apoio.map(p => p.nome.split(' ')[0]).join(', ')) + '</span></div>' : '') +   // v4.24
-    (ev && c.fluxo && c.fluxo.dias[dia.d] && c.fluxo.dias[dia.d].total ? capFluxoCard(c, dia.d) : '') +   // v4.25
+    (ev ? capAgendaCard(c, dia.d) : '') +   // v4.32: o que cada pessoa faz, com o que está na hora em destaque
+    (ev && !capAgendaTem(c, dia.d) && (c.apoio || []).length ? '<div class="cpc-local cpc-apoio" title="Apoio: ' + esc(c.apoio.map(p => p.nome).join(', ')) + '">' + icon('users') + '<span>apoio: ' + esc(c.apoio.map(p => p.nome.split(' ')[0]).join(', ')) + '</span></div>' : '') +   // v4.24
+    (ev && c.fluxo && c.fluxo.dias[dia.d] && c.fluxo.dias[dia.d].total && !capAgendaTem(c, dia.d) ? capFluxoCard(c, dia.d) : '') +   // v4.25
     (ev && capEntTem(c) ? '<div class="cpc-local cpc-ent" title="Entrega">' + icon('check') + '<span>' + esc(capEntResumo(c)) + '</span></div>' : '') +   // v4.24
     '<div class="cpc-posts" title="' + esc(posts.map(s => nomeConta(s.conta) + ': ' + (s.tituloCache || s.titulo || 'post') + (s.date ? ' · sai ' + capDiaL(s.date) : '')).join('\n')) + '">' + icon('film') + '<span>' + esc(postsTxt) + '</span></div>' +
     (resp ? '<span class="lp-av" title="' + esc(resp + (capEhEvento(c) ? ' é o responsável' : ' capta')) + '">' + esc(initials(resp)) + '</span>'
-      : capEhEvento(c) ? '<span class="lp-av cpc-semresp" title="Sem responsável: escolha na folha do evento">?</span>' : '');   // v4.21: evento sem responsável aparece
+      : capEhEvento(c) ? '<span class="lp-av cpc-semresp" title="Sem responsável: escolha na folha do evento">?</span>' : '') +   // v4.21: evento sem responsável aparece
+    (ev ? capAcoesCard(c, dia.d) : '');   // v4.32: POP, fluxograma, celular (e editar, pro ADMIN)
   d.addEventListener('dragstart', ev => {
     if (!souAdmin()) { ev.preventDefault(); return; }
     ev.dataTransfer.setData('text/plain', 'cp:' + c.id + ':' + dia.d); ev.dataTransfer.effectAllowed = 'move';
@@ -257,7 +260,14 @@ function capCard(c, i) {
   d.addEventListener('focus', () => { if (d.matches(':focus-visible')) capHoverQuando(c, d); });
   d.addEventListener('blur', capHoverSai);
   d.addEventListener('dragstart', capHoverFecha);
-  d.addEventListener('click', () => { if (!S.dragging) capAbre(c.id, dia.d); });
+  // v4.32: o evento com fluxo abre o fluxograma daquele dia (a folha fica no botão Editar, do ADMIN)
+  d.addEventListener('click', e => {
+    if (S.dragging) return;
+    const b = e.target.closest('[data-cpa]');
+    if (b) { e.stopPropagation(); return capAcao(b.dataset.cpa, c, dia.d); }
+    if (e.target.closest('a')) return;
+    if (ev && c.fluxo && c.fluxo.dias[dia.d]) capAcao('fluxo', c, dia.d); else capAbre(c.id, dia.d);
+  });
   d.addEventListener('keydown', ev => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === d) { ev.preventDefault(); d.click(); } });
   return d;
 }
@@ -1452,6 +1462,73 @@ function capEntResumo(c) {
   const e = c.ent || {};
   return [e.drive ? 'Drive' : '', e.galeria ? 'Galeria' : '', e.stories !== null && e.stories !== undefined ? capPl(e.stories, 'story', 'stories') : ''].filter(Boolean).join(' · ');
 }
+// ---------------- v4.32: o que cada pessoa faz no card (mês e semana) ----------------
+const CAP_MIN = 60e3;
+/** Uma etapa da pessoa na hora: 'feito' | 'atrasado' | 'agora' | 'breve' | ''. */
+function capHoraEst(p, agora, d) {
+  if (p.feito) return 'feito';
+  if (d && d < hojeStr()) return '';   // dia que passou: sem alarme (a auditoria cuida)
+  const t = Date.parse(p.q.d + 'T' + p.q.h + ':00-03:00');
+  if (p.ate) return agora > t ? 'atrasado' : agora >= t - 60 * CAP_MIN ? 'agora' : agora >= t - 120 * CAP_MIN ? 'breve' : '';
+  return agora > t + 20 * CAP_MIN ? 'atrasado' : agora >= t - 10 * CAP_MIN ? 'agora' : agora >= t - 60 * CAP_MIN ? 'breve' : '';
+}
+/** As etapas de cada pessoa no dia (a raia dela; o responsável fica com as raias que ninguém pegou), na ordem da hora. */
+function capAgenda(c, d) {
+  const o = c.fluxo && c.fluxo.dias[d], defs = typeof MC !== 'undefined' && MC.defs;
+  const ps = capPessoasDe(c);
+  if (!o || !o.est || !defs || !defs.tipos[c.fluxo.tipo]) return ps.map(p => ({ p, itens: [] }));
+  const usadas = new Set(ps.filter(p => p.papel !== 'principal').map(p => p.papel));
+  const passos = mcPassos(defs.tipos[c.fluxo.tipo].items, null, []).filter(x => x.it.k === 'step' && x.it.kind !== 'agent' && !/-aud$/.test(x.it.id) && o.est[x.it.id] !== 'x' && o.horas[x.it.id]);
+  return ps.map(p => ({ p, itens: passos.filter(x => !x.raia ? true : p.papel === x.raia || (p.papel === 'principal' && !usadas.has(x.raia)))
+    .map(x => ({ id: x.it.id, t: x.it.t, q: o.horas[x.it.id], ate: !!x.it.ate, feito: o.est[x.it.id] === 'done' }))
+    .filter(x => x.q.d === d || (x.q.d < d && x.q.d === hojeStr()))   // as do dia; as da véspera só no dia da véspera
+    .sort((a, b) => (a.q.d + a.q.h).localeCompare(b.q.d + b.q.h)) }));
+}
+function capAgendaTem(c, d) { return capPessoasDe(c).length > 0; }
+const CAP_HEST = { atrasado: 'atrasou', agora: 'agora', breve: 'em breve', feito: 'feito' };
+function capAgendaCard(c, d) {
+  const ag = capAgenda(c, d);
+  if (!ag.length) return '';
+  if (c.fluxo && c.fluxo.dias[d] && !MC.defs && !CAPM.carregandoDefs) { CAPM.carregandoDefs = true; mcDefs().then(() => render()).catch(() => {}).finally(() => { CAPM.carregandoDefs = false; }); }
+  const agora = Date.now(), semana = S.view === 'semana', max = semana ? 3 : 2;
+  let quente = '';
+  const linhas = ag.map(({ p, itens }) => {
+    const eu = capSouEu(p.nome), conf = capConf(c, d, p.nome);
+    const pend = itens.filter(x => !x.feito), feitos = itens.length - pend.length;
+    const mostra = (pend.length ? pend : itens.slice(-1)).slice(0, max);
+    const li = mostra.map(x => {
+      const st = capHoraEst(x, agora, d);
+      if (st === 'atrasado' || (st === 'agora' && quente !== 'atrasado')) quente = st;
+      return '<li class="cpa-it' + (st ? ' h-' + st : '') + '" title="' + esc((x.ate ? 'até ' : '') + capHora(x.q.h) + ' · ' + x.t + (st ? ' (' + CAP_HEST[st] + ')' : '')) + '"><b>' + (x.q.d !== d ? 'hoje ' : '') + (x.ate ? 'até ' : '') + esc(capHora(x.q.h)) + '</b><span>' + esc(x.t) + '</span>' + (st && st !== 'feito' ? '<em>' + CAP_HEST[st] + '</em>' : '') + '</li>';
+    }).join('');
+    const sem = !itens.length ? '<li class="cpa-it"><span>' + esc(p.h ? 'chega ' + capHora(p.h) : CAP_PAPEIS[p.papel] || '') + (c.tipoCap ? ' · ' + esc(c.tipoCap) : '') + '</span></li>' : '';
+    return '<div class="cpa-p' + (eu ? ' eu' : '') + '"><div class="cpa-n"><span class="cp-respav">' + esc(initials(p.nome)) + '</span><span title="' + esc(p.nome) + '">' + esc(eu ? 'Você' : p.login || p.nome.split(' ')[0]) + '</span>' +
+      (p.papel !== 'principal' && p.papel !== 'apoio' ? '<i>' + esc(CAP_PAPEIS[p.papel]) + '</i>' : '') + (conf.st === 'nao' ? '<i class="nao">não dá</i>' : '') +
+      (itens.length ? '<small>' + feitos + '/' + itens.length + '</small>' : '') + '</div><ul>' + (li || sem) + '</ul></div>';
+  }).join('');
+  return '<div class="cpa' + (quente ? ' q-' + quente : '') + '">' + linhas + '</div>';
+}
+function capAcoesCard(c, d) {
+  const fx = c.fluxo && c.fluxo.dias[d];
+  return '<div class="cpc-acts">' +
+    '<a class="cpc-act" href="' + esc((MC.defs && MC.defs.links.pop) || 'https://docs.google.com/document/d/1iz1uZxj6jeDKwT0v07ENZhTq7Nv0Hua5azhGBsQa1VE/edit?tab=t.kkt0wkjbvl7i') + '" target="_blank" rel="noopener" title="Abrir o POP">' + capIc('texto') + 'POP</a>' +
+    (fx ? '<button type="button" class="cpc-act" data-cpa="fluxo" title="O fluxograma deste evento neste dia">' + capIc('fluxo') + 'Fluxo</button>' +
+      '<button type="button" class="cpc-act" data-cpa="cel" title="O modo captação (tela cheia, pro celular)">' + capIc('cel') + 'Celular</button>' : '') +
+    (souAdmin() ? '<button type="button" class="cpc-act ic-so" data-cpa="editar" title="Editar o evento" aria-label="Editar o evento">' + icon('edit') + '</button>' : '') + '</div>';
+}
+function capAcao(a, c, d) {
+  if (a === 'editar') return capAbre(c.id, d);
+  if (a === 'cel') return mcAbre(c.id, d);
+  if (a === 'fluxo') { FXG.ev = c.id; FXG.d = d; FXG.sel = null; FXG.full = null; FXG.tipo = c.fluxo.tipo; S.view = 'fluxo'; syncVToggle(); render(); }
+}
+// a cada minuto, o "agora" e o "em breve" dos cards andam junto com o relógio
+setInterval(() => {
+  if (typeof S === 'undefined' || !S.modoCap || !capEv() || !['mes', 'semana'].includes(S.view) || S.dragging) return;
+  if (typeof podeAtualizarSozinho === 'function' && !podeAtualizarSozinho()) return;
+  if (document.querySelector('.ov.open') || (typeof MC !== 'undefined' && MC.aberto)) return;
+  render();
+}, 60e3);
+
 // ---------------- v4.25: o fluxo do evento ----------------
 const CAP_FLUXOS = [['liga', 'Liga Academy'], ['cec', 'Conselho (CEC)'], ['exp', 'Experiência Carbone'], ['wsc', 'Workshop Carbone'], ['wsw', 'Workshop Weevo'], ['ime', 'Imersão Weevo']];
 /** O andamento do fluxo no card: "3/14 etapas" e a próxima. */
@@ -1528,8 +1605,8 @@ function capEntHtml(c) {
 /** As pessoas de um evento: o principal e o apoio. */
 function capPessoasDe(c) {
   const l = [];
-  if (c.resp && c.resp.nome) l.push({ nome: c.resp.nome, papel: 'principal', h: '' });
-  for (const p of (c.escala && c.escala.length ? c.escala : c.apoio || [])) if (!l.some(x => capChave(x.nome) === capChave(p.nome))) l.push({ nome: p.nome, papel: p.papel || 'apoio', h: p.h || '' });   // v4.26: a escala (com papel e horário)
+  if (c.resp && c.resp.nome) l.push({ nome: c.resp.nome, papel: 'principal', h: '', login: c.resp.login || '' });
+  for (const p of (c.escala && c.escala.length ? c.escala : c.apoio || [])) if (!l.some(x => capChave(x.nome) === capChave(p.nome))) l.push({ nome: p.nome, papel: p.papel || 'apoio', h: p.h || '', login: p.login || '' });   // v4.26: a escala (com papel e horário)
   return l;
 }
 // ---------------- v4.26: a escala e a confirmação ----------------
@@ -1539,7 +1616,12 @@ function capChave(nome) { return String(nome || '').split(' ')[0].normalize('NFD
 /** A confirmação de uma pessoa num dia: { st: 'ok' | 'nao' | '' , motivo, velha }. */
 function capConf(c, d, nome) { return ((c.conf || {})[d] || {})[capChave(nome)] || { st: '' }; }
 /** Sou eu? (com login: pelo 1º nome; sem login, ninguém é "eu", mas o ADMIN pode tudo) */
-function capSouEu(nome) { return !!S.eu && capChave(S.eu.nome) === capChave(nome); }
+function capSouEu(nome) {   // v4.32: pelos apelidos do login (a Malu é "Malu ..." ou "Maria Luiza ...")
+  if (!S.eu || !nome) return false;
+  const sa = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const full = sa(nome), aps = (S.eu.apelidos && S.eu.apelidos.length ? S.eu.apelidos : [String(S.eu.nome).split(' ')[0]]).map(sa);
+  return aps.some(a => full === a || full.startsWith(a + ' '));
+}
 function capConfIc(v) {
   return v.st === 'ok' ? '<span class="cpcf ok" title="Confirmou">' + icon('check') + '</span>'
     : v.st === 'nao' ? '<span class="cpcf nao" title="Não dá: ' + esc(v.motivo || '') + '">' + icon('x') + '</span>'
