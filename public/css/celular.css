@@ -1,0 +1,85 @@
+/* =====================================================================
+   v4.33 · O B.O.N.E NO CELULAR (pedido do Zion: "o layout no celular tá patético e feio [...] tá estreito e não está se
+   adequando à tela"). Até 600 px de largura:
+   - a barra de cima vira 2 linhas baixas (logo + empresas + tema; depois os controles numa fila que rola de lado);
+   - o calendário (Mês e Semana) deixa de ser 7 colunas espremidas e vira uma AGENDA: um dia embaixo do outro, cada um
+     com o nome do dia, e os cards na largura toda. Dia vazio fica baixinho; dia de fora do mês some;
+   - as faixas por conta (Carbone, Onevo) viram blocos com o nome da conta em cima;
+   - as folhas sobem de baixo, na largura toda.
+   Carrega por último e só vale até 600 px: o PC fica igual.
+   ===================================================================== */
+.dowm{display:none}
+
+@media (max-width:600px){
+  /* ---------- a barra de cima: 2 linhas baixas ---------- */
+  .bar-top{display:flex; flex-wrap:nowrap; align-items:center; gap:8px; padding:calc(8px + env(safe-area-inset-top, 0px)) 12px 6px}
+  .brand{flex:none; margin:0}
+  .brand .bname{display:none}
+  .brand .logo{width:30px; height:30px}
+  .tabswrap{flex:1 1 auto; min-width:0}
+  .tabs{gap:0; padding:2px}
+  .tab{padding:5px 11px; min-height:30px; font-size:12.5px; gap:5px}
+  .tab .n{font-size:10px; min-width:18px; padding:0 5px; line-height:16px}
+  .topright{flex:none; min-width:0; gap:0}
+  .topright .presenca, .topright #btnUso{display:none !important}
+  .bar-bot{flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; gap:6px; padding:2px 12px 8px;
+    -webkit-mask-image:linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image:linear-gradient(90deg, #000 calc(100% - 24px), transparent)}
+  .bar-bot::-webkit-scrollbar{display:none}
+  .bar-bot > *{flex:none}
+  .bar-bot .spacer, .bar-bot .legend{display:none}
+  .bar-bot .vtoggle button, .bar-bot .lseg button{padding:5px 11px; font-size:12.5px; min-height:30px}
+  .lente .lt{display:none}
+  .mnav{gap:6px}
+  .mnav .mes{font-size:14px; white-space:nowrap}
+  .acoes{padding-right:24px}
+
+  /* ---------- a área do calendário ---------- */
+  main{padding:4px 12px 96px}
+  .dows, .mesdows{display:none !important}
+  .mescab{margin:0 -12px; padding:12px 12px 8px}
+  .mescabtop{flex-wrap:wrap; row-gap:4px}
+  .mescabtop > b{font-size:22px}
+  body[data-modo="cap"] .mescabtop .mesleg{display:flex; flex-wrap:wrap; gap:4px; width:100%}
+  .mescabtop .cp-lc{height:24px; padding:0 8px; font-size:11.5px}
+
+  /* Mês e Semana: um dia embaixo do outro */
+  .mesgrid, #grid.grid{display:flex !important; flex-direction:column; gap:8px; background:none !important; border-radius:0 !important; overflow:visible}
+  .wklabel{display:none !important}
+  .day.fora{display:none !important}
+  .day, .day.big{min-height:0 !important; border-radius:16px !important; padding:10px 12px 12px; gap:8px; background:var(--cell)}
+  .day.fds{background:var(--cell)}
+  .day.hoje{box-shadow:inset 0 0 0 1.5px var(--sb)}
+  .dleft{display:flex; align-items:center; gap:8px}
+  .dowm{display:inline; font-size:14px; font-weight:700; color:var(--ink)}
+  .day.fds .dowm{color:var(--ink-2)}
+  .dnum{font-size:14px}
+  /* dia sem nada: uma linha baixa (o + continua lá pra criar) */
+  .day:not(.hoje):not(:has(.card)){padding:2px 12px; border-radius:12px !important; background:color-mix(in srgb, var(--cell) 50%, transparent)}
+  .day:not(.hoje):not(:has(.card)) .day-top{min-height:30px}
+  .day:not(.hoje):not(:has(.card)) .dowm, .day:not(.hoje):not(:has(.card)) .dnum{font-size:13px}
+  .day:not(.hoje):not(:has(.card)) .dowm{font-weight:600; color:var(--ink-3)}
+  .day:not(.hoje):not(:has(.card)) .day-cards, .day:not(.hoje):not(:has(.card)) .raia{display:none}
+  .day-cards{gap:8px}
+
+  /* as faixas por conta viram blocos com o nome da conta */
+  .mesgrid.raias > .day, #grid.grid.raias > .day{display:flex !important; flex-direction:column; grid-row:auto; padding:10px 12px 12px}
+  .raias > .day > .day-top{padding:0}
+  .raia{min-height:0 !important; padding:6px 0 0; background:none !important; border-radius:0 !important}
+  .raia + .raia{border-top:1px solid var(--hair)}
+  .raia:not(:has(.card)){display:none}
+  .raia::before{content:attr(aria-label); display:block; font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); margin-bottom:4px}
+
+  /* os cards na largura toda */
+  .card .tit{font-size:14px}
+  .cpc .cpa-it{font-size:12px}
+  .cpc .cpa-n{font-size:12.5px}
+  .cpc-act{height:28px; padding:0 10px; font-size:12px}
+  .cpc-act .ic{width:14px; height:14px}
+
+  /* Minhas, a Semana da equipe e o mapa usam a largura toda */
+  .mc{max-width:none}
+
+  /* as folhas sobem de baixo, na largura toda */
+  .ov.open{align-items:flex-end; padding:0}
+  .ov .modal{width:100% !important; max-width:none !important; max-height:calc(100dvh - 16px); border-radius:22px 22px 0 0 !important; margin:0}
+}

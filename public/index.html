@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="/css/captacao.css">
 <link rel="stylesheet" href="/css/modocap.css">
 <link rel="stylesheet" href="/css/fluxograma.css">
+<link rel="stylesheet" href="/css/celular.css">
 <link rel="stylesheet" href="/css/folha.css">
 <link rel="stylesheet" href="/css/banco.css">
 <link rel="stylesheet" href="/css/todos.css">
@@ -305,7 +306,7 @@
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.32'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.33'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1204,7 +1205,7 @@ function celulaDia(c, di, porDia, semana){
   const lenteEnt = S.lente === 'ent';
   const ents = lenteEnt ? [] : (entMapa()[c.date] || []);
   const raias = raiasDaAba();                                  // v4.02: uma faixa por conta (Carbone e Onevo)
-  cell.innerHTML = '<div class="day-top"><span class="dleft"><span class="dnum">'+c.dnum+ estrela + '</span>'+
+  cell.innerHTML = '<div class="day-top"><span class="dleft"><span class="dowm">'+DOWS_TIT[di]+'</span><span class="dnum">'+c.dnum+ estrela + '</span>'+   // v4.33: o dia da semana (só no celular)
     (ents.length ? entBotao(ents) : '')+
     '</span><span class="day-acts">'+
       (sb || lenteEnt ? '' : '<button class="vagabtn" title="Sinalizar que falta criar um post neste dia">'+icon('alerta')+'</button>')+
@@ -1367,7 +1368,10 @@ function irParaMes(mes, suave){
   const bloco = document.querySelector('.mesbloco[data-mes="'+mes+'"]');
   if(!bloco) return;
   const topo = (document.querySelector('header')?.offsetHeight || 90) + 8;
-  window.scrollTo({ top: bloco.getBoundingClientRect().top + window.scrollY - topo, behavior: suave?'smooth':'auto' });
+  // v4.33: no celular (agenda, um dia embaixo do outro) o mês de hoje abre no dia de hoje, não no dia 1
+  const hj = mes===mesAtual() && matchMedia('(max-width:600px)').matches ? bloco.querySelector('.day.hoje') : null;
+  const cab = hj ? (bloco.querySelector('.mescab')?.offsetHeight || 0) : 0;
+  window.scrollTo({ top: (hj || bloco).getBoundingClientRect().top + window.scrollY - topo - cab, behavior: suave?'smooth':'auto' });
   S.mes = mes; marcarMesFoco();
 }
 // ---- atualização automática ----

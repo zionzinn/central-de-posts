@@ -201,7 +201,7 @@ function capCelula(c, di, semana) {
   const hoje = hojeStr(), lista = capsDoDia(c.date);
   cell.className = 'day cpday' + (di >= 5 ? ' fds' : '') + (c.date === hoje ? ' hoje' : '') + (semana ? ' big' : '');
   cell.dataset.dia = c.date;
-  cell.innerHTML = '<div class="day-top"><span class="dleft"><span class="dnum">' + c.dnum + '</span></span><span class="day-acts">' +
+  cell.innerHTML = '<div class="day-top"><span class="dleft"><span class="dowm">' + DOWS_TIT[di] + '</span><span class="dnum">' + c.dnum + '</span></span><span class="day-acts">' +
     (souAdmin() ? '<button class="addbtn" title="Nova captação neste dia (cole o link da task do MKT Hub)" aria-label="Nova captação neste dia">' + icon('plus', 's') + '</button>' : '') +
     '</span></div><div class="day-cards"></div>';
   const box = cell.querySelector('.day-cards');
