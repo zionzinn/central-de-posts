@@ -1,0 +1,86 @@
+/* v4.30 · a aba Fluxograma (a captação de eventos). Tokens do painel; o verde do Pronto é o "feito", o índigo é "a vez". */
+#grid.fxg-on{display:block}
+.fxg{--fx-ok:var(--green); --fx-ok-t:#08240f; --fx-vez:var(--cp-at, var(--accent)); --fx-vez-s:color-mix(in srgb, var(--cp-at, var(--accent)) 18%, transparent);
+  --fx-ag:var(--blue, #0A84FF); --fx-ag-s:color-mix(in srgb, var(--blue, #0A84FF) 12%, var(--cell)); --fx-dec:color-mix(in srgb, var(--orange, #FF9F0A) 24%, var(--cell));
+  --fx-linha:var(--hair); display:flex; flex-direction:column; gap:10px; height:calc(100vh - 150px); min-height:520px}
+.fxg-top{display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; justify-content:space-between}
+.fxg-tabs{display:flex; flex-wrap:wrap; gap:6px}
+.fxg-tabs button{height:30px; padding:0 12px; border-radius:999px; border:0; background:var(--fill-3); color:var(--ink-2); font:inherit; font-size:12.5px; font-weight:600; cursor:pointer}
+.fxg-tabs button[aria-pressed="true"]{background:color-mix(in srgb, var(--fx-vez) 30%, var(--fill-3)); color:var(--ink)}
+.fxg-tabs button:disabled{opacity:.4; cursor:not-allowed}
+.fxg-tool{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.fxg-tool .mbtn{height:30px; min-width:30px; justify-content:center}
+.fxg-ev{display:flex; align-items:center; gap:6px; height:32px; padding:0 8px 0 10px; border-radius:10px; background:var(--fill-3)}
+.fxg-ev .ic{width:15px; height:15px; color:var(--fx-vez)}
+.fxg-ev select{border:0; background:transparent; color:var(--ink); font:inherit; font-size:13px; max-width:300px; color-scheme:inherit}
+.fxg-ev select option{background:var(--elev, #222); color:var(--ink)}
+.fxg-prog{font-size:12.5px; font-weight:600; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.fxg-zv{font-size:12px; color:var(--ink-3); min-width:38px; text-align:center; font-variant-numeric:tabular-nums}
+.fxg-leg{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12px; color:var(--ink-3)}
+.fxg-leg i{display:inline-block; width:14px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px}
+.l-done{background:var(--fx-ok)} .l-avail{background:var(--fx-vez-s); outline:1.5px solid var(--fx-vez)} .l-locked{background:var(--fill-3); opacity:.6}
+.l-agent{background:var(--fx-ag-s); outline:1.5px dashed var(--fx-ag)} .l-dec{background:var(--fx-dec)}
+.fxg-modelo{color:var(--orange, #FF9F0A)}
+.fxg-main{flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 340px; border-radius:16px; overflow:hidden; background:var(--cell)}
+.fxg-stage{overflow:auto; min-width:0; position:relative}
+.fxg-canvas{position:relative; display:inline-block; padding:24px 28px 80px; min-width:100%}
+#fxgEdges{position:absolute; inset:0; pointer-events:none; overflow:visible}
+#fxgEdges path{fill:none; stroke:var(--fx-linha); stroke-width:2}
+#fxgEdges path.on{stroke:var(--fx-ok); stroke-width:2.5}
+#fxgEdges path.x{stroke-dasharray:4 5; opacity:.35}
+#fxgEdges marker path{stroke:none; fill:var(--fx-linha)}
+#fxgEdges marker path.on{fill:var(--fx-ok)}
+.fxg-seq{display:flex; flex-direction:column; align-items:center; gap:34px}
+.fxg-split{display:flex; align-items:flex-start; gap:28px}
+.fxg-col{display:flex; flex-direction:column; align-items:center; gap:14px}
+.fxg-lbl{font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:4px 10px; border-radius:999px; background:var(--fill-4); color:var(--ink-3); white-space:nowrap; box-shadow:inset 0 0 0 1px var(--hair)}
+.fxg-lbl.ev{font-size:13px; text-transform:none; letter-spacing:0; color:var(--ink); padding:6px 14px}
+.fxg-lbl.on{color:var(--fx-ok); box-shadow:inset 0 0 0 1.5px var(--fx-ok)}
+.fxg-lbl.x{opacity:.35; text-decoration:line-through}
+.fxg-no{width:210px; background:var(--fill-4); border:1.5px solid var(--hair); border-radius:12px; padding:9px 11px; cursor:pointer; text-align:left; font:inherit; color:var(--ink); transition:opacity .2s, box-shadow .2s, border-color .2s}
+.fxg-no .w{font-size:11px; font-weight:600; color:var(--ink-3); font-variant-numeric:tabular-nums}
+.fxg-no .t{font-size:13.5px; font-weight:650; line-height:1.3; margin:1px 0}
+.fxg-no .q{font-size:11.5px; color:var(--ink-3)}
+.fxg-no .c{font-size:11px; color:var(--ink-3); margin-top:4px; font-variant-numeric:tabular-nums}
+.fxg-no.agent{border-style:dashed; border-color:var(--fx-ag); background:var(--fx-ag-s)}
+.fxg-no.agent .w{color:var(--fx-ag)}
+.fxg-no.end{border-radius:22px}
+.fxg-no.locked{opacity:.35}
+.fxg-no.avail{border-color:var(--fx-vez); box-shadow:0 0 0 4px var(--fx-vez-s)}
+.fxg-no.done{background:var(--fx-ok); border-color:var(--fx-ok); color:var(--fx-ok-t)}
+.fxg-no.done .w,.fxg-no.done .q,.fxg-no.done .c{color:var(--fx-ok-t); opacity:.85}
+.fxg-no.x{opacity:.18; filter:grayscale(1)}
+.fxg-no.sel,.fxg-dec.sel .shape{outline:3px solid var(--ink); outline-offset:3px}
+.fxg-dec{width:230px; min-height:118px; border:0; background:none; padding:0; cursor:pointer; position:relative; display:grid; place-items:center; font:inherit; color:var(--ink)}
+.fxg-dec .shape{position:absolute; inset:0; background:var(--fx-dec); clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.fxg-dec .txt{position:relative; width:62%; text-align:center; font-size:12px; font-weight:600; line-height:1.3}
+.fxg-dec.locked{opacity:.35}
+.fxg-dec.avail .shape{background:var(--fx-vez-s)}
+.fxg-dec.done .shape{background:var(--fx-ok)}
+.fxg-dec.done{color:var(--fx-ok-t)}
+.fxg-dec.x{opacity:.18}
+.fxg-panel{border-left:1px solid var(--hair); overflow:auto; padding:18px 18px 40px; min-width:0; font-size:13.5px; line-height:1.5}
+.fxg-panel h2{font-size:18px; line-height:1.25; margin:2px 0 6px}
+.fxg-panel h3{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); margin:16px 0 6px}
+.fxg-panel ul{margin:0; padding-left:18px}
+.fxg-panel a{color:var(--fx-vez)}
+.fxg-meta{font-size:12px; color:var(--ink-3)}
+.fxg-hint{color:var(--ink-3); font-size:13px}
+.fxg-st{display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:2px 8px; border-radius:6px; background:var(--fill-3); color:var(--ink-3)}
+.fxg-st.avail{background:var(--fx-vez-s); color:var(--fx-vez)} .fxg-st.done{background:var(--fx-ok); color:var(--fx-ok-t)}
+.fxg-chk{display:flex; gap:9px; align-items:flex-start; padding:5px 0; cursor:pointer}
+.fxg-chk input{margin-top:3px; width:17px; height:17px; accent-color:var(--fx-ok); flex:none}
+.fxg-chk small{display:block; font-size:11px; color:var(--ink-3)}
+.fxg-auto{margin-top:12px; font-size:13px; padding:8px 10px; border-radius:10px; background:var(--fx-ag-s)}
+.fxg-auto b{font-size:10.5px; text-transform:uppercase; color:var(--fx-ag); margin-right:6px}
+.fxg-senao{margin-top:12px; border-radius:10px; padding:9px 11px; font-size:13px; background:color-mix(in srgb, var(--orange, #FF9F0A) 14%, transparent)}
+.fxg-senao b{color:var(--orange, #FF9F0A)}
+.fxg-rotas{display:flex; flex-direction:column; gap:8px; margin:10px 0}
+.fxg-rotas button{font:inherit; font-size:14px; font-weight:600; text-align:left; padding:10px 12px; border-radius:10px; border:1.5px solid var(--hair); background:var(--fill-4); color:var(--ink); cursor:pointer}
+.fxg-rotas button[aria-pressed="true"]{border-color:var(--fx-ok); background:var(--fx-ok); color:var(--fx-ok-t)}
+.fxg-rotas button:disabled{opacity:.45; cursor:not-allowed}
+.fxg-hist{list-style:none; padding:0 !important; font-size:12.5px}
+.fxg-hist li{padding:3px 0; border-bottom:1px solid var(--hair)}
+.fxg-hist span{color:var(--ink-3); font-size:11.5px}
+.fxg-fecha{margin-top:16px}
+@media (max-width:900px){ .fxg-main{grid-template-columns:1fr} .fxg-panel{border-left:0; border-top:1px solid var(--hair); max-height:45vh} }

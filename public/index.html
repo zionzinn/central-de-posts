@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="/css/raias.css">
 <link rel="stylesheet" href="/css/captacao.css">
 <link rel="stylesheet" href="/css/modocap.css">
+<link rel="stylesheet" href="/css/fluxograma.css">
 <link rel="stylesheet" href="/css/folha.css">
 <link rel="stylesheet" href="/css/banco.css">
 <link rel="stylesheet" href="/css/todos.css">
@@ -45,6 +46,7 @@
       <button data-v="semana">Semana</button>
       <button data-v="mapa" hidden title="O que cada captação da semana destrava: a edição e o dia que o post sai">Mapa</button>
       <button data-v="minhas" hidden title="Os seus eventos dos próximos 14 dias: confirmar e abrir o modo captação">Minhas</button>
+      <button data-v="fluxo" hidden title="O fluxograma da captação: as etapas de cada tipo de evento e o andamento de um evento de verdade">Fluxograma</button>
       <button data-v="equipe" hidden title="A semana dos eventos por pessoa (responsável e apoio): mostra quem está em dois eventos no mesmo dia">Equipe</button>
     </div>
     <!-- v4.21: no modo captação, Captações ou Eventos (os eventos da semana, com responsável) -->
@@ -298,11 +300,12 @@
 <script src="/js/raias.js"></script>
 <script src="/js/captacao.js"></script>
 <script src="/js/modocap.js"></script>
+<script src="/js/fluxograma.js"></script>
 <script src="/js/folha.js"></script>
 <script>
 'use strict';
 // ================= versão + iconografia =================
-const FRONT_VERSAO = '4.29'; // precisa bater com VERSAO no server.js
+const FRONT_VERSAO = '4.30'; // precisa bater com VERSAO no server.js
 
 const ICONS = {
   check:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -1276,12 +1279,12 @@ function renderGrid(){
   syncVToggle();
   const g = $('#grid');
   // v4.19: o mapa do que a captação destrava (js/captacao.js), no lugar da grade dos dias
-  if((S.view==='mapa' || S.view==='equipe' || S.view==='minhas') && S.modoCap && typeof capMapa==='function'){
+  if((S.view==='mapa' || S.view==='equipe' || S.view==='minhas' || S.view==='fluxo') && S.modoCap && typeof capMapa==='function'){
     lpDesliga(); g.classList.remove('fluxo'); raiasNaGrade(g, null);
     $('#dows').classList.remove('withwk'); $('#dows').classList.add('escondida');
-    g.innerHTML = ''; if(S.view==='minhas') mcMinhas(g); else if(S.view==='equipe') capEquipe(g); else capMapa(g); return;   // v4.27: Minhas captações   // v4.24: a Semana da equipe (só nos Eventos)
+    g.innerHTML = ''; g.classList.remove('cpeq-on', 'mc-on', 'fxg-on'); if(S.view==='minhas') mcMinhas(g); else if(S.view==='fluxo') fxgMostra(g); else if(S.view==='equipe') capEquipe(g); else capMapa(g); return;   // v4.27: Minhas captações   // v4.24: a Semana da equipe (só nos Eventos)
   }
-  g.classList.remove('cpmapa-on'); g.classList.remove('cpeq-on');
+  g.classList.remove('cpmapa-on', 'cpeq-on', 'mc-on', 'fxg-on');
   const semana = S.view==='semana';
   lpDesliga();
   g.classList.toggle('fluxo', !semana);
@@ -1416,6 +1419,9 @@ function syncVToggle(){
   const bmi = document.querySelector('#vtoggle [data-v="minhas"]');   // v4.27: Minhas captações (só nos Eventos)
   if(bmi) bmi.hidden = !ev;
   if(S.view==='minhas' && !ev) S.view = 'semana';
+  const bfx = document.querySelector('#vtoggle [data-v="fluxo"]');   // v4.30: o Fluxograma (só nos Eventos)
+  if(bfx) bfx.hidden = !ev;
+  if(S.view==='fluxo' && !ev) S.view = 'semana';
   document.querySelectorAll('#vtoggle button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.view));
 }
 /** v4.19: a Semana e o Mapa andam de semana em semana (as setas, o Hoje e a ida pra um mês). */

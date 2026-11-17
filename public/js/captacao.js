@@ -169,7 +169,7 @@ function capBotao() {
   const adm = typeof souAdmin === 'function' ? souAdmin() : true;
   // v4.27: a equipe (sem ADMIN) entra pra ver os Eventos dela (Minhas captações); o calendário de captações segue só do ADMIN
   b.hidden = false;
-  if (!adm) { if (S.capTipo !== 'ev') S.capTipo = 'ev'; if (S.modoCap && !['minhas', 'equipe', 'semana', 'mes'].includes(S.view)) S.view = 'minhas'; }
+  if (!adm) { if (S.capTipo !== 'ev') S.capTipo = 'ev'; if (S.modoCap && !['minhas', 'equipe', 'semana', 'mes', 'fluxo'].includes(S.view)) S.view = 'minhas'; }
   const ct = document.getElementById('cpTipo'); if (ct) ct.hidden = !adm;
   const n = S.capPendentes || 0;
   document.getElementById('capN').textContent = n ? String(n) : '';
