@@ -521,7 +521,9 @@ function capDesenhaFolhaJa() {
           '<textarea id="cpNovoRot" class="cp-novorot" rows="1" placeholder="' + (n ? 'Mais um roteiro' : 'Escreva o roteiro') + ' e aperte Enter" aria-label="Roteiro novo"></textarea>' +
           '<button type="button" class="mbtn cp-addrot" data-cp="addrot">' + icon('plus') + 'Adicionar</button></div></div>' +
       (n ? '' : '<p class="cp-dica">Cada roteiro ganha a caixinha de gravado. Colou uma lista? Vira um roteiro por linha.</p>') + '</section>') +   // v4.23: o evento não tem roteiro
+    (ev ? capAudHtml(c) : '') +      // v4.31: a auditoria do dia seguinte (o que faltou)
     (ev ? capEscalaHtml(c) : '') +   // v4.26: a escala e a confirmação
+    (ev ? capVespHtml(c) : '') +     // v4.31: a véspera
     (ev ? capFluxoHtml(c) : '') +   // v4.25: o fluxo do evento (o tipo e o andamento de cada dia)
     (ev ? capEntHtml(c) : '') +   // v4.24: a entrega do evento
     '<section class="cp-sec"><h3>Posts ligados <span class="cp-cont">' + (posts.length ? capPl(posts.length, 'post', 'posts') : 'nenhum ainda') + '</span></h3>' +
@@ -778,6 +780,11 @@ function capLigaFolha(c) {
     capMenuOpcoes(b, 'Papel de ' + p.nome.split(' ')[0], ops, p.papel, v => capMudaEscala(c, p.nome, { papel: v }));
   });
   ov.querySelectorAll('[data-cpesch]').forEach(inp => inp.onchange = () => capMudaEscala(c, inp.dataset.cpesch, { h: inp.value || '' }));
+  // v4.31: a véspera (sim vira true; desmarcar limpa, e o Ultron pode preencher de novo)
+  ov.querySelectorAll('[data-cpvok]').forEach(b => b.onclick = () => capVespSalva(c, { [b.dataset.cpvok]: b.getAttribute('aria-checked') === 'true' ? null : true }));
+  ov.querySelectorAll('[data-cpvdep]').forEach(i => i.onchange = () => capVespSalva(c, { depoentes: [...ov.querySelectorAll('[data-cpvdep]')].map(x => x.value.trim()) }));
+  ov.querySelectorAll('[data-cpvres]').forEach(i => i.onchange = () => capVespSalva(c, { reserva: i.value.trim() }));
+  ov.querySelectorAll('[data-cpvobs]').forEach(i => i.onchange = () => capVespSalva(c, { obs: i.value.trim() }));
   ov.querySelectorAll('[data-cpsug]').forEach(b => b.onclick = () => capSalva(c.id, cc => b.dataset.cpsug === '1' && cc.escalaSug
     ? { escala: cc.escalaSug.escala.map(p => ({ id: p.id || '', nome: p.nome, papel: p.papel, h: p.h || '' })), escalaSug: null } : { escalaSug: null },
     b.dataset.cpsug === '1' ? 'Escala aplicada · Ctrl+Z desfaz' : 'Sugestão descartada'));
@@ -1567,6 +1574,40 @@ function capEscalaHtml(c) {
     return (ds.length > 1 ? '<div class="cp-escdia">' + esc(capDiaL(x.d)) + (x.h ? ' · ' + esc(capHora(x.h)) : '') + '</div>' : '') + linhas;
   }).join('');
   return '<section class="cp-sec cp-escsec"><h3>Escala <span class="cp-cont">' + ok + ' de ' + tot + ' confirmados</span></h3>' + capSugHtml(c) + blocos + '</section>';
+}
+// ---------------- v4.31: a véspera e a auditoria ----------------
+const CAP_VESP = {
+  cec: ['cassioOk', 'arrobasOk', 'figurinhaOk', 'salaOk', 'roteiroOk'], liga: ['arrobasOk', 'figurinhaOk'],
+  exp: ['arrobasOk', 'figurinhaOk'], wsc: ['arrobasOk', 'figurinhaOk'], wsw: ['arrobasOk', 'figurinhaOk'], ime: ['arrobasOk', 'figurinhaOk', 'backdropOk'] };
+const CAP_VESP_N = { cassioOk: 'Cássio confirmou os depoentes', arrobasOk: '@ dos participantes recebidos', figurinhaOk: 'Figurinha pronta', salaOk: 'Sala de depoimento reservada', roteiroOk: 'Roteiro e equipamento separados', backdropOk: 'Backdrop confirmado' };
+function capVespHtml(c) {
+  const t = c.fluxo && c.fluxo.tipo; if (!t || !CAP_VESP[t]) return '';
+  const v = c.vespera || {}, por = v.por || {}, pode = souAdmin() || capPessoasDe(c).some(p => capSouEu(p.nome));
+  const ul = k => por[k] === 'Ultron' ? '<span class="cp-vul" title="Preenchido pelo Ultron">Ultron</span>' : '';
+  const feitos = CAP_VESP[t].filter(k => v[k] === true).length;
+  return '<section class="cp-sec cp-vespsec"><h3>Véspera <span class="cp-cont">' + feitos + ' de ' + CAP_VESP[t].length + ' combinados</span></h3>' +
+    (t === 'cec' ? '<div class="cp-localrow"><span class="cp-dn" title="Depoentes">Depõem</span><div class="cp-vdep">' + [0, 1].map(i => '<input data-cpvdep="' + i + '" value="' + esc((v.depoentes || [])[i] || '') + '" placeholder="Depoente ' + (i + 1) + '" maxlength="80" autocomplete="off"' + (pode ? '' : ' disabled') + '>').join('') + ul('depoentes') + '</div></div>' +
+      '<div class="cp-localrow"><span class="cp-dn">Reserva</span><div class="cp-vdep"><input data-cpvres="1" value="' + esc(v.reserva || '') + '" placeholder="Depoente reserva" maxlength="80" autocomplete="off"' + (pode ? '' : ' disabled') + '>' + ul('reserva') + '</div></div>' : '') +
+    '<div class="cp-vchks">' + CAP_VESP[t].map(k => '<button type="button" class="cp-vchk' + (v[k] === true ? ' on' : '') + '" role="checkbox" aria-checked="' + (v[k] === true) + '" data-cpvok="' + k + '"' + (pode ? '' : ' disabled') + '>' +
+      '<span class="cp-chk">' + (v[k] === true ? icon('check') : '') + '</span><span>' + esc(CAP_VESP_N[k]) + '</span>' + ul(k) + '</button>').join('') + '</div>' +
+    '<div class="cp-localrow"><span class="cp-dn">Obs.</span><input data-cpvobs="1" value="' + esc(v.obs || '') + '" placeholder="O que ficou combinado" maxlength="400" autocomplete="off"' + (pode ? '' : ' disabled') + '></div>' +
+    '<p class="cp-dica">O que marcar aqui marca sozinho os checks de "Combinar véspera" no fluxo.</p></section>';
+}
+async function capVespSalva(c, corpo) {
+  try {
+    const j = await api('/api/captacao/' + c.id + '/vespera', { method: 'POST', body: JSON.stringify(corpo) });
+    capVersao(j.rev);
+    const i = capLista().findIndex(x => x.id === c.id);
+    if (i >= 0 && j.captacao) S.captacoes[i] = j.captacao;
+    render(); capRedesenha();
+  } catch (e) { toast(e.message, true); }
+}
+function capAudHtml(c) {
+  const au = c.auditoria || {}, dias = Object.keys(au).filter(d => au[d] && !au[d].ok);
+  if (!dias.length || capSit(c) === 'desmarcado') return '';
+  return dias.map(d => { const a = au[d];
+    return '<div class="cp-alerta or cp-aud">' + icon('alerta') + '<span><b>Auditoria de ' + esc(capDiaL(d)) + ':</b> ' +
+      esc([a.faltas.length ? 'falta ' + a.faltas.join(', ') : '', a.etapas.length ? a.etapas.length + (a.etapas.length > 1 ? ' etapas sem marcar: ' : ' etapa sem marcar: ') + a.etapas.slice(0, 4).join(', ') + (a.etapas.length > 4 ? '...' : '') : ''].filter(Boolean).join('. ')) + '</span></div>'; }).join('');
 }
 /** v4.29: a escala sugerida pelo Ultron (o ADMIN aplica ou descarta). */
 function capSugHtml(c) {

@@ -555,3 +555,14 @@ html[data-modo="claro"] .lp-av.cpc-semresp{background:var(--e-orange); color:#00
 .cp-sug .ic{width:15px; height:15px; color:var(--cp-at, var(--accent)); flex:none}
 .cp-sug span{flex:1; min-width:160px}
 .cp-sug .mbtn{height:28px; font-size:12px}
+/* v4.31: a véspera e a auditoria */
+.cp-aud{margin-bottom:8px}
+.cp-vdep{display:flex; gap:6px; align-items:center; min-width:0}
+.cp-vdep input{flex:1; min-width:0}
+.cp-vchks{display:flex; flex-direction:column; gap:2px; margin-top:8px}
+.cp-vchk{display:flex; align-items:center; gap:10px; min-height:36px; padding:4px 6px; border:0; border-radius:8px; background:transparent; color:var(--ink); font:inherit; font-size:13px; text-align:left; cursor:pointer}
+.cp-vchk:hover{background:var(--fill-4)}
+.cp-vchk:disabled{cursor:not-allowed; opacity:.6}
+.cp-vchk.on > span:nth-child(2){color:var(--ink-2)}
+.cp-vchk.on .cp-chk{background:var(--green); border-color:var(--green); color:#fff}
+.cp-vul{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:1px 6px; border-radius:5px; background:color-mix(in srgb, var(--blue, #0A84FF) 16%, transparent); color:var(--blue, #0A84FF); margin-left:auto; flex:none}
